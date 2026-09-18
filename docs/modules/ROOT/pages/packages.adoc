@@ -236,15 +236,15 @@ reasons under a severity heading — and this package last:
 
 [source,text]
 ----
-Printing Cascade plan for building and publishing package widget [0.2.0]
+Printing Cascade plan for building and publishing package widget [==0.2.0]
 
-Cascade plan: widget [0.2.0] (this package) with 2 package dependencies: [0 errors][0 warnings][0 notes]
+Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 errors][0 warnings][0 notes]
 │
-├── 1 of 2  capy [develop]
+├── 1 of 2  capy [==develop]
 │           publisher [/home/user/coding/packages/capy]
-├── 2 of 2  corosio [0.3.1]
+├── 2 of 2  corosio [==0.3.1]
 │           publisher [/home/user/coding/packages/corosio]
-└── then widget [0.2.0] from this tree
+└── then widget [==0.2.0] from this tree
 
 --cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
 ----
@@ -264,18 +264,18 @@ tree that does not exist yet:
 
 [source,text]
 ----
-Printing Cascade plan for building and publishing package widget [0.2.0]
+Printing Cascade plan for building and publishing package widget [==0.2.0]
 
-Cascade plan: widget [0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
+Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
 │
-├── 1 of 1  capy [develop] (git@gitlab.example:packages/capy)
+├── 1 of 1  capy [==develop] (git@gitlab.example:packages/capy)
 │           │
 │           └── 2 notes
 │               ├── would clone [git@gitlab.example:packages/capy] at [develop] into
 │               │   [~/.cuppa/publishers/capy]
 │               └── its own package dependencies are not known until that tree exists,
 │                   so nothing is planned beneath it
-└── then widget [0.2.0] from this tree
+└── then widget [==0.2.0] from this tree
 
 --cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
 ----

@@ -25,6 +25,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``display_path``, so ``…/corosio/../capy`` reads as the real tree.
 - Console copy for the invoking package says **this package** rather than
   ``tip`` in plan lines, session resume, and ``--cascade-plan`` finish text.
+- Subdued console chrome (tree stems, muted rows, zero severity brackets) no
+  longer uses SGR 2 (DIM). With 256 colours it uses mid grey on light glass and a
+  slightly lighter grey on dark glass (matching docs ``cuppa-subdued``); without
+  256 colours it falls back to a dark ink on light glass and a light ink on dark
+  glass. DIM was a no-op on many light themes and when Konsole left
+  ``COLORFGBG`` at ``15;0`` after a profile switch, so stems looked like ordinary
+  text while the samples stayed correct.
+- ``--cascade-plan`` package pins read as ``name [==version]`` with both the name
+  and version emphasised info. The finish line's definitive summary
+  (``--cascade-plan: N package planned…`` through the semicolon) is an info-label
+  chip; the trailing detail stays plain.
 - A package dependency's ``develop`` path is now anchored to the sconstruct
   directory, like a location dependency's, instead of being left relative to
   whatever directory cuppa was invoked from. ``develop='../../widget'`` therefore
@@ -46,7 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   attempted). A command-line develop override without ``--develop`` warns with
   the path and ``--develop`` emphasised in warning colour. The plan report hangs
   errors, warnings, and notes under each package node (judgement-tree shape),
-  colouring severity headings and ``[bracketed]`` values only.
+  colouring severity headings, ``[bracketed]`` values, and bare ``--flags`` —
+  not the surrounding prose.
 - ``--clone-develop`` reports a missing but cloneable develop path as
   **pending** (a note) rather than an error that claims the build cannot
   succeed — the mode exists to create that path. An error remains when the

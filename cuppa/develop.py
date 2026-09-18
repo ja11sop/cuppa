@@ -551,7 +551,7 @@ def table_width( entries ):
 def emphasis( severity, text ):
     """A row asking for attention is shown at full strength, and everything else recedes.
 
-    Reduced intensity is what makes a copy with nothing to be done about it quiet without hiding
+    Grey subdued text is what makes a copy with nothing to be done about it quiet without hiding
     it, and it behaves the same way on a light console as on a dark one.
     """
     coloured = COLOUR_FOR[severity]( text )

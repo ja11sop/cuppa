@@ -320,28 +320,49 @@ def test_an_existing_tree_under_storage_publishers_is_found_without_publisher_ro
 
 
 def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
-    nodes = {
-            ( "capy", "capy", "develop" ): {
-                    "name": "capy", "package": "capy", "version": "develop",
-                    "_publisher_dir": "/home/user/coding/packages/capy",
-            },
-            ( "widget", "widget", "1.2" ): {
-                    "name": "widget", "package": "widget", "version": "1.2",
-                    "_publisher_dir": "/home/user/coding/packages/widget",
-            },
-    }
-    order = [ ( "capy", "capy", "develop" ), ( "widget", "widget", "1.2" ) ]
-    lines = cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" )
-    body = "\n".join( lines )
+    import re
 
-    assert "Printing Cascade plan for building and publishing package corosio [0.2.0]" in body
-    assert "Cascade plan: corosio [0.2.0] (this package) with" in body
-    assert "2 package dependencies" in body
-    assert "[0 errors][0 warnings][0 notes]" in body
-    assert "1 of 2  capy [develop]" in body
-    assert "publisher [/home/user/coding/packages/capy]" in body
-    assert "2 of 2  widget [1.2]" in body
-    assert body.rstrip().endswith( "then corosio [0.2.0] from this tree" )
+    from cuppa.colourise import as_subdued, colouriser
+    from cuppa.utility import storage as storage_util
+
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        nodes = {
+                ( "capy", "capy", "develop" ): {
+                        "name": "capy", "package": "capy", "version": "develop",
+                        "package_source": "git@git.example:packages/capy",
+                        "_publisher_dir": "/home/user/coding/packages/capy",
+                },
+                ( "widget", "widget", "1.2" ): {
+                        "name": "widget", "package": "widget", "version": "1.2",
+                        "_publisher_dir": "/home/user/coding/packages/widget",
+                },
+        }
+        order = [ ( "capy", "capy", "develop" ), ( "widget", "widget", "1.2" ) ]
+        lines = cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" )
+        body = "\n".join( lines )
+        visible = plain( body )
+
+        assert "Printing Cascade plan for building and publishing package corosio [==0.2.0]" in visible
+        assert "Cascade plan: corosio [==0.2.0] (this package) with" in visible
+        assert "2 package dependencies" in visible
+        assert "[0 errors][0 warnings][0 notes]" in visible
+        assert "1 of 2  capy [==develop]" in visible
+        assert as_subdued( "git@git.example:packages/capy" ) in body
+        assert "publisher [/home/user/coding/packages/capy]" in visible
+        assert "2 of 2  widget [==1.2]" in visible
+        assert visible.rstrip().endswith( "then corosio [==0.2.0] from this tree" )
+        # Outer tree glyphs match judgement trees (subdued stems).
+        tee, elbow, pipe, _gap = storage_util.glyphs()
+        assert as_subdued( pipe.rstrip() ) in lines
+        assert any( line.startswith( as_subdued( tee ) ) for line in lines )
+        assert any( line.startswith( as_subdued( elbow ) ) for line in lines )
+    finally:
+        colouriser.use_colour = was
 
 
 def test_cascade_plan_lines_count_unresolved_trees_as_errors():
@@ -380,16 +401,34 @@ def test_finish_plan_only_names_the_missing_cascade_flag():
 
 
 def test_finish_plan_only_exit_status_follows_resolution():
-    cascade.reset_plan_reports()
-    cascade.record_plan_report( "corosio", "0.2.0", 0 )
-    out = io.StringIO()
-    assert cascade.finish_plan_only( out=out ) == 0
-    assert "nothing was built, published, uploaded, or cloned" in out.getvalue()
+    import re
 
-    cascade.record_plan_report( "widget", "1.2", 2 )
-    out = io.StringIO()
-    assert cascade.finish_plan_only( out=out ) == 1
-    assert "2 dependencies without a publisher tree" in out.getvalue()
+    from cuppa.colourise import as_info_label, colouriser
+
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        cascade.reset_plan_reports()
+        cascade.record_plan_report( "corosio", "0.2.0", 0 )
+        out = io.StringIO()
+        assert cascade.finish_plan_only( out=out ) == 0
+        text = out.getvalue()
+        visible = plain( text )
+        assert visible.strip().startswith( "--cascade-plan:" )
+        assert "nothing was built, published, uploaded, or cloned" in visible
+        # Summary through the semicolon is the info-label chip; detail stays plain.
+        assert as_info_label( "--cascade-plan: 1 package planned" ) in text
+        assert "; nothing was built" in visible
+
+        cascade.record_plan_report( "widget", "1.2", 2 )
+        out = io.StringIO()
+        assert cascade.finish_plan_only( out=out ) == 1
+        assert "2 dependencies without a publisher tree" in plain( out.getvalue() )
+    finally:
+        colouriser.use_colour = was
 
 
 def test_session_banners_carry_ordinal_and_total():
@@ -405,7 +444,7 @@ def test_session_banners_carry_ordinal_and_total():
     assert "cascade session 1 of 2 finished: capy develop (capy) in 00:00:01" in end
 
     complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
-    assert "2 nested publishes; resuming this package [corosio]==[0.2.0]" in complete
+    assert "2 nested publishes; resuming this package corosio [==0.2.0]" in complete
 
 
 def test_tip_forward_args_drops_cascade_plan():
@@ -1234,6 +1273,21 @@ def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_err
     assert "[0 errors][1 warning][1 note]" in body
     assert "1 warning" in body
     assert "1 note" in body
+    # Judgement-tree stubs before each severity heading and before each message.
+    lines = body.splitlines()
+
+    def _index( needle ):
+        return next( i for i, line in enumerate( lines ) if needle in line )
+
+    for heading, message in (
+            ( "├── 1 warning", "develop tree is configured" ),
+            ( "└── 1 note", "without --develop" ),
+    ):
+        heading_i = _index( heading )
+        message_i = _index( message )
+        assert "│" in lines[heading_i - 1] or "|" in lines[heading_i - 1]
+        assert "│" in lines[message_i - 1] or "|" in lines[message_i - 1]
+
     assert "a develop tree is configured" in body
     assert "without --develop" in body
     assert "error:" not in body

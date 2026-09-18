@@ -279,6 +279,16 @@ def test_a_note_colours_the_values_and_leaves_the_prose_plain():
     assert coloured == "[<flange>] is behind [<origin/master>] as of your last fetch"
 
 
+def test_highlight_values_colours_bare_flags_without_inventing_brackets():
+    coloured = highlight_values(
+            "without --develop, pass --clone-publishers or set [--publisher-root]",
+            lambda value: "<" + value + ">",
+    )
+    assert coloured == (
+            "without <--develop>, pass <--clone-publishers> or set [<--publisher-root>]"
+    )
+
+
 def test_judgements_hang_from_the_summary_as_one_tree_worst_first():
     """Reading down the tree is reading a work list: what stops the build, then what needs a
     decision, then what is only worth knowing, all of it one tree rooted on the summary."""

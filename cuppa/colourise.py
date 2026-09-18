@@ -14,11 +14,19 @@ import re
 from contextlib import contextmanager
 
 
-# Reduced intensity moves text towards the background, which only works when the background is
-# the darker end. On a light console the default foreground is already black and dimming it can
-# leave it looking untouched, so a grey foreground is used there instead.
-GREY_256 = "\x1b[38;5;244m"
-BRIGHT_BLACK = "\x1b[90m"
+# Subdued report chrome never uses SGR 2 (DIM): it is a no-op on many light themes, and
+# Konsole often leaves COLORFGBG at 15;0 after a profile switch so cuppa would think "dark"
+# and emit DIM while the glass is light. Prefer a mid grey when the terminal has 256 colours
+# (same look as docs ``cuppa-subdued``). Without 256 colours, fall back to a dark ink on
+# light glass and a light ink on dark glass.
+#
+# Names below are the usual ANSI / terminal names (SGR 90 "bright black", SGR 37 "white"),
+# not "dim black/white": we are not using the DIM attribute, and renaming them DIM_* would
+# invite reintroducing Style.DIM. Bright black typically renders as a dark grey.
+GREY_256 = "\x1b[38;5;244m"       # mid grey — subdued on a light background
+GREY_256_ON_DARK = "\x1b[38;5;247m"  # slightly lighter mid grey — subdued on dark glass
+BRIGHT_BLACK = "\x1b[90m"   # SGR 90 — dark ink; subdued fallback on a light background
+WHITE = "\x1b[37m"          # SGR 37 — light ink; subdued fallback on a dark background
 
 # The convention COLORFGBG reports: the last field is the background colour index, and 7 or 15
 # means a light background. Anything else is treated as dark, which is the safe assumption.
@@ -88,11 +96,7 @@ class Colouriser(object):
 
 
     def subdue( self, text ):
-        """Text that recedes: reduced intensity on a dark console, grey on a light one.
-
-        Both move the text towards the background rather than towards a colour, so the meaning
-        survives either console, and a terminal that ignores the sequence shows ordinary text.
-        """
+        """Text that recedes toward the background without using SGR 2 (DIM)."""
         if not self.use_colour:
             return text
         return self.start_subdued() + text + colorama.Style.RESET_ALL
@@ -101,9 +105,14 @@ class Colouriser(object):
     def start_subdued( self ):
         if not self.use_colour:
             return ''
+        if supports_256_colours():
+            if console_background() == 'light':
+                return GREY_256
+            return GREY_256_ON_DARK
+        # No mid-grey rung: pick an ink that sits toward the background.
         if console_background() == 'light':
-            return supports_256_colours() and GREY_256 or BRIGHT_BLACK
-        return colorama.Style.DIM
+            return BRIGHT_BLACK
+        return WHITE
 
 
     def emphasise_time_by_group( self, time_text ):

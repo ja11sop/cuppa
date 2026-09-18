@@ -23,7 +23,15 @@ from collections import defaultdict, deque
 import SCons.Errors
 
 from cuppa import timer
-from cuppa.colourise import as_error, as_info, as_notice, as_subdued, as_warning
+from cuppa.colourise import (
+        as_emphasised,
+        as_error,
+        as_info,
+        as_info_label,
+        as_notice,
+        as_subdued,
+        as_warning,
+)
 from cuppa.core.storage_options import default as storage_defaults
 from cuppa.log import logger
 from cuppa.package_managers.cuppa_dependency_manifest import (
@@ -751,28 +759,38 @@ def _work_verdict( entry ):
 
 
 def _package_identity( name, version ) -> str:
-    """Emphasised info name, info-only version — shared by plan intro and tip line."""
-    from cuppa.colourise import as_emphasised
-    return "{} [{}]".format(
-            as_emphasised( as_info( str( name ) ) ),
-            as_info( str( version ) ),
-    )
+    """``name [==version]`` — both emphasised info (plan intro, nodes, and tip line)."""
+    emphasised = as_emphasised( as_info( str( name ) ) )
+    pin = as_emphasised( as_info( str( version ) ) )
+    return "{} [=={}]".format( emphasised, pin )
 
 
 def _plan_dependency_label( entry ) -> str:
-    """``name [version]`` with optional ``(package_source)`` when the edge carries one."""
+    """``name [==version]`` with optional subdued ``(package_source)`` when the edge carries one."""
     label = _package_identity( entry.get( "name" ), entry.get( "version" ) )
     source = entry.get( "package_source" )
     if source:
-        label = "{} ({})".format( label, as_notice( str( source ) ) )
+        label = "{} ({})".format( label, as_subdued( str( source ) ) )
     return label
+
+
+def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
+    """``N noun`` without colour — safe to nest inside an info-label chip."""
+    word = noun if count == 1 else ( plural_noun or noun + "s" )
+    return "{} {}".format( count, word )
+
+
+def _cascade_plan_summary( summary ) -> str:
+    """Info-label chip for the plan's definitive summary (through the semicolon)."""
+    return as_info_label( "--{}: {}".format( CASCADE_PLAN_OPTION, summary ) )
 
 
 def _node_judgements( entry ) -> list[tuple[str, str]]:
     """``(severity, prose)`` under one package node, error then warning then note.
 
-    Prose uses ``[brackets]`` for the values ``highlight_values`` should colour; the
-    severity heading carries the severity colour, not the whole sentence.
+    Prose uses ``[brackets]`` for paths and other values ``highlight_values`` should
+    colour, and bare ``--flags`` for CLI options (coloured without inventing brackets).
+    The severity heading carries the severity colour, not the whole sentence.
     """
     items: list[tuple[str, str]] = []
     if entry.get( "_resolve_error" ):
@@ -789,7 +807,7 @@ def _node_judgements( entry ) -> list[tuple[str, str]]:
     if entry.get( "_develop_unused" ):
         items.append( (
                 "warning",
-                "a develop tree is configured at [{}] but [--develop] was not passed; "
+                "a develop tree is configured at [{}] but --develop was not passed; "
                 "was that intentional?".format(
                         storage.display_path( entry["_develop_dir"] )
                 ),
@@ -815,7 +833,7 @@ def _node_judgements( entry ) -> list[tuple[str, str]]:
 
 
 def _append_highlighted_prose( lines, text, colour, first_branch, carried_branch, prose_width ):
-    """Wrap prose under a tree branch; colour only ``[bracketed]`` values."""
+    """Wrap prose under a tree branch; colour ``[bracketed]`` values and bare ``--flags``."""
     wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
     branch = first_branch
     for piece in storage.wrapped( text, wrap_width ):
@@ -824,7 +842,11 @@ def _append_highlighted_prose( lines, text, colour, first_branch, carried_branch
 
 
 def _append_severity_groups( lines, judgements, under, prose_width, encoding=None ):
-    """Hang error / warning / note groups under a package node (judgement-tree shape)."""
+    """Hang error / warning / note groups under a package node (judgement-tree shape).
+
+    Stub lines before each severity heading and before each message match
+    ``_judgement_tree_lines``: they keep the hanging branches readable.
+    """
     colour_for = { "error": as_error, "warning": as_warning, "note": as_info }
     heading_for = { "error": "error", "warning": "warning", "note": "note" }
     groups = []
@@ -848,6 +870,7 @@ def _append_severity_groups( lines, judgements, under, prose_width, encoding=Non
         under_severity = under + ( gap if last_group else pipe )
         for index, text in enumerate( group ):
             last = index == len( group ) - 1
+            lines.append( as_subdued( under_severity + nested_stub ) )
             first = under_severity + ( elbow if last else tee )
             carried = under_severity + ( gap if last else pipe )
             _append_highlighted_prose( lines, text, colour, first, carried, prose_width )
@@ -892,7 +915,7 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
                             notes=note_count,
                     ),
             ),
-            pipe.rstrip(),
+            as_subdued( pipe.rstrip() ),
     ]
     total = len( order )
     marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
@@ -904,12 +927,12 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
         entry = nodes[key]
         marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
         lines.append( "{}{}  {}".format(
-                tee, marker, _plan_dependency_label( entry )
+                as_subdued( tee ), marker, _plan_dependency_label( entry )
         ) )
         if entry.get( "_publisher_dir" ):
             publisher = entry["_publisher_dir"]
             lines.append( "{}publisher [{}]{}".format(
-                    under,
+                    as_subdued( under ),
                     as_notice( storage.display_path( str( publisher ) ) ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
@@ -917,7 +940,8 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
         if judgements:
             _append_severity_groups( lines, judgements, under, prose_width, encoding )
 
-    lines.append( "{}then {} from this tree".format( elbow, tip ) )
+    lines.append( as_subdued( pipe.rstrip() ) )
+    lines.append( "{}then {} from this tree".format( as_subdued( elbow ), tip ) )
     return lines
 
 
@@ -955,12 +979,11 @@ def sessions_complete_lines( total, tip_package, tip_version, width=None ) -> li
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "cascade sessions complete: {}; resuming this package [{}]==[{}]".format(
+            "cascade sessions complete: {}; resuming this package {}".format(
                     storage.emphasised_count_phrase(
                             total, "nested publish", "nested publishes"
                     ),
-                    as_info( str( tip_package ) ),
-                    as_info( str( tip_version ) ),
+                    _package_identity( tip_package, tip_version ),
             ),
     ]
 
@@ -1009,48 +1032,59 @@ def finish_plan_only( env=None, out=None ) -> int:
         if env is not None and not cascade_enabled( env ):
             write_lines( [
                     "",
-                    "--{}: requires --{}, which is the flag it plans."
-                    .format( CASCADE_PLAN_OPTION, CASCADE_OPTION ),
+                    "{}: requires --{}, which is the flag it plans."
+                    .format(
+                            as_info_label( "--" + CASCADE_PLAN_OPTION ),
+                            CASCADE_OPTION,
+                    ),
             ], out=stream )
             return 1
         write_lines( [
                 "",
-                "--{}: no GitLab package publisher was constructed, so there is "
-                "no cascade plan. Run from a project that publishes a GitLab "
-                "package with env.PublishPackage.".format( CASCADE_PLAN_OPTION ),
+                "{}; Run from a project that publishes a GitLab package with "
+                "env.PublishPackage.".format(
+                        _cascade_plan_summary(
+                                "no GitLab package publisher was constructed, so "
+                                "there is no cascade plan"
+                        )
+                ),
         ], out=stream )
         return 1
 
     errors = sum( report["errors"] for report in _plan_reports )
     clones = sum( report.get( "clones", 0 ) for report in _plan_reports )
-    planned = storage.emphasised_count_phrase( len( _plan_reports ), "package" )
+    planned = _plain_count_phrase( len( _plan_reports ), "package" )
     if errors:
         write_lines( [
                 "",
-                "--{}: {} planned, {} without a publisher tree. Plant the "
-                "missing trees, pass --{} to fetch the ones with a URL "
-                "package_source, set --{}, or give those dependencies a "
+                "{}. Plant the missing trees, pass --{} to fetch the ones with "
+                "a URL package_source, set --{}, or give those dependencies a "
                 "filesystem package_source.".format(
-                        CASCADE_PLAN_OPTION,
-                        planned,
-                        storage.emphasised_count_phrase( errors, "dependency", "dependencies" ),
+                        _cascade_plan_summary(
+                                "{} planned, {} without a publisher tree".format(
+                                        planned,
+                                        _plain_count_phrase(
+                                                errors, "dependency", "dependencies"
+                                        ),
+                                )
+                        ),
                         CLONE_OPTION,
                         PUBLISHER_ROOT_OPTION,
                 ),
         ], out=stream )
         return 1
 
-    would_clone = ""
+    summary = "{} planned".format( planned )
     if clones:
-        would_clone = ", {} to clone first".format(
-                storage.emphasised_count_phrase(
-                        clones, "publisher tree", "publisher trees"
-                )
+        summary = "{}, {} to clone first".format(
+                summary,
+                _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
         )
     write_lines( [
             "",
-            "--{}: {} planned{}; nothing was built, published, uploaded, or "
-            "cloned.".format( CASCADE_PLAN_OPTION, planned, would_clone ),
+            "{}; nothing was built, published, uploaded, or cloned.".format(
+                    _cascade_plan_summary( summary )
+            ),
     ], out=stream )
     return 0
 

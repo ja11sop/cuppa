@@ -3,6 +3,8 @@ import pytest
 from cuppa.colourise import (
     BRIGHT_BLACK,
     GREY_256,
+    GREY_256_ON_DARK,
+    WHITE,
     colour_items,
     colouriser,
     console_background,
@@ -11,9 +13,6 @@ from cuppa.colourise import (
 
 
 pytestmark = pytest.mark.unit
-
-
-DIM = "\x1b[2m"
 
 
 @pytest.fixture
@@ -36,9 +35,8 @@ def test_colour_items_joins_values():
 
 
 def test_a_console_that_says_nothing_is_not_assumed_to_be_light( plain_environment ):
-    """Dimming a dark console is safe; treating a dark console as light is not."""
+    """Background detection stays honest when the terminal will not say."""
     assert console_background() == 'unknown'
-    assert start_subdued() == DIM
 
 
 @pytest.mark.parametrize( "reported,background", [
@@ -61,15 +59,34 @@ def test_the_background_can_be_declared_when_the_terminal_will_not_say( plain_en
     assert console_background() == 'dark'
 
 
-def test_a_light_console_recedes_by_going_grey_rather_than_by_dimming( plain_environment ):
-    """Reduced intensity applied to black text on white can look untouched, so grey is used."""
-    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "light" )
-
+def test_subdued_prefers_mid_grey_when_256_colours_are_available( plain_environment ):
+    """256-colour subdued: mid grey on light glass, slightly lighter on dark glass."""
     plain_environment.setenv( 'TERM', "xterm-256color" )
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "light" )
     assert start_subdued() == GREY_256
 
-    plain_environment.setenv( 'TERM', "xterm" )
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "dark" )
+    assert start_subdued() == GREY_256_ON_DARK
+
+    plain_environment.delenv( 'CUPPA_CONSOLE_BACKGROUND', raising=False )
+    assert start_subdued() == GREY_256_ON_DARK
+
+
+def test_subdued_without_256_colours_picks_ink_toward_the_background( plain_environment ):
+    """No mid-grey rung: dark ink on light glass, light ink on dark (or unknown) glass."""
+    plain_environment.delenv( 'TERM', raising=False )
+    plain_environment.delenv( 'COLORTERM', raising=False )
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "light" )
     assert start_subdued() == BRIGHT_BLACK
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', "dark" )
+    assert start_subdued() == WHITE
+
+    plain_environment.delenv( 'CUPPA_CONSOLE_BACKGROUND', raising=False )
+    assert console_background() == 'unknown'
+    assert start_subdued() == WHITE
 
 
 def test_remove_notice_and_remove_error_meanings( plain_environment ):
