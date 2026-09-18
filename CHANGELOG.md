@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.11.0] - unreleased
 
+### Added
+
+- ``--develop`` on a **publisher-shaped** package ``develop=`` path (tree with an
+  ``sconstruct``) **discovers** a local stage under
+  ``_build/.../final/<package>/<version>/`` and links it — no registry round trip
+  ([`package-develop-local`](design/plans/package-develop-local.md) slice D).
+  Pass ``--stage-develop`` (requires ``--develop``) to nest-build that stage
+  (``--stage-package``, no upload) and to nest ``-c`` into those trees. A missing
+  stage without ``--stage-develop`` stops with a hint. Prefix-shaped ``develop=``
+  (``include/`` + ``lib/``, no ``sconstruct``) still swaps in with a log note.
+  ``--stage-package`` cannot be combined with ``--publish-package``.
+
+### Changed
+
+- Nested session banners use an info-label chip for the jump
+  (``cascade session N of M``, ``develop stage N of M``, and
+  ``cascade sessions complete``) so crossing into another sconstruct reads loud.
+  Develop-local staging no longer reuses the cascade session wording. A finished
+  session also closes with the same subdued rule line as the opening banner.
+
 ### Fixed
 
 - ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``

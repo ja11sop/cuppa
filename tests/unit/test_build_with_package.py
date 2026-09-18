@@ -289,10 +289,10 @@ def test_a_develop_path_is_reported_as_a_develop_tree_not_a_dependency_tree(
     assert paths["downloads"] == []
 
 
-def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
+def test_a_publisher_source_tree_is_not_swapped_in_as_a_prefix(
     tmp_path, monkeypatch
 ):
-    """Cascade publishes that tree, so the build consumes what the publish produces."""
+    """Publisher source stands down from prefix swap; resolve-only skips nested stage."""
     source = tmp_path / "widget"
     source.mkdir()
     (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
@@ -305,6 +305,34 @@ def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
             # Resolve paths only: the fetch this implies is the tip's normal one,
             # not something this test needs to perform.
             storage_resolve_only=True,
+        ),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert not package._using_develop
+    assert package._develop_is_publisher_source
+    # Resolve-only keeps the extraction path; a real --develop build stages locally.
+    assert package.package_dir().startswith(str(tmp_path / "dependencies"))
+
+
+def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
+    tmp_path, monkeypatch
+):
+    """Cascade still treats a publisher develop path as source, not a prefix."""
+    source = tmp_path / "widget"
+    source.mkdir()
+    (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
+    (source / "include").mkdir()
+
+    package = GitlabPackageDependency(
+        _develop_env(
+            tmp_path,
+            monkeypatch,
+            storage_resolve_only=True,
             **{"build-and-publish-dependencies": True},
         ),
         registry="https://gitlab.example/api/v4/projects/1",
@@ -316,8 +344,118 @@ def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
 
     assert not package._using_develop
     assert package._develop_is_publisher_source
-    # The prefix is the extraction tree the nested publish will refill, not the source.
     assert package.package_dir().startswith(str(tmp_path / "dependencies"))
+
+
+def test_publisher_source_consume_discovers_existing_stage(tmp_path, monkeypatch):
+    """--develop alone links an existing final/<package>/<version>/ (no nest)."""
+    source = tmp_path / "widget"
+    source.mkdir()
+    (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
+    stage = (
+        source / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c"
+        / "final" / "widget" / "1.2"
+    )
+    (stage / "include").mkdir(parents=True)
+    (stage / "lib").mkdir()
+
+    nested = []
+
+    def _must_not_nest(*args, **kwargs):
+        nested.append( True )
+        raise AssertionError( "discovery mode must not nest-stage" )
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.package_cascade.run_nested_stage",
+        _must_not_nest,
+    )
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert not nested
+    assert not package._using_develop
+    assert package._develop_is_publisher_source
+    assert os.path.samefile(package.package_dir(), stage)
+    assert package.include_dir().endswith(os.path.join("include"))
+
+
+def test_publisher_source_without_stage_errors_unless_stage_develop(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "widget"
+    source.mkdir()
+    (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
+
+    with pytest.raises(SCons.Errors.StopError, match="--stage-develop"):
+        GitlabPackageDependency(
+            _develop_env(tmp_path, monkeypatch),
+            registry="https://gitlab.example/api/v4/projects/1",
+            package="widget",
+            version="1.2",
+            variant="rel",
+            develop="../widget",
+        )
+
+
+def test_stage_develop_nests_then_consumes_stage(tmp_path, monkeypatch):
+    source = tmp_path / "widget"
+    source.mkdir()
+    (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
+    stage = (
+        source / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c"
+        / "final" / "widget" / "1.2"
+    )
+
+    def _nest(env, publisher_dir, label):
+        (stage / "include").mkdir(parents=True)
+        (stage / "lib").mkdir()
+
+    monkeypatch.setattr(
+        "cuppa.package_managers.package_cascade.run_nested_stage",
+        _nest,
+    )
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch, **{"stage-develop": True}),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert os.path.samefile(package.package_dir(), stage)
+
+
+def test_legacy_prefix_develop_still_swaps_in_with_a_note(
+    tmp_path, monkeypatch, caplog
+):
+    prefix = tmp_path / "widget"
+    (prefix / "include").mkdir(parents=True)
+    (prefix / "lib").mkdir()
+
+    import logging
+    caplog.set_level(logging.INFO)
+
+    package = GitlabPackageDependency(
+        _develop_env(tmp_path, monkeypatch),
+        registry="https://gitlab.example/api/v4/projects/1",
+        package="widget",
+        version="1.2",
+        variant="rel",
+        develop="../widget",
+    )
+
+    assert package._using_develop
+    assert os.path.samefile(package.package_dir(), prefix)
+    assert any("built package prefix" in r.message for r in caplog.records)
 
 
 def test_a_built_prefix_is_still_swapped_in_during_a_cascade(tmp_path, monkeypatch):

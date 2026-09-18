@@ -3,7 +3,7 @@
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
 - **Updated:** 2026-09-18
-- **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
+- **Impact:** `minor` for the resolution, clone, and local-consume (D) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
 
 ## Problem
 
@@ -66,7 +66,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 
 | Question | Decision |
 |----------|----------|
-| What `--develop` + `develop=` mean for a package | **Build that tree locally and consume what it produced.** The same promise as a location dependency, rather than a second meaning for one kwarg. |
+| What `--develop` + `develop=` mean for a package | **Use that working tree**: discover a local package stage under `final/<package>/<version>/` (publisher-shaped) or swap a prefix-shaped path. Opt-in **`--stage-develop`** nest-builds/cleans publisher trees. Not a second silent meaning for one kwarg — build is explicit. |
 | Relationship to cascade | Complementary, not a replacement. Cascade ranks a develop tree **above** `--publisher-root` lookup and above cloning, and never clones a dependency that has a develop path — `--clone-develop` owns filling those. |
 | Publishing from a develop tree | **Refused** when the copy is dirty, ahead, or diverged, because the result is a registry version nobody can reproduce. `develop.py`'s `inspect()` already computes that state. An explicit override flag, not a warning in a log. |
 | A develop path that is a prefix, not a publisher tree | An error naming both meanings, so an operator who set the old-style path learns what changed instead of reading "no sconstruct". |
@@ -80,6 +80,21 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Default publisher lookup | `<storage-root>/publishers` is searched for existing trees (same path clones write to); `--publisher-root` overrides. Matches downloads/dependencies falling back to `storage_root`. |
 | Unused develop on the plan | **Warning** (pass `--develop` to make the plan executable) + **notes** for alternatives; when a publishers-forest tree already exists, a second **warning** that the plan would use it. Not an error that claims no local tree when one was configured. Day-to-day copy does not advise rewriting `package_source`. |
 
+### Slice D settled decisions
+
+| Question | Decision |
+|----------|----------|
+| Trigger (discover) | **`--develop` alone** when `develop=` names a **publisher-shaped** tree (`sconstruct` present): locate an existing stage under `final/<package>/<version>/` and link it. No nest. Missing stage → clear `StopError` naming `--stage-develop`. |
+| Trigger (build/clean) | **`--develop --stage-develop`**: nest a `--stage-package` session (build + stage, no upload). With `-c`, nest-clean those trees too. Requires `--develop`. |
+| Who builds | Only when `--stage-develop` is set. Nested SCons/CMake own incremental rebuild; no separate Cuppa mtime freshness rule. |
+| Stage location | Matching toolchain×variant **`final/<package>/<version>/`** under the develop tree. |
+| Build without upload | Nested argv uses `--stage-package` (not `--offline`). |
+| Prefix-shaped `develop=` | **Inference**: `sconstruct` → publisher source; `include/`+`lib/` without sconstruct → legacy prefix swap + note. |
+| Cascade + develop | Tip still consumes the local stage when present; cascade upload is independent. |
+| `--list-develop` | Unchanged vocabulary. |
+| Rooted/cloned dirty warn | Stay warn, not refuse. |
+| First-publish registry 404 (§6) | **Out of scope for D.** |
+
 ## Slices
 
 | Slice | Content | Impact |
@@ -87,12 +102,11 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` — **shipped** |
 | B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` — **shipped** |
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` — **shipped** |
-| D | Consume from a locally built package: locate the stage a publisher build produces (`final/<package>/<version>/`), a build-without-publish mode, and the refusals that stop a stale or absent stage being linked silently | `minor` |
-| E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | decide with D |
+| D | Consume from a locally built package: discover `final/<package>/<version>/` under `--develop`; opt-in `--stage-develop` for nest build + deep clean | `minor` — **implemented** (this branch); soak next |
+| E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | `minor` (inference + note shipped with D; distinct kwarg only if needed) |
 
-Slices A, B and C have shipped. A live corosio→capy soak after C found nested-argv,
-clone-develop survey, unused-develop note, and package-source override defects — fixed as a
-soak UX patch before slice D. Slice D is next: consuming a locally built package.
+Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop/cuppa/pull/310).
+**Slice D implemented:** `--develop` discovers a local package stage; `--develop --stage-develop` nest-stages (and nest-cleans) publisher-shaped package trees. Extending `--stage-develop` to location develop trees is a separate proposal: [`stage-develop-locations.md`](stage-develop-locations.md).
 
 ### Soak findings (post slice C)
 
@@ -123,7 +137,7 @@ does not. The combination the slice exists to enable was therefore broken by con
 
 | Question | Decision |
 |----------|----------|
-| Consume during a cascade | `--develop` **stands down** when the develop path is the publisher project: the dependency is consumed from the registry the nested publish has just written to. The build then behaves like a cascade without `--develop`, with the operator's tree supplying the sources. Slice D removes that registry round trip. |
+| Consume during a cascade | `--develop` on a publisher source tree **stages locally** and the tip links that stage (slice D). Cascade may still upload afterward; consume does not wait on the registry. Nested sessions fall back to registry download so develop-local does not nest recursively. |
 | Outside a cascade | Unchanged. `develop=` is still a built prefix, so nothing that works today stops working, and slice E remains the migration. |
 | What makes a develop path a publisher tree | An **sconstruct**, not `cuppa-publish.json`. A publisher build stages that manifest beside `include/` and `lib/`, so accepting it would read a built package as the project that built it. Rooted and cloned trees keep the broader test, which they cannot fail that way. |
 | Scope of the local-work refusal | **Refused** for develop trees, **warned** for `--publisher-root` and cloned trees. The hazard is identical, but refusing there would stop the workflow Phase 1 shipped, so the plan report grades those as warning rows and the publish proceeds. Promoting the warning is a deliberate `major`, not a side effect of this slice. |
@@ -151,59 +165,16 @@ manifest", which turned out to name two things that did not exist in the shape a
 | Filesystem `package_source` | Left alone. It names a tree the operator already has, so there is nothing to fetch. |
 | Cascade reading the declaration | Free and worth taking: `resolve_publisher_dir` falls back to a `package_source` declared on the dependency when the publisher edge does not carry one, so a consumer does not declare the same URL twice. |
 
-What a clone lands is the publisher's **source tree**, which consume still reads as a built
-prefix outside a cascade. That is the B-to-D gap, not a slice C defect, and the develop
-documentation says so rather than implying the cloned tree can be linked against.
+What a clone lands is the publisher's **source tree**. Slice D makes `--develop` build
+that tree and consume its stage so the tip no longer links a source tree as a prefix
+(or needs a registry round trip for that dependency).
 
 ## Open questions
 
-Each carries the options considered so far and a leaning. A leaning is not a decision: it is
-where the argument stood when the question was last looked at, recorded so the next session
-argues with something rather than starting again.
+### 1–5 — settled in slice D
 
-### 1 and 2. Where the consumable stage lives, and whether slice D builds it
-
-These read as two questions and behave as one. If slice D **runs the nested build** — the
-machinery cascade already has, minus the upload — the stage is current by construction and the
-staleness problem does not arise. If it consumes a stage the operator built earlier, cuppa needs
-a freshness rule, and every cheap version of that rule (stage mtime against newest source mtime)
-is wrong in the cases that matter, because it cannot see what the build would actually redo.
-
-**Leaning:** D builds the tree. Question 1 then shrinks to locating the directory that build just
-wrote, per publisher shape, rather than designing stage-freshness heuristics.
-
-`--parallel` is not a complication under that answer. Nested runs stay sequential, as cascade
-already orders them, and each one parallelises internally the way any cuppa build does.
-
-### 3. What replaces today's prefix-shaped `develop=`
-
-Two candidates: a distinct kwarg for the prefix meaning, or inference from the directory's
-contents. Slice B has now exercised inference in anger — an `sconstruct` for a source tree
-against `include/` and `lib/` for a prefix — including the trap that a publisher build stages
-`cuppa-publish.json` beside the built artefacts.
-
-**Leaning:** inference, with a note when a prefix-shaped path is detected so the older intent
-stays visible. That keeps one kwarg, needs no flag day, and would drop slice E from `major` to
-`minor`. A distinct kwarg remains the fallback if a consumer turns out to need the prefix meaning
-explicitly.
-
-### 4. Whether `--list-develop` should report a package develop tree differently
-
-The argument for is that publishing from a dirty package develop tree is refused, where a dirty
-location develop tree is merely noted, so the same row means something stronger.
-
-**Leaning:** no. The refusal is a cascade-time judgement about a publish, and `--cascade-plan`
-already carries it in context. Teaching the develop report a second vocabulary for one dependency
-kind costs more than it explains.
-
-### 5. Whether the warning on rooted and cloned trees should become a refusal
-
-Settled for now as a warning (see the slice B table). Promoting it would need an override that
-covers every tier rather than develop alone, and a `major` release, because it stops the
-edit-locally-then-cascade workflow Phase 1 shipped.
-
-**Leaning:** leave it. Revisit only if a rooted tree actually puts unreproducible bits in a
-registry in practice, rather than in theory.
+See **Slice D settled decisions** above (build locally; stage at `final/<package>/<version>/`;
+inference for prefix vs source; list-develop unchanged; rooted/cloned warn stays warn).
 
 ### 6. Publishing a version the registry does not have yet
 
