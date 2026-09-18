@@ -147,7 +147,10 @@ That is the one place `--clone-develop` and xref:packages.adoc#clone-publishers[
 A filesystem `package_source` is left alone, since it names a tree you already have.
 
 What lands is the **publisher's source tree**, which is the tree cascade publishes from under `--develop`.
-Note that outside a cascade, a package's `develop=` still means a built package prefix, so a cloned source tree is for the publish workflow rather than for linking against directly; see xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
+With `--develop`, the tip consumes an existing staged package under `_build/.../final/<package>/<version>/` when that stage is present.
+Pass `--stage-develop` as well to nest-build (and nest-clean) that tree from the tip.
+A develop path that is only a built prefix (`include/` and `lib/`, no `sconstruct`) still swaps in as the package directory, with a log note; prefer a publisher source tree for new work.
+See xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
 
 == Aligning develop copies onto a feature branch
 

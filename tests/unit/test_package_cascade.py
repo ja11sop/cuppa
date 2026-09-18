@@ -696,24 +696,57 @@ def test_finish_plan_only_exit_status_follows_resolution():
 
 
 def test_session_banners_carry_ordinal_and_total():
-    begin = "\n".join( cascade.session_begin_lines(
-            1, 2, "capy develop (capy)", "/home/user/coding/packages/capy",
-            "python -m cuppa -D --rel --publish-package",
-    ) )
-    assert "cascade session 1 of 2: capy develop (capy)" in begin
-    assert "publisher [/home/user/coding/packages/capy]" in begin
-    assert "command [python -m cuppa -D --rel --publish-package]" in begin
+    from cuppa.colourise import as_info_label, colouriser
 
-    end = "\n".join( cascade.session_end_lines( 1, 2, "capy develop (capy)", 1500000000 ) )
-    assert "cascade session 1 of 2 finished: capy develop (capy) in 00:00:01" in end
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
 
-    complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
-    assert "2 nested publishes; resuming this package corosio [==0.2.0]" in complete
+    was = colouriser.use_colour
+    colouriser.use_colour = True
+    try:
+        begin = "\n".join( cascade.session_begin_lines(
+                1, 2, "capy develop (capy)", "/home/user/coding/packages/capy",
+                "python -m cuppa -D --rel --publish-package",
+        ) )
+        assert as_info_label( "cascade session 1 of 2" ) in begin
+        assert "capy develop (capy)" in plain( begin )
+        assert "publisher [/home/user/coding/packages/capy]" in plain( begin )
+        assert "command [python -m cuppa -D --rel --publish-package]" in plain( begin )
 
-    clean_complete = "\n".join( cascade.sessions_complete_lines(
-            1, "corosio", "0.2.0", clean=True
-    ) )
-    assert "1 nested clean; resuming clean of this package corosio [==0.2.0]" in clean_complete
+        end_lines = cascade.session_end_lines(
+                1, 2, "capy develop (capy)", 1500000000
+        )
+        assert as_info_label( "cascade session 1 of 2 finished" ) in end_lines[0]
+        assert "capy develop (capy) in 00:00:01" in plain( end_lines[0] )
+        assert set( plain( end_lines[1] ) ) == { "-" }
+        assert end_lines[2] == ""
+
+        stage_begin = "\n".join( cascade.session_begin_lines(
+                1, 1, "capy/develop/rel", "/home/user/coding/packages/capy",
+                "python -m cuppa -D --rel --stage-package",
+                kind="develop stage",
+        ) )
+        assert as_info_label( "develop stage 1 of 1" ) in stage_begin
+
+        stage_end_lines = cascade.session_end_lines(
+                1, 1, "capy/develop/rel", 1500000000, kind="develop stage"
+        )
+        assert as_info_label( "develop stage 1 of 1 finished" ) in stage_end_lines[0]
+        assert set( plain( stage_end_lines[1] ) ) == { "-" }
+        assert stage_end_lines[2] == ""
+
+        complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
+        assert as_info_label( "cascade sessions complete" ) in complete
+        assert "2 nested publishes; resuming this package corosio [==0.2.0]" in plain( complete )
+
+        clean_complete = "\n".join( cascade.sessions_complete_lines(
+                1, "corosio", "0.2.0", clean=True
+        ) )
+        assert "1 nested clean; resuming clean of this package corosio [==0.2.0]" in plain(
+                clean_complete
+        )
+    finally:
+        colouriser.use_colour = was
 
 
 def test_cascade_plan_lines_clean_mode_retargets_intro_and_notes_cmake():
@@ -2173,16 +2206,68 @@ def test_a_staged_publish_manifest_does_not_make_a_prefix_a_publisher_tree( tmp_
     assert "holds a built package" in cascade.develop_tree_refusal( str( prefix ) )
 
 
-def test_a_develop_path_is_only_a_publisher_source_under_cascade( tmp_path ):
+def test_a_develop_path_with_sconstruct_is_a_publisher_source( tmp_path ):
     tree = _publisher_tree( tmp_path / "capy" )
 
-    assert not cascade.develop_is_publisher_source( _PlanEnv( {} ), str( tree ) )
+    assert cascade.develop_is_publisher_source( _PlanEnv( {} ), str( tree ) )
     assert cascade.develop_is_publisher_source(
             _PlanEnv( { "build-and-publish-dependencies": True } ), str( tree )
     )
-    assert cascade.develop_is_publisher_source(
-            _PlanEnv( { "cascade-plan": True } ), str( tree )
+
+
+def test_resolve_develop_package_stage_prefers_tool_variant_then_scan( tmp_path ):
+    root = tmp_path / "widget"
+    stage = (
+            root / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "widget" / "1.0.0"
     )
+    ( stage / "include" ).mkdir( parents=True )
+    ( stage / "lib" ).mkdir()
+    ( stage / "include" / "widget.hpp" ).write_text( "//\n", encoding="utf-8" )
+
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "widget", "1.0.0", env=None
+    )
+    assert found == str( stage )
+
+
+def test_resolve_develop_package_stage_accepts_version_mismatch_fallback( tmp_path ):
+    root = tmp_path / "widget"
+    stage = (
+            root / "_build" / "gcc" / "dbg" / "x86_64" / "cxx2c"
+            / "final" / "widget" / "master"
+    )
+    ( stage / "include" ).mkdir( parents=True )
+    ( stage / "lib" ).mkdir()
+
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "widget", "develop", env=None
+    )
+    assert found == str( stage )
+
+
+def test_tip_forward_args_stage_only_adds_stage_package_not_publish():
+    tip = [ "cuppa", "-D", "--rel", "--publish-package", "--develop" ]
+    forwarded = cascade.tip_forward_args( tip, stage_only=True )
+    assert "--stage-package" in forwarded
+    assert "--publish-package" not in forwarded
+    assert "--develop" in forwarded
+    assert "-D" in forwarded
+
+
+def test_tip_forward_args_publish_strips_stage_package():
+    tip = [ "cuppa", "-D", "--rel", "--stage-package" ]
+    forwarded = cascade.tip_forward_args( tip, stage_only=False )
+    assert "--publish-package" in forwarded
+    assert "--stage-package" not in forwarded
+
+
+def test_looks_like_package_stage_requires_include_and_lib( tmp_path ):
+    path = tmp_path / "stage"
+    ( path / "include" ).mkdir( parents=True )
+    assert not cascade.looks_like_package_stage( str( path ) )
+    ( path / "lib" ).mkdir()
+    assert cascade.looks_like_package_stage( str( path ) )
 
 
 def _rooted_nodes( path ):

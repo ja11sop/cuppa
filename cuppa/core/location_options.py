@@ -13,6 +13,20 @@ def add_location_options( add_option ):
     add_option( '--develop', dest='develop', action='store_true',
                 help="Tell all locations to use their develop location if specified" )
 
+    add_option(
+            '--stage-develop',
+            dest='stage-develop',
+            action='store_true',
+            help=(
+                    "With --develop, nest-build publisher-shaped package develop "
+                    "trees (stage under final/<package>/<version>/, no upload) so "
+                    "the tip can consume them. Also nests -c/--clean into those "
+                    "trees. Without this flag, --develop only discovers an "
+                    "existing stage (or swaps a prefix-shaped develop= path). "
+                    "Requires --develop."
+            ),
+    )
+
     add_option( '--location-default-branch', dest='location_default_branch', nargs=1, action='store',
                 default="master",
                 help="Tell cuppa what the name of the default branch is so it can be used"
@@ -94,6 +108,13 @@ def add_location_options( add_option ):
 def process_location_options( cuppa_env ):
 
     cuppa_env['develop']                          = cuppa_env.get_option( 'develop' )
+    cuppa_env['stage_develop']                    = cuppa_env.get_option( 'stage-develop' )
+    if cuppa_env['stage_develop'] and not cuppa_env['develop']:
+        import SCons.Errors
+        raise SCons.Errors.StopError(
+                "--stage-develop requires --develop (it stages publisher-shaped "
+                "package develop trees for the tip to consume)"
+        )
     cuppa_env['list_develop']                     = cuppa_env.get_option( 'list_develop' )
     cuppa_env['clone_develop']                    = cuppa_env.get_option( 'clone_develop' )
     cuppa_env['checkout_develop_branch']          = cuppa_env.get_option( 'checkout_develop_branch' )

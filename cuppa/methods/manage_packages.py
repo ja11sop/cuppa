@@ -72,6 +72,13 @@ class PublishPackageMethod(object):
             env.Clean( built_package, publisher.clean_targets() )
 
         publish = env.get_option( 'publish-package' ) and True or False
+        stage = env.get_option( 'stage-package' ) and True or False
+        if stage and publish:
+            import SCons.Errors
+            raise SCons.Errors.StopError(
+                    "--stage-package and --publish-package cannot be combined; "
+                    "stage builds the package archive without uploading."
+            )
 
         if publish:
             package_published = env.File( publisher.package_published() )
@@ -95,6 +102,16 @@ class PublishPackageMethod(object):
     def add_options( cls, add_option ):
         add_option( '--publish-package', dest='publish-package', action='store_true',
                     help='Specify that you want to publish a package.' )
+        add_option(
+                '--stage-package',
+                dest='stage-package',
+                action='store_true',
+                help=(
+                        'Build and stage this package\'s archive under final/ '
+                        'without uploading. Used by nested --stage-develop '
+                        'sessions. Cannot be combined with --publish-package.'
+                ),
+        )
         add_option(
                 '--amend-package-manifest',
                 dest=AMEND_PACKAGE_MANIFEST_OPTION,

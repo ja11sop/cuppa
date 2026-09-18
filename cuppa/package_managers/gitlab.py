@@ -1351,22 +1351,43 @@ class GitlabPackageDependency:
             # develop="../../widget" means the same thing wherever cuppa is invoked
             # from and matches the path --list-develop reports.
             from cuppa.location import develop_location
-            from cuppa.package_managers.package_cascade import develop_is_publisher_source
+            from cuppa.package_managers.package_cascade import (
+                    develop_is_publisher_source,
+                    develop_names_a_publisher_tree,
+            )
             self._develop = develop_location( cuppa_env['sconstruct_dir'], self._develop )
             if develop_is_publisher_source( cuppa_env, self._develop ):
-                # Cascade publishes this package from that tree, so it is the source of the
-                # package and not the package. Consume takes what the nested publish produces.
+                # Publisher source tree: tip consumes the local stage under
+                # final/<package>/<version>/ (discover by default; nest-build with
+                # --stage-develop). Nested sessions fall through to the registry.
                 self._using_develop = False
                 self._develop_is_publisher_source = True
                 logger.info(
-                        "Cascade publishes [{}] from develop tree [{}], so this build "
-                        "consumes the package it produces".format(
+                        "Package [{}] develop tree [{}] is a publisher source; "
+                        "this build will consume its local package stage"
+                        .format(
                                 as_info( self._package_id ),
                                 as_notice( display_path( self._develop ) )
                         )
                 )
             else:
                 self._package_dir = self._develop
+                if (
+                        not develop_names_a_publisher_tree( self._develop )
+                        and (
+                                os.path.isdir( os.path.join( self._develop, "include" ) )
+                                or os.path.isdir( os.path.join( self._develop, "lib" ) )
+                        )
+                ):
+                    logger.info(
+                            "Note: develop= for [{}] names a built package prefix at "
+                            "[{}]; a publisher source tree (with an sconstruct) is "
+                            "built locally under --develop instead"
+                            .format(
+                                    as_info( self._package_id ),
+                                    as_notice( display_path( self._develop ) )
+                            )
+                    )
 
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
@@ -1379,9 +1400,45 @@ class GitlabPackageDependency:
                 self._pkg_config_dir = os.path.join( self._package_dir, pkg_config_dir )
             self._pkg_config_dir = os.path.abspath( self._pkg_config_dir )
 
-        # dump / clean / storage resolve-only: paths are known; do not download or extract.
+        # dump / storage resolve-only: paths are known; do not download, extract, or nest.
         # --offline still extracts from a cached archive when one is present.
-        if self._dump or self._clean or self._cuppa_env.get( 'storage_resolve_only' ):
+        # -c / --clean: may nest-clean publisher develop trees when --stage-develop is set.
+        if self._dump or self._cuppa_env.get( 'storage_resolve_only' ):
+            return
+
+        if self._develop_is_publisher_source:
+            from cuppa.package_managers.package_cascade import (
+                    consume_develop_package_stage,
+            )
+            stage = consume_develop_package_stage(
+                    cuppa_env,
+                    self._develop,
+                    package,
+                    self.version(),
+                    label=self._package_id,
+            )
+            if stage:
+                self._package_dir = stage
+                self._include_dir = os.path.join( self._package_dir, 'include' )
+                self._lib_dir = os.path.join( self._package_dir, 'lib' )
+                if pkg_config_dir and not os.path.isabs( pkg_config_dir ):
+                    self._pkg_config_dir = os.path.abspath(
+                            os.path.join( self._package_dir, pkg_config_dir )
+                    )
+                if not self._clean:
+                    logger.info(
+                            "--develop: using locally staged package [{}] from [{}]"
+                            .format(
+                                    as_info( self._package_id ),
+                                    as_notice( display_path( self._package_dir ) )
+                            )
+                    )
+                return
+            if self._clean:
+                return
+            # Nested session: fall through to registry download.
+
+        if self._clean:
             return
 
         if self._using_develop:
@@ -1527,6 +1584,10 @@ class GitlabPackageDependency:
         if getattr( self, '_using_develop', False ):
             if self._package_dir:
                 paths['develop'].append( self._package_dir )
+            return paths
+
+        if getattr( self, '_develop_is_publisher_source', False ) and self._develop:
+            paths['develop'].append( self._develop )
             return paths
 
         if getattr( self, '_package_dir', None ):

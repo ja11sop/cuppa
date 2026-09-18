@@ -56,6 +56,8 @@ PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
 MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
+STAGE_PACKAGE_OPTION = "stage-package"
+STAGE_DEVELOP_OPTION = "stage-develop"
 
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
@@ -182,6 +184,30 @@ def publisher_root_option( env ) -> str | None:
 
 def _is_nested() -> bool:
     return os.environ.get( NESTED_ENV ) == "1"
+
+
+def stage_develop_enabled( env ) -> bool:
+    """Whether ``--stage-develop`` asked to nest-build publisher package develop trees."""
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( STAGE_DEVELOP_OPTION ):
+        return True
+    return bool( env.get( "stage_develop" ) or env.get( STAGE_DEVELOP_OPTION ) )
+
+
+def develop_mode_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( "develop" ):
+        return True
+    return bool( env.get( "develop" ) )
+
+
+def require_stage_develop_with_develop( env ) -> None:
+    if stage_develop_enabled( env ) and not develop_mode_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --develop (it stages publisher-shaped package "
+                "develop trees for the tip to consume)"
+                .format( STAGE_DEVELOP_OPTION )
+        )
 
 
 def _node_key( name: str, package: str, version: str ) -> tuple:
@@ -398,15 +424,90 @@ def develop_tree_refusal( path: str ) -> str | None:
 
 
 def develop_is_publisher_source( env, path: str ) -> bool:
-    """Whether a develop path is a tree cascade publishes from rather than a package to consume.
+    """Whether a develop path is a publisher project rather than a built package prefix.
 
-    Consume swaps a develop path in as the prefix it links against. When cascade is running and
-    that path is the publisher project, the tree is the *source* of the package, so the swap has
-    to stand down and let the build take the artefact the nested publish produces.
+    ``env`` is accepted for call-site symmetry with cascade helpers; the test is the
+    tree shape alone. Under ``--develop``, consume builds that tree locally and links
+    the staged package (slice D); cascade may still upload afterward.
     """
-    if not cascade_enabled( env ) and not cascade_stop_before_build( env ):
-        return False
+    del env  # reserved for call-site symmetry; inference is path-shaped only
     return develop_names_a_publisher_tree( path )
+
+
+def looks_like_package_stage( path: str ) -> bool:
+    """True when ``path`` has the include/ and lib/ layout a staged package needs."""
+    return (
+            os.path.isdir( os.path.join( path, "include" ) )
+            and os.path.isdir( os.path.join( path, "lib" ) )
+    )
+
+
+def resolve_develop_package_stage(
+        develop_root: str,
+        package: str,
+        version,
+        env=None,
+) -> str | None:
+    """Locate ``final/<package>/<version>/`` (or another version) under a publisher tree.
+
+    Prefers the tip's toolchain×variant layout when ``env`` supplies one, then scans
+    ``_build/**/final/<package>/``. Returns the first path that looks like a staged
+    package, or ``None``.
+    """
+    develop_root = os.path.abspath( develop_root )
+    version = str( version )
+    candidates: list[str] = []
+
+    if env is not None:
+        try:
+            from cuppa.core.build_layout import sanitise_abi, tool_variant_dir
+            toolchain = env.get( "toolchain" )
+            variant = env.get( "variant" )
+            arch = env.get( "target_arch" )
+            abi = env.get( "abi" )
+            toolchain_name = None
+            if toolchain is not None:
+                name_fn = getattr( toolchain, "name", None )
+                toolchain_name = name_fn() if callable( name_fn ) else str( toolchain )
+            variant_name = None
+            if variant is not None:
+                name_fn = getattr( variant, "name", None )
+                variant_name = name_fn() if callable( name_fn ) else str( variant )
+            if toolchain_name and variant_name and arch and abi is not None:
+                tvd = tool_variant_dir(
+                        toolchain_name, variant_name, arch, sanitise_abi( str( abi ) )
+                )
+                preferred = os.path.join(
+                        develop_root, "_build", tvd, "final", package, version
+                )
+                candidates.append( preferred )
+        except Exception:
+            pass
+
+    build_root = os.path.join( develop_root, "_build" )
+    if os.path.isdir( build_root ):
+        for dirpath, dirnames, _filenames in os.walk( build_root ):
+            if os.path.basename( dirpath ) != "final":
+                continue
+            exact = os.path.join( dirpath, package, version )
+            if exact not in candidates:
+                candidates.append( exact )
+            package_dir = os.path.join( dirpath, package )
+            if os.path.isdir( package_dir ):
+                try:
+                    children = sorted( os.listdir( package_dir ) )
+                except OSError:
+                    children = []
+                for child in children:
+                    other = os.path.join( package_dir, child )
+                    if os.path.isdir( other ) and other not in candidates:
+                        candidates.append( other )
+            dirnames[:] = []
+
+    for path in candidates:
+        if looks_like_package_stage( path ):
+            return path
+    return None
 
 
 def develop_publish_objections( copy ) -> list[str]:
@@ -1324,32 +1425,55 @@ def _cascade_clean_cmake_note_lines() -> list[str]:
     ]
 
 
-def session_begin_lines( ordinal, total, label, publisher_dir, command, width=None ) -> list[str]:
-    """Banner opening one nested session, so the extra ``scons`` run is visible."""
+def session_begin_lines(
+        ordinal,
+        total,
+        label,
+        publisher_dir,
+        command,
+        width=None,
+        kind: str = "cascade session",
+) -> list[str]:
+    """Banner opening one nested session, so the extra ``scons`` run is visible.
+
+    ``kind`` distinguishes cascade publishes from develop-local stages. The
+    ``kind N of M`` chip is an info-label — jumping sconstruct is meant to read loud.
+    """
+    head = as_info_label( "{} {} of {}".format( kind, ordinal, total ) )
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "cascade session {} of {}: {}".format( ordinal, total, as_info( str( label ) ) ),
+            "{}: {}".format( head, as_info( str( label ) ) ),
             "  publisher [{}]".format( as_notice( storage.display_path( str( publisher_dir ) ) ) ),
             "  command [{}]".format( as_notice( str( command ) ) ),
     ]
 
 
-def session_end_lines( ordinal, total, label, elapsed_nanosecs=None ) -> list[str]:
+def session_end_lines(
+        ordinal,
+        total,
+        label,
+        elapsed_nanosecs=None,
+        kind: str = "cascade session",
+        width=None,
+) -> list[str]:
     """Banner closing one nested session. Claims nothing about what was uploaded.
 
     Telling an up-to-date no-op from a real upload needs the registry query that
-    Phase 2c builds; see ``design/plans/package-build-publish-deps.md``.
+    Phase 2c builds; see ``design/plans/package-build-publish-deps.md``. The rule
+    under the finished chip mirrors the opening banner so return to the tip session
+    is as visible as the jump out.
     """
     taken = ""
     if elapsed_nanosecs is not None:
         taken = " in {}".format(
                 as_notice( timer.as_duration_string( elapsed_nanosecs ) )
         )
+    head = as_info_label( "{} {} of {} finished".format( kind, ordinal, total ) )
     return [
-            "cascade session {} of {} finished: {}{}".format(
-                    ordinal, total, as_info( str( label ) ), taken
-            ),
+            "{}: {}{}".format( head, as_info( str( label ) ), taken ),
+            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
+            "",
     ]
 
 
@@ -1366,7 +1490,8 @@ def sessions_complete_lines(
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "cascade sessions complete: {}; {} {}".format(
+            "{}: {}; {} {}".format(
+                    as_info_label( "cascade sessions complete" ),
                     nested,
                     resume,
                     _package_identity( tip_package, tip_version ),
@@ -1683,6 +1808,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
 } )
@@ -1750,8 +1876,8 @@ def tip_dependency_option_flags( env ) -> frozenset[str]:
     return frozenset( flags )
 
 
-def tip_forward_args( argv=None, env=None ) -> list[str]:
-    """Tip SCons/cuppa option args suitable for a nested ``--publish-package``.
+def tip_forward_args( argv=None, env=None, stage_only: bool = False ) -> list[str]:
+    """Tip SCons/cuppa option args suitable for a nested publish or stage session.
 
     Uses the live tip ``sys.argv`` (variant, toolchains, offline, …), not
     ``configured_options`` from ``~/.cuppaconfig`` — those conf keys are not
@@ -1759,6 +1885,9 @@ def tip_forward_args( argv=None, env=None ) -> list[str]:
 
     Tip dependency-scoped options are dropped when ``env`` is supplied: the child
     has never registered them.
+
+    With ``stage_only=True``, the child builds and stages the package but does not
+    upload (``--stage-package`` instead of ``--publish-package``).
     """
     if argv is None:
         argv = sys.argv
@@ -1787,14 +1916,35 @@ def tip_forward_args( argv=None, env=None ) -> list[str]:
 
     if "-D" not in forwarded:
         forwarded.insert( 0, "-D" )
-    if "--publish-package" not in forwarded:
-        forwarded.append( "--publish-package" )
+
+    def _without( flags: list[str], *names: str ) -> list[str]:
+        drop = set( names )
+        prefixes = tuple( name + "=" for name in names )
+        return [
+                arg for arg in flags
+                if arg not in drop and not any( arg.startswith( p ) for p in prefixes )
+        ]
+
+    if stage_only:
+        forwarded = _without( forwarded, "--publish-package", "--stage-package" )
+        forwarded.append( "--" + STAGE_PACKAGE_OPTION )
+    else:
+        forwarded = _without( forwarded, "--stage-package" )
+        if "--publish-package" not in forwarded:
+            forwarded.append( "--publish-package" )
     return forwarded
 
 
 def argv_for_nested_publish( argv=None, env=None ) -> list[str]:
     """Full subprocess argv: ``python -m cuppa`` + :func:`tip_forward_args`."""
     return [ sys.executable, "-m", "cuppa" ] + tip_forward_args( argv, env=env )
+
+
+def argv_for_nested_stage( argv=None, env=None ) -> list[str]:
+    """Full subprocess argv for a nested stage-only (no upload) session."""
+    return [
+            sys.executable, "-m", "cuppa"
+    ] + tip_forward_args( argv, env=env, stage_only=True )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
@@ -2204,8 +2354,8 @@ def update_publisher_trees( env, nodes: dict, order, out=None ) -> int:
 
 
 
-def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
-    argv = argv_for_nested_publish( env=env )
+def _nested_session_env( env ) -> dict:
+    """Environment for a nested cuppa subprocess (cascade publish or develop stage)."""
     nested_env = os.environ.copy()
     nested_env[NESTED_ENV] = "1"
     root = str( env.get( "sconstruct_dir" ) or "" )
@@ -2221,6 +2371,12 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     if cuppa_root not in pythonpath_parts:
         pythonpath_parts.insert( 0, cuppa_root )
     nested_env["PYTHONPATH"] = os.pathsep.join( pythonpath_parts )
+    return nested_env
+
+
+def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
+    argv = argv_for_nested_publish( env=env )
+    nested_env = _nested_session_env( env )
 
     write_lines( session_begin_lines(
             ordinal, total, label, publisher_dir, " ".join( argv )
@@ -2242,6 +2398,87 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall
     ) )
+
+
+def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
+    """Nested cuppa session that builds and stages a package without uploading."""
+    argv = argv_for_nested_stage( env=env )
+    nested_env = _nested_session_env( env )
+    kind = "develop stage"
+
+    write_lines( session_begin_lines(
+            1, 1, label, publisher_dir, " ".join( argv ), kind=kind
+    ) )
+    session_timer = timer.Timer()
+    completion = subprocess.run(
+            argv,
+            cwd=publisher_dir,
+            env=nested_env,
+    )
+    session_timer.stop()
+    if completion.returncode != 0:
+        verb = "clean" if _clean_enabled( env ) else "stage"
+        raise SCons.Errors.StopError(
+                "develop {} of [{}] failed with return code [{}] (cwd={})"
+                .format( verb, label, completion.returncode, publisher_dir )
+        )
+    write_lines( session_end_lines(
+            1, 1, label, session_timer.elapsed().wall, kind=kind
+    ) )
+
+
+def consume_develop_package_stage(
+        env,
+        develop_root: str,
+        package: str,
+        version,
+        label: str | None = None,
+) -> str | None:
+    """Resolve (and optionally nest-build) a publisher develop stage for tip consume.
+
+    Default (``--develop`` alone): discover an existing ``final/<package>/<version>/``.
+    With ``--stage-develop``: run a nested ``--stage-package`` session first (and
+    forward ``-c`` so clean nests too). Nested tip sessions return ``None`` so the
+    caller can fall through to registry download.
+    """
+    if _is_nested():
+        return None
+    require_stage_develop_with_develop( env )
+    label = label or package
+    cleaning = _clean_enabled( env )
+    do_stage = stage_develop_enabled( env )
+
+    if do_stage:
+        run_nested_stage( env, develop_root, label )
+    elif cleaning:
+        # Tip-only clean: leave the develop package's stage alone.
+        return resolve_develop_package_stage(
+                develop_root, package, version, env=env
+        )
+
+    stage = resolve_develop_package_stage( develop_root, package, version, env=env )
+    if cleaning:
+        return stage
+    if stage:
+        return stage
+    if do_stage:
+        raise SCons.Errors.StopError(
+                "develop package [{}] built from [{}] but no usable stage was found "
+                "under _build/.../final/{}/{} (need include/ and lib/)"
+                .format( label, develop_root, package, version )
+        )
+    raise SCons.Errors.StopError(
+            "develop package [{}] at [{}] has no staged "
+            "_build/.../final/{}/{} (need include/ and lib/). Build that "
+            "tree yourself, or pass --{} with --develop to stage it from here"
+            .format(
+                    label,
+                    develop_root,
+                    package,
+                    version,
+                    STAGE_DEVELOP_OPTION,
+            )
+    )
 
 
 def maybe_run_cascade( env, publisher ) -> None:

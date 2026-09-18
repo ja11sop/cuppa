@@ -102,20 +102,29 @@ it does everywhere else.
 
 Cascade needs the project that *publishes* the package here, which is a tree with
 an ``sconstruct``. A develop path pointing at a built package — a prefix with
-``include/`` and ``lib/``, which is what ``develop`` selects for a consume-only
-build — is refused with both meanings named, as is a develop path with no tree at
-that location: cascade never clones into a develop path, since that is
+``include/`` and ``lib/`` and no ``sconstruct`` — is refused for cascade with both
+meanings named (consume still accepts that prefix shape with a log note). A
+develop path with no tree at that location is likewise refused: cascade never
+clones into a develop path, since that is
 ``--clone-develop``'s job. A staged ``cuppa-publish.json`` does not make a prefix
 a publisher tree, because publisher builds stage that manifest beside ``include/``
 and ``lib/``.
 
 Because such a tree is the *source* of the package rather than the package,
-``--develop`` does not swap it in as the prefix this build links against, as it
-does outside a cascade. The dependency is consumed from the registry, where the
-nested publish has just put it. The build therefore works the way a cascade
-without ``--develop`` does, with the tree you are working in supplying the
-sources. Consuming a locally built package without the registry round trip is
-planned separately.
+``--develop`` does not swap it in as the prefix this build links against.
+Instead the tip links ``include/`` and ``lib/`` from an existing stage under
+``_build/.../final/<package>/<version>/``. If that stage is missing, Cuppa stops
+with a clear error naming ``--stage-develop``.
+
+Pass ``--develop --stage-develop`` to nest-build that tree (stage, no upload) from
+the tip, and to nest ``-c`` / ``--clean`` into those trees as well. The same
+develop path still ranks first for cascade when you also pass
+``--build-and-publish-dependencies``; cascade may upload afterward, but local
+consume does not depend on the upload succeeding.
+
+A develop path that is only a built prefix (``include/`` and ``lib/``, no
+``sconstruct``) keeps today's prefix swap, with a log note that the publisher-source
+shape is preferred for new work.
 
 Without ``--develop``, a configured develop tree is left alone and the plan says
 so, rather than leaving you to wonder why the tree you have been editing was
