@@ -145,24 +145,32 @@ rebuild. Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
 `--build-and-publish-dependencies` builds and publishes GitLab package dependencies
-(leaf-first) before the tip; requires `--publish-package`. Optional
-`--publisher-root=` resolves trees when `package_source` is omitted. See
+(leaf-first) before the tip; requires `--publish-package`, or pair with
+`--cascade-plan` / `--collect-cascade`. Optional `--publisher-root=` resolves trees
+when `package_source` is omitted. See
 xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
-tree, then stops without building or uploading. It requires
+tree, then stops without cloning, building, or uploading. It requires
 `--build-and-publish-dependencies`, but not `--publish-package`. Every unresolved
 publisher tree is reported rather than only the first, and the run exits non-zero
 when any remain. See xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
+
+`--collect-cascade` resolves the same graph and, with `--clone-publishers`, clones
+missing publisher trees (reusing ones that already exist), then stops without
+building or publishing. It requires `--build-and-publish-dependencies`, but not
+`--publish-package`. It is not `--publish-package -n` (a full cascade refuses
+`-n` / `--no-exec` because nested sessions still configure). See
+xref:packages.adoc#collect-cascade[Collecting publisher trees without building].
 
 `--clone-publishers` lets cascade clone a publisher tree it cannot find locally from
 that dependency's `package_source` URL, optionally pinned as `url@branch`, `url@tag`,
 or `url@revision`. Clones land in `PATH/<name>` under `--publisher-root` when it is
 set, otherwise in `<storage-root>/publishers/<name>`. Existing trees are always
 preferred and are used as they stand — never switched, reset, or overwritten — and
-cloning is unavailable with `--offline`. It is opt-in because cascade runs a build in
-the tree it fetches. See xref:packages.adoc#clone-publishers[Fetching publisher trees
-on demand].
+cloning is unavailable with `--offline`. It is opt-in because a full cascade runs a
+build in the tree it fetches (`--collect-cascade` clones without building). See
+xref:packages.adoc#clone-publishers[Fetching publisher trees on demand].
 
 `--develop` is related but not the same. Outside a cascade, a package dependency's
 `develop=` names a built package prefix (the directory `include/` and `lib/` hang off),

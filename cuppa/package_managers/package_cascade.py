@@ -15,6 +15,7 @@ See ``design/plans/package-build-publish-deps.md``.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from cuppa import timer
 from cuppa.colourise import (
         as_emphasised,
         as_error,
+        as_error_label,
         as_info,
         as_info_label,
         as_notice,
@@ -48,6 +50,7 @@ from cuppa.utility import storage
 
 CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
+COLLECT_CASCADE_OPTION = "collect-cascade"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
 MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
@@ -58,6 +61,18 @@ PUBLISHERS_DIRNAME = "publishers"
 
 # Same rule glyph as the dependency listing tree.
 RULE = '-'
+
+# Flags emphasised on the plan's command-line banner (bold info).
+_PLAN_BANNER_EXACT = frozenset( {
+        "--" + CASCADE_OPTION,
+        "--" + CASCADE_PLAN_OPTION,
+        "--" + COLLECT_CASCADE_OPTION,
+        "--" + CLONE_OPTION,
+        "--" + PUBLISHER_ROOT_OPTION,
+        "--" + MODIFIED_DEVELOP_OPTION,
+        "--develop",
+        "--publish-package",
+} )
 
 
 def cascade_enabled( env ) -> bool:
@@ -72,6 +87,46 @@ def cascade_plan_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( CASCADE_PLAN_OPTION ) )
+
+
+def cascade_collect_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( COLLECT_CASCADE_OPTION ) )
+
+
+def cascade_stop_before_build( env ) -> bool:
+    """Plan or collect: resolve (and maybe clone), report, do not nested-build."""
+    return cascade_plan_enabled( env ) or cascade_collect_enabled( env )
+
+
+def _no_exec_enabled( env ) -> bool:
+    """SCons ``-n`` / ``--no-exec`` — dry-run that still runs configure."""
+    getter = getattr( env, "get_option", None )
+    if callable( getter ):
+        return bool( getter( "no_exec" ) )
+    try:
+        return bool( SCons.Script.GetOption( "no_exec" ) )
+    except Exception:
+        return False
+
+
+def _clean_enabled( env ) -> bool:
+    """SCons ``-c`` / ``--clean`` — remove targets rather than build/publish."""
+    if env is not None:
+        try:
+            if env.get( "clean" ):
+                return True
+        except Exception:
+            pass
+        getter = getattr( env, "get_option", None )
+        if callable( getter ):
+            return bool( getter( "clean" ) )
+    try:
+        return bool( SCons.Script.GetOption( "clean" ) )
+    except Exception:
+        return False
 
 
 def clone_enabled( env ) -> bool:
@@ -223,6 +278,73 @@ def develop_publisher_dir( env, entry: dict ) -> str | None:
     return configured_develop( _factory_owner( factory ), env )
 
 
+def dependency_develop_cli_flag( env, entry: dict ) -> str | None:
+    """``--<name>-<manager>-develop`` for this edge when the tip registered that dependency."""
+    factory = _tip_dependency_factory( env, entry )
+    if factory is None:
+        return None
+    owner = _factory_owner( factory )
+    name = entry.get( "name" ) or getattr( owner, "_name", None )
+    manager = getattr( owner, "_package_manager", None )
+    if not name or not manager:
+        return None
+    from cuppa.package_managers.gitlab import GitlabPackageDependency
+    return "--" + GitlabPackageDependency.option_id( manager, name, "develop" )
+
+
+def _remember_plan_lookup( entry: dict, env ) -> None:
+    """Stash lookup-root and develop CLI flag for plan judgements built later."""
+    entry["_lookup_root"] = publisher_lookup_root( env )
+    flag = dependency_develop_cli_flag( env, entry )
+    if flag:
+        entry["_develop_cli_flag"] = flag
+
+
+def _plan_banner_emphasises( arg: str ) -> bool:
+    """Whether ``arg`` is a cascade / develop flag the plan banner should emphasise."""
+    if arg in _PLAN_BANNER_EXACT:
+        return True
+    if not arg.startswith( "--" ):
+        return False
+    flag, _, _value = arg.partition( "=" )
+    if flag in _PLAN_BANNER_EXACT:
+        return True
+    if flag.endswith( "-develop" ) or flag.endswith( "-package-source" ):
+        return True
+    return False
+
+
+def colour_plan_command_line( argv=None ) -> str:
+    """``cuppa …`` with cascade-relevant flags as emphasised info."""
+    if argv is None:
+        argv = sys.argv
+    tokens = list( argv )
+    if not tokens:
+        return "cuppa"
+    # Operators type ``cuppa``; argv[0] is often a path to scons or python -m cuppa.
+    first = os.path.basename( str( tokens[0] ) )
+    if first in ( "cuppa", "scons" ) or first.startswith( "cuppa" ):
+        display = [ "cuppa" ] + [ str( t ) for t in tokens[1:] ]
+    elif first in ( "python", "python3" ) and len( tokens ) >= 3 and str( tokens[1] ) == "-m":
+        display = [ "cuppa" ] + [ str( t ) for t in tokens[3:] ]
+    else:
+        display = [ "cuppa" ] + [ str( t ) for t in tokens[1:] ]
+
+    parts = []
+    for arg in display:
+        if arg == "--cuppa-mode" or arg.startswith( "--cuppa-mode=" ):
+            continue
+        if _plan_banner_emphasises( arg ):
+            if "=" in arg and arg.startswith( "--" ):
+                flag, _, value = arg.partition( "=" )
+                parts.append( as_emphasised( as_info( flag ) ) + "=" + as_info( value ) )
+            else:
+                parts.append( as_emphasised( as_info( arg ) ) )
+        else:
+            parts.append( arg )
+    return " ".join( parts )
+
+
 def develop_names_a_publisher_tree( path: str ) -> bool:
     """Whether a develop path names a project that publishes a package.
 
@@ -266,7 +388,7 @@ def develop_is_publisher_source( env, path: str ) -> bool:
     that path is the publisher project, the tree is the *source* of the package, so the swap has
     to stand down and let the build take the artefact the nested publish produces.
     """
-    if not cascade_enabled( env ) and not cascade_plan_enabled( env ):
+    if not cascade_enabled( env ) and not cascade_stop_before_build( env ):
         return False
     return develop_names_a_publisher_tree( path )
 
@@ -334,6 +456,7 @@ def clone_publisher( env, entry: dict, url: str, revision, destination: str ) ->
         origin = Git.remote_url( destination )
         if origin and _same_repository( origin, url ):
             _report_existing_clone( label, destination, revision )
+            entry["_cloned_now"] = False
             return destination
         raise SCons.Errors.StopError(
                 "cascade cannot clone the publisher for [{}]: [{}] already "
@@ -375,6 +498,7 @@ def clone_publisher( env, entry: dict, url: str, revision, destination: str ) ->
                 "sconstruct or {}, so it cannot publish anything"
                 .format( url, destination, label, PUBLISH_FILENAME )
         )
+    entry["_cloned_now"] = True
     return destination
 
 
@@ -419,6 +543,7 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
     package_source = entry.get( "package_source" ) or declared_package_source( env, entry )
     name = entry["name"]
     package = entry["package"]
+    _remember_plan_lookup( entry, env )
 
     # A develop tree outranks everything else: it is the operator saying, for this
     # run, which copy of this dependency they mean. A root convention is a guess by
@@ -461,28 +586,25 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
             # back to storage_root.
             resolved = _resolve_under_publisher_root( lookup_root, name, package )
             if resolved:
+                if entry.get( "_develop_unused" ):
+                    # Plan will execute from the forest copy — warn that this is
+                    # probably not what a configured develop path was meant for.
+                    entry["_publisher_forest_hit"] = resolved
                 return resolved
             url, revision = split_source_pin( source )
             if not clone_enabled( env ):
+                destination = publisher_clone_destination( env, entry )
+                entry["_clone_url"] = url
+                entry["_clone_revision"] = revision
+                entry["_clone_dir"] = destination
                 if entry.get( "_develop_unused" ):
-                    # The operator has a usable develop tree; forgetting --develop is
-                    # a warning, not "no local working tree". Real runs still stop —
-                    # develop is not implied — with a message that names the tree.
-                    entry["_would_happen"] = (
-                            "without --develop, cascade would look under [{}] (nothing "
-                            "found) and then need --{} or a filesystem package_source; "
-                            "pass --develop to publish from [{}]"
-                            .format(
-                                    storage.display_path( lookup_root ),
-                                    CLONE_OPTION,
-                                    storage.display_path( entry["_develop_dir"] ),
-                            )
-                    )
+                    # Usable develop tree configured; forgetting --develop is the
+                    # primary warning. Soft-graded in plan mode — see _node_judgements.
                     raise SCons.Errors.StopError(
                             "cascade will not use the develop tree for [{}] at [{}] "
                             "because --develop was not passed, and no publisher tree "
-                            "was found under [{}]. Pass --develop, pass --{}, set "
-                            "--{}, or give the dependency a filesystem package_source."
+                            "was found under [{}]. Pass --develop, pass --{}, or set "
+                            "--{}."
                             .format(
                                     name,
                                     storage.display_path( entry["_develop_dir"] ),
@@ -491,11 +613,13 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                                     PUBLISHER_ROOT_OPTION,
                             )
                     )
+                # Cloneable URL, no local tree, clone flag off: a real run stops here.
+                # Plan mode soft-grades this as a warning (+ notes), not a broken graph.
+                entry["_needs_clone_opt_in"] = True
                 raise SCons.Errors.StopError(
                         "package_source for [{}] is a URL [{}] and no local "
                         "working tree was found under [{}]. Pass --{} to clone it, "
-                        "set --{} to a forest that already holds it, or give the "
-                        "dependency a filesystem package_source."
+                        "or set --{} to a forest that already holds it."
                         .format(
                                 name,
                                 source,
@@ -524,23 +648,14 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
 
     resolved = _resolve_under_publisher_root( lookup_root, name, package )
     if resolved:
+        if entry.get( "_develop_unused" ):
+            entry["_publisher_forest_hit"] = resolved
         return resolved
     if entry.get( "_develop_unused" ):
-        entry["_would_happen"] = (
-                "without --develop, cascade would look under [{}] (nothing found); "
-                "pass --develop to publish from [{}], or set --{} / a filesystem "
-                "package_source"
-                .format(
-                        storage.display_path( lookup_root ),
-                        storage.display_path( entry["_develop_dir"] ),
-                        PUBLISHER_ROOT_OPTION,
-                )
-        )
         raise SCons.Errors.StopError(
                 "cascade will not use the develop tree for [{}] at [{}] because "
                 "--develop was not passed, and no publisher tree was found under "
-                "[{}]. Pass --develop, set --{}, or give the dependency a "
-                "filesystem package_source."
+                "[{}]. Pass --develop or set --{}."
                 .format(
                         name,
                         storage.display_path( entry["_develop_dir"] ),
@@ -569,8 +684,8 @@ def _claim_clone_destination( claims, destination: str, entry: dict, url: str ) 
     if claimed and not _same_repository( claimed[1], url ):
         raise SCons.Errors.StopError(
                 "cascade cannot clone both [{}] from [{}] and [{}] from [{}] "
-                "into [{}]: two repositories claim one directory. Give one of "
-                "them a filesystem package_source, or plant its tree under --{}."
+                "into [{}]: two repositories claim one directory. Set --{} so "
+                "they land apart, or plant one tree under a different path."
                 .format(
                         claimed[0], claimed[1], node_label( entry ), url,
                         destination, PUBLISHER_ROOT_OPTION,
@@ -678,13 +793,11 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
             if not tolerant:
                 raise
             nodes[key]["_publisher_dir"] = None
-            # A usable develop tree was configured but --develop was not passed:
-            # that is a warning plus a note about what a real run would do, not
-            # "no local working tree".
-            if (
-                    nodes[key].get( "_develop_unused" )
-                    and nodes[key].get( "_would_happen" )
-            ):
+            # Remediable by an opt-in flag: plan mode reports a warning (+ notes), not
+            # a broken graph. A real run still raised above.
+            if nodes[key].get( "_develop_unused" ):
+                continue
+            if nodes[key].get( "_needs_clone_opt_in" ):
                 continue
             nodes[key]["_resolve_error"] = str( error )
             continue
@@ -780,17 +893,96 @@ def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
     return "{} {}".format( count, word )
 
 
+def _cascade_stop_summary( option: str, summary ) -> str:
+    """Info-label chip for plan/collect finish lines (through the semicolon)."""
+    return as_info_label( "--{}: {}".format( option, summary ) )
+
+
+def _footer_flag( option: str ) -> str:
+    """Emphasised info ``--flag`` for finish-line advice (stands out in plain prose)."""
+    name = option if str( option ).startswith( "--" ) else "--" + option
+    return as_emphasised( as_info( name ) )
+
+
 def _cascade_plan_summary( summary ) -> str:
     """Info-label chip for the plan's definitive summary (through the semicolon)."""
-    return as_info_label( "--{}: {}".format( CASCADE_PLAN_OPTION, summary ) )
+    return _cascade_stop_summary( CASCADE_PLAN_OPTION, summary )
 
 
-def _node_judgements( entry ) -> list[tuple[str, str]]:
+def _lookup_root_for( entry ) -> str:
+    root = entry.get( "_lookup_root" )
+    if root:
+        return storage.display_path( root )
+    return storage.display_path(
+            os.path.join( os.path.expanduser( storage_defaults.storage_root ), PUBLISHERS_DIRNAME )
+    )
+
+
+def _display_path_marking_leaf( path, leaf ) -> str:
+    """``display_path`` with the trailing ``leaf`` wrapped in ``{…}`` for colouring.
+
+    Judgement prose highlight turns ``[root/{name}]`` into a severity-coloured
+    root and package name separated by a plain ``/``, so the forest and the
+    package directory read as two visual units inside one bracketed path.
+    """
+    displayed = storage.display_path( str( path ) )
+    if not leaf:
+        return displayed
+    leaf = str( leaf )
+    if displayed == leaf:
+        return "{" + leaf + "}"
+    if displayed.endswith( "/" + leaf ):
+        return displayed[ : -len( leaf ) ] + "{" + leaf + "}"
+    return displayed
+
+
+def _publisher_root_alternative_note( entry, collect=False ) -> str:
+    base = (
+            "alternatively, use --{} to choose a different publisher root than the "
+            "default of [{}]".format( PUBLISHER_ROOT_OPTION, _lookup_root_for( entry ) )
+    )
+    if collect:
+        return base + " and pass --{}".format( CLONE_OPTION )
+    return base
+
+
+def _develop_path_alternative_note( entry, collect=False ) -> str:
+    flag = entry.get( "_develop_cli_flag" )
+    if collect:
+        if flag:
+            return (
+                    "alternatively, set {} to a filesystem path and pass --develop; "
+                    "if that path exists, collect uses that tree instead of cloning"
+                    .format( flag )
+            )
+        return (
+                "alternatively, set a develop path for this dependency "
+                "(develop= or --<name>-<manager>-develop=) and pass --develop; "
+                "if that path exists, collect uses that tree instead of cloning"
+        )
+    if flag:
+        return (
+                "alternatively, set {} to a filesystem path and pass --develop; "
+                "if that path exists, cascade publishes from it".format( flag )
+        )
+    return (
+            "alternatively, set a develop path for this dependency "
+            "(develop= or --<name>-<manager>-develop=) and pass --develop; "
+            "if that path exists, cascade publishes from it"
+    )
+
+
+def _executable_noun( collect=False ) -> str:
+    return "collect" if collect else "plan"
+
+
+def _node_judgements( entry, collect=False ) -> list[tuple[str, str]]:
     """``(severity, prose)`` under one package node, error then warning then note.
 
-    Prose uses ``[brackets]`` for paths and other values ``highlight_values`` should
-    colour, and bare ``--flags`` for CLI options (coloured without inventing brackets).
-    The severity heading carries the severity colour, not the whole sentence.
+    Warnings name the primary intent that needs a flag; notes list alternatives
+    separately. Prose uses ``[brackets]`` for paths and other values
+    ``highlight_values`` should colour, and bare ``--flags`` for CLI options.
+    ``collect`` retargets verbs for ``--collect-cascade`` rather than a publish plan.
     """
     items: list[tuple[str, str]] = []
     if entry.get( "_resolve_error" ):
@@ -804,22 +996,87 @@ def _node_judgements( entry ) -> list[tuple[str, str]]:
                         ", ".join( objections ), verdict
                 ),
         ) )
-    if entry.get( "_develop_unused" ):
+
+    develop_unused = entry.get( "_develop_unused" )
+    forest_hit = entry.get( "_publisher_forest_hit" )
+    needs_clone = entry.get( "_needs_clone_opt_in" )
+    lookup = _lookup_root_for( entry )
+    clone_dir = entry.get( "_clone_dir" )
+    clone_url = entry.get( "_clone_url" )
+    clone_pin = entry.get( "_clone_revision" )
+    executable = _executable_noun( collect )
+
+    if develop_unused:
         items.append( (
                 "warning",
                 "a develop tree is configured at [{}] but --develop was not passed; "
-                "was that intentional?".format(
-                        storage.display_path( entry["_develop_dir"] )
+                "pass --develop to make this {} executable".format(
+                        storage.display_path( entry["_develop_dir"] ),
+                        executable,
                 ),
         ) )
-    if entry.get( "_clone_dir" ):
-        pin = entry.get( "_clone_revision" )
+        if forest_hit:
+            leaf = entry.get( "name" ) or entry.get( "package" )
+            items.append( (
+                    "warning",
+                    "otherwise, cascade will use the existing publisher tree at [{}]; "
+                    "that is probably not what you intended".format(
+                            _display_path_marking_leaf( forest_hit, leaf ),
+                    ),
+            ) )
+
+    if needs_clone:
+        destination = storage.display_path( clone_dir ) if clone_dir else lookup
+        source = entry.get( "package_source" ) or clone_url or ""
+        items.append( (
+                "warning",
+                "package_source is a URL [{}] and no local working tree was found under [{}]; "
+                "pass --{} to clone into [{}] and make this {} executable".format(
+                        source,
+                        lookup,
+                        CLONE_OPTION,
+                        destination,
+                        executable,
+                ),
+        ) )
+
+    # Notes: alternatives and planned-clone detail (never "rewrite package_source").
+    if develop_unused and forest_hit:
+        items.append( ( "note", _publisher_root_alternative_note( entry, collect ) ) )
+    elif develop_unused and not entry.get( "_publisher_dir" ):
+        # Soft-graded: no tree was resolved without --develop.
+        if clone_dir and clone_url:
+            items.append( (
+                    "note",
+                    "alternatively, cascade will look under [{}] for a publisher tree. "
+                    "As none exists there yet, pass --{} to clone into [{}] and make "
+                    "this {} executable".format(
+                            lookup,
+                            CLONE_OPTION,
+                            storage.display_path( clone_dir ),
+                            executable,
+                    ),
+            ) )
+        else:
+            items.append( (
+                    "note",
+                    "alternatively, cascade will look under [{}] for a publisher tree "
+                    "(nothing found there yet)".format( lookup ),
+            ) )
+        items.append( ( "note", _publisher_root_alternative_note( entry, collect ) ) )
+
+    if needs_clone:
+        items.append( ( "note", _publisher_root_alternative_note( entry, collect ) ) )
+        items.append( ( "note", _develop_path_alternative_note( entry, collect ) ) )
+
+    if entry.get( "_clone_dir" ) and not needs_clone and not develop_unused:
+        # --clone-publishers set: plan the fetch rather than performing it.
         items.append( (
                 "note",
                 "would clone [{}]{} into [{}]".format(
-                        entry.get( "_clone_url" ),
-                        " at [{}]".format( pin ) if pin else "",
-                        storage.display_path( entry["_clone_dir"] ),
+                        clone_url,
+                        " at [{}]".format( clone_pin ) if clone_pin else "",
+                        storage.display_path( clone_dir ),
                 ),
         ) )
         items.append( (
@@ -827,17 +1084,62 @@ def _node_judgements( entry ) -> list[tuple[str, str]]:
                 "its own package dependencies are not known until that tree exists, "
                 "so nothing is planned beneath it",
         ) )
-    if entry.get( "_would_happen" ):
-        items.append( ( "note", entry["_would_happen"] ) )
     return items
 
 
+# Bare setting name in judgement prose — colour at message severity, no brackets
+# (unlike paths/URLs, the token is fixed).
+_PACKAGE_SOURCE_TOKEN = re.compile( r'(?<![\w.-])package_source(?![\w-])' )
+# ``[prefix/{leaf}]`` in judgement prose — leaf is the package directory name.
+_PATH_LEAF_IN_BRACKETS = re.compile( r'\[([^\[\]]*?)\{([^{}\]]+)\}([^\[\]]*)\]' )
+
+
+def _highlight_path_leaf_brackets( text, colour ):
+    """Colour ``[root/{leaf}]`` as severity root, plain ``/``, severity leaf.
+
+    Brackets stay plain. Protects the result from a second ``highlight_values``
+    pass (ANSI CSI uses ``[``).
+    """
+    protected = []
+
+    def protect( match ):
+        prefix, leaf, suffix = match.group( 1 ), match.group( 2 ), match.group( 3 )
+        if prefix.endswith( "/" ):
+            root = prefix[ : -1 ]
+            sep = "/"
+        else:
+            root = prefix
+            sep = "/" if root and leaf else ""
+        coloured = (
+                "["
+                + ( colour( root ) if root else "" )
+                + sep
+                + colour( leaf )
+                + ( colour( suffix ) if suffix else "" )
+                + "]"
+        )
+        protected.append( coloured )
+        return "\0PL{}\0".format( len( protected ) - 1 )
+
+    text = _PATH_LEAF_IN_BRACKETS.sub( protect, text )
+    text = storage.highlight_values( text, colour )
+    for index, coloured in enumerate( protected ):
+        text = text.replace( "\0PL{}\0".format( index ), coloured )
+    return text
+
+
 def _append_highlighted_prose( lines, text, colour, first_branch, carried_branch, prose_width ):
-    """Wrap prose under a tree branch; colour ``[bracketed]`` values and bare ``--flags``."""
+    """Wrap prose under a tree branch; colour ``[bracketed]`` values, bare ``--flags``,
+    ``[prefix/{leaf}]`` path leaves, and the fixed ``package_source`` setting name.
+    """
     wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
     branch = first_branch
     for piece in storage.wrapped( text, wrap_width ):
-        lines.append( as_subdued( branch ) + storage.highlight_values( piece, colour ) )
+        highlighted = _highlight_path_leaf_brackets( piece, colour )
+        highlighted = _PACKAGE_SOURCE_TOKEN.sub(
+                lambda match: colour( match.group( 0 ) ), highlighted
+        )
+        lines.append( as_subdued( branch ) + highlighted )
         branch = carried_branch
 
 
@@ -876,15 +1178,28 @@ def _append_severity_groups( lines, judgements, under, prose_width, encoding=Non
             _append_highlighted_prose( lines, text, colour, first, carried, prose_width )
 
 
-def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) -> list[str]:
+def cascade_plan_lines(
+        nodes, order, tip_package, tip_version, encoding=None, argv=None, mode=None,
+        clean=False,
+) -> list[str]:
     """Publish order, leaf-first: package nodes first, judgements nested beneath.
 
     Packages stay in publish order (the point of this report). Errors, warnings, and
     notes hang under each package the way a judgement tree hangs under a severity
     heading — severity coloured on the heading and on ``[bracketed]`` values only.
+
+    The invoking command line is shown above the tree so recommended flags can be
+    compared with flags already present (cascade-relevant ones are emphasised info).
+
+    ``mode`` is ``cascade-plan`` (default) or ``collect-cascade`` — collect retargets
+    the header and judgement verbs. ``clean`` retargets the intro for ``-c`` /
+    ``--clean`` (nested sessions remove targets; nothing is published).
     """
+    collect = mode == COLLECT_CASCADE_OPTION
     tee, elbow, pipe, gap = storage.glyphs( encoding )
-    judgements_by_key = { key: _node_judgements( nodes[key] ) for key in order }
+    judgements_by_key = {
+            key: _node_judgements( nodes[key], collect=collect ) for key in order
+    }
 
     error_count = sum(
             1 for key in order
@@ -900,9 +1215,25 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
     )
 
     tip = _package_identity( tip_package, tip_version )
+    if collect:
+        intro = (
+                "Printing Cascade plan for collecting packages for {} given the command:"
+                .format( tip )
+        )
+    elif clean:
+        intro = (
+                "Printing Cascade plan for cleaning package {} given the command:"
+                .format( tip )
+        )
+    else:
+        intro = (
+                "Printing Cascade plan for building and publishing package {} "
+                "given the command:".format( tip )
+        )
     lines = [
             "",
-            "Printing Cascade plan for building and publishing package {}".format( tip ),
+            intro,
+            colour_plan_command_line( argv ),
             "",
             "Cascade plan: {} (this package) with {}: {}".format(
                     tip,
@@ -929,20 +1260,45 @@ def cascade_plan_lines( nodes, order, tip_package, tip_version, encoding=None ) 
         lines.append( "{}{}  {}".format(
                 as_subdued( tee ), marker, _plan_dependency_label( entry )
         ) )
+        judgements = judgements_by_key[key]
         if entry.get( "_publisher_dir" ):
             publisher = entry["_publisher_dir"]
-            lines.append( "{}publisher [{}]{}".format(
-                    as_subdued( under ),
+            # Nested under the package like a judgement leaf: elbow when alone,
+            # tee when errors/warnings/notes follow.
+            branch = elbow if not judgements else tee
+            lines.append( "{}using publisher at [{}]{}".format(
+                    as_subdued( under + branch ),
                     as_notice( storage.display_path( str( publisher ) ) ),
                     " (develop)" if entry.get( "_from_develop" ) else "",
             ) )
-        judgements = judgements_by_key[key]
         if judgements:
             _append_severity_groups( lines, judgements, under, prose_width, encoding )
 
     lines.append( as_subdued( pipe.rstrip() ) )
-    lines.append( "{}then {} from this tree".format( as_subdued( elbow ), tip ) )
+    if clean:
+        lines.append( "{}then clean {} from this tree".format(
+                as_subdued( elbow ), tip
+        ) )
+        lines.extend( _cascade_clean_cmake_note_lines() )
+    else:
+        lines.append( "{}then {} from this tree".format( as_subdued( elbow ), tip ) )
     return lines
+
+
+def _cascade_clean_cmake_note_lines() -> list[str]:
+    """Explain why a nested clean can look thinner than a tip CMake wipe."""
+    return [
+            "",
+            (
+                    "cascade note: -c removes publisher working/final stamps and any "
+                    "paths registered with env.Clean. Out-of-tree CMake -B trees under "
+                    "location downloads are removed only when the publisher uses "
+                    "CMakeConfigure/CMakeBuild (or registers Clean itself). Raw Command "
+                    "wrappers leave those objects in place, so the next rebuild can look "
+                    "like an incremental Ninja build even though Cuppa still re-packages "
+                    "and re-uploads."
+            ),
+    ]
 
 
 def session_begin_lines( ordinal, total, label, publisher_dir, command, width=None ) -> list[str]:
@@ -974,15 +1330,22 @@ def session_end_lines( ordinal, total, label, elapsed_nanosecs=None ) -> list[st
     ]
 
 
-def sessions_complete_lines( total, tip_package, tip_version, width=None ) -> list[str]:
-    """Banner handing the console back to this package's build."""
+def sessions_complete_lines(
+        total, tip_package, tip_version, width=None, clean=False
+) -> list[str]:
+    """Banner handing the console back to this package's build (or clean)."""
+    nested = storage.emphasised_count_phrase(
+            total,
+            "nested clean" if clean else "nested publish",
+            "nested cleans" if clean else "nested publishes",
+    )
+    resume = "resuming clean of this package" if clean else "resuming this package"
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "cascade sessions complete: {}; resuming this package {}".format(
-                    storage.emphasised_count_phrase(
-                            total, "nested publish", "nested publishes"
-                    ),
+            "cascade sessions complete: {}; {} {}".format(
+                    nested,
+                    resume,
                     _package_identity( tip_package, tip_version ),
             ),
     ]
@@ -993,6 +1356,43 @@ def write_lines( lines, out=None ) -> None:
     stream = out if out is not None else sys.stdout
     for line in lines:
         stream.write( line + "\n" )
+
+
+def _raise_options_error( headline, reasons, short_message, encoding=None, out=None ):
+    """Print an Options Error tree on stdout, then raise a short ``StopError``.
+
+    Surprising refusals (invalid flag combinations) deserve a readable report
+    before the critical exception line. ``headline`` is the title after the
+    chip. ``reasons`` is a list of ``(prose, colour)`` branches — typically a
+    why branch coloured with ``as_error`` and a remedy branch coloured with
+    emphasised info so the positive next flags stand out. Bare ``--flags`` and
+    ``[bracketed]`` values take that branch's colour.
+    """
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    stub = pipe.rstrip()
+    lines = [
+            "",
+            "{}: {}".format(
+                    as_error_label( as_emphasised( "Options Error" ) ),
+                    storage.highlight_values( headline, as_error ),
+            ),
+    ]
+    total = len( reasons )
+    for index, ( reason, colour ) in enumerate( reasons ):
+        last = index == total - 1
+        lines.append( as_subdued( stub ) )
+        first = elbow if last else tee
+        carried = gap if last else pipe
+        wrap_width = max( storage.WIDEST_PROSE - len( first ), storage.NARROWEST_PROSE )
+        branch = first
+        for piece in storage.wrapped( reason, wrap_width ):
+            lines.append(
+                    as_subdued( branch ) + storage.highlight_values( piece, colour )
+            )
+            branch = carried
+    lines.append( "" )
+    write_lines( lines, out=out )
+    raise SCons.Errors.StopError( short_message )
 
 
 # Plan reports recorded during the sconscript read; see finish_plan_only().
@@ -1007,17 +1407,35 @@ def plan_reports() -> list[dict]:
     return list( _plan_reports )
 
 
-def record_plan_report( tip_package, tip_version, error_count, clone_count=0 ) -> None:
+def record_plan_report(
+        tip_package,
+        tip_version,
+        error_count,
+        clone_count=0,
+        needs_clone_opt_in=0,
+        unused_develop=0,
+        mode=None,
+        trees_collected=0,
+) -> None:
     _plan_reports.append( {
             "package": str( tip_package ),
             "version": str( tip_version ),
             "errors": int( error_count ),
             "clones": int( clone_count ),
+            "needs_clone_opt_in": int( needs_clone_opt_in ),
+            "unused_develop": int( unused_develop ),
+            "mode": mode or CASCADE_PLAN_OPTION,
+            "trees_collected": int( trees_collected ),
     } )
 
 
 def finish_plan_only( env=None, out=None ) -> int:
-    """Closing line and exit status for ``--cascade-plan``.
+    """Closing line and exit status for ``--cascade-plan`` (and collect via env)."""
+    return finish_cascade_stop( env=env, out=out )
+
+
+def finish_cascade_stop( env=None, out=None ) -> int:
+    """Closing line and exit status for ``--cascade-plan`` or ``--collect-cascade``.
 
     Called once the sconscript read is done (the ``--dump`` pattern in
     ``construct.py``) rather than from the publisher, so a run with several tips,
@@ -1026,16 +1444,32 @@ def finish_plan_only( env=None, out=None ) -> int:
     ``env`` lets the missing-cascade-flag refusal be reported here too: a project
     that constructs no publisher never reaches the refusal in
     :func:`maybe_run_cascade`.
+
+    Exit status follows hard resolve errors only. Opt-in warnings (``--clone-publishers``
+    needed, unused develop) leave the run reviewable with exit 0.
     """
     stream = out if out is not None else sys.stdout
+    collect = False
+    if env is not None and cascade_collect_enabled( env ):
+        collect = True
+    elif _plan_reports and _plan_reports[0].get( "mode" ) == COLLECT_CASCADE_OPTION:
+        collect = True
+    option = COLLECT_CASCADE_OPTION if collect else CASCADE_PLAN_OPTION
+    no_side_effects = (
+            "nothing was collected, built, published, or uploaded."
+            if collect else
+            "nothing was built, published, uploaded, or cloned."
+    )
+
     if not _plan_reports:
         if env is not None and not cascade_enabled( env ):
             write_lines( [
                     "",
-                    "{}: requires --{}, which is the flag it plans."
+                    "{}: requires --{}, which is the flag it {}."
                     .format(
-                            as_info_label( "--" + CASCADE_PLAN_OPTION ),
+                            as_info_label( "--" + option ),
                             CASCADE_OPTION,
+                            "collects for" if collect else "plans",
                     ),
             ], out=stream )
             return 1
@@ -1043,9 +1477,12 @@ def finish_plan_only( env=None, out=None ) -> int:
                 "",
                 "{}; Run from a project that publishes a GitLab package with "
                 "env.PublishPackage.".format(
-                        _cascade_plan_summary(
+                        _cascade_stop_summary(
+                                option,
                                 "no GitLab package publisher was constructed, so "
-                                "there is no cascade plan"
+                                "there is no cascade to {}".format(
+                                        "collect" if collect else "plan"
+                                ),
                         )
                 ),
         ], out=stream )
@@ -1053,38 +1490,113 @@ def finish_plan_only( env=None, out=None ) -> int:
 
     errors = sum( report["errors"] for report in _plan_reports )
     clones = sum( report.get( "clones", 0 ) for report in _plan_reports )
-    planned = _plain_count_phrase( len( _plan_reports ), "package" )
+    needs_clone = sum(
+            report.get( "needs_clone_opt_in", 0 ) for report in _plan_reports
+    )
+    unused_develop = sum(
+            report.get( "unused_develop", 0 ) for report in _plan_reports
+    )
+    trees_collected = sum(
+            report.get( "trees_collected", 0 ) for report in _plan_reports
+    )
+    packages = _plain_count_phrase( len( _plan_reports ), "package" )
     if errors:
+        if collect:
+            summary = "{}, {} without a publisher tree".format(
+                    _plain_count_phrase(
+                            trees_collected, "publisher tree", "publisher trees"
+                    ) + " collected",
+                    _plain_count_phrase( errors, "dependency", "dependencies" ),
+            )
+            remediation = (
+                    "Plant the missing trees, pass {} to fetch the ones with "
+                    "a URL package_source, or set {}.".format(
+                            _footer_flag( CLONE_OPTION ),
+                            _footer_flag( PUBLISHER_ROOT_OPTION ),
+                    )
+            )
+        else:
+            summary = "{} planned, {} without a publisher tree".format(
+                    packages,
+                    _plain_count_phrase( errors, "dependency", "dependencies" ),
+            )
+            remediation = (
+                    "Plant the missing trees, pass {} to fetch the ones with "
+                    "a URL package_source, or set {}. Then re-run with {} to "
+                    "execute.".format(
+                            _footer_flag( CLONE_OPTION ),
+                            _footer_flag( PUBLISHER_ROOT_OPTION ),
+                            _footer_flag( "publish-package" ),
+                    )
+            )
         write_lines( [
                 "",
-                "{}. Plant the missing trees, pass --{} to fetch the ones with "
-                "a URL package_source, set --{}, or give those dependencies a "
-                "filesystem package_source.".format(
-                        _cascade_plan_summary(
-                                "{} planned, {} without a publisher tree".format(
-                                        planned,
-                                        _plain_count_phrase(
-                                                errors, "dependency", "dependencies"
-                                        ),
-                                )
-                        ),
-                        CLONE_OPTION,
-                        PUBLISHER_ROOT_OPTION,
-                ),
+                "{}. {}".format( _cascade_stop_summary( option, summary ), remediation ),
         ], out=stream )
         return 1
 
-    summary = "{} planned".format( planned )
-    if clones:
-        summary = "{}, {} to clone first".format(
-                summary,
-                _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
+    if collect:
+        summary = "{} collected".format(
+                _plain_count_phrase(
+                        trees_collected, "publisher tree", "publisher trees"
+                )
+        )
+        if clones:
+            summary = "{}, {} newly cloned".format(
+                    summary,
+                    _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
+            )
+        if trees_collected == 0:
+            detail = "nothing was collected, built, published, or uploaded."
+        else:
+            detail = "nothing was built, published, or uploaded."
+    else:
+        summary = "{} planned".format( packages )
+        if clones:
+            summary = "{}, {} to clone first".format(
+                    summary,
+                    _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
+            )
+        detail = no_side_effects
+
+    if needs_clone or unused_develop:
+        actions = []
+        if collect:
+            if needs_clone:
+                actions.append(
+                        "pass {} to clone missing publisher trees".format(
+                                _footer_flag( CLONE_OPTION )
+                        )
+                )
+            if unused_develop:
+                actions.append(
+                        "pass {} to collect from a configured develop tree".format(
+                                _footer_flag( "develop" )
+                        )
+                )
+        else:
+            # Plan reviews a publish run: opt-ins are useless without --publish-package.
+            publish = _footer_flag( "publish-package" )
+            if needs_clone:
+                actions.append(
+                        "pass {} along with {} to clone missing publisher trees"
+                        .format( _footer_flag( CLONE_OPTION ), publish )
+                )
+            if unused_develop:
+                actions.append(
+                        "pass {} along with {} to publish from a configured develop tree"
+                        .format( _footer_flag( "develop" ), publish )
+                )
+        detail = "{}; {}".format( ", or ".join( actions ), detail )
+    elif not collect and clones:
+        detail = "pass {} along with {} to execute; {}".format(
+                _footer_flag( CLONE_OPTION ),
+                _footer_flag( "publish-package" ),
+                detail,
         )
     write_lines( [
             "",
-            "{}; nothing was built, published, uploaded, or cloned.".format(
-                    _cascade_plan_summary( summary )
-            ),
+            "{}; {}".format( _cascade_stop_summary( option, summary ), detail ),
     ], out=stream )
     return 0
 
@@ -1093,6 +1605,7 @@ def finish_plan_only( env=None, out=None ) -> int:
 _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
         "--" + CASCADE_PLAN_OPTION,
+        "--" + COLLECT_CASCADE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
@@ -1505,10 +2018,11 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     )
     session_timer.stop()
     if completion.returncode != 0:
+        verb = "clean" if _clean_enabled( env ) else "publish"
         raise SCons.Errors.StopError(
-                "cascade session {} of {} — publish of [{}] failed with return "
+                "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
-                .format( ordinal, total, label, completion.returncode, publisher_dir )
+                .format( ordinal, total, verb, label, completion.returncode, publisher_dir )
         )
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall
@@ -1519,13 +2033,28 @@ def maybe_run_cascade( env, publisher ) -> None:
     """Run cascade when the flag is set; no-op for nested invokes or when unset.
 
     Under ``--cascade-plan`` this reports the resolved order and returns without
-    running a nested publish; ``construct.py`` exits after the sconscript read.
+    cloning or nested publish. Under ``--collect-cascade`` it resolves, clones
+    missing trees when ``--clone-publishers`` is set, reports, and returns without
+    nested publish. ``construct.py`` exits after the sconscript read for both.
     """
     plan_only = cascade_plan_enabled( env )
+    collect_only = cascade_collect_enabled( env )
+    stop_only = plan_only or collect_only
+
+    if plan_only and collect_only:
+        raise SCons.Errors.StopError(
+                "--{} and --{} cannot be combined; choose review or collect"
+                .format( CASCADE_PLAN_OPTION, COLLECT_CASCADE_OPTION )
+        )
     if plan_only and not cascade_enabled( env ):
         raise SCons.Errors.StopError(
                 "--{} requires --{}"
                 .format( CASCADE_PLAN_OPTION, CASCADE_OPTION )
+        )
+    if collect_only and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( COLLECT_CASCADE_OPTION, CASCADE_OPTION )
         )
     if not cascade_enabled( env ):
         return
@@ -1535,34 +2064,104 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{}".format( CASCADE_OPTION )
         )
         return
-    # Plan mode publishes nothing, so it does not need the publish flag.
-    if not plan_only and not env.get_option( "publish-package" ):
+    # Plan and collect publish nothing, so they do not need the publish flag.
+    if not stop_only and not env.get_option( "publish-package" ):
         raise SCons.Errors.StopError(
-                "--{} requires --publish-package"
-                .format( CASCADE_OPTION )
+                "--{} requires --publish-package, --{}, or --{}"
+                .format(
+                        CASCADE_OPTION,
+                        CASCADE_PLAN_OPTION,
+                        COLLECT_CASCADE_OPTION,
+                )
+        )
+    # SCons -n still runs configure in nested sessions; Configure refuses to
+    # create .sconf_temp under dry-run, so the nested publish dies before any
+    # builder is skipped. Cascade's dry-run / collect-without-build are dedicated
+    # flags — do not brand -n as that workflow.
+    if not stop_only and _no_exec_enabled( env ):
+        def remedy_colour( text ):
+            return as_emphasised( as_info( text ) )
+
+        _raise_options_error(
+                "--{} cannot run under -n/--no-exec".format( CASCADE_OPTION ),
+                [
+                        (
+                                "This is because it creates nested publisher sessions and "
+                                "those sessions configure, however SCons forbids creating "
+                                "[.sconf_temp] in a dry-run",
+                                as_error,
+                        ),
+                        (
+                                "Use --{} to review the order, or --{} to place publisher "
+                                "trees, then re-run without -n to publish".format(
+                                        CASCADE_PLAN_OPTION,
+                                        COLLECT_CASCADE_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and -n/--no-exec)".format(
+                        CASCADE_OPTION
+                ),
         )
 
     tip_package = str( getattr( publisher, "_package", "" ) )
     tip_version = str( getattr( publisher, "_version", "" ) )
 
+    # Plan: tolerant, no clone. Collect: tolerant, clone when --clone-publishers.
+    # Full run: fail-fast, clone when allowed.
     nodes, edges = build_cascade_graph(
-            env, publisher, tolerant=plan_only, allow_clone=not plan_only
+            env,
+            publisher,
+            tolerant=stop_only,
+            allow_clone=collect_only or not stop_only,
     )
     if not nodes:
         logger.info(
-                "Cascade: tip [{}] declares no package dependencies — nothing to publish"
-                .format( as_info( tip_package ) )
+                "Cascade: tip [{}] declares no package dependencies — nothing to {}"
+                .format(
+                        as_info( tip_package ),
+                        "collect" if collect_only else (
+                                "plan" if plan_only else "publish"
+                        ),
+                )
         )
-        if plan_only:
-            record_plan_report( tip_package, tip_version, 0 )
+        if stop_only:
+            record_plan_report(
+                    tip_package,
+                    tip_version,
+                    0,
+                    mode=(
+                            COLLECT_CASCADE_OPTION if collect_only
+                            else CASCADE_PLAN_OPTION
+                    ),
+            )
         return
 
     order = topological_publish_order( nodes, edges )
-    if plan_only:
+    report_mode = (
+            COLLECT_CASCADE_OPTION if collect_only
+            else CASCADE_PLAN_OPTION if plan_only
+            else None
+    )
+    cleaning = _clean_enabled( env )
+    if stop_only:
         _record_publisher_objections( env, nodes, order )
-    write_lines( cascade_plan_lines( nodes, order, tip_package, tip_version ) )
+    write_lines( cascade_plan_lines(
+            nodes, order, tip_package, tip_version, mode=report_mode, clean=cleaning
+    ) )
 
-    if plan_only:
+    if stop_only:
+        if plan_only:
+            clone_count = sum( 1 for key in order if nodes[key].get( "_clone_dir" ) )
+            trees_collected = 0
+        else:
+            clone_count = sum(
+                    1 for key in order if nodes[key].get( "_cloned_now" )
+            )
+            trees_collected = sum(
+                    1 for key in order if nodes[key].get( "_publisher_dir" )
+            )
         record_plan_report(
                 tip_package,
                 tip_version,
@@ -1574,7 +2173,15 @@ def maybe_run_cascade( env, publisher ) -> None:
                                 and _work_verdict( nodes[key] )[0] == "error"
                         )
                 ),
-                clone_count=sum( 1 for key in order if nodes[key].get( "_clone_dir" ) ),
+                clone_count=clone_count,
+                needs_clone_opt_in=sum(
+                        1 for key in order if nodes[key].get( "_needs_clone_opt_in" )
+                ),
+                unused_develop=sum(
+                        1 for key in order if nodes[key].get( "_develop_unused" )
+                ),
+                mode=report_mode,
+                trees_collected=trees_collected,
         )
         return
 
@@ -1590,6 +2197,11 @@ def maybe_run_cascade( env, publisher ) -> None:
                 ordinal=ordinal,
                 total=total,
         )
-        refresh_package_consume_cache( env, entry, tip_publisher=publisher )
+        # Clean sessions remove targets; nothing was published, so do not wipe and
+        # re-download the tip's consume cache (that only confuses a following rebuild).
+        if not cleaning:
+            refresh_package_consume_cache( env, entry, tip_publisher=publisher )
 
-    write_lines( sessions_complete_lines( total, tip_package, tip_version ) )
+    write_lines( sessions_complete_lines(
+            total, tip_package, tip_version, clean=cleaning
+    ) )

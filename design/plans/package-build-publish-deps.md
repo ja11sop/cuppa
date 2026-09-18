@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-16
+- **Updated:** 2026-09-18
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -172,9 +172,20 @@ cuppa --rel --parallel --jobs=12 --toolchains=… \
 
 | Flag | Role |
 |------|------|
-| `--publish-package` | Still required to upload; cascade without it is “build deps only” (optional later spelling) |
+| `--publish-package` | Still required to upload on a full cascade; see companion flags below |
 | `--build-and-publish-dependencies` | Enable cascade for declared GitLab package deps (and their transitive closure) |
+| `--cascade-plan` | Review only: resolve and report; no clone, no build, no upload |
+| `--collect-cascade` | Stage 1 only: resolve + clone missing publisher trees (reuse existing); stop before nested builds/upload. Not `--publish-package -n`. |
 | Existing variant / toolchain / identity / parallel flags | Forwarded into each nested publisher invocation |
+
+**Companion flags for cascade** (exactly one intent for a given run):
+
+```text
+--build-and-publish-dependencies + one of:
+  --cascade-plan      # review (no side effects)
+  --collect-cascade   # resolve + clone/reuse trees; stop
+  --publish-package   # full cascade (build + upload)
+```
 
 **Naming:** keep the user’s long form for clarity; shorter aliases
 (`--cascade-publish`, `--publish-dependencies`) are bikeshed later — settle one
@@ -311,17 +322,35 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Inventory and listing | **Not in 2b.** A cloned tree is reported by path but not added to the dependency inventory or the `--list-*` reports, since a new inventory type reaches into listing-tree presentation. Tracked as an open item below, because storage-root trees are otherwise invisible disk usage. |
 | Plan mode and unexpanded edges | `--cascade-plan` reports a node that would be cloned as a **note**, not an error, and says plainly that the node’s own dependencies are unknown until the tree exists: cascade reads `cuppa-publish.json` *from the tree*, so a plan cannot expand beneath a node it has not cloned. |
 
+## Collect-cascade (shipped)
+
+Soak need: get every publisher tree onto disk (clone where missing, accept paths that
+already exist) so a later `--publish-package` cascade is warn/error-light — without
+building or uploading, and without branding SCons `-n` as that workflow.
+
+| Question | Decision |
+|----------|----------|
+| Spelling | **`--collect-cascade`** — gather publisher working trees into place. Rejected: `prepare` (implies build), `materialize`/`materialise` (precise but long; GB-first aliases are fine later if revisited). |
+| What it does | Resolve the cascade graph; with `--clone-publishers`, clone missing URL sources into the publishers forest; reuse existing trees; print the usual plan report; **stop before nested builds and before tip build/upload**. |
+| What it is not | Not `--publish-package -n` (that still starts nested dry-run sessions — and SCons configure cannot create `.sconf_temp` under `-n`, so a full cascade **refuses** `-n`/`--no-exec` up front). Not build-without-publish. Not a side-effecting `--cascade-plan`. |
+| With the cascade flag | Required — same shape as `--cascade-plan`: refuse `--collect-cascade` alone. |
+| Without `--publish-package` | **Allowed** — nothing is uploaded; collection is the point. |
+| With `--clone-publishers` | Required to create missing trees from URLs; without it, behave like today’s resolve refusals / plan soft-grades for missing cloneable nodes. |
+| Exit / finish copy | Exit non-zero on hard resolve errors; warning-only (unused develop, clone opt-in) matches plan-mode grading. Finish line names trees collected / already present; “nothing was built, published, or uploaded.” |
+| Build-deps-only (no upload) | **Still deferred** — distinct from collect; needs local consume (slice D) or registry between nodes. |
+
 ## Open questions (Phase 2+)
 
 1. Skip-if-registry-current + `--force` (slice 2c; also settles no-op reporting)
 2. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
    so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
 3. File convergence to a single traveling manifest
-4. Flag without `--publish-package` (build-deps-only) — distinct from the
-   `--cascade-plan` relaxation above, which builds nothing
+4. Flag without `--publish-package` for **build**-deps-only — distinct from
+   `--cascade-plan` (builds nothing) and `--collect-cascade` (clones only)
 5. Richer `--publisher-root` layout rules
 6. Cascade under multiple active toolchains — one nested publish per toolchain
    today; whether to batch identities per publisher tree is unexamined
+7. ~~Implementing `--collect-cascade`~~ — shipped
 
 ## Acceptance (when implemented)
 
@@ -353,5 +382,7 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Phase 2a — plan report + nested session banners | Shipped ([#303](https://github.com/ja11sop/cuppa/pull/303)) |
 | Phase 2b settled decisions (`--clone-publishers`, storage root, no `--develop` role) | Settled (2026-09-16) |
 | Phase 2b — clone on demand | In progress |
+| `--collect-cascade` vocabulary (resolve + clone/reuse; stop before build/upload) | **Shipped** (2026-09-18) |
+| Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date upload confirmation remains slice 2c. |
 | Phase 2c / 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |

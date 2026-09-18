@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-17
+- **Updated:** 2026-09-18
 - **Impact:** `minor` for the resolution and clone slices; the consume change is `major` if it repurposes today's `develop=`, which §6 exists to avoid
 
 ## Problem
@@ -78,7 +78,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Nested cascade argv | Forward the tip's global build flags; **drop** tip dependency-scoped options (`--<name>-…-develop`, `--<name>-…-package-source`, location overrides). Those are registered by the tip's sconstruct and are wrong for the child (unknown flag, and relative paths anchored to the wrong tree). Settings meant for every project travel through `~/.cuppaconfig`, which the child loads itself. |
 | Console noun for the invoking package | **this package** (not "tip") in plan lines, session resume, and finish copy. Keep `tip` only as an internal/code noun where a short label helps. |
 | Default publisher lookup | `<storage-root>/publishers` is searched for existing trees (same path clones write to); `--publisher-root` overrides. Matches downloads/dependencies falling back to `storage_root`. |
-| Unused develop on the plan | **Warning** (intentionality) + **note** (what a real run would do), not an error that claims no local tree when one was configured. |
+| Unused develop on the plan | **Warning** (pass `--develop` to make the plan executable) + **notes** for alternatives; when a publishers-forest tree already exists, a second **warning** that the plan would use it. Not an error that claims no local tree when one was configured. Day-to-day copy does not advise rewriting `package_source`. |
 
 ## Slices
 
@@ -99,11 +99,19 @@ soak UX patch before slice D. Slice D is next: consuming a locally built package
 | Finding | Decision |
 |---------|----------|
 | Nested publish inherited `--capy-gitlab-develop=../capy` and died (`no such option`) | Drop tip dependency options from nested argv; keep `--develop` and toolchain/variant flags. |
-| Plan said `[1 note]` for unused develop but printed only the resolve error; then graded a present develop tree as "no local working tree" | Unused develop is a **warning** ("was that intentional?") plus a **note** of what a real run would do; not a false missing-tree error. |
+| Plan said `[1 note]` for unused develop but printed only the resolve error; then graded a present develop tree as "no local working tree" | Unused develop is a **warning** (pass `--develop`) plus **notes** for alternatives; not a false missing-tree error. |
 | `--…-package-source=…@develop` cloned `master` | Read the CLI override in `package_source_for_dependency` the way `configured_develop` reads develop overrides — declaration/manifest alone missed the pin. |
 | `--clone-develop -n` graded a missing path as *error … cannot succeed* | pending/note when clonable; error only when the clone itself cannot succeed. |
 | Plan paths showed `…/corosio/../capy` | Display through `display_path` (normpath + `~`) at report time; keep lexical paths for resolution. |
 | No default publisher lookup under `storage_root` | **Forgiving pattern:** `<storage-root>/publishers` is the default lookup forest (same place clones land); `--publisher-root` overrides. |
+| Plan graded cloneable URL + no `--clone-publishers` as hard error | Soft-grade: **warning** (pass `--clone-publishers`) + **notes** for alternatives; real cascade still StopErrors. Footer exits 0 and names `--clone-publishers` / `--develop` when those remedies apply. |
+| Plan advised rewriting filesystem `package_source` | Drop from day-to-day warn/note/footer; keep CLI `--*-package-source=` as an escape hatch. Warn primary intent, note alternatives separately. |
+| Plan scrolled away from the argv that produced it | Show the command line above the tree; emphasise cascade-relevant flags. |
+| Unused develop + existing publishers tree looked "green" aside from one warning | Second **warning**: plan will use the forest copy (probably not intended); note for `--publisher-root`. |
+| No first-class way to clone/collect trees without `--publish-package` or abusing `-n` | **`--collect-cascade`** (shipped): resolve + clone/reuse publisher trees, stop before nested build/upload. Not `--publish-package -n`. |
+| `--build-and-publish-dependencies --publish-package -n` died in nested configure (`ConfigureDryRunError` / `.sconf_temp`) | Full cascade **refuses** `-n`/`--no-exec` up front with an **Options Error** tree (why / remedy) then a short `StopError`; point at `--cascade-plan` / `--collect-cascade`. SCons dry-run still configures, so nested sessions cannot be a meaningful cascade dry-run. |
+| Cascade `… --publish-package -c` cleaned nested + tip graphs correctly | **Works.** Clean polish **shipped**: skip invalidate/re-fetch after clean sessions; banners say **nested clean(s)** / **resuming clean**; plan intro **cleaning package** plus a note that location CMake `-B` survives unless `CMakeConfigure`/`CMakeBuild` (or an explicit `env.Clean`) registered it. Still deferred (slice 2c): positive tip confirmation when SCons skips an already-current upload. |
+| After `-c`, rebuild nested capy looked “not a full rebuild” | Expected when the nested publisher leaves the location-download CMake `-B` tree in place (raw `Command` / missing `Clean`). Cuppa `working/`+`final/` were cleaned; next run still re-packages/uploads. Tip corosio looked “full” because its `-B` *was* cleaned. Operator-facing note now prints on cascade clean plans. |
 
 ### What slice B settled that this plan had not
 

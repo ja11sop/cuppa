@@ -636,9 +636,12 @@ class Construct(object):
 
             from cuppa.package_managers import package_cascade
             if package_cascade.cascade_plan_enabled( cuppa_env ):
-                logger.info( as_info_label(
-                        "Running in PACKAGE BUILD: CASCADE PLAN mode, "
-                        "no building will be attempted"
+                logger.info( "{} — report only; no clone, build, or publish".format(
+                        as_info_label( "Running in PACKAGE BUILD: CASCADE PLAN mode" )
+                ) )
+            elif package_cascade.cascade_collect_enabled( cuppa_env ):
+                logger.info( "{} — resolve and clone publisher trees; no build or publish".format(
+                        as_info_label( "Running in PACKAGE BUILD: CASCADE COLLECT mode" )
                 ) )
 
             cuppa.develop.warn_unused_develop_overrides( cuppa_env )
@@ -1027,11 +1030,11 @@ class Construct(object):
                 print( "cuppa: Nothing to be done. Exiting." )
                 SCons.Script.Exit()
 
-            # Cascade plans are resolved as each tip publisher is constructed, so the
-            # exit waits for the read to finish and report every tip, not just the first.
+            # Cascade plan/collect resolve as each tip publisher is constructed, so
+            # the exit waits for the read to finish and report every tip.
             from cuppa.package_managers import package_cascade
-            if package_cascade.cascade_plan_enabled( cuppa_env ):
-                SCons.Script.Exit( package_cascade.finish_plan_only( cuppa_env ) )
+            if package_cascade.cascade_stop_before_build( cuppa_env ):
+                SCons.Script.Exit( package_cascade.finish_cascade_stop( cuppa_env ) )
 
         else:
             logger.warn( "No projects to build. Nothing to be done" )

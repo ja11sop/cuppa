@@ -6,6 +6,7 @@
 import io
 import logging
 import os
+import re
 import shutil
 import subprocess
 
@@ -132,17 +133,24 @@ def test_publisher_root_relative_anchors_to_sconstruct_dir( tmp_path ):
         os.chdir( old )
 
 
-def test_resolve_url_without_publisher_root_mentions_flag():
+def test_resolve_url_without_publisher_root_mentions_flag( tmp_path ):
+    """Empty storage forest + URL source: stop and name the clone / root flags.
+
+    Pin ``storage_root`` so a real ``~/.cuppa/publishers`` tree from soak does
+    not satisfy the lookup and hide the refusal.
+    """
     class _Env:
         def get_option( self, name, default=None ):
             return default
 
         def get( self, name, default=None ):
+            if name == "storage_root":
+                return str( tmp_path / "store" )
             return default
 
     with pytest.raises(
             SCons.Errors.StopError,
-            match="Pass --clone-publishers to clone it, set --publisher-root",
+            match=r"Pass --clone-publishers to clone it, or set --publisher-root",
     ):
         cascade.resolve_publisher_dir(
                 _Env(),
@@ -215,6 +223,53 @@ def test_maybe_run_cascade_requires_publish_package():
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
+def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
+    """Soak: -n forwards into nested configure, which cannot create .sconf_temp."""
+    import re
+
+    from cuppa.colourise import as_emphasised, as_info, colouriser
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-package",
+                    "no_exec",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--build-and-publish-dependencies and -n/--no-exec\)",
+        ):
+            cascade.maybe_run_cascade( _Env(), _Publisher() )
+    finally:
+        colouriser.use_colour = was
+
+    out = capsys.readouterr().out
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out )
+    assert "Options Error" in visible
+    assert "--build-and-publish-dependencies cannot run under -n/--no-exec" in visible
+    assert ".sconf_temp" in visible
+    assert "--cascade-plan" in visible
+    assert "--collect-cascade" in visible
+    # Prose may wrap between "without" and "-n".
+    assert "re-run without" in visible and "-n to publish" in visible
+    # Trailing blank line before the critical StopError log.
+    assert visible.rstrip( "\n" ).endswith( "to publish" ) or visible.endswith( "\n\n" )
+    assert out.endswith( "\n\n" ) or "\n\n" in out[ out.rfind( "publish" ) : ]
+    # Remedy flags are emphasised info, not error.
+    assert as_emphasised( as_info( "--cascade-plan" ) ) in out
+    assert as_emphasised( as_info( "--collect-cascade" ) ) in out
+
+
 class _PlanEnv( dict ):
     """Tip env with the cascade flags an operator passes, and nothing else set."""
 
@@ -273,8 +328,209 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
     cascade.maybe_run_cascade( env, _Publisher() )
 
     assert cascade.plan_reports() == [
-            { "package": "corosio", "version": "0.2.0", "errors": 0, "clones": 0 }
+            {
+                    "package": "corosio",
+                    "version": "0.2.0",
+                    "errors": 0,
+                    "clones": 0,
+                    "needs_clone_opt_in": 0,
+                    "unused_develop": 0,
+                    "mode": "cascade-plan",
+                    "trees_collected": 0,
+            }
     ]
+
+
+def test_collect_cascade_requires_the_cascade_flag():
+    env = _PlanEnv( { "collect-cascade": True } )
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match="--collect-cascade requires --build-and-publish-dependencies",
+    ):
+        cascade.maybe_run_cascade( env, type( "P", (), {
+                "_dependencies": [], "_package": "w", "_version": "1",
+        } )() )
+
+
+def test_collect_cascade_and_cascade_plan_cannot_combine():
+    env = _PlanEnv( {
+            "collect-cascade": True,
+            "cascade-plan": True,
+            "build-and-publish-dependencies": True,
+    } )
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( env, type( "P", (), {
+                "_dependencies": [], "_package": "w", "_version": "1",
+        } )() )
+
+
+def test_collect_cascade_clones_then_stops_without_nested_publish(
+        tmp_path, monkeypatch
+):
+    """Collect materialises trees; it must not start nested cuppa sessions."""
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    ( origin / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+
+    cloned = []
+
+    def _fake_clone( url, destination, recurse_submodules=True ):
+        cloned.append( ( url, destination ) )
+        os.makedirs( destination )
+        with open( os.path.join( destination, "sconstruct" ), "w", encoding="utf-8" ) as handle:
+            handle.write( "import cuppa\n" )
+
+    monkeypatch.setattr( cascade.Git, "clone", _fake_clone )
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: (_ for _ in ()).throw(
+                    AssertionError( "collect must not nested-publish" )
+            ),
+    )
+    cascade.reset_plan_reports()
+
+    class _Publisher:
+        _dependencies = [
+                {
+                        "name": "capy",
+                        "package": "capy",
+                        "version": "develop",
+                        "package_source": "git@git.example:packages/capy",
+                }
+        ]
+        _package = "corosio"
+        _version = "0.2.0"
+
+    env = _PlanEnv(
+            {
+                    "collect-cascade": True,
+                    "build-and-publish-dependencies": True,
+                    "clone-publishers": True,
+            },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    cascade.maybe_run_cascade( env, _Publisher() )
+
+    assert len( cloned ) == 1
+    assert cloned[0][1] == str( tmp_path / "store" / "publishers" / "capy" )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["mode"] == "collect-cascade"
+    assert reports[0]["clones"] == 1
+    assert reports[0]["trees_collected"] == 1
+    assert reports[0]["errors"] == 0
+
+    out = io.StringIO()
+    status = cascade.finish_cascade_stop( env, out=out )
+    assert status == 0
+    text = out.getvalue()
+    assert "--collect-cascade:" in text
+    assert "1 publisher tree collected" in text
+    assert "newly cloned" in text
+    assert "nothing was built, published, or uploaded" in text
+    assert "nothing was collected" not in text
+
+
+def test_collect_cascade_footer_counts_zero_trees_when_clone_opt_in_is_missing(
+        tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "no nested" ) ),
+    )
+    cascade.reset_plan_reports()
+    env = _PlanEnv(
+            {
+                    "collect-cascade": True,
+                    "build-and-publish-dependencies": True,
+            },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    publisher = type( "P", (), {
+            "_dependencies": [ {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "package_source": "git@git.example:packages/capy",
+            } ],
+            "_package": "corosio",
+            "_version": "0.2.0",
+    } )()
+    cascade.maybe_run_cascade( env, publisher )
+
+    assert cascade.plan_reports()[0]["trees_collected"] == 0
+    nodes, _ = cascade.build_cascade_graph(
+            env, publisher, tolerant=True, allow_clone=False
+    )
+    body = "\n".join( cascade.cascade_plan_lines(
+            nodes, [ ( "capy", "capy", "develop" ) ], "corosio", "0.2.0",
+            mode="collect-cascade",
+            argv=[ "cuppa", "-D", "--collect-cascade", "--cuppa-mode" ],
+    ) )
+    assert "collecting packages for" in body
+    assert "make this collect executable" in body
+    assert "--cuppa-mode" not in body
+    assert "and pass --clone-publishers" in body
+    # Wrap may split the sentence across lines.
+    assert "uses that tree instead of cloning" in re.sub( r"\s+", " ", body )
+
+    out = io.StringIO()
+    assert cascade.finish_cascade_stop( env, out=out ) == 0
+    text = out.getvalue()
+    assert "0 publisher trees collected" in text
+    assert "nothing was collected, built, published, or uploaded" in text
+
+
+def test_collect_cascade_reuses_an_existing_publisher_tree( tmp_path, monkeypatch ):
+    forest = tmp_path / "store" / "publishers" / "capy"
+    forest.mkdir( parents=True )
+    ( forest / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    write_publish_manifest( str( forest ), "capy", "develop", dependencies=[] )
+
+    def _must_not_clone( *args, **kwargs ):
+        raise AssertionError( "existing forest tree must not be re-cloned" )
+
+    monkeypatch.setattr( cascade.Git, "clone", _must_not_clone )
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: (_ for _ in ()).throw(
+                    AssertionError( "collect must not nested-publish" )
+            ),
+    )
+    cascade.reset_plan_reports()
+
+    env = _PlanEnv(
+            {
+                    "collect-cascade": True,
+                    "build-and-publish-dependencies": True,
+                    "clone-publishers": True,
+            },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    cascade.maybe_run_cascade( env, type( "P", (), {
+            "_dependencies": [ {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "package_source": "git@git.example:packages/capy",
+            } ],
+            "_package": "corosio",
+            "_version": "0.2.0",
+    } )() )
+
+    assert cascade.plan_reports()[0]["clones"] == 0
+    assert cascade.plan_reports()[0]["trees_collected"] == 1
+    out = io.StringIO()
+    assert cascade.finish_cascade_stop( env, out=out ) == 0
+    text = out.getvalue()
+    assert "1 publisher tree collected" in text
+    assert "newly cloned" not in text
+    assert "nothing was built, published, or uploaded" in text
+    assert "nothing was collected" not in text
+
+
+def test_tip_forward_args_drops_collect_cascade():
+    argv = cascade.tip_forward_args( [
+            "scons", "--dbg", "--collect-cascade", "--publish-package",
+    ] )
+    assert "--collect-cascade" not in argv
+    assert "--dbg" in argv
 
 
 def test_build_cascade_graph_tolerant_records_unresolved_tree( tmp_path ):
@@ -347,17 +603,24 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
         body = "\n".join( lines )
         visible = plain( body )
 
-        assert "Printing Cascade plan for building and publishing package corosio [==0.2.0]" in visible
+        assert "Printing Cascade plan for building and publishing package corosio [==0.2.0] given the command:" in visible
         assert "Cascade plan: corosio [==0.2.0] (this package) with" in visible
         assert "2 package dependencies" in visible
         assert "[0 errors][0 warnings][0 notes]" in visible
         assert "1 of 2  capy [==develop]" in visible
         assert as_subdued( "git@git.example:packages/capy" ) in body
-        assert "publisher [/home/user/coding/packages/capy]" in visible
+        assert "using publisher at [/home/user/coding/packages/capy]" in visible
+        tee, elbow, pipe, _gap = storage_util.glyphs()
+        # Nested elbow hangs under the package label pad (under = pipe + spaces).
+        under = pipe + " " * ( len( "2 of 2" ) + 2 )
+        assert any(
+                line.startswith( as_subdued( under + elbow ) )
+                and "using publisher at" in plain( line )
+                for line in lines
+        )
         assert "2 of 2  widget [==1.2]" in visible
         assert visible.rstrip().endswith( "then corosio [==0.2.0] from this tree" )
         # Outer tree glyphs match judgement trees (subdued stems).
-        tee, elbow, pipe, _gap = storage_util.glyphs()
         assert as_subdued( pipe.rstrip() ) in lines
         assert any( line.startswith( as_subdued( tee ) ) for line in lines )
         assert any( line.startswith( as_subdued( elbow ) ) for line in lines )
@@ -445,6 +708,84 @@ def test_session_banners_carry_ordinal_and_total():
 
     complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
     assert "2 nested publishes; resuming this package corosio [==0.2.0]" in complete
+
+    clean_complete = "\n".join( cascade.sessions_complete_lines(
+            1, "corosio", "0.2.0", clean=True
+    ) )
+    assert "1 nested clean; resuming clean of this package corosio [==0.2.0]" in clean_complete
+
+
+def test_cascade_plan_lines_clean_mode_retargets_intro_and_notes_cmake():
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy",
+                    "package": "capy",
+                    "version": "develop",
+                    "_publisher_dir": "/home/user/.cuppa/publishers/capy",
+            },
+    }
+    order = [ ( "capy", "capy", "develop" ) ]
+    visible = plain( "\n".join( cascade.cascade_plan_lines(
+            nodes, order, "corosio", "develop", clean=True,
+            argv=[ "cuppa", "-D", "--rel", "-c", "--publish-package",
+                   "--build-and-publish-dependencies" ],
+    ) ) )
+    assert "Printing Cascade plan for cleaning package corosio [==develop]" in visible
+    assert "then clean corosio [==develop] from this tree" in visible
+    assert "CMakeConfigure/CMakeBuild" in visible
+    assert "incremental Ninja" in visible
+    assert "building and publishing" not in visible
+
+
+def test_maybe_run_cascade_clean_skips_consume_refresh( monkeypatch ):
+    """Soak: -c must not invalidate+re-fetch after nested cleans."""
+    refreshed = []
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-package",
+                    "clean",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "run_nested_publish", lambda *a, **k: None )
+    monkeypatch.setattr(
+            cascade,
+            "refresh_package_consume_cache",
+            lambda *a, **k: refreshed.append( True ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: True )
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert refreshed == []
 
 
 def test_tip_forward_args_drops_cascade_plan():
@@ -936,10 +1277,11 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
     cascade.record_plan_report( "corosio", "0.2.0", 0, clone_count=2 )
     out = io.StringIO()
     status = cascade.finish_plan_only( out=out )
-    report = out.getvalue()
+    report = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 0
     assert "2 publisher trees to clone first" in report
+    assert "pass --clone-publishers along with --publish-package to execute" in report
     assert "nothing was built, published, uploaded, or cloned" in report
 
 
@@ -948,10 +1290,11 @@ def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
     cascade.record_plan_report( "corosio", "0.2.0", 1 )
     out = io.StringIO()
     status = cascade.finish_plan_only( out=out )
+    report = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 1
-    assert "--clone-publishers" in out.getvalue()
-
+    assert "--clone-publishers" in report
+    assert "Then re-run with --publish-package to execute" in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -1240,18 +1583,24 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
                     "_publisher_dir": "/authored/capy",
                     "_develop_dir": "/home/user/coding/capy",
                     "_develop_unused": True,
+                    "_lookup_root": "/home/user/.cuppa/publishers",
             },
     }
-    body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
+    body = "\n".join( cascade.cascade_plan_lines(
+            nodes, [ key ], "corosio", "0.2.0",
+            argv=[ "cuppa", "-D", "--cascade-plan", "--build-and-publish-dependencies" ],
+    ) )
 
+    assert "given the command:" in body
+    assert "--cascade-plan" in body
     assert "[0 errors][1 warning][0 notes]" in body
     assert "1 warning" in body
     assert "a develop tree is configured" in body
-    assert "was that intentional" in body
-    assert "publisher [/authored/capy]" in body
+    assert "pass --develop to make this plan executable" in body
+    assert "using publisher at [/authored/capy]" in body
 
 
-def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_error():
+def test_unused_develop_with_no_other_tree_is_a_warning_and_notes_not_a_false_error():
     """Soak: develop path exists; forgetting --develop is not 'no local working tree'."""
     key = ( "capy", "capy", "develop" )
     nodes = {
@@ -1260,38 +1609,99 @@ def test_unused_develop_with_no_other_tree_is_a_warning_and_note_not_a_false_err
                     "_publisher_dir": None,
                     "_develop_dir": "/home/user/coding/capy",
                     "_develop_unused": True,
-                    "_would_happen": (
-                            "without --develop, cascade would look under "
-                            "[~/.cuppa/publishers] (nothing found) and then need "
-                            "--clone-publishers; pass --develop to publish from "
-                            "[~/coding/capy]"
-                    ),
+                    "_lookup_root": "/home/user/.cuppa/publishers",
+                    "_clone_url": "git@git.example:packages/capy",
+                    "_clone_dir": "/home/user/.cuppa/publishers/capy",
             },
     }
-    body = "\n".join( cascade.cascade_plan_lines( nodes, [ key ], "corosio", "0.2.0" ) )
+    body = "\n".join( cascade.cascade_plan_lines(
+            nodes, [ key ], "corosio", "0.2.0",
+            argv=[ "cuppa", "-D", "--cascade-plan", "--build-and-publish-dependencies" ],
+    ) )
+    # highlight_values wraps --flags in ANSI, so assert tokens rather than a contiguous phrase.
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
 
-    assert "[0 errors][1 warning][1 note]" in body
-    assert "1 warning" in body
-    assert "1 note" in body
-    # Judgement-tree stubs before each severity heading and before each message.
-    lines = body.splitlines()
+    assert "[0 errors][1 warning][2 notes]" in visible
+    assert "1 warning" in visible
+    assert "2 notes" in visible
+    lines = visible.splitlines()
 
     def _index( needle ):
         return next( i for i, line in enumerate( lines ) if needle in line )
 
     for heading, message in (
             ( "├── 1 warning", "develop tree is configured" ),
-            ( "└── 1 note", "without --develop" ),
+            ( "└── 2 notes", "alternatively, cascade will look under" ),
     ):
         heading_i = _index( heading )
         message_i = _index( message )
         assert "│" in lines[heading_i - 1] or "|" in lines[heading_i - 1]
         assert "│" in lines[message_i - 1] or "|" in lines[message_i - 1]
 
-    assert "a develop tree is configured" in body
-    assert "without --develop" in body
-    assert "error:" not in body
-    assert "no local working tree" not in body
+    assert "pass --develop to make this plan executable" in visible
+    assert "--clone-publishers" in visible
+    assert "to clone" in visible
+    assert "into [" in visible
+    assert "publishers/capy" in visible
+    assert "use --publisher-root" in visible
+    assert "filesystem package_source" not in visible
+    assert "error:" not in visible
+    assert "no local working tree" not in visible
+
+
+def test_unused_develop_with_a_publisher_forest_hit_warns_twice( tmp_path ):
+    """Plan executes from the forest copy — warn that this is probably not intended."""
+    ( tmp_path / "project" ).mkdir()
+    forest = _publisher_tree( tmp_path / "store" / "publishers" / "capy" )
+    _publisher_tree( tmp_path / "capy" )
+
+    env = _develop_env( tmp_path, "capy", "../capy" )
+    env["storage_root"] = str( tmp_path / "store" )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": "git@git.example:packages/capy",
+    }
+    path = cascade.resolve_publisher_dir( env, entry )
+
+    assert os.path.samefile( path, forest )
+    assert entry["_develop_unused"] is True
+    assert entry.get( "_publisher_forest_hit" )
+
+    body = "\n".join( cascade.cascade_plan_lines(
+            { ( "capy", "capy", "develop" ): dict( entry, _publisher_dir=path ) },
+            [ ( "capy", "capy", "develop" ) ],
+            "corosio", "0.2.0",
+    ) )
+    import re
+
+    from cuppa.colourise import as_warning, colouriser
+
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
+    assert "[0 errors][2 warnings][1 note]" in visible
+    assert "pass --develop to make this plan executable" in visible
+    assert "probably not what you intended" in visible
+    assert "use --publisher-root" in visible
+    # Path alone — no redundant "under [forest-root]" after the publisher path
+    # (prose may wrap between "at" and the bracketed path).
+    assert "existing publisher tree at" in visible
+    assert "under [" not in visible.split( "existing publisher tree at", 1 )[1].split(
+            "probably not what you intended", 1
+    )[0]
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        coloured = "\n".join( cascade.cascade_plan_lines(
+                { ( "capy", "capy", "develop" ): dict( entry, _publisher_dir=path ) },
+                [ ( "capy", "capy", "develop" ) ],
+                "corosio", "0.2.0",
+        ) )
+        # Plain "/" between severity-coloured root and severity-coloured leaf.
+        assert "/" + as_warning( "capy" ) in coloured
+        assert "{capy}" not in re.sub( r"\x1b\[[0-9;]*m", "", coloured )
+    finally:
+        colouriser.use_colour = was
 
 
 def test_a_usable_unused_develop_tree_is_not_a_plan_resolve_error( tmp_path ):
@@ -1319,9 +1729,121 @@ def test_a_usable_unused_develop_tree_is_not_a_plan_resolve_error( tmp_path ):
     node = nodes[ ( "capy", "capy", "develop" ) ]
 
     assert node.get( "_develop_unused" ) is True
-    assert node.get( "_would_happen" )
+    assert node.get( "_clone_dir" )
     assert "_resolve_error" not in node
     assert node.get( "_publisher_dir" ) is None
+
+
+def test_a_cloneable_url_without_clone_flag_is_a_plan_warning_not_an_error( tmp_path ):
+    """Plan mode: opt-in missing is a warning; a real run still StopErrors."""
+    env = _PlanEnv( {}, { "storage_root": str( tmp_path / "store" ) } )
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "develop",
+            "package_source": "git@git.example:packages/capy",
+    }
+    publisher = type( "P", (), {
+            "_dependencies": [ entry ],
+            "_package": "corosio",
+            "_version": "0.2.0",
+    } )()
+
+    with pytest.raises( SCons.Errors.StopError, match="Pass --clone-publishers" ):
+        cascade.build_cascade_graph( env, publisher, tolerant=False )
+
+    nodes, _ = cascade.build_cascade_graph(
+            env, publisher, tolerant=True, allow_clone=False
+    )
+    node = nodes[ ( "capy", "capy", "develop" ) ]
+    assert node.get( "_needs_clone_opt_in" ) is True
+    assert node.get( "_clone_dir" )
+    assert "_resolve_error" not in node
+
+    body = "\n".join( cascade.cascade_plan_lines(
+            nodes, [ ( "capy", "capy", "develop" ) ], "corosio", "0.2.0",
+            argv=[
+                    "cuppa", "-D", "--rel", "--toolchains=gcc15",
+                    "--build-and-publish-dependencies", "--cascade-plan",
+            ],
+    ) )
+    assert "given the command:" in body
+    assert "[0 errors][1 warning][2 notes]" in body
+    assert "1 warning" in body
+    assert "pass --clone-publishers to clone into" in body
+    assert "make this plan executable" in body
+    assert "use --publisher-root" in body
+    assert "pass --develop" in body
+    assert "filesystem package_source" not in body
+
+
+def test_colour_plan_command_line_drops_cuppa_mode():
+    coloured = cascade.colour_plan_command_line( [
+            "cuppa", "-D", "--collect-cascade", "--cuppa-mode",
+    ] )
+    assert "--cuppa-mode" not in coloured
+    assert "--collect-cascade" in coloured
+
+
+def test_colour_plan_command_line_emphasises_cascade_flags():
+    coloured = cascade.colour_plan_command_line( [
+            "cuppa", "-D", "--rel", "--toolchains=gcc15",
+            "--build-and-publish-dependencies", "--cascade-plan",
+            "--capy-gitlab-develop=../capy",
+    ] )
+    assert coloured.startswith( "cuppa " )
+    # Emphasised tokens wrap the flag; values after '=' stay info-coloured.
+    assert "--build-and-publish-dependencies" in coloured
+    assert "--cascade-plan" in coloured
+    assert "--capy-gitlab-develop" in coloured
+    assert "../capy" in coloured
+
+
+def test_finish_plan_only_names_opt_in_flags_when_the_plan_is_only_blocked_by_warnings():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "corosio", "0.2.0", 0, needs_clone_opt_in=1, unused_develop=1
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    report = out.getvalue()
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", report )
+
+    assert status == 0
+    assert "1 package planned" in visible
+    assert "pass --clone-publishers along with --publish-package" in visible
+    assert "pass --develop along with --publish-package" in visible
+    assert "nothing was built, published, uploaded, or cloned" in visible
+    assert "without a publisher tree" not in visible
+    assert "filesystem package_source" not in visible
+
+
+def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 0, clone_count=1 )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "1 publisher tree to clone first" in visible
+    assert "pass --clone-publishers along with --publish-package to execute" in visible
+
+
+def test_finish_collect_opt_in_advice_does_not_require_publish_package():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "corosio", "0.2.0", 0,
+            needs_clone_opt_in=1, mode="collect-cascade", trees_collected=0,
+    )
+    out = io.StringIO()
+    status = cascade.finish_cascade_stop( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "pass --clone-publishers to clone missing" in visible
+    assert "along with --publish-package" not in visible
+    assert "nothing was collected" in visible
 
 
 def test_tip_forward_args_drops_tip_dependency_options():
