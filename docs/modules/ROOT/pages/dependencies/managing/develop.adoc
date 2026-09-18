@@ -289,6 +289,8 @@ It never stashes, resets, rewrites history, or switches branches.
 A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
 A live update refuses `--offline`.
 `-n` / `--no-exec` still contacts remotes when online so **would update** vs **no change** is honest; only the fast-forward is skipped.
+On a tty, each remote check rewrites one subdued status line (`Fetching [name] (i/n) ·` plus git `--progress`), then clears it before the ACTION table.
+Non-tty (CI) stays quiet between the dry-run banner and the table.
 Offline `-n` falls back to the last observed state and says so.
 Updating several repositories is not atomic: a failure in one is reported, the rest continue, and the exit status is non-zero.
 

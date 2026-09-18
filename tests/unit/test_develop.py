@@ -25,11 +25,13 @@ from cuppa.develop import (
     classify,
     configured_develop,
     entries,
+    fetch_for_update,
     highlight_values,
     inspect,
     list_develop,
     list_payload,
     names_that_would_update,
+    remote_check_progress,
     render_judgements,
     render_table,
     row_for,
@@ -867,7 +869,7 @@ def test_a_dry_run_fetches_quietly_but_does_not_fast_forward( working_copy, monk
     fetches = []
     real_fetch = Git.fetch
 
-    def record_fetch( path, progress=None ):
+    def record_fetch( path, progress=None, **kwargs ):
         fetches.append( ( path, progress ) )
         return real_fetch( path, progress=progress )
 
@@ -900,6 +902,62 @@ def test_update_develop_reports_an_action_table( working_copy, capsys ):
     assert "updated" in out
     assert "Fast-forwarded" not in out
     assert "The state is now:" in out
+
+
+def test_fetch_for_update_uses_status_line_when_interactive( monkeypatch ):
+    seen = {}
+
+    class Status( object ):
+        interactive = True
+        stream = object()
+
+        def hint( self, text ):
+            seen['hint'] = text
+
+    def fake_fetch( path, progress=None, line_prefix="", progress_stream=None ):
+        seen['path'] = path
+        seen['progress'] = progress
+        seen['line_prefix'] = line_prefix
+        seen['progress_stream'] = progress_stream
+        return ''
+
+    monkeypatch.setattr( Git, 'fetch', fake_fetch )
+    fetch_for_update( '/pubs/widget', 'widget', 2, 5, Status() )
+    assert seen['progress'] is True
+    assert seen['line_prefix'] == 'Fetching [widget] (2/5) · '
+    assert seen['progress_stream'] is Status.stream
+    assert seen['hint'].startswith( 'Fetching [widget] (2/5)' )
+
+
+def test_fetch_for_update_stays_quiet_without_interactive_status( monkeypatch ):
+    seen = {}
+
+    def fake_fetch( path, progress=None, **kwargs ):
+        seen['progress'] = progress
+        seen['kwargs'] = kwargs
+        return ''
+
+    monkeypatch.setattr( Git, 'fetch', fake_fetch )
+    fetch_for_update( '/pubs/widget', 'widget', 1, 1, None )
+    assert seen['progress'] is False
+    assert seen['kwargs'] == {}
+
+
+def test_remote_check_progress_clear_is_idempotent( monkeypatch ):
+    stream = type( 'S', (), {
+            'isatty': lambda self: True,
+            'write': lambda self, text: None,
+            'flush': lambda self: None,
+            'close': lambda self: None,
+    } )()
+    monkeypatch.setattr(
+            'cuppa.utility.download.open_progress_stream',
+            lambda: ( stream, True, True ),
+    )
+    status = remote_check_progress()
+    assert status.interactive
+    status.clear()
+    status.clear()
 
 
 #-------------------------------------------------------------------------------

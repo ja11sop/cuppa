@@ -2072,12 +2072,15 @@ def update_publisher_trees( env, nodes: dict, order, out=None ) -> int:
 
     Reporting is an ACTION table shared with ``--update-develop`` (would update /
     updated / no change / leave alone / left alone). Online dry-run still fetches
-    quietly so the table is honest; only the fast-forward is skipped. Offline
-    dry-run falls back to the last observation.
+    so the table is honest; only the fast-forward is skipped. On a tty the fetch
+    rewrites one subdued status line, cleared before the table. Offline dry-run
+    falls back to the last observation.
     """
     from cuppa.develop import (
+            fetch_for_update,
             inspect,
             leave_alone_state,
+            remote_check_progress,
             render_update_action_table,
             state_summary,
             update_action,
@@ -2108,73 +2111,91 @@ def update_publisher_trees( env, nodes: dict, order, out=None ) -> int:
 
     leave = "leave alone" if dry_run else "left alone"
 
-    for key in order:
-        entry = nodes[key]
-        path = entry.get( "_publisher_dir" )
-        if not path:
-            continue
-        name = entry["name"]
+    will_fetch = not ( dry_run and offline )
+    fetch_keys = []
+    if will_fetch:
+        for key in order:
+            entry = nodes[key]
+            path = entry.get( "_publisher_dir" )
+            if not path or entry.get( "_from_develop" ):
+                continue
+            observed = inspect( entry["name"], path )
+            if observed.exists and observed.scm == "git":
+                fetch_keys.append( key )
+    fetch_total = len( fetch_keys )
+    fetch_index = { key: i for i, key in enumerate( fetch_keys, 1 ) }
 
-        if entry.get( "_from_develop" ):
+    with remote_check_progress() as status:
+        for key in order:
+            entry = nodes[key]
+            path = entry.get( "_publisher_dir" )
+            if not path:
+                continue
+            name = entry["name"]
+
+            if entry.get( "_from_develop" ):
+                observed = inspect( name, path )
+                rows.append( update_action_row(
+                        leave, name, observed,
+                        "develop tree (use --update-develop)", path, "ok",
+                ) )
+                continue
+
             observed = inspect( name, path )
-            rows.append( update_action_row(
-                    leave, name, observed,
-                    "develop tree (use --update-develop)", path, "ok",
-            ) )
-            continue
+            if not observed.exists or observed.scm != "git":
+                reason = (
+                        "path does not exist" if not observed.exists
+                        else "not a git working copy"
+                )
+                rows.append( update_action_row(
+                        leave, name, observed, reason, path, "warn",
+                ) )
+                continue
 
-        observed = inspect( name, path )
-        if not observed.exists or observed.scm != "git":
-            reason = (
-                    "path does not exist" if not observed.exists
-                    else "not a git working copy"
-            )
-            rows.append( update_action_row(
-                    leave, name, observed, reason, path, "warn",
-            ) )
-            continue
+            if key in fetch_index:
+                try:
+                    fetch_for_update(
+                            observed.path, name,
+                            fetch_index[key], fetch_total, status,
+                    )
+                except Git.Error as error:
+                    rows.append( update_action_row(
+                            "failed", name, observed, str( error ), path, "error",
+                    ) )
+                    continue
+                observed = inspect( name, path )
 
-        if not ( dry_run and offline ):
+            action = update_action( observed )
+            if not action.act:
+                if action.reason == "already up to date":
+                    rows.append( update_action_row(
+                            "no change", name, observed, "current", path, "ok",
+                    ) )
+                else:
+                    rows.append( update_action_row(
+                            leave, name, observed,
+                            leave_alone_state( observed, action ), path, "warn",
+                    ) )
+                continue
+
+            if dry_run:
+                rows.append( update_action_row(
+                        "would update", name, observed, state_summary( observed ),
+                        path, "act",
+                ) )
+                continue
+
             try:
-                Git.fetch( observed.path, progress=False )
+                Git.fast_forward( observed.path )
+                updated += 1
+                after = inspect( name, path )
+                rows.append( update_action_row(
+                        "updated", name, after, "current", path, "act",
+                ) )
             except Git.Error as error:
                 rows.append( update_action_row(
                         "failed", name, observed, str( error ), path, "error",
                 ) )
-                continue
-            observed = inspect( name, path )
-
-        action = update_action( observed )
-        if not action.act:
-            if action.reason == "already up to date":
-                rows.append( update_action_row(
-                        "no change", name, observed, "current", path, "ok",
-                ) )
-            else:
-                rows.append( update_action_row(
-                        leave, name, observed,
-                        leave_alone_state( observed, action ), path, "warn",
-                ) )
-            continue
-
-        if dry_run:
-            rows.append( update_action_row(
-                    "would update", name, observed, state_summary( observed ),
-                    path, "act",
-            ) )
-            continue
-
-        try:
-            Git.fast_forward( observed.path )
-            updated += 1
-            after = inspect( name, path )
-            rows.append( update_action_row(
-                    "updated", name, after, "current", path, "act",
-            ) )
-        except Git.Error as error:
-            rows.append( update_action_row(
-                    "failed", name, observed, str( error ), path, "error",
-            ) )
 
     if rows:
         for line in render_update_action_table( rows, subject_column="PACKAGE" ):

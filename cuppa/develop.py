@@ -793,6 +793,89 @@ UPDATE_ACTION_INDENT = INDENT
 UPDATE_ACTION_RULE = RULE
 
 
+class remote_check_progress( object ):
+    """One subdued TTY status line while batch-fetching remotes for an ACTION table.
+
+    On a tty, each fetch rewrites the same line (``Fetching [name] (i/n) · …`` plus
+    git ``--progress``). ``clear()`` blanks that line so the ACTION table replaces
+    it. Non-tty (CI) stays quiet — no progress spam between log lines.
+    """
+
+    def __init__( self ):
+        from cuppa.utility.download import open_progress_stream
+        self._stream, self._is_tty, self._owns = open_progress_stream()
+        self._cleared = False
+
+    @property
+    def interactive( self ):
+        return bool( self._is_tty )
+
+    @property
+    def stream( self ):
+        return self._stream
+
+    def hint( self, text ):
+        """Show a static subdued status before git has spoken."""
+        if not self._is_tty or self._cleared:
+            return
+        from cuppa.utility.storage import pad_visible, visible_len
+        styled = as_subdued( text )
+        cols = max( visible_len( styled ), 1 )
+        try:
+            import shutil
+            cols = max( cols, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
+        except Exception:
+            cols = max( cols, 80 )
+        try:
+            self._stream.write( '\r' + pad_visible( styled, cols ) )
+            self._stream.flush()
+        except Exception:
+            pass
+
+    def clear( self ):
+        if self._cleared:
+            return
+        self._cleared = True
+        if self._is_tty:
+            try:
+                import shutil
+                cols = shutil.get_terminal_size( fallback=( 80, 24 ) ).columns
+                self._stream.write( '\r' + ( ' ' * cols ) + '\r' )
+                self._stream.flush()
+            except Exception:
+                pass
+        if self._owns:
+            try:
+                self._stream.close()
+            except Exception:
+                pass
+
+    def __enter__( self ):
+        return self
+
+    def __exit__( self, exc_type, exc, tb ):
+        self.clear()
+        return False
+
+
+def fetch_for_update( path, name, index, total, status=None ):
+    """Fetch one working copy during ``--update-develop`` / ``--update-publishers``.
+
+    When ``status`` is interactive, streams subdued single-line git progress with a
+    ``Fetching [name] (i/n)`` prefix. Otherwise fetches quietly.
+    """
+    if status is not None and status.interactive:
+        prefix = "Fetching [{}] ({}/{}) · ".format( name, index, total )
+        status.hint( prefix.rstrip( " ·" ) + "…" )
+        return Git.fetch(
+                path,
+                progress=True,
+                line_prefix=prefix,
+                progress_stream=status.stream,
+        )
+    return Git.fetch( path, progress=False )
+
+
 def update_action_row( action, name, observed, state, path, attention ):
     """One ACTION-table row; ``name`` is the dependency or package label."""
     if observed and observed.detached:
@@ -866,8 +949,9 @@ def update_develop( cuppa_env, out=write ):
 
     Reporting matches ``--update-publishers``: an ACTION table (would update /
     updated / no change / leave alone / left alone). Online dry-run still fetches
-    quietly so the table is honest; only the fast-forward is skipped. Offline
-    dry-run falls back to the last observation; a live update refuses ``--offline``.
+    so the table is honest; only the fast-forward is skipped. On a tty the fetch
+    rewrites one subdued status line, cleared before the table. Offline dry-run
+    falls back to the last observation; a live update refuses ``--offline``.
     """
     dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
     offline = bool( cuppa_env.get( 'offline' ) )
@@ -900,55 +984,66 @@ def update_develop( cuppa_env, out=write ):
     failures = 0
     updated = []
 
-    for copy in copies:
-        observed = copy
-        if observed.exists and observed.scm == 'git' and not ( dry_run and offline ):
+    fetchable = [
+            copy for copy in copies
+            if copy.exists and copy.scm == 'git' and not ( dry_run and offline )
+    ]
+    fetch_total = len( fetchable )
+    fetch_index = { id( copy ): i for i, copy in enumerate( fetchable, 1 ) }
+
+    with remote_check_progress() as status:
+        for copy in copies:
+            observed = copy
+            if id( copy ) in fetch_index:
+                try:
+                    fetch_for_update(
+                            observed.path, observed.name,
+                            fetch_index[id( copy )], fetch_total, status,
+                    )
+                except Git.Error as error:
+                    failures += 1
+                    rows.append( update_action_row(
+                            "failed", observed.name, observed, str( error ),
+                            observed.path, "error",
+                    ) )
+                    continue
+                observed = inspect( observed.name, observed.path )
+
+            action = update_action( observed )
+            if not action.act:
+                if action.reason == "already up to date":
+                    rows.append( update_action_row(
+                            "no change", observed.name, observed, "current",
+                            observed.path, "ok",
+                    ) )
+                else:
+                    rows.append( update_action_row(
+                            leave, observed.name, observed,
+                            leave_alone_state( observed, action ),
+                            observed.path, "warn",
+                    ) )
+                continue
+
+            if dry_run:
+                rows.append( update_action_row(
+                        "would update", observed.name, observed,
+                        state_summary( observed ), observed.path, "act",
+                ) )
+                continue
+
             try:
-                Git.fetch( observed.path, progress=False )
+                Git.fast_forward( observed.path )
+                updated.append( observed.name )
+                after = inspect( observed.name, observed.path )
+                rows.append( update_action_row(
+                        "updated", after.name, after, "current", after.path, "act",
+                ) )
             except Git.Error as error:
                 failures += 1
                 rows.append( update_action_row(
                         "failed", observed.name, observed, str( error ),
                         observed.path, "error",
                 ) )
-                continue
-            observed = inspect( observed.name, observed.path )
-
-        action = update_action( observed )
-        if not action.act:
-            if action.reason == "already up to date":
-                rows.append( update_action_row(
-                        "no change", observed.name, observed, "current",
-                        observed.path, "ok",
-                ) )
-            else:
-                rows.append( update_action_row(
-                        leave, observed.name, observed,
-                        leave_alone_state( observed, action ),
-                        observed.path, "warn",
-                ) )
-            continue
-
-        if dry_run:
-            rows.append( update_action_row(
-                    "would update", observed.name, observed,
-                    state_summary( observed ), observed.path, "act",
-            ) )
-            continue
-
-        try:
-            Git.fast_forward( observed.path )
-            updated.append( observed.name )
-            after = inspect( observed.name, observed.path )
-            rows.append( update_action_row(
-                    "updated", after.name, after, "current", after.path, "act",
-            ) )
-        except Git.Error as error:
-            failures += 1
-            rows.append( update_action_row(
-                    "failed", observed.name, observed, str( error ),
-                    observed.path, "error",
-            ) )
 
     if rows:
         for line in render_update_action_table( rows ):

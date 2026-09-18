@@ -865,7 +865,7 @@ def test_update_publisher_trees_skips_develop_and_ffs_behind( monkeypatch ):
     fetches = []
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fetch",
-            lambda path, progress=None: fetches.append( ( path, progress ) ),
+            lambda path, progress=None, **kwargs: fetches.append( ( path, progress ) ),
     )
     ff = []
     monkeypatch.setattr(
@@ -910,7 +910,7 @@ def test_update_publisher_trees_dry_run_fetches_then_would_update( monkeypatch )
     fetches = []
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fetch",
-            lambda path, progress=None: fetches.append( ( path, progress ) ),
+            lambda path, progress=None, **kwargs: fetches.append( ( path, progress ) ),
     )
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fast_forward",
@@ -961,7 +961,7 @@ def test_update_publisher_trees_dry_run_already_current( monkeypatch ):
     )
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fetch",
-            lambda path, progress=None: None,
+            lambda path, progress=None, **kwargs: None,
     )
 
     class _Env( dict ):
@@ -1001,7 +1001,7 @@ def test_update_publisher_trees_offline_dry_run_skips_network( monkeypatch ):
     )
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fetch",
-            lambda path, progress=None: (_ for _ in ()).throw(
+            lambda path, progress=None, **kwargs: (_ for _ in ()).throw(
                     AssertionError( "no fetch offline" )
             ),
     )
@@ -1046,7 +1046,7 @@ def test_update_publisher_trees_leaves_alone_when_untracked_would_overwrite( mon
     )
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fetch",
-            lambda path, progress=None: None,
+            lambda path, progress=None, **kwargs: None,
     )
     monkeypatch.setattr(
             "cuppa.scms.git.Git.fast_forward",

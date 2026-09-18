@@ -11,8 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``
   (**updated** / **no change** / **left alone**; dry-run **would update** /
-  **leave alone**), with a quiet fetch so the table stays the only update
-  surface. Online ``-n`` still contacts remotes; offline ``-n`` is allowed and
+  **leave alone**). On a tty, remote checks rewrite one subdued status line
+  (``Fetching [name] (i/n) ·`` plus git ``--progress``), then clear it before the
+  table. Online ``-n`` still contacts remotes; offline ``-n`` is allowed and
   judged from the last fetch; a live update still refuses ``--offline``. After a
   live run that moved copies, the ``--list-develop`` **STATUS** table is reprinted
   as “the state is now”.

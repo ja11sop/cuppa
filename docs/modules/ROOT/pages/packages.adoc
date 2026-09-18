@@ -326,8 +326,9 @@ trees are left alone. Trees ranked from ``--develop`` /
 
 The report is an **ACTION** table (not the ``STATUS`` severity column from
 ``--list-develop``): live rows read **updated** / **no change** / **left alone**;
-dry-run rows read **would update** / **no change** / **leave alone**. Fetch runs
-quietly so the table stays the only console surface for the update step.
+dry-run rows read **would update** / **no change** / **leave alone**. On a tty,
+remote checks rewrite one subdued status line (``Fetching [name] (i/n) ·`` plus
+git ``--progress``), then clear it so the table replaces that line.
 
 [source,shell]
 ----
