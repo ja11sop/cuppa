@@ -102,11 +102,11 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | A | Anchor package develop paths to the sconstruct directory; cover `--list-develop` reporting a package develop copy | `patch` — **shipped** |
 | B | Cascade honours a develop tree as a publisher tree, ranked first; refusals and plan-report visibility from the table above | `minor` — **shipped** |
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` — **shipped** |
-| D | Consume from a locally built package: discover `final/<package>/<version>/` under `--develop`; opt-in `--stage-develop` for nest build + deep clean | `minor` — **implemented** (this branch); soak next |
+| D | Consume from a locally built package: discover `final/<package>/<version>/` under `--develop`; opt-in `--stage-develop` for nest build + deep clean | `minor` — **shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak next |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | `minor` (inference + note shipped with D; distinct kwarg only if needed) |
 
 Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop/cuppa/pull/310).
-**Slice D implemented:** `--develop` discovers a local package stage; `--develop --stage-develop` nest-stages (and nest-cleans) publisher-shaped package trees. Extending `--stage-develop` to location develop trees is a separate proposal: [`stage-develop-locations.md`](stage-develop-locations.md).
+**Slice D shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311): `--develop` discovers a local package stage; `--develop --stage-develop` nest-stages (and nest-cleans) publisher-shaped package trees. Extending `--stage-develop` to location develop trees is a separate proposal: [`stage-develop-locations.md`](stage-develop-locations.md).
 
 ### Soak findings (post slice C)
 
