@@ -261,6 +261,18 @@ def update_action( copy ):
         return Action( False, "ahead of [{}]".format( copy.upstream ) )
     if not copy.behind:
         return Action( False, "already up to date" )
+    # Tracked "clean" can still leave untracked paths that a merge would
+    # overwrite (git aborts with that error). Leave alone before attempting FF.
+    if copy.path:
+        blockers = Git.untracked_paths_blocking_fast_forward( copy.path )
+        if blockers:
+            shown = blockers[0] if len( blockers ) == 1 else "{}, …".format(
+                    blockers[0]
+            )
+            return Action(
+                    False,
+                    "untracked [{}] would be overwritten".format( shown ),
+            )
     return Action( True, "{} behind [{}]".format(
             plural( copy.behind, "commit" ), copy.upstream ) )
 
@@ -768,9 +780,98 @@ def list_develop( cuppa_env, out=write ):
     return severity == ERROR and 1 or 0
 
 
+
+#-------------------------------------------------------------------------------
+#   ACTION table (``--update-develop`` / ``--update-publishers``)
+#
+#   STATUS on ``--list-develop`` is severity. ACTION here is what the update
+#   verb did or would do: would update / updated / no change / leave alone /
+#   left alone / failed.
+#-------------------------------------------------------------------------------
+
+UPDATE_ACTION_INDENT = INDENT
+UPDATE_ACTION_RULE = RULE
+
+
+def update_action_row( action, name, observed, state, path, attention ):
+    """One ACTION-table row; ``name`` is the dependency or package label."""
+    if observed and observed.detached:
+        branch = "(detached)"
+    elif observed and observed.branch:
+        branch = observed.branch
+    else:
+        branch = "-"
+    return {
+            "action": action,
+            "name": name,
+            "branch": branch,
+            "upstream": ( observed.upstream if observed else None ) or "-",
+            "state": state,
+            "path": display_path( path ) if path else "-",
+            "attention": attention,
+    }
+
+
+def leave_alone_state( observed, action ):
+    """STATE for a leave-alone row; surface overwrite blockers that look clean."""
+    if action.reason.startswith( "untracked [" ):
+        return action.reason
+    return state_summary( observed )
+
+
+def render_update_action_table( rows, subject_column="DEPENDENCY" ):
+    """Ruled ACTION table; colour follows attention (act / warn / error / ok)."""
+    columns = (
+            "ACTION", subject_column, "BRANCH", "UPSTREAM", "STATE", "PATH",
+    )
+    plain_rows = [ columns ] + [
+            ( row["action"], row["name"], row["branch"], row["upstream"],
+              row["state"], row["path"] )
+            for row in rows
+    ]
+    widths = [
+            max( len( cell[column] ) for cell in plain_rows )
+            for column in range( len( columns ) )
+    ]
+
+    def format_row( cells ):
+        return UPDATE_ACTION_INDENT + "  ".join(
+                value.ljust( width ) for value, width in zip( cells, widths )
+        ).rstrip()
+
+    def colour_row( text, attention ):
+        if attention == "act":
+            return as_info( text )
+        if attention == "warn":
+            return as_warning( text )
+        if attention == "error":
+            return as_error( text )
+        return as_subdued( text )
+
+    width = max( len( format_row( cells ) ) for cells in plain_rows )
+    rule = as_subdued(
+            UPDATE_ACTION_INDENT + UPDATE_ACTION_RULE * (
+                    width - len( UPDATE_ACTION_INDENT )
+            )
+    )
+    lines = [ rule, format_row( plain_rows[0] ), rule ]
+    for row, cells in zip( rows, plain_rows[1:] ):
+        lines.append( colour_row( format_row( cells ), row["attention"] ) )
+    lines.append( rule )
+    return lines
+
+
 def update_develop( cuppa_env, out=write ):
-    """`--update-develop`. Fetch, then fast-forward only where nothing can be lost."""
-    if cuppa_env['offline']:
+    """`--update-develop`. Fetch, then fast-forward only where nothing can be lost.
+
+    Reporting matches ``--update-publishers``: an ACTION table (would update /
+    updated / no change / leave alone / left alone). Online dry-run still fetches
+    quietly so the table is honest; only the fast-forward is skipped. Offline
+    dry-run falls back to the last observation; a live update refuses ``--offline``.
+    """
+    dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
+    offline = bool( cuppa_env.get( 'offline' ) )
+    if offline and not dry_run:
         logger.error( "--update-develop needs the network, but --offline was specified" )
         return 1
 
@@ -778,48 +879,80 @@ def update_develop( cuppa_env, out=write ):
     default_branch = cuppa_env['location_default_branch']
     base_branch = effective_base_branch( cuppa_env )
     develop_active = cuppa_env['develop']
-    dry_run = cuppa_env.get_option( 'no_exec' ) and True or False
 
     copies, without_develop = survey( cuppa_env )
-    report(
-            copies, without_develop, current_branch, default_branch, develop_active, out,
-            base_branch=base_branch,
-    )
 
     out()
     if dry_run:
-        # No fetch happens, so the decisions shown are the ones the last fetch supports.
-        out( "{} {}".format(
-                as_info_label( "Dry run" ),
-                "showing what --update-develop would do, judged as of your last fetch" ) )
+        if offline:
+            out( "{} {}".format(
+                    as_info_label( "Dry run" ),
+                    "showing what --update-develop would do, judged as of your last fetch",
+            ) )
+        else:
+            out( "{} {}".format(
+                    as_info_label( "Dry run" ),
+                    "checking remotes for --update-develop",
+            ) )
 
+    leave = "leave alone" if dry_run else "left alone"
+    rows = []
     failures = 0
     updated = []
 
     for copy in copies:
-        observed, failed = _fetch( copy, dry_run, out )
-        failures += failed
+        observed = copy
+        if observed.exists and observed.scm == 'git' and not ( dry_run and offline ):
+            try:
+                Git.fetch( observed.path, progress=False )
+            except Git.Error as error:
+                failures += 1
+                rows.append( update_action_row(
+                        "failed", observed.name, observed, str( error ),
+                        observed.path, "error",
+                ) )
+                continue
+            observed = inspect( observed.name, observed.path )
 
         action = update_action( observed )
         if not action.act:
-            out( action_line( "Leaving [{}] alone: {}".format(
-                    observed.name, action.reason ) ) )
+            if action.reason == "already up to date":
+                rows.append( update_action_row(
+                        "no change", observed.name, observed, "current",
+                        observed.path, "ok",
+                ) )
+            else:
+                rows.append( update_action_row(
+                        leave, observed.name, observed,
+                        leave_alone_state( observed, action ),
+                        observed.path, "warn",
+                ) )
             continue
 
         if dry_run:
-            out( action_line( "Would fast-forward [{}], {}".format(
-                    observed.name, action.reason ) ) )
+            rows.append( update_action_row(
+                    "would update", observed.name, observed,
+                    state_summary( observed ), observed.path, "act",
+            ) )
             continue
 
         try:
             Git.fast_forward( observed.path )
             updated.append( observed.name )
-            out( action_line( "Fast-forwarded [{}], which was {}".format(
-                    observed.name, action.reason ) ) )
+            after = inspect( observed.name, observed.path )
+            rows.append( update_action_row(
+                    "updated", after.name, after, "current", after.path, "act",
+            ) )
         except Git.Error as error:
             failures += 1
-            out( action_line( "Could not fast-forward [{}]: {}".format(
-                    observed.name, str(error) ), as_error ) )
+            rows.append( update_action_row(
+                    "failed", observed.name, observed, str( error ),
+                    observed.path, "error",
+            ) )
+
+    if rows:
+        for line in render_update_action_table( rows ):
+            out( line )
 
     if dry_run:
         return 0
@@ -834,7 +967,6 @@ def update_develop( cuppa_env, out=write ):
                 develop_active, out, base_branch=base_branch,
         )
     else:
-        out( INDENT + "Nothing could be fast-forwarded; no working copy was changed" )
         severity = worst( [ OK ] + [
             classify( copy, current_branch, default_branch, base_branch ).severity
             for copy in copies
@@ -846,7 +978,11 @@ def update_develop( cuppa_env, out=write ):
 
 
 def _fetch( copy, dry_run, out ):
-    """Fetch, then observe again: the decision must be taken on what is true after the fetch."""
+    """Fetch, then observe again: the decision must be taken on what is true after the fetch.
+
+    Used by checkout/reset develop verbs (prose lines). ``--update-develop`` fetches
+    quietly itself so its ACTION table stays the only update surface.
+    """
     if not copy.exists or copy.scm != 'git':
         return copy, 0
 

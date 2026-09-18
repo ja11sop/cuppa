@@ -114,10 +114,11 @@ class PublishPackageMethod(object):
                         'Before publishing this package, build and '
                         '--publish-package each GitLab package dependency in '
                         'order (requires package_source and/or --publisher-root). '
-                        'Requires --publish-package, or pair with --cascade-plan '
-                        'or --collect-cascade. Not compatible with -n/--no-exec '
-                        '(nested sessions still configure); use --cascade-plan '
-                        'or --collect-cascade instead.'
+                        'Requires --publish-package, or pair with --cascade-plan, '
+                        '--collect-cascade, or --update-publishers. Not compatible '
+                        'with -n/--no-exec when nested sessions would run '
+                        '(use --cascade-plan, --collect-cascade, or '
+                        '--update-publishers -n instead).'
                 ),
         )
         add_option(
@@ -144,6 +145,23 @@ class PublishPackageMethod(object):
                         'without building or publishing. Requires '
                         '--build-and-publish-dependencies; --publish-package is '
                         'not needed. Not the same as --publish-package -n.'
+                ),
+        )
+        add_option(
+                '--update-publishers',
+                dest='update-publishers',
+                action='store_true',
+                help=(
+                        'Fetch and fast-forward publisher working trees the '
+                        'cascade would use (same clean/behind gates as '
+                        '--update-develop). Skips --develop trees. Requires '
+                        '--build-and-publish-dependencies. Alone or with '
+                        '--collect-cascade it stops before build/upload; with '
+                        '--publish-package it updates then runs the nested '
+                        'publish. Not with --cascade-plan. Live update refuses '
+                        '--offline; -n still checks remotes when online. '
+                        'Reports an ACTION table (updated / no change / '
+                        'left alone; dry-run: would update / leave alone).'
                 ),
         )
         add_option(

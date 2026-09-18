@@ -675,16 +675,19 @@ def test_update_refuses_to_run_offline( tmp_path ):
     assert update_develop( env ) == 1
 
 
-def test_a_dry_run_changes_nothing_and_exits_zero( tmp_path, monkeypatch ):
-    def refuse( *args, **kwargs ):
-        raise AssertionError( "a dry run must not touch the working copy" )
-
-    monkeypatch.setattr( Git, 'fetch', refuse )
-    monkeypatch.setattr( Git, 'fast_forward', refuse )
-
-    env = fake_env( { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) },
-                    no_exec=True )
+def test_update_offline_dry_run_is_allowed( tmp_path, monkeypatch, capsys ):
+    monkeypatch.setattr(
+            Git, 'fetch',
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "no fetch offline" ) ),
+    )
+    env = fake_env(
+            { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) },
+            offline=True, no_exec=True,
+    )
     assert update_develop( env ) == 0
+    out = capsys.readouterr().out
+    assert "judged as of your last fetch" in out
+    assert "ACTION" in out
 
 
 #-------------------------------------------------------------------------------
@@ -767,6 +770,7 @@ def test_upstream_commits_are_observed_as_behind_after_a_fetch( working_copy ):
 
 @git_available
 def test_uncommitted_changes_are_observed_but_untracked_files_are_not( working_copy ):
+    """Tracked dirt flips modified; unrelated untracked files do not."""
     origin, clone = working_copy
 
     ( clone / "untracked" ).write_text( "untracked" )
@@ -774,6 +778,35 @@ def test_uncommitted_changes_are_observed_but_untracked_files_are_not( working_c
 
     ( clone / "first" ).write_text( "changed" )
     assert inspect( "widget", str(clone) ).modified is True
+
+
+@git_available
+def test_untracked_overlap_with_incoming_blocks_fast_forward( working_copy ):
+    """A clean tree can still leave alone when an untracked path would be overwritten."""
+    origin, clone = working_copy
+    commit( origin, "second" )
+    Git.fetch( str(clone) )
+
+    ( clone / "second" ).write_text( "local untracked clash" )
+    observed = inspect( "widget", str(clone) )
+    assert observed.modified is False
+    assert observed.behind == 1
+
+    action = update_action( observed )
+    assert not action.act
+    assert "untracked [second] would be overwritten" in action.reason
+
+
+@git_available
+def test_unrelated_untracked_files_do_not_block_fast_forward( working_copy ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+    Git.fetch( str(clone) )
+
+    ( clone / "scratch" ).write_text( "harmless" )
+    observed = inspect( "widget", str(clone) )
+    assert observed.behind == 1
+    assert update_action( observed ).act
 
 
 @git_available
@@ -824,6 +857,49 @@ def test_updating_does_not_suggest_the_option_you_have_just_run( working_copy, c
     update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
 
     assert "--update-develop would fast-forward" not in capsys.readouterr().out
+
+
+@git_available
+def test_a_dry_run_fetches_quietly_but_does_not_fast_forward( working_copy, monkeypatch, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+
+    fetches = []
+    real_fetch = Git.fetch
+
+    def record_fetch( path, progress=None ):
+        fetches.append( ( path, progress ) )
+        return real_fetch( path, progress=progress )
+
+    monkeypatch.setattr( Git, 'fetch', record_fetch )
+    monkeypatch.setattr(
+            Git, 'fast_forward',
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "no FF on dry-run" ) ),
+    )
+
+    env = fake_env(
+            { 'widget': dependency_with_develop( 'widget', str(clone) ) },
+            no_exec=True,
+    )
+    assert update_develop( env ) == 0
+    assert fetches == [ ( str(clone), False ) ]
+    out = capsys.readouterr().out
+    assert "checking remotes for --update-develop" in out
+    assert "would update" in out
+    assert "Would fetch" not in out
+
+
+@git_available
+def test_update_develop_reports_an_action_table( working_copy, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+
+    update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
+    out = capsys.readouterr().out
+    assert "ACTION" in out
+    assert "updated" in out
+    assert "Fast-forwarded" not in out
+    assert "The state is now:" in out
 
 
 #-------------------------------------------------------------------------------

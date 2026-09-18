@@ -393,7 +393,10 @@ class Git:
         """Branch, upstream, ahead, behind and modified, without touching the network.
 
         The counts describe the working copy against the upstream ref as it stood after the last
-        fetch. `modified` ignores untracked files: they are not what stops a fast-forward.
+        fetch. ``modified`` is tracked dirt only (``status --porcelain
+        --untracked-files=no``). Untracked paths that would be overwritten by a
+        fast-forward are a separate check —
+        :meth:`untracked_paths_blocking_fast_forward` — used by update decisions.
         """
         if not path or not os.path.exists( os.path.join( path, ".git" ) ):
             raise cls.Error("Not a Git working copy")
@@ -449,9 +452,45 @@ class Git:
 
 
     @classmethod
-    def fetch( cls, path ):
-        """Update the remote-tracking refs. The one command in this family that uses the network."""
-        if cls._progress_enabled():
+    def untracked_paths_blocking_fast_forward( cls, path ):
+        """Untracked paths a fast-forward to ``@{upstream}`` would overwrite.
+
+        Returns a sorted list. Empty when there is no overlap, no upstream delta,
+        or the check cannot run. Harmless untracked files that do not collide
+        with incoming paths are ignored.
+        """
+        if not path or not os.path.exists( os.path.join( path, ".git" ) ):
+            return []
+        try:
+            incoming = cls.execute_command(
+                    "{git} diff --name-only HEAD..@{{upstream}}".format(
+                            git=cls.binary()
+                    ),
+                    path,
+            )
+            untracked = cls.execute_command(
+                    "{git} ls-files --others --exclude-standard".format(
+                            git=cls.binary()
+                    ),
+                    path,
+            )
+        except cls.Error:
+            return []
+        incoming_set = { line for line in incoming.splitlines() if line }
+        untracked_set = { line for line in untracked.splitlines() if line }
+        return sorted( incoming_set & untracked_set )
+
+
+    @classmethod
+    def fetch( cls, path, progress=None ):
+        """Update the remote-tracking refs. The one command in this family that uses the network.
+
+        ``progress`` defaults to the usual INFO-gated streamed ``--progress``. Pass
+        ``False`` for a quiet fetch (e.g. under a dry-run table that should stay
+        the only console surface).
+        """
+        use_progress = cls._progress_enabled() if progress is None else bool( progress )
+        if use_progress:
             return cls._run_with_progress(
                     [ cls.binary(), "fetch", "--progress" ],
                     path,

@@ -274,8 +274,9 @@ flowchart LR
 == Updating develop copies
 
 `--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
-It fetches each git working copy (with streamed `--progress` at INFO or finer when the network is used), then fast-forwards only those that are clean and strictly behind their upstream.
-Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
+It fetches each git working copy quietly, then fast-forwards only those that are clean and strictly behind their upstream.
+The report is an **ACTION** table (not the ``STATUS`` severity column from `--list-develop`): live rows read **updated** / **no change** / **left alone**; dry-run rows read **would update** / **no change** / **leave alone**.
+Everything else is left alone with a reason in STATE: ahead, diverged, modified, detached, no upstream, untracked paths that the fast-forward would overwrite, not a working copy, or path missing.
 
 [source,shell]
 ----
@@ -283,11 +284,12 @@ cuppa -D --update-develop
 cuppa -D --update-develop -n
 ----
 
-It prints the table before acting, then what it did to each copy, then the table again if anything moved, so the effect is visible rather than inferred.
+After a live run that moved at least one copy, it reprints the `--list-develop` **STATUS** table so the new state is visible.
 It never stashes, resets, rewrites history, or switches branches.
 A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
-`--offline` makes `--update-develop` an error rather than a silent no-op, because options in this family that need the network refuse `--offline`.
-`-n` / `--no-exec` shows the plan and changes nothing; because no fetch happens, the plan is judged as of your last fetch, and the report says so.
+A live update refuses `--offline`.
+`-n` / `--no-exec` still contacts remotes when online so **would update** vs **no change** is honest; only the fast-forward is skipped.
+Offline `-n` falls back to the last observed state and says so.
 Updating several repositories is not atomic: a failure in one is reported, the rest continue, and the exit status is non-zero.
 
 Subversion, Mercurial, and Bazaar copies appear in the `--list-develop` table with branch and revision from the existing SCM support; ahead, behind, and modified are reported as unknown, and `--update-develop` leaves them alone.

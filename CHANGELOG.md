@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``
+  (**updated** / **no change** / **left alone**; dry-run **would update** /
+  **leave alone**), with a quiet fetch so the table stays the only update
+  surface. Online ``-n`` still contacts remotes; offline ``-n`` is allowed and
+  judged from the last fetch; a live update still refuses ``--offline``. After a
+  live run that moved copies, the ``--list-develop`` **STATUS** table is reprinted
+  as “the state is now”.
+- ``--update-develop`` / ``--update-publishers`` leave a clean-but-behind tree
+  alone (warn) when an untracked path would be overwritten by the fast-forward,
+  instead of attempting the merge and reporting **failed** after a false
+  ``clean``. Unrelated untracked files still allow the update. The publisher
+  ACTION table shows the leave-alone reason in STATE for that case.
 - Cascade refusals of ``--build-and-publish-dependencies`` with ``-n`` /
   ``--no-exec`` print an **Options Error** judgement tree (why / what to do)
   before a short ``StopError``, instead of one long exception string. Nested
@@ -99,6 +111,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--update-publishers`` — with ``--build-and-publish-dependencies``, fetch and
+  fast-forward publisher working trees the cascade would use (same clean /
+  behind gates as ``--update-develop``). Skips ``--develop`` trees. Alone or with
+  ``--collect-cascade`` it stops before build/upload; with ``--publish-package``
+  it updates then runs the nested publish. Refuses ``--cascade-plan``; live
+  update refuses ``--offline``. ``-n`` still checks remotes when online (quiet
+  fetch; only the fast-forward is skipped). Reports an **ACTION** table:
+  **updated** / **no change** / **left alone** (dry-run: **would update** /
+  **leave alone**), not the ``STATUS`` severity column from ``--list-develop``.
 - ``--collect-cascade`` — with ``--build-and-publish-dependencies``, resolve the
   cascade graph and clone missing publisher trees (when ``--clone-publishers``
   is set), reusing trees that already exist, then stop without nested builds or

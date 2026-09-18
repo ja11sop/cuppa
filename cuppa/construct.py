@@ -643,6 +643,13 @@ class Construct(object):
                 logger.info( "{} — resolve and clone publisher trees; no build or publish".format(
                         as_info_label( "Running in PACKAGE BUILD: CASCADE COLLECT mode" )
                 ) )
+            elif (
+                    package_cascade.cascade_update_enabled( cuppa_env )
+                    and package_cascade.cascade_stop_before_build( cuppa_env )
+            ):
+                logger.info( "{} — fetch/fast-forward publisher trees; no build or publish".format(
+                        as_info_label( "Running in PACKAGE BUILD: CASCADE UPDATE mode" )
+                ) )
 
             cuppa.develop.warn_unused_develop_overrides( cuppa_env )
 

@@ -313,6 +313,41 @@ publish. The plan header says **collecting packages**; warnings say make this
 (``0 publisher trees collected`` when ``--clone-publishers`` was still needed),
 not tip packages.
 
+[#update-publishers]
+==== Updating publisher trees
+
+``--collect-cascade`` reuses an existing forest tree as it stands — it does not
+fetch. When ``~/.cuppa/publishers/…`` (or a ``--publisher-root`` checkout) is
+behind its upstream, pass ``--update-publishers``. It uses the same gates as
+``--update-develop``: fetch, then fast-forward only when the copy is clean,
+tracking an upstream, and strictly behind. Dirty, ahead, diverged, or detached
+trees are left alone. Trees ranked from ``--develop`` /
+``develop=`` are skipped — use ``--update-develop`` for those.
+
+The report is an **ACTION** table (not the ``STATUS`` severity column from
+``--list-develop``): live rows read **updated** / **no change** / **left alone**;
+dry-run rows read **would update** / **no change** / **leave alone**. Fetch runs
+quietly so the table stays the only console surface for the update step.
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --update-publishers
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers \
+  --update-publishers
+----
+
+Requires the cascade flag. Alone (or with ``--collect-cascade``) it stops before
+build/upload. With ``--publish-package`` it updates first, then runs the nested
+publish. Refuse ``--cascade-plan`` (review-only) and ``--offline`` for a live
+update. ``-n`` still contacts remotes when online so **would update** vs
+**no change** is honest; only the fast-forward is skipped. Offline ``-n`` falls
+back to the last observed state. Untracked paths that a fast-forward would
+overwrite are **leave alone** / **left alone** (warn), not a post-merge
+**failed**.
+
 A real cascade prints the same plan before its first nested publish, then brackets
 each nested session with a banner naming the session number, the publisher tree,
 the command it ran, and how long it took. Cascade deliberately does not capture or

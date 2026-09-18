@@ -51,6 +51,7 @@ from cuppa.utility import storage
 CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
+UPDATE_PUBLISHERS_OPTION = "update-publishers"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
 MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
@@ -67,6 +68,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
+        "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
@@ -96,9 +98,23 @@ def cascade_collect_enabled( env ) -> bool:
     return bool( getter( COLLECT_CASCADE_OPTION ) )
 
 
+def cascade_update_enabled( env ) -> bool:
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( UPDATE_PUBLISHERS_OPTION ) )
+
+
 def cascade_stop_before_build( env ) -> bool:
-    """Plan or collect: resolve (and maybe clone), report, do not nested-build."""
-    return cascade_plan_enabled( env ) or cascade_collect_enabled( env )
+    """Plan, collect, or update-without-publish: resolve/report, do not nested-build."""
+    if cascade_plan_enabled( env ) or cascade_collect_enabled( env ):
+        return True
+    if not cascade_update_enabled( env ):
+        return False
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( "publish-package" ):
+        return False
+    return True
 
 
 def _no_exec_enabled( env ) -> bool:
@@ -1191,11 +1207,13 @@ def cascade_plan_lines(
     The invoking command line is shown above the tree so recommended flags can be
     compared with flags already present (cascade-relevant ones are emphasised info).
 
-    ``mode`` is ``cascade-plan`` (default) or ``collect-cascade`` — collect retargets
-    the header and judgement verbs. ``clean`` retargets the intro for ``-c`` /
-    ``--clean`` (nested sessions remove targets; nothing is published).
+    ``mode`` is ``cascade-plan`` (default), ``collect-cascade``, or
+    ``update-publishers`` — collect/update retarget the header and judgement verbs.
+    ``clean`` retargets the intro for ``-c`` / ``--clean`` (nested sessions remove
+    targets; nothing is published).
     """
     collect = mode == COLLECT_CASCADE_OPTION
+    updating = mode == UPDATE_PUBLISHERS_OPTION
     tee, elbow, pipe, gap = storage.glyphs( encoding )
     judgements_by_key = {
             key: _node_judgements( nodes[key], collect=collect ) for key in order
@@ -1219,6 +1237,11 @@ def cascade_plan_lines(
         intro = (
                 "Printing Cascade plan for collecting packages for {} given the command:"
                 .format( tip )
+        )
+    elif updating:
+        intro = (
+                "Printing Cascade plan for updating publisher trees for {} "
+                "given the command:".format( tip )
         )
     elif clean:
         intro = (
@@ -1416,6 +1439,7 @@ def record_plan_report(
         unused_develop=0,
         mode=None,
         trees_collected=0,
+        trees_updated=0,
 ) -> None:
     _plan_reports.append( {
             "package": str( tip_package ),
@@ -1426,6 +1450,7 @@ def record_plan_report(
             "unused_develop": int( unused_develop ),
             "mode": mode or CASCADE_PLAN_OPTION,
             "trees_collected": int( trees_collected ),
+            "trees_updated": int( trees_updated ),
     } )
 
 
@@ -1435,7 +1460,7 @@ def finish_plan_only( env=None, out=None ) -> int:
 
 
 def finish_cascade_stop( env=None, out=None ) -> int:
-    """Closing line and exit status for ``--cascade-plan`` or ``--collect-cascade``.
+    """Closing line and exit status for plan / collect / update-without-publish.
 
     Called once the sconscript read is done (the ``--dump`` pattern in
     ``construct.py``) rather than from the publisher, so a run with several tips,
@@ -1450,16 +1475,30 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     """
     stream = out if out is not None else sys.stdout
     collect = False
-    if env is not None and cascade_collect_enabled( env ):
-        collect = True
-    elif _plan_reports and _plan_reports[0].get( "mode" ) == COLLECT_CASCADE_OPTION:
-        collect = True
-    option = COLLECT_CASCADE_OPTION if collect else CASCADE_PLAN_OPTION
-    no_side_effects = (
-            "nothing was collected, built, published, or uploaded."
-            if collect else
-            "nothing was built, published, uploaded, or cloned."
-    )
+    update = False
+    if env is not None:
+        if cascade_collect_enabled( env ):
+            collect = True
+        elif cascade_update_enabled( env ) and cascade_stop_before_build( env ):
+            update = True
+    elif _plan_reports:
+        mode = _plan_reports[0].get( "mode" )
+        if mode == COLLECT_CASCADE_OPTION:
+            collect = True
+        elif mode == UPDATE_PUBLISHERS_OPTION:
+            update = True
+    if collect:
+        option = COLLECT_CASCADE_OPTION
+        no_side_effects = "nothing was collected, built, published, or uploaded."
+        verb = "collect"
+    elif update:
+        option = UPDATE_PUBLISHERS_OPTION
+        no_side_effects = "nothing was built, published, or uploaded."
+        verb = "update"
+    else:
+        option = CASCADE_PLAN_OPTION
+        no_side_effects = "nothing was built, published, uploaded, or cloned."
+        verb = "plan"
 
     if not _plan_reports:
         if env is not None and not cascade_enabled( env ):
@@ -1469,7 +1508,11 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     .format(
                             as_info_label( "--" + option ),
                             CASCADE_OPTION,
-                            "collects for" if collect else "plans",
+                            (
+                                    "collects for" if collect else
+                                    "updates for" if update else
+                                    "plans"
+                            ),
                     ),
             ], out=stream )
             return 1
@@ -1480,9 +1523,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                         _cascade_stop_summary(
                                 option,
                                 "no GitLab package publisher was constructed, so "
-                                "there is no cascade to {}".format(
-                                        "collect" if collect else "plan"
-                                ),
+                                "there is no cascade to {}".format( verb ),
                         )
                 ),
         ], out=stream )
@@ -1499,6 +1540,9 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     trees_collected = sum(
             report.get( "trees_collected", 0 ) for report in _plan_reports
     )
+    trees_updated = sum(
+            report.get( "trees_updated", 0 ) for report in _plan_reports
+    )
     packages = _plain_count_phrase( len( _plan_reports ), "package" )
     if errors:
         if collect:
@@ -1511,6 +1555,21 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             remediation = (
                     "Plant the missing trees, pass {} to fetch the ones with "
                     "a URL package_source, or set {}.".format(
+                            _footer_flag( CLONE_OPTION ),
+                            _footer_flag( PUBLISHER_ROOT_OPTION ),
+                    )
+            )
+        elif update:
+            summary = "{}, {} without a publisher tree".format(
+                    _plain_count_phrase(
+                            trees_updated, "publisher tree", "publisher trees"
+                    ) + " updated",
+                    _plain_count_phrase( errors, "dependency", "dependencies" ),
+            )
+            remediation = (
+                    "Plant the missing trees, pass {} with {} to clone them, "
+                    "or set {}.".format(
+                            _footer_flag( COLLECT_CASCADE_OPTION ),
                             _footer_flag( CLONE_OPTION ),
                             _footer_flag( PUBLISHER_ROOT_OPTION ),
                     )
@@ -1546,10 +1605,24 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     summary,
                     _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
             )
-        if trees_collected == 0:
+        if trees_updated:
+            summary = "{}, {} updated".format(
+                    summary,
+                    _plain_count_phrase(
+                            trees_updated, "publisher tree", "publisher trees"
+                    ),
+            )
+        if trees_collected == 0 and trees_updated == 0:
             detail = "nothing was collected, built, published, or uploaded."
         else:
             detail = "nothing was built, published, or uploaded."
+    elif update:
+        summary = "{} updated".format(
+                _plain_count_phrase(
+                        trees_updated, "publisher tree", "publisher trees"
+                )
+        )
+        detail = no_side_effects
     else:
         summary = "{} planned".format( packages )
         if clones:
@@ -1561,7 +1634,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
 
     if needs_clone or unused_develop:
         actions = []
-        if collect:
+        if collect or update:
             if needs_clone:
                 actions.append(
                         "pass {} to clone missing publisher trees".format(
@@ -1570,7 +1643,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                 )
             if unused_develop:
                 actions.append(
-                        "pass {} to collect from a configured develop tree".format(
+                        "pass {} to use a configured develop tree".format(
                                 _footer_flag( "develop" )
                         )
                 )
@@ -1588,7 +1661,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                         .format( _footer_flag( "develop" ), publish )
                 )
         detail = "{}; {}".format( ", or ".join( actions ), detail )
-    elif not collect and clones:
+    elif not collect and not update and clones:
         detail = "pass {} along with {} to execute; {}".format(
                 _footer_flag( CLONE_OPTION ),
                 _footer_flag( "publish-package" ),
@@ -1606,6 +1679,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
+        "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
@@ -1989,6 +2063,126 @@ def judge_publisher_trees( env, nodes: dict, order ) -> None:
     )
 
 
+def update_publisher_trees( env, nodes: dict, order, out=None ) -> int:
+    """Fetch and fast-forward resolved publisher trees (``--update-publishers``).
+
+    Same gates as ``--update-develop``: clean, tracking upstream, strictly behind.
+    Develop-ranked trees are skipped (use ``--update-develop``). Returns how many
+    trees were fast-forwarded (0 under dry-run).
+
+    Reporting is an ACTION table shared with ``--update-develop`` (would update /
+    updated / no change / leave alone / left alone). Online dry-run still fetches
+    quietly so the table is honest; only the fast-forward is skipped. Offline
+    dry-run falls back to the last observation.
+    """
+    from cuppa.develop import (
+            inspect,
+            leave_alone_state,
+            render_update_action_table,
+            state_summary,
+            update_action,
+            update_action_row,
+            write as develop_write,
+    )
+    from cuppa.scms.git import Git
+
+    emit = out if out is not None else develop_write
+    dry_run = _no_exec_enabled( env )
+    offline = bool( env.get( "offline" ) )
+    updated = 0
+    rows = []
+
+    emit( "" )
+    if dry_run:
+        if offline:
+            emit( "{} {}".format(
+                    as_info_label( "Dry run" ),
+                    "showing what --{} would do, judged from your last update"
+                    .format( UPDATE_PUBLISHERS_OPTION ),
+            ) )
+        else:
+            emit( "{} {}".format(
+                    as_info_label( "Dry run" ),
+                    "checking remotes for --{}".format( UPDATE_PUBLISHERS_OPTION ),
+            ) )
+
+    leave = "leave alone" if dry_run else "left alone"
+
+    for key in order:
+        entry = nodes[key]
+        path = entry.get( "_publisher_dir" )
+        if not path:
+            continue
+        name = entry["name"]
+
+        if entry.get( "_from_develop" ):
+            observed = inspect( name, path )
+            rows.append( update_action_row(
+                    leave, name, observed,
+                    "develop tree (use --update-develop)", path, "ok",
+            ) )
+            continue
+
+        observed = inspect( name, path )
+        if not observed.exists or observed.scm != "git":
+            reason = (
+                    "path does not exist" if not observed.exists
+                    else "not a git working copy"
+            )
+            rows.append( update_action_row(
+                    leave, name, observed, reason, path, "warn",
+            ) )
+            continue
+
+        if not ( dry_run and offline ):
+            try:
+                Git.fetch( observed.path, progress=False )
+            except Git.Error as error:
+                rows.append( update_action_row(
+                        "failed", name, observed, str( error ), path, "error",
+                ) )
+                continue
+            observed = inspect( name, path )
+
+        action = update_action( observed )
+        if not action.act:
+            if action.reason == "already up to date":
+                rows.append( update_action_row(
+                        "no change", name, observed, "current", path, "ok",
+                ) )
+            else:
+                rows.append( update_action_row(
+                        leave, name, observed,
+                        leave_alone_state( observed, action ), path, "warn",
+                ) )
+            continue
+
+        if dry_run:
+            rows.append( update_action_row(
+                    "would update", name, observed, state_summary( observed ),
+                    path, "act",
+            ) )
+            continue
+
+        try:
+            Git.fast_forward( observed.path )
+            updated += 1
+            after = inspect( name, path )
+            rows.append( update_action_row(
+                    "updated", name, after, "current", path, "act",
+            ) )
+        except Git.Error as error:
+            rows.append( update_action_row(
+                    "failed", name, observed, str( error ), path, "error",
+            ) )
+
+    if rows:
+        for line in render_update_action_table( rows, subject_column="PACKAGE" ):
+            emit( line )
+    return updated
+
+
+
 def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
     argv = argv_for_nested_publish( env=env )
     nested_env = os.environ.copy()
@@ -2035,16 +2229,27 @@ def maybe_run_cascade( env, publisher ) -> None:
     Under ``--cascade-plan`` this reports the resolved order and returns without
     cloning or nested publish. Under ``--collect-cascade`` it resolves, clones
     missing trees when ``--clone-publishers`` is set, reports, and returns without
-    nested publish. ``construct.py`` exits after the sconscript read for both.
+    nested publish. Under ``--update-publishers`` it fast-forwards existing
+    publisher trees (and may stop, or continue into nested publish when
+    ``--publish-package`` is set). ``construct.py`` exits after the sconscript
+    read for stop-before-build modes.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
-    stop_only = plan_only or collect_only
+    update_publishers = cascade_update_enabled( env )
+    publish = bool( env.get_option( "publish-package" ) )
+    # Stop before nested build when plan/collect, or update without publish.
+    stop_only = plan_only or collect_only or ( update_publishers and not publish )
 
     if plan_only and collect_only:
         raise SCons.Errors.StopError(
                 "--{} and --{} cannot be combined; choose review or collect"
                 .format( CASCADE_PLAN_OPTION, COLLECT_CASCADE_OPTION )
+        )
+    if plan_only and update_publishers:
+        raise SCons.Errors.StopError(
+                "--{} and --{} cannot be combined; plan is review-only"
+                .format( CASCADE_PLAN_OPTION, UPDATE_PUBLISHERS_OPTION )
         )
     if plan_only and not cascade_enabled( env ):
         raise SCons.Errors.StopError(
@@ -2056,6 +2261,11 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( COLLECT_CASCADE_OPTION, CASCADE_OPTION )
         )
+    if update_publishers and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( UPDATE_PUBLISHERS_OPTION, CASCADE_OPTION )
+        )
     if not cascade_enabled( env ):
         return
     if _is_nested():
@@ -2064,20 +2274,25 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{}".format( CASCADE_OPTION )
         )
         return
-    # Plan and collect publish nothing, so they do not need the publish flag.
-    if not stop_only and not env.get_option( "publish-package" ):
+    # Plan, collect, and update-without-publish do not need --publish-package.
+    if not stop_only and not publish:
         raise SCons.Errors.StopError(
-                "--{} requires --publish-package, --{}, or --{}"
+                "--{} requires --publish-package, --{}, --{}, or --{}"
                 .format(
                         CASCADE_OPTION,
                         CASCADE_PLAN_OPTION,
                         COLLECT_CASCADE_OPTION,
+                        UPDATE_PUBLISHERS_OPTION,
                 )
+        )
+    if update_publishers and env.get( "offline" ) and not _no_exec_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} needs the network, but --offline was specified"
+                .format( UPDATE_PUBLISHERS_OPTION )
         )
     # SCons -n still runs configure in nested sessions; Configure refuses to
     # create .sconf_temp under dry-run, so the nested publish dies before any
-    # builder is skipped. Cascade's dry-run / collect-without-build are dedicated
-    # flags — do not brand -n as that workflow.
+    # builder is skipped. Update-only / collect allow -n (like --update-develop).
     if not stop_only and _no_exec_enabled( env ):
         def remedy_colour( text ):
             return as_emphasised( as_info( text ) )
@@ -2092,10 +2307,12 @@ def maybe_run_cascade( env, publisher ) -> None:
                                 as_error,
                         ),
                         (
-                                "Use --{} to review the order, or --{} to place publisher "
-                                "trees, then re-run without -n to publish".format(
+                                "Use --{} to review the order, --{} to place publisher "
+                                "trees, or --{} -n to preview fast-forwards, then re-run "
+                                "without -n to publish".format(
                                         CASCADE_PLAN_OPTION,
                                         COLLECT_CASCADE_OPTION,
+                                        UPDATE_PUBLISHERS_OPTION,
                                 ),
                                 remedy_colour,
                         ),
@@ -2108,7 +2325,7 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_package = str( getattr( publisher, "_package", "" ) )
     tip_version = str( getattr( publisher, "_version", "" ) )
 
-    # Plan: tolerant, no clone. Collect: tolerant, clone when --clone-publishers.
+    # Plan: tolerant, no clone. Collect/update-stop: tolerant, clone when allowed.
     # Full run: fail-fast, clone when allowed.
     nodes, edges = build_cascade_graph(
             env,
@@ -2122,7 +2339,9 @@ def maybe_run_cascade( env, publisher ) -> None:
                 .format(
                         as_info( tip_package ),
                         "collect" if collect_only else (
-                                "plan" if plan_only else "publish"
+                                "update" if ( update_publishers and stop_only ) else (
+                                        "plan" if plan_only else "publish"
+                                )
                         ),
                 )
         )
@@ -2133,6 +2352,7 @@ def maybe_run_cascade( env, publisher ) -> None:
                     0,
                     mode=(
                             COLLECT_CASCADE_OPTION if collect_only
+                            else UPDATE_PUBLISHERS_OPTION if update_publishers
                             else CASCADE_PLAN_OPTION
                     ),
             )
@@ -2141,15 +2361,28 @@ def maybe_run_cascade( env, publisher ) -> None:
     order = topological_publish_order( nodes, edges )
     report_mode = (
             COLLECT_CASCADE_OPTION if collect_only
+            else UPDATE_PUBLISHERS_OPTION if ( update_publishers and stop_only )
             else CASCADE_PLAN_OPTION if plan_only
             else None
     )
     cleaning = _clean_enabled( env )
     if stop_only:
         _record_publisher_objections( env, nodes, order )
+    plan_report_mode = (
+            COLLECT_CASCADE_OPTION if collect_only
+            else UPDATE_PUBLISHERS_OPTION if ( update_publishers and stop_only )
+            else None
+    )
     write_lines( cascade_plan_lines(
-            nodes, order, tip_package, tip_version, mode=report_mode, clean=cleaning
+            nodes, order, tip_package, tip_version,
+            mode=plan_report_mode, clean=cleaning
     ) )
+
+    trees_updated = 0
+    if update_publishers and not plan_only:
+        if not stop_only:
+            judge_publisher_trees( env, nodes, order )
+        trees_updated = update_publisher_trees( env, nodes, order )
 
     if stop_only:
         if plan_only:
@@ -2180,12 +2413,14 @@ def maybe_run_cascade( env, publisher ) -> None:
                 unused_develop=sum(
                         1 for key in order if nodes[key].get( "_develop_unused" )
                 ),
-                mode=report_mode,
+                mode=report_mode or CASCADE_PLAN_OPTION,
                 trees_collected=trees_collected,
+                trees_updated=trees_updated,
         )
         return
 
-    judge_publisher_trees( env, nodes, order )
+    if not update_publishers:
+        judge_publisher_trees( env, nodes, order )
 
     total = len( order )
     for ordinal, key in enumerate( order, start=1 ):

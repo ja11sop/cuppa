@@ -337,6 +337,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "unused_develop": 0,
                     "mode": "cascade-plan",
                     "trees_collected": 0,
+                    "trees_updated": 0,
             }
     ]
 
@@ -786,6 +787,290 @@ def test_maybe_run_cascade_clean_skips_consume_refresh( monkeypatch ):
 
     cascade.maybe_run_cascade( _Env(), _Publisher() )
     assert refreshed == []
+
+
+def test_cascade_stop_before_build_update_without_publish():
+    class _Env:
+        def __init__( self, flags ):
+            self._flags = flags
+
+        def get_option( self, name, default=None ):
+            return name in self._flags or default
+
+    assert cascade.cascade_stop_before_build( _Env( {
+            "build-and-publish-dependencies", "update-publishers",
+    } ) )
+    assert not cascade.cascade_stop_before_build( _Env( {
+            "build-and-publish-dependencies", "update-publishers", "publish-package",
+    } ) )
+
+
+def test_maybe_run_cascade_refuses_plan_with_update():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+                    "update-publishers",
+            ) or default
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_update_publisher_trees_skips_develop_and_ffs_behind( monkeypatch ):
+    from cuppa.develop import Action, Copy
+    import cuppa.develop as develop_mod
+
+    lines = []
+
+    def _emit( text="" ):
+        lines.append( text )
+
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/pubs/capy",
+            },
+            ( "leaf", "leaf", "1" ): {
+                    "name": "leaf", "package": "leaf", "version": "1",
+                    "_publisher_dir": "/dev/leaf",
+                    "_from_develop": True,
+            },
+    }
+    order = list( nodes.keys() )
+
+    monkeypatch.setattr(
+            develop_mod, "inspect",
+            lambda name, path: Copy(
+                    name=name, path=path, exists=True, is_working_copy=True,
+                    scm="git", branch="master", upstream="origin/master",
+                    behind=2 if name == "capy" else 0, ahead=0,
+                    modified=False, detached=False,
+            ),
+    )
+    monkeypatch.setattr(
+            develop_mod, "update_action",
+            lambda copy: (
+                    Action( True, "2 commits behind [origin/master]" )
+                    if copy.behind else
+                    Action( False, "already up to date" )
+            ),
+    )
+    fetches = []
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fetch",
+            lambda path, progress=None: fetches.append( ( path, progress ) ),
+    )
+    ff = []
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fast_forward",
+            lambda path: ff.append( path ),
+    )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    updated = cascade.update_publisher_trees( _Env(), nodes, order, out=_emit )
+    assert updated == 1
+    assert fetches == [ ( "/pubs/capy", False ) ]
+    assert ff == [ "/pubs/capy" ]
+    joined = "\n".join( lines )
+    assert "ACTION" in joined
+    assert "updated" in joined
+    assert "capy" in joined
+    assert "left alone" in joined
+    assert "develop tree (use --update-develop)" in joined
+    assert "Updated [capy]" not in joined
+
+
+def test_update_publisher_trees_dry_run_fetches_then_would_update( monkeypatch ):
+    from cuppa.develop import Action, Copy
+    import cuppa.develop as develop_mod
+
+    lines = []
+    monkeypatch.setattr(
+            develop_mod, "inspect",
+            lambda name, path: Copy(
+                    name=name, path=path, exists=True, is_working_copy=True,
+                    scm="git", branch="master", upstream="origin/master",
+                    behind=3, ahead=0, modified=False, detached=False,
+            ),
+    )
+    monkeypatch.setattr(
+            develop_mod, "update_action",
+            lambda copy: Action( True, "3 commits behind [origin/master]" ),
+    )
+    fetches = []
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fetch",
+            lambda path, progress=None: fetches.append( ( path, progress ) ),
+    )
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fast_forward",
+            lambda path: (_ for _ in ()).throw( AssertionError( "no FF on dry-run" ) ),
+    )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return True if name == "no_exec" else default
+
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/home/user/.cuppa/publishers/capy",
+            },
+    }
+    updated = cascade.update_publisher_trees(
+            _Env(), nodes, list( nodes.keys() ), out=lines.append,
+    )
+    assert updated == 0
+    assert fetches == [ ( "/home/user/.cuppa/publishers/capy", False ) ]
+    joined = "\n".join( lines )
+    assert "checking remotes" in joined
+    assert "judged as of your last fetch" not in joined
+    assert "would update" in joined
+    assert "3 behind" in joined
+    assert "publishers/capy" in joined
+    assert "Would fetch" not in joined
+    assert "Would update [capy]" not in joined
+
+
+def test_update_publisher_trees_dry_run_already_current( monkeypatch ):
+    from cuppa.develop import Action, Copy
+    import cuppa.develop as develop_mod
+
+    lines = []
+    monkeypatch.setattr(
+            develop_mod, "inspect",
+            lambda name, path: Copy(
+                    name=name, path=path, exists=True, is_working_copy=True,
+                    scm="git", branch="master", upstream="origin/master",
+                    behind=0, ahead=0, modified=False, detached=False,
+            ),
+    )
+    monkeypatch.setattr(
+            develop_mod, "update_action",
+            lambda copy: Action( False, "already up to date" ),
+    )
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fetch",
+            lambda path, progress=None: None,
+    )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return True if name == "no_exec" else default
+
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/pubs/capy",
+            },
+    }
+    cascade.update_publisher_trees( _Env(), nodes, list( nodes.keys() ), out=lines.append )
+    joined = "\n".join( lines )
+    assert "no change" in joined
+    assert "current" in joined
+    assert "Nothing to be done for [capy]" not in joined
+    assert "Leaving [capy] alone" not in joined
+
+
+def test_update_publisher_trees_offline_dry_run_skips_network( monkeypatch ):
+    from cuppa.develop import Action, Copy
+    import cuppa.develop as develop_mod
+
+    lines = []
+    monkeypatch.setattr(
+            develop_mod, "inspect",
+            lambda name, path: Copy(
+                    name=name, path=path, exists=True, is_working_copy=True,
+                    scm="git", branch="master", upstream="origin/master",
+                    behind=1, ahead=0, modified=False, detached=False,
+            ),
+    )
+    monkeypatch.setattr(
+            develop_mod, "update_action",
+            lambda copy: Action( True, "1 commit behind [origin/master]" ),
+    )
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fetch",
+            lambda path, progress=None: (_ for _ in ()).throw(
+                    AssertionError( "no fetch offline" )
+            ),
+    )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return True if name == "no_exec" else default
+
+    env = _Env()
+    env["offline"] = True
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/pubs/capy",
+            },
+    }
+    cascade.update_publisher_trees( env, nodes, list( nodes.keys() ), out=lines.append )
+    joined = "\n".join( lines )
+    assert "judged from your last update" in joined
+    assert "would update" in joined
+    assert "1 behind" in joined
+
+
+def test_update_publisher_trees_leaves_alone_when_untracked_would_overwrite( monkeypatch ):
+    from cuppa.develop import Action, Copy
+    import cuppa.develop as develop_mod
+
+    lines = []
+    monkeypatch.setattr(
+            develop_mod, "inspect",
+            lambda name, path: Copy(
+                    name=name, path=path, exists=True, is_working_copy=True,
+                    scm="git", branch="master", upstream="origin/master",
+                    behind=2, ahead=0, modified=False, detached=False,
+            ),
+    )
+    monkeypatch.setattr(
+            develop_mod, "update_action",
+            lambda copy: Action(
+                    False, "untracked [cuppa-publish.json] would be overwritten"
+            ),
+    )
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fetch",
+            lambda path, progress=None: None,
+    )
+    monkeypatch.setattr(
+            "cuppa.scms.git.Git.fast_forward",
+            lambda path: (_ for _ in ()).throw( AssertionError( "no FF" ) ),
+    )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    nodes = {
+            ( "capy", "capy", "develop" ): {
+                    "name": "capy", "package": "capy", "version": "develop",
+                    "_publisher_dir": "/pubs/capy",
+            },
+    }
+    updated = cascade.update_publisher_trees(
+            _Env(), nodes, list( nodes.keys() ), out=lines.append,
+    )
+    assert updated == 0
+    joined = "\n".join( lines )
+    assert "left alone" in joined
+    assert "untracked [cuppa-publish.json] would be overwritten" in joined
+    assert "failed" not in joined
 
 
 def test_tip_forward_args_drops_cascade_plan():

@@ -316,7 +316,7 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Pins on a filesystem `package_source` | Not supported. A local tree is whatever the operator has checked out, and honouring a pin would mean switching their branch, which cascade refuses to do. Pins apply to URLs only. |
 | Collision keying | Key by dependency name, matching the rest of the product — the consume cache is already `downloads_root/packages/{package}/{version}` with no registry in the key. Refuse when two edges want one destination from different URLs. Registry-qualified storage keys is a separate product-wide question, not something this slice solves in one corner. |
 | Existing destination | Never clobber. A non-empty destination that is not already that repository is a refusal. An existing clone that is dirty or on another branch is **reported**, not switched, stashed, or reset — the develop family’s philosophy. |
-| Updating an existing clone | Out of scope for 2b: no fetch, pull, or reset. Cascade clones once; keeping trees current belongs to the operator, the develop commands, or a later slice. |
+| Updating an existing clone | **Superseded by `--update-publishers`** (below). 2b itself still does not fetch/pull on reuse. |
 | `--offline` | Refuse to clone, as `--clone-develop` already does. |
 | Submodules | Recurse, through the existing `Git.clone( …, recurse_submodules=True )`. |
 | Inventory and listing | **Not in 2b.** A cloned tree is reported by path but not added to the dependency inventory or the `--list-*` reports, since a new inventory type reaches into listing-tree presentation. Tracked as an open item below, because storage-root trees are otherwise invisible disk usage. |
@@ -339,6 +339,28 @@ building or uploading, and without branding SCons `-n` as that workflow.
 | Exit / finish copy | Exit non-zero on hard resolve errors; warning-only (unused develop, clone opt-in) matches plan-mode grading. Finish line names trees collected / already present; “nothing was built, published, or uploaded.” |
 | Build-deps-only (no upload) | **Still deferred** — distinct from collect; needs local consume (slice D) or registry between nodes. |
 
+## Update-publishers (settled 2026-09-18)
+
+Soak: `--collect-cascade --clone-publishers` reuses `~/.cuppa/publishers/capy` and never
+fetches — by 2b design — so a merged publisher sconscript on `master` stays invisible until
+the operator deletes the forest tree or points `--publisher-root` at a curated checkout.
+Currency needs its own verb, parallel to `--update-develop`.
+
+| Question | Decision |
+|----------|----------|
+| Spelling | **`--update-publishers`** — fetch + fast-forward publisher working trees cascade would use. Not `--update-develop` (that surveys `develop=` paths only). |
+| Gates | Same as `--update-develop`: fetch first, then fast-forward only when clean, tracking an upstream, and strictly behind. Dirty, ahead, diverged, detached, no-upstream, or **untracked paths that the FF would overwrite** → leave alone and say why. Never switch branch, stash, or reset. |
+| Which trees | Resolved `_publisher_dir` for this tip’s cascade graph. **Skip** trees ranked from `--develop` / `develop=` — those stay under `--update-develop`. Forest (`<storage-root>/publishers`) and `--publisher-root` trees are in scope. |
+| With the cascade flag | Required. Refuse `--update-publishers` alone. |
+| With `--cascade-plan` | **Refuse** — plan is review-only; update mutates. |
+| With `--collect-cascade` | **Allowed** — collect (clone missing) first, then update existing (including trees just cloned, which are already current). Stop before build/upload unless `--publish-package` is also set. |
+| With `--publish-package` | **Allowed** — update trees, then run the nested publish cascade. |
+| Without `--publish-package` (and without collect) | Resolve + update + **stop** (same exit pattern as collect). |
+| `-n` / `--no-exec` | Allowed for update-only / collect+update stop modes. **Online dry-run still fetches quietly** so the ACTION table is honest; only the fast-forward is skipped. Offline dry-run falls back to the last observed ahead/behind (“judged from your last update”). Full cascade with nested sessions still refuses `-n`. |
+| `--offline` | Refuse a live update — needs the network. Offline dry-run is allowed (stale judgment). |
+| Pins (`url@branch`) | Update does not switch to the pin. If the working copy is on another branch, leave alone (or FF that branch’s upstream if clean+behind). Pin mismatch stays a report, not a checkout. |
+| Finish / plan visibility | **ACTION** table shared with `--update-develop` (not `--list-develop`’s STATUS severity): live **updated** / **no change** / **left alone**; dry-run **would update** / **no change** / **leave alone**. Quiet fetch so the table is the only update surface. Finish counts trees updated. Collect finish should eventually distinguish **cloned now** vs **reused** (separate polish). |
+
 ## Open questions (Phase 2+)
 
 1. Skip-if-registry-current + `--force` (slice 2c; also settles no-op reporting)
@@ -351,6 +373,8 @@ building or uploading, and without branding SCons `-n` as that workflow.
 6. Cascade under multiple active toolchains — one nested publish per toolchain
    today; whether to batch identities per publisher tree is unexamined
 7. ~~Implementing `--collect-cascade`~~ — shipped
+8. Collect finish: say **reused** vs **cloned** when a forest tree already existed
+9. ~~Publisher forest currency~~ — `--update-publishers` (this section)
 
 ## Acceptance (when implemented)
 
@@ -383,6 +407,7 @@ building or uploading, and without branding SCons `-n` as that workflow.
 | Phase 2b settled decisions (`--clone-publishers`, storage root, no `--develop` role) | Settled (2026-09-16) |
 | Phase 2b — clone on demand | In progress |
 | `--collect-cascade` vocabulary (resolve + clone/reuse; stop before build/upload) | **Shipped** (2026-09-18) |
+| `--update-publishers` (FF clean/behind forest trees; skip develop) | **Shipped** (2026-09-18) — settled decisions in this plan; ACTION table + quiet fetch; soak on corosio→capy forest |
 | Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date upload confirmation remains slice 2c. |
 | Phase 2c / 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
