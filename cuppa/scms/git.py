@@ -75,10 +75,20 @@ class Git:
 
 
     @classmethod
-    def _pump_git_progress( cls, src, dest, collected, rewrite=True ):
-        """Copy git stderr to ``dest``, subduing each fragment; honour ``\\r`` on a tty."""
-        from cuppa.colourise import as_subdued
+    def _pump_git_progress(
+            cls, src, dest, collected, rewrite=True, line_prefix="", single_line=False,
+    ):
+        """Copy git stderr to ``dest``, subduing each fragment; honour ``\\r`` on a tty.
 
+        ``line_prefix`` is prepended to each visible fragment (e.g. which remote is
+        being fetched). ``single_line`` keeps every update on one ``\\r``-rewritten
+        line so a later clear can leave the ACTION table as the only surface.
+        """
+        from cuppa.colourise import as_subdued
+        from cuppa.utility.storage import pad_visible, visible_len
+
+        prefix = line_prefix or ""
+        width = 0
         buf = b''
         while True:
             chunk = src.read( 256 )
@@ -106,9 +116,11 @@ class Git:
                 text = as_str( piece )
                 if text:
                     collected.append( text )
-                styled = as_subdued( text ) if text else ''
-                if end == b'\r' and rewrite:
-                    dest.write( '\r' + styled )
+                body = prefix + text if text else prefix
+                styled = as_subdued( body ) if body else ''
+                if single_line or ( end == b'\r' and rewrite ):
+                    width = max( width, visible_len( styled ) )
+                    dest.write( '\r' + pad_visible( styled, width ) )
                 else:
                     dest.write( styled + '\n' )
                 try:
@@ -119,7 +131,13 @@ class Git:
             text = as_str( buf )
             if text:
                 collected.append( text )
-                dest.write( as_subdued( text ) )
+                body = prefix + text
+                styled = as_subdued( body )
+                if single_line or rewrite:
+                    width = max( width, visible_len( styled ) )
+                    dest.write( '\r' + pad_visible( styled, width ) )
+                else:
+                    dest.write( styled )
                 try:
                     dest.flush()
                 except Exception:
@@ -141,13 +159,21 @@ class Git:
 
 
     @classmethod
-    def _run_with_progress( cls, args_list, path=None ):
+    def _run_with_progress(
+            cls, args_list, path=None, line_prefix="", progress_stream=None,
+            owns_stream=None, single_line=False,
+    ):
         """Run a long network git command, streaming subdued progress when possible.
 
         Stderr is piped and replayed onto the controlling terminal (or stderr in CI)
         so ``--progress`` ``\\r`` updates still work under the ``cuppa`` launcher, and
         so fragments can be wrapped with subdued colour. Not a cuppa byte bar.
         Callers should only use this when :meth:`_progress_enabled` is true.
+
+        ``line_prefix`` / ``single_line`` keep a batch remote-check on one rewrite
+        line (see ``--update-develop``). Pass an open ``progress_stream`` to share
+        that line across several fetches; ``owns_stream`` defaults to whether this
+        call opened the stream.
         """
         from cuppa.utility.download import open_progress_stream
 
@@ -157,8 +183,21 @@ class Git:
                 command=as_info( command )
         ) )
 
-        progress_stream, is_tty, owns_stream = open_progress_stream()
+        if progress_stream is None:
+            progress_stream, is_tty, opened_owns = open_progress_stream()
+            if owns_stream is None:
+                owns_stream = opened_owns
+        else:
+            is_tty = True
+            try:
+                is_tty = bool( progress_stream.isatty() )
+            except Exception:
+                is_tty = True
+            if owns_stream is None:
+                owns_stream = False
+
         stderr_lines = []
+        rewrite = bool( is_tty )
         try:
             process = subprocess.Popen(
                     args_list,
@@ -173,7 +212,9 @@ class Git:
                         process.stderr,
                         progress_stream,
                         stderr_lines,
-                        bool( is_tty ),
+                        rewrite,
+                        line_prefix,
+                        bool( single_line and rewrite ),
                     ),
             )
             pump.daemon = True
@@ -393,7 +434,10 @@ class Git:
         """Branch, upstream, ahead, behind and modified, without touching the network.
 
         The counts describe the working copy against the upstream ref as it stood after the last
-        fetch. `modified` ignores untracked files: they are not what stops a fast-forward.
+        fetch. ``modified`` is tracked dirt only (``status --porcelain
+        --untracked-files=no``). Untracked paths that would be overwritten by a
+        fast-forward are a separate check —
+        :meth:`untracked_paths_blocking_fast_forward` — used by update decisions.
         """
         if not path or not os.path.exists( os.path.join( path, ".git" ) ):
             raise cls.Error("Not a Git working copy")
@@ -449,12 +493,53 @@ class Git:
 
 
     @classmethod
-    def fetch( cls, path ):
-        """Update the remote-tracking refs. The one command in this family that uses the network."""
-        if cls._progress_enabled():
+    def untracked_paths_blocking_fast_forward( cls, path ):
+        """Untracked paths a fast-forward to ``@{upstream}`` would overwrite.
+
+        Returns a sorted list. Empty when there is no overlap, no upstream delta,
+        or the check cannot run. Harmless untracked files that do not collide
+        with incoming paths are ignored.
+        """
+        if not path or not os.path.exists( os.path.join( path, ".git" ) ):
+            return []
+        try:
+            incoming = cls.execute_command(
+                    "{git} diff --name-only HEAD..@{{upstream}}".format(
+                            git=cls.binary()
+                    ),
+                    path,
+            )
+            untracked = cls.execute_command(
+                    "{git} ls-files --others --exclude-standard".format(
+                            git=cls.binary()
+                    ),
+                    path,
+            )
+        except cls.Error:
+            return []
+        incoming_set = { line for line in incoming.splitlines() if line }
+        untracked_set = { line for line in untracked.splitlines() if line }
+        return sorted( incoming_set & untracked_set )
+
+
+    @classmethod
+    def fetch( cls, path, progress=None, line_prefix="", progress_stream=None ):
+        """Update the remote-tracking refs. The one command in this family that uses the network.
+
+        ``progress`` defaults to the usual INFO-gated streamed ``--progress``. Pass
+        ``False`` for a quiet fetch. Pass ``line_prefix`` (and usually an open
+        ``progress_stream``) for a single-line subdued status rewrite during a
+        batch remote check — the caller clears the line before the ACTION table.
+        """
+        use_progress = cls._progress_enabled() if progress is None else bool( progress )
+        if use_progress:
             return cls._run_with_progress(
                     [ cls.binary(), "fetch", "--progress" ],
                     path,
+                    line_prefix=line_prefix,
+                    progress_stream=progress_stream,
+                    owns_stream=False if progress_stream is not None else None,
+                    single_line=bool( line_prefix ),
             )
         return cls.execute_command(
                 "{git} fetch".format( git=cls.binary() ),

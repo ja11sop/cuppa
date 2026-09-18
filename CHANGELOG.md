@@ -9,6 +9,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``
+  (**updated** / **no change** / **left alone**; dry-run **would update** /
+  **leave alone**). On a tty, remote checks rewrite one subdued status line
+  (``Fetching [name] (i/n) ·`` plus git ``--progress``), then clear it before the
+  table. Online ``-n`` still contacts remotes; offline ``-n`` is allowed and
+  judged from the last fetch; a live update still refuses ``--offline``. After a
+  live run that moved copies, the ``--list-develop`` **STATUS** table is reprinted
+  as “the state is now”.
+- ``--update-develop`` / ``--update-publishers`` leave a clean-but-behind tree
+  alone (warn) when an untracked path would be overwritten by the fast-forward,
+  instead of attempting the merge and reporting **failed** after a false
+  ``clean``. Unrelated untracked files still allow the update. The publisher
+  ACTION table shows the leave-alone reason in STATE for that case.
+- Cascade refusals of ``--build-and-publish-dependencies`` with ``-n`` /
+  ``--no-exec`` print an **Options Error** judgement tree (why / what to do)
+  before a short ``StopError``, instead of one long exception string. Nested
+  sessions still configure, and SCons will not create ``.sconf_temp`` under
+  dry-run — use ``--cascade-plan`` or ``--collect-cascade``, then re-run without
+  ``-n`` to publish.
+- Nested cascade publishes no longer forward tip dependency-scoped options
+  (``--<name>-gitlab-develop``, ``--<name>-gitlab-package-source``, location
+  overrides, and so on). Those flags are registered by the tip's sconstruct and
+  are unknown — and path-wrong — in the nested tree. Global flags such as
+  ``--develop``, ``--rel``, and ``--toolchains`` still forward; settings meant
+  for every project continue to travel through ``~/.cuppaconfig``.
+- ``--cascade-plan`` no longer reports a usable unused develop tree as
+  "no local working tree". That case is a **warning** (develop path without
+  ``--develop``) plus a **note** describing what a real run would do.
+- ``--<name>-<manager>-package-source=`` is honoured when resolving a package
+  develop clone (including an ``@branch`` pin), matching how develop path
+  overrides already work.
+- Cascade plan and session banners display publisher paths through
+  ``display_path``, so ``…/corosio/../capy`` reads as the real tree.
+- Console copy for the invoking package says **this package** rather than
+  ``tip`` in plan lines, session resume, and ``--cascade-plan`` finish text.
+- Subdued console chrome (tree stems, muted rows, zero severity brackets) no
+  longer uses SGR 2 (DIM). With 256 colours it uses mid grey on light glass and a
+  slightly lighter grey on dark glass (matching docs ``cuppa-subdued``); without
+  256 colours it falls back to a dark ink on light glass and a light ink on dark
+  glass. DIM was a no-op on many light themes and when Konsole left
+  ``COLORFGBG`` at ``15;0`` after a profile switch, so stems looked like ordinary
+  text while the samples stayed correct.
+- ``--cascade-plan`` package pins read as ``name [==version]`` with both the name
+  and version emphasised info. The finish line's definitive summary
+  (``--cascade-plan: N package planned…`` through the semicolon) is an info-label
+  chip; the trailing detail stays plain.
+- ``--cascade-plan`` treats a cloneable URL ``package_source`` with no local
+  tree and without ``--clone-publishers`` as a **warning** (pass
+  ``--clone-publishers`` to make the plan executable) plus **notes** for
+  alternatives (``--publisher-root``, develop path + ``--develop``), not a hard
+  resolve error and not advice to rewrite ``package_source``. A real cascade
+  without the flag still stops. Unused develop without ``--develop`` follows the
+  same warn-primary / note-alternatives shape; when a tree already exists under
+  the publishers forest, a second warning says the plan would use that copy
+  (path only — forest root and package directory share the severity colour with a
+  plain ``/`` between them).
+  The finish line exits 0 for warning-only plans and names ``--clone-publishers``
+  / ``--develop`` when those remedies apply. The plan header shows the invoking
+  command line with cascade-relevant flags emphasised.
 - A package dependency's ``develop`` path is now anchored to the sconstruct
   directory, like a location dependency's, instead of being left relative to
   whatever directory cuppa was invoked from. ``develop='../../widget'`` therefore
@@ -19,8 +78,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The log line announcing a develop package now reports the path the way the
   develop reports do, without the ``..`` segments anchoring left behind.
 
+### Changed
+
+- Cascade ``-c`` / ``--clean`` sessions no longer invalidate and re-fetch the tip's
+  consume cache after each nested clean (nothing was published). Closing banners
+  say **nested clean(s)** and **resuming clean of this package** rather than
+  publish wording. The plan intro reads **cleaning package**, and a short note
+  explains that out-of-tree CMake ``-B`` trees under location downloads are only
+  removed when the publisher registers ``env.Clean`` on them
+  (``CMakeConfigure`` / ``CMakeBuild`` do; raw ``Command`` wrappers often do not)
+  — so a following rebuild can look like an incremental Ninja build while Cuppa
+  still re-packages and re-uploads.
+- Cascade looks for existing publisher trees under ``<storage-root>/publishers``
+  by default (the same place ``--clone-publishers`` writes), with
+  ``--publisher-root`` as the override forest — matching how ``downloads_root``
+  and ``dependencies_root`` fall back to ``storage_root``. A tree cloned on an
+  earlier run is therefore found again without re-passing ``--clone-publishers``.
+- ``--cascade-plan`` announces ``PACKAGE BUILD: CASCADE PLAN`` mode (no building
+  attempted). A command-line develop override without ``--develop`` warns with
+  the path and ``--develop`` emphasised in warning colour. The plan report hangs
+  errors, warnings, and notes under each package node (judgement-tree shape),
+  colouring severity headings, ``[bracketed]`` values, and bare ``--flags`` —
+  not the surrounding prose. A resolved publisher path hangs the same way as
+  ``using publisher at […]`` (elbow when alone, tee when judgements follow).
+- ``--clone-develop`` reports a missing but cloneable develop path as
+  **pending** (a note) rather than an error that claims the build cannot
+  succeed — the mode exists to create that path. An error remains when the
+  clone itself cannot succeed. ``--list-develop`` is unchanged: a missing path
+  there is still an error.
+- A command-line develop path override without ``--develop`` warns early that
+  the path will not be used. Declared ``develop=`` alone still does not imply
+  the mode; that remains standing configuration.
+
 ### Added
 
+- ``--update-publishers`` — with ``--build-and-publish-dependencies``, fetch and
+  fast-forward publisher working trees the cascade would use (same clean /
+  behind gates as ``--update-develop``). Skips ``--develop`` trees. Alone or with
+  ``--collect-cascade`` it stops before build/upload; with ``--publish-package``
+  it updates then runs the nested publish. Refuses ``--cascade-plan``; live
+  update refuses ``--offline``. ``-n`` still checks remotes when online (quiet
+  fetch; only the fast-forward is skipped). Reports an **ACTION** table:
+  **updated** / **no change** / **left alone** (dry-run: **would update** /
+  **leave alone**), not the ``STATUS`` severity column from ``--list-develop``.
+- ``--collect-cascade`` — with ``--build-and-publish-dependencies``, resolve the
+  cascade graph and clone missing publisher trees (when ``--clone-publishers``
+  is set), reusing trees that already exist, then stop without nested builds or
+  uploads. Does not require ``--publish-package``; mutually exclusive with
+  ``--cascade-plan``; not the same as ``--publish-package -n``. Collect-mode
+  report copy and finish counts name publisher trees actually gathered (0 when
+  blocked); the mode banner is a short ``Running in … mode`` info-label chip
+  with plain qualifying text so a highlight background does not wrap.
 - ``--clone-develop`` now creates the develop working copy of a **package**
   dependency, which it previously had to leave alone for want of a URL. The URL
   comes from ``package_source``: declared on the dependency itself, else read

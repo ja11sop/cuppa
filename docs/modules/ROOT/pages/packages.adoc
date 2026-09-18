@@ -54,7 +54,8 @@ Cuppa then:
   resolved tree’s ``cuppa-publish.json``
 * Resolves each node to a publisher working tree: the dependency's
   xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
-  ``package_source`` (filesystem path) or ``--publisher-root``
+  ``package_source`` (filesystem path), else an existing tree under
+  ``--publisher-root`` or the default ``<storage-root>/publishers`` forest
   (``{root}/{name}``, ``{root}/{package}``, or one nesting level), cloning from
   a ``package_source`` URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
@@ -71,8 +72,8 @@ beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
 fail before nested uploads. A ``package_source`` URL needs either a tree that
-already exists — point ``--publisher-root`` at the forest holding it, or give the
-edge a filesystem ``package_source`` — or ``--clone-publishers``, described next.
+already exists under ``<storage-root>/publishers`` (or ``--publisher-root``), a
+filesystem ``package_source``, or ``--clone-publishers``, described next.
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in
@@ -180,15 +181,19 @@ repositories your machine clones and builds. Run xref:#cascade-plan[
 ``--cascade-plan``] first to see every URL and destination before anything is
 fetched.
 
-Where a clone lands follows what you asked for:
+Where a clone lands follows what you asked for. The same path is searched for an
+**existing** tree even without ``--clone-publishers``, so a forest populated on
+an earlier run is found again the way ``downloads_root`` falls back to
+``storage_root``:
 
 [cols="1,2"]
 |===
-| Flags | Destination
+| Flags | Destination / lookup forest
 
 | No publisher root
 | ``<storage-root>/publishers/<name>`` — cuppa owns that tree, so a bare cascade
-  never writes into your working area
+  never writes into your working area; a later run finds it without re-passing
+  ``--clone-publishers``
 
 | ``--publisher-root=PATH``
 | ``PATH/<name>`` — the first place the resolver already looks, so the clone is
@@ -225,57 +230,149 @@ cuppa -D --rel --toolchains=gcc15 \
   --publisher-root=~/coding/packages
 ----
 
-The report lists each dependency in publish order with the publisher working tree
-cuppa resolved for it, and the tip last:
+The report lists each dependency in publish order — package nodes first, with
+errors, warnings, and notes nested beneath them the way a judgement tree nests
+reasons under a severity heading — and this package last. The invoking command
+line sits above the tree so recommended flags can be compared with flags already
+present (cascade-relevant ones are emphasised):
 
 [source,text]
 ----
-Cascade plan: 2 package dependencies then tip [widget]==[0.2.0]: [0 errors][0 warnings][0 notes]
-│
-├── 1 of 2  capy develop (capy)
-│           publisher [/home/user/coding/packages/capy]
-├── 2 of 2  corosio 0.3.1 (corosio)
-│           publisher [/home/user/coding/packages/corosio]
-└── then tip [widget]==[0.2.0] from this tree
+Printing Cascade plan for building and publishing package widget [==0.2.0] given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan --publisher-root=~/coding/packages
 
---cascade-plan: 1 tip planned; nothing was built, published, uploaded, or cloned.
+Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 errors][0 warnings][0 notes]
+│
+├── 1 of 2  capy [==develop]
+│           └── using publisher at [/home/user/coding/packages/capy]
+├── 2 of 2  corosio [==0.3.1]
+│           └── using publisher at [/home/user/coding/packages/corosio]
+└── then widget [==0.2.0] from this tree
+
+--cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
-reports **every** unresolved tree as an error row and exits non-zero. One command
-therefore tells you all the trees left to plant, or which edges still need a
-``package_source``.
+reports **every** unresolved tree. Hard failures (no URL to clone, bad path) are
+an **error** group and the finish line exits non-zero. A URL ``package_source``
+with nothing local yet and without ``--clone-publishers`` is a **warning**
+(pass ``--clone-publishers`` to make the plan executable) plus **notes** for
+alternatives (``--publisher-root``, a develop path + ``--develop``) — not advice
+to rewrite the dependency's ``package_source``. A develop path configured without
+``--develop`` is likewise a **warning** (pass ``--develop``) plus **notes**; when
+a tree already exists under the publishers forest, a second **warning** says the
+plan would use that copy instead. Construct announces
+``Running in PACKAGE BUILD: CASCADE PLAN mode`` (short info-label chip plus plain
+qualifying text) the same way clone-develop announces itself.
 
-With ``--clone-publishers``, a tree cascade would fetch is a note rather than an
-error, naming the URL, the pin, and where it would land. The plan stops at such a
+With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
+an error, naming the URL, the pin, and where it would land. The plan stops at such a
 node, because a dependency's own edges live in the ``cuppa-publish.json`` inside a
 tree that does not exist yet:
 
 [source,text]
 ----
-Cascade plan: 1 package dependency then tip [widget]==[0.2.0]: [0 errors][0 warnings][1 note]
-│
-├── 1 of 1  capy develop (capy)
-│           note: would clone [git@gitlab.example:packages/capy] at [develop]
-│           into [/home/user/.cuppa/publishers/capy]
-│           note: its own package dependencies are not known until that tree
-│           exists, so nothing is planned beneath it
-└── then tip [widget]==[0.2.0] from this tree
+Printing Cascade plan for building and publishing package widget [==0.2.0] given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan --clone-publishers
 
---cascade-plan: 1 tip planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
+Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
+│
+├── 1 of 1  capy [==develop] (git@gitlab.example:packages/capy)
+│           │
+│           └── 2 notes
+│               ├── would clone [git@gitlab.example:packages/capy] at [develop] into
+│               │   [~/.cuppa/publishers/capy]
+│               └── its own package dependencies are not known until that tree exists,
+│                   so nothing is planned beneath it
+└── then widget [==0.2.0] from this tree
+
+--cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
 ----
+
+[#collect-cascade]
+==== Collecting publisher trees without building
+
+When the next step is a full ``--publish-package`` cascade, you may want every
+publisher tree on disk first — clone what is missing, reuse what is already
+there — without compiling or uploading. ``--collect-cascade`` does that. It
+needs the cascade flag and typically ``--clone-publishers``; it does **not**
+need ``--publish-package``, and it is not the same as ``--publish-package -n``
+(SCons dry-run still configures nested sessions, which cannot create
+``.sconf_temp`` — a full cascade refuses ``-n`` / ``--no-exec`` up front):
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers
+----
+
+Construct announces ``Running in PACKAGE BUILD: CASCADE COLLECT mode`` as a short
+info-label chip, with plain detail that resolve/clone runs without build or
+publish. The plan header says **collecting packages**; warnings say make this
+**collect** executable. The finish line counts publisher trees actually gathered
+(``0 publisher trees collected`` when ``--clone-publishers`` was still needed),
+not tip packages.
+
+[#update-publishers]
+==== Updating publisher trees
+
+``--collect-cascade`` reuses an existing forest tree as it stands — it does not
+fetch. When ``~/.cuppa/publishers/…`` (or a ``--publisher-root`` checkout) is
+behind its upstream, pass ``--update-publishers``. It uses the same gates as
+``--update-develop``: fetch, then fast-forward only when the copy is clean,
+tracking an upstream, and strictly behind. Dirty, ahead, diverged, or detached
+trees are left alone. Trees ranked from ``--develop`` /
+``develop=`` are skipped — use ``--update-develop`` for those.
+
+The report is an **ACTION** table (not the ``STATUS`` severity column from
+``--list-develop``): live rows read **updated** / **no change** / **left alone**;
+dry-run rows read **would update** / **no change** / **leave alone**. On a tty,
+remote checks rewrite one subdued status line (``Fetching [name] (i/n) ·`` plus
+git ``--progress``), then clear it so the table replaces that line.
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --update-publishers
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers \
+  --update-publishers
+----
+
+Requires the cascade flag. Alone (or with ``--collect-cascade``) it stops before
+build/upload. With ``--publish-package`` it updates first, then runs the nested
+publish. Refuse ``--cascade-plan`` (review-only) and ``--offline`` for a live
+update. ``-n`` still contacts remotes when online so **would update** vs
+**no change** is honest; only the fast-forward is skipped. Offline ``-n`` falls
+back to the last observed state. Untracked paths that a fast-forward would
+overwrite are **leave alone** / **left alone** (warn), not a post-merge
+**failed**.
 
 A real cascade prints the same plan before its first nested publish, then brackets
 each nested session with a banner naming the session number, the publisher tree,
 the command it ran, and how long it took. Cascade deliberately does not capture or
 re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
-boundaries instead, and a closing banner says the tip is resuming.
+boundaries instead, and a closing banner says this package is resuming.
+
+With ``-c`` / ``--clean``, the plan intro says **cleaning package**, nested
+sessions forward ``-c``, the closing banner counts **nested clean(s)**, and
+cascade does **not** invalidate/re-fetch the tip consume cache afterward (nothing
+was uploaded). The plan also notes that out-of-tree CMake ``-B`` trees under
+location downloads are removed only when the publisher registers ``env.Clean`` on
+them — ``CMakeConfigure`` / ``CMakeBuild`` do; raw ``Command`` wrappers often do
+not. In that case Cuppa still cleans ``working/`` / ``final/`` stamps, but the
+next rebuild can look like an incremental Ninja build while re-packaging and
+re-uploading. See xref:#publishing-from-external-cmake[Publishing from an external
+CMake project].
 
 A session banner reports that a nested publish finished, not whether it uploaded
 anything. A nested publish of an already-current package is a no-op inside SCons,
 and telling that apart from a real upload needs the registry query that the
-skip-if-current work will add.
+skip-if-current work will add. When the tip's ``.published`` stamp is already
+current, SCons may also skip the tip upload without a dedicated confirmation line
+until that work lands.
 
 [#amend-package-manifest]
 === Amending metadata without rebuilding

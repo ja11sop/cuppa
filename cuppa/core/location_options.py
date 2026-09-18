@@ -84,9 +84,11 @@ def add_location_options( add_option ):
 
     add_option( '--update-develop', dest='update_develop', action='store_true',
                 help="Fetch each local working copy used by --develop and fast-forward the ones"
-                     " that are clean and behind their upstream, then exit. Copies that are"
-                     " modified, ahead, diverged or detached are left alone and reported."
-                     " Nothing is stashed, reset or switched. Not available with --offline." )
+                     " that are clean and behind their upstream, then exit. Reports an ACTION"
+                     " table (updated / no change / left alone). Copies that are modified,"
+                     " ahead, diverged, detached, or blocked by untracked overwrite are left"
+                     " alone. Nothing is stashed, reset or switched. Live update refuses"
+                     " --offline; -n still checks remotes when online." )
 
 
 def process_location_options( cuppa_env ):

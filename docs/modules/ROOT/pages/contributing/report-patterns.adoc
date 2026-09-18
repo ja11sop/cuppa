@@ -27,7 +27,10 @@ or nested lists. Reading down is a work list, worst first.
 Emphasise the numeric count in the intro **and** in freed-space footers — the same pattern as
 announce lines such as `Wiping **9** trees`.
 
-In prose, colour only bracketed `[placeholders]`; leave surrounding words plain.
+In prose, colour bracketed `[placeholders]` and bare `--flags` with the severity colour;
+leave surrounding words plain. Prefer the bare flag form (`--develop`) over
+`[--develop]` — brackets are for paths and other values, not for inventing a box
+around a flag.
 
 == Warn before, note after
 

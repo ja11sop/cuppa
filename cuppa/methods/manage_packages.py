@@ -114,7 +114,11 @@ class PublishPackageMethod(object):
                         'Before publishing this package, build and '
                         '--publish-package each GitLab package dependency in '
                         'order (requires package_source and/or --publisher-root). '
-                        'Requires --publish-package.'
+                        'Requires --publish-package, or pair with --cascade-plan, '
+                        '--collect-cascade, or --update-publishers. Not compatible '
+                        'with -n/--no-exec when nested sessions would run '
+                        '(use --cascade-plan, --collect-cascade, or '
+                        '--update-publishers -n instead).'
                 ),
         )
         add_option(
@@ -124,9 +128,40 @@ class PublishPackageMethod(object):
                 help=(
                         'Report the resolved cascade publish order and each '
                         'dependency\'s publisher tree, then stop without '
-                        'building, publishing, or uploading anything. Requires '
+                        'cloning, building, publishing, or uploading anything. '
+                        'Requires --build-and-publish-dependencies; '
+                        '--publish-package is not needed because nothing is '
+                        'published.'
+                ),
+        )
+        add_option(
+                '--collect-cascade',
+                dest='collect-cascade',
+                action='store_true',
+                help=(
+                        'Resolve the cascade graph and clone missing publisher '
+                        'trees (with --clone-publishers) into the publishers '
+                        'forest, reusing trees that already exist, then stop '
+                        'without building or publishing. Requires '
                         '--build-and-publish-dependencies; --publish-package is '
-                        'not needed because nothing is published.'
+                        'not needed. Not the same as --publish-package -n.'
+                ),
+        )
+        add_option(
+                '--update-publishers',
+                dest='update-publishers',
+                action='store_true',
+                help=(
+                        'Fetch and fast-forward publisher working trees the '
+                        'cascade would use (same clean/behind gates as '
+                        '--update-develop). Skips --develop trees. Requires '
+                        '--build-and-publish-dependencies. Alone or with '
+                        '--collect-cascade it stops before build/upload; with '
+                        '--publish-package it updates then runs the nested '
+                        'publish. Not with --cascade-plan. Live update refuses '
+                        '--offline; -n still checks remotes when online. '
+                        'Reports an ACTION table (updated / no change / '
+                        'left alone; dry-run: would update / leave alone).'
                 ),
         )
         add_option(
@@ -161,9 +196,11 @@ class PublishPackageMethod(object):
                         'Let cascade clone a publisher tree it cannot find '
                         'locally from its package_source URL, which may be '
                         'pinned as url@branch, url@tag, or url@revision. '
-                        'Cascade then runs a build in that tree, so this is '
+                        'Cascade then runs a build in that tree (unless '
+                        '--collect-cascade or --cascade-plan), so this is '
                         'opt-in; --cascade-plan reports every URL and '
-                        'destination first. Clones land under '
+                        'destination first, and --collect-cascade performs '
+                        'the clones without building. Clones land under '
                         '--publisher-root when set, otherwise in '
                         '<storage-root>/publishers. Existing trees are reused '
                         'as they stand and never switched or overwritten. Not '

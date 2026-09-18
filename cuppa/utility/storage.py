@@ -256,16 +256,27 @@ def shorten_paths_in_text( text, project_dir=None ):
     return pattern.sub( replace, text )
 
 
-# Bracketed placeholders in report prose — colour these, leave the surrounding text plain
-# (same convention as ``--list-develop``).
-_VALUES = re.compile( r'\[([^\[\]]+)\]' )
+# Bracketed placeholders and bare CLI flags in report prose — colour these, leave the
+# surrounding text plain (same convention as ``--list-develop`` / cascade plan notices).
+_HIGHLIGHT = re.compile(
+        r'\[([^\[\]]+)\]|(?<![\w-])(--[a-zA-Z][\w-]*)'
+)
 WIDEST_PROSE = 110
 NARROWEST_PROSE = 40
 
 
 def highlight_values( text, colour ):
-    """Colour only ``[placeholder]`` spans in otherwise plain report prose."""
-    return _VALUES.sub( lambda match: "[" + colour( match.group( 1 ) ) + "]", text )
+    """Colour ``[placeholder]`` spans and bare ``--flags`` in otherwise plain report prose.
+
+    Bracketed values keep their brackets; flags are coloured without inventing brackets
+    around them. A flag written as ``[--develop]`` is treated as one bracketed value
+    (brackets stay), so authors should prefer the bare form when the token is a flag.
+    """
+    def replace( match ):
+        if match.group( 1 ) is not None:
+            return "[" + colour( match.group( 1 ) ) + "]"
+        return colour( match.group( 2 ) )
+    return _HIGHLIGHT.sub( replace, text )
 
 
 def format_severity_count_brackets( errors=0, warnings=0, notes=0 ):

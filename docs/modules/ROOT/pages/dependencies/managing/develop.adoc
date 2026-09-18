@@ -106,6 +106,11 @@ Git clone progress is streamed at INFO or finer (`--progress`, on the controllin
 It refuses non-empty destinations and sources that pin a tag or revision (develop copies must not be detached).
 `--offline` is an error; `-n` prints the plan.
 
+A missing path that a clone can fill is reported as **pending** (a note), not as an error:
+the mode exists to create that path.
+An error remains when the clone itself cannot succeed — no cloneable source, a destination that already holds the wrong tree, or a blocked path.
+`--list-develop` still treats a missing path as an error, because that build cannot succeed.
+
 [source,shell]
 ----
 cuppa -D --clone-develop
@@ -269,8 +274,9 @@ flowchart LR
 == Updating develop copies
 
 `--update-develop` answers the next question after `--list-develop` tells you a copy is behind.
-It fetches each git working copy (with streamed `--progress` at INFO or finer when the network is used), then fast-forwards only those that are clean and strictly behind their upstream.
-Everything else is skipped and reported with the reason: ahead, diverged, modified, detached, no upstream, not a working copy, or path missing.
+It fetches each git working copy quietly, then fast-forwards only those that are clean and strictly behind their upstream.
+The report is an **ACTION** table (not the ``STATUS`` severity column from `--list-develop`): live rows read **updated** / **no change** / **left alone**; dry-run rows read **would update** / **no change** / **leave alone**.
+Everything else is left alone with a reason in STATE: ahead, diverged, modified, detached, no upstream, untracked paths that the fast-forward would overwrite, not a working copy, or path missing.
 
 [source,shell]
 ----
@@ -278,11 +284,14 @@ cuppa -D --update-develop
 cuppa -D --update-develop -n
 ----
 
-It prints the table before acting, then what it did to each copy, then the table again if anything moved, so the effect is visible rather than inferred.
+After a live run that moved at least one copy, it reprints the `--list-develop` **STATUS** table so the new state is visible.
 It never stashes, resets, rewrites history, or switches branches.
 A fast-forward of a clean tree discards nothing and leaves nothing to recover from.
-`--offline` makes `--update-develop` an error rather than a silent no-op, because options in this family that need the network refuse `--offline`.
-`-n` / `--no-exec` shows the plan and changes nothing; because no fetch happens, the plan is judged as of your last fetch, and the report says so.
+A live update refuses `--offline`.
+`-n` / `--no-exec` still contacts remotes when online so **would update** vs **no change** is honest; only the fast-forward is skipped.
+On a tty, each remote check rewrites one subdued status line (`Fetching [name] (i/n) ·` plus git `--progress`), then clears it before the ACTION table.
+Non-tty (CI) stays quiet between the dry-run banner and the table.
+Offline `-n` falls back to the last observed state and says so.
 Updating several repositories is not atomic: a failure in one is reported, the rest continue, and the exit status is non-zero.
 
 Subversion, Mercurial, and Bazaar copies appear in the `--list-develop` table with branch and revision from the existing SCM support; ahead, behind, and modified are reported as unknown, and `--update-develop` leaves them alone.

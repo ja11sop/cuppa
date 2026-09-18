@@ -25,11 +25,13 @@ from cuppa.develop import (
     classify,
     configured_develop,
     entries,
+    fetch_for_update,
     highlight_values,
     inspect,
     list_develop,
     list_payload,
     names_that_would_update,
+    remote_check_progress,
     render_judgements,
     render_table,
     row_for,
@@ -277,6 +279,16 @@ def test_a_note_colours_the_values_and_leaves_the_prose_plain():
     coloured = highlight_values( "[flange] is behind [origin/master] as of your last fetch",
                                  lambda value: "<" + value + ">" )
     assert coloured == "[<flange>] is behind [<origin/master>] as of your last fetch"
+
+
+def test_highlight_values_colours_bare_flags_without_inventing_brackets():
+    coloured = highlight_values(
+            "without --develop, pass --clone-publishers or set [--publisher-root]",
+            lambda value: "<" + value + ">",
+    )
+    assert coloured == (
+            "without <--develop>, pass <--clone-publishers> or set [<--publisher-root>]"
+    )
 
 
 def test_judgements_hang_from_the_summary_as_one_tree_worst_first():
@@ -665,16 +677,19 @@ def test_update_refuses_to_run_offline( tmp_path ):
     assert update_develop( env ) == 1
 
 
-def test_a_dry_run_changes_nothing_and_exits_zero( tmp_path, monkeypatch ):
-    def refuse( *args, **kwargs ):
-        raise AssertionError( "a dry run must not touch the working copy" )
-
-    monkeypatch.setattr( Git, 'fetch', refuse )
-    monkeypatch.setattr( Git, 'fast_forward', refuse )
-
-    env = fake_env( { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) },
-                    no_exec=True )
+def test_update_offline_dry_run_is_allowed( tmp_path, monkeypatch, capsys ):
+    monkeypatch.setattr(
+            Git, 'fetch',
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "no fetch offline" ) ),
+    )
+    env = fake_env(
+            { 'widget': dependency_with_develop( 'widget', str(tmp_path) ) },
+            offline=True, no_exec=True,
+    )
     assert update_develop( env ) == 0
+    out = capsys.readouterr().out
+    assert "judged as of your last fetch" in out
+    assert "ACTION" in out
 
 
 #-------------------------------------------------------------------------------
@@ -757,6 +772,7 @@ def test_upstream_commits_are_observed_as_behind_after_a_fetch( working_copy ):
 
 @git_available
 def test_uncommitted_changes_are_observed_but_untracked_files_are_not( working_copy ):
+    """Tracked dirt flips modified; unrelated untracked files do not."""
     origin, clone = working_copy
 
     ( clone / "untracked" ).write_text( "untracked" )
@@ -764,6 +780,35 @@ def test_uncommitted_changes_are_observed_but_untracked_files_are_not( working_c
 
     ( clone / "first" ).write_text( "changed" )
     assert inspect( "widget", str(clone) ).modified is True
+
+
+@git_available
+def test_untracked_overlap_with_incoming_blocks_fast_forward( working_copy ):
+    """A clean tree can still leave alone when an untracked path would be overwritten."""
+    origin, clone = working_copy
+    commit( origin, "second" )
+    Git.fetch( str(clone) )
+
+    ( clone / "second" ).write_text( "local untracked clash" )
+    observed = inspect( "widget", str(clone) )
+    assert observed.modified is False
+    assert observed.behind == 1
+
+    action = update_action( observed )
+    assert not action.act
+    assert "untracked [second] would be overwritten" in action.reason
+
+
+@git_available
+def test_unrelated_untracked_files_do_not_block_fast_forward( working_copy ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+    Git.fetch( str(clone) )
+
+    ( clone / "scratch" ).write_text( "harmless" )
+    observed = inspect( "widget", str(clone) )
+    assert observed.behind == 1
+    assert update_action( observed ).act
 
 
 @git_available
@@ -814,6 +859,105 @@ def test_updating_does_not_suggest_the_option_you_have_just_run( working_copy, c
     update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
 
     assert "--update-develop would fast-forward" not in capsys.readouterr().out
+
+
+@git_available
+def test_a_dry_run_fetches_quietly_but_does_not_fast_forward( working_copy, monkeypatch, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+
+    fetches = []
+    real_fetch = Git.fetch
+
+    def record_fetch( path, progress=None, **kwargs ):
+        fetches.append( ( path, progress ) )
+        return real_fetch( path, progress=progress )
+
+    monkeypatch.setattr( Git, 'fetch', record_fetch )
+    monkeypatch.setattr(
+            Git, 'fast_forward',
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "no FF on dry-run" ) ),
+    )
+
+    env = fake_env(
+            { 'widget': dependency_with_develop( 'widget', str(clone) ) },
+            no_exec=True,
+    )
+    assert update_develop( env ) == 0
+    assert fetches == [ ( str(clone), False ) ]
+    out = capsys.readouterr().out
+    assert "checking remotes for --update-develop" in out
+    assert "would update" in out
+    assert "Would fetch" not in out
+
+
+@git_available
+def test_update_develop_reports_an_action_table( working_copy, capsys ):
+    origin, clone = working_copy
+    commit( origin, "second" )
+
+    update_develop( fake_env( { 'widget': dependency_with_develop( 'widget', str(clone) ) } ) )
+    out = capsys.readouterr().out
+    assert "ACTION" in out
+    assert "updated" in out
+    assert "Fast-forwarded" not in out
+    assert "The state is now:" in out
+
+
+def test_fetch_for_update_uses_status_line_when_interactive( monkeypatch ):
+    seen = {}
+
+    class Status( object ):
+        interactive = True
+        stream = object()
+
+        def hint( self, text ):
+            seen['hint'] = text
+
+    def fake_fetch( path, progress=None, line_prefix="", progress_stream=None ):
+        seen['path'] = path
+        seen['progress'] = progress
+        seen['line_prefix'] = line_prefix
+        seen['progress_stream'] = progress_stream
+        return ''
+
+    monkeypatch.setattr( Git, 'fetch', fake_fetch )
+    fetch_for_update( '/pubs/widget', 'widget', 2, 5, Status() )
+    assert seen['progress'] is True
+    assert seen['line_prefix'] == 'Fetching [widget] (2/5) · '
+    assert seen['progress_stream'] is Status.stream
+    assert seen['hint'].startswith( 'Fetching [widget] (2/5)' )
+
+
+def test_fetch_for_update_stays_quiet_without_interactive_status( monkeypatch ):
+    seen = {}
+
+    def fake_fetch( path, progress=None, **kwargs ):
+        seen['progress'] = progress
+        seen['kwargs'] = kwargs
+        return ''
+
+    monkeypatch.setattr( Git, 'fetch', fake_fetch )
+    fetch_for_update( '/pubs/widget', 'widget', 1, 1, None )
+    assert seen['progress'] is False
+    assert seen['kwargs'] == {}
+
+
+def test_remote_check_progress_clear_is_idempotent( monkeypatch ):
+    stream = type( 'S', (), {
+            'isatty': lambda self: True,
+            'write': lambda self, text: None,
+            'flush': lambda self: None,
+            'close': lambda self: None,
+    } )()
+    monkeypatch.setattr(
+            'cuppa.utility.download.open_progress_stream',
+            lambda: ( stream, True, True ),
+    )
+    status = remote_check_progress()
+    assert status.interactive
+    status.clear()
+    status.clear()
 
 
 #-------------------------------------------------------------------------------
@@ -1042,6 +1186,76 @@ def test_a_declared_source_wins_over_the_staged_manifest( tmp_path ):
     )
 
     assert source.url == "git@gitlab.example:forks/capy"
+
+
+def test_a_cli_package_source_override_wins_over_the_declaration( tmp_path ):
+    """The soak pin on --…-package-source=@develop must reach choose_clone_branch."""
+    source = _clone_source(
+            tmp_path,
+            package_source="git@gitlab.example:packages/capy",
+            **{ "capy-gitlab-package-source":
+                "git@gitlab.example:packages/capy@develop" },
+    )
+
+    assert source.url == "git@gitlab.example:packages/capy"
+    assert source.versioning == "develop"
+
+
+def test_a_missing_path_that_clone_develop_can_fill_is_pending_not_an_error():
+    missing = copy( name="capy", exists=False, path="/home/user/coding/capy-fresh" )
+    found = entries( [ missing ], BUILT, DEFAULT, pending_clones=[ "capy" ], dry_run=True )
+
+    assert found[0].severity == NOTE
+    assert found[0].status == "pending"
+    assert "does not yet exist" in found[0].notes[0]
+    assert "re-run without -n" in found[0].notes[0]
+    row = row_for( found[0] )
+    assert row[0] == "pending"
+    assert row[4] == "path is available"
+
+
+def test_a_missing_path_without_a_cloneable_source_stays_an_error():
+    missing = copy( name="capy", exists=False, path="/home/user/coding/capy-fresh" )
+    found = entries( [ missing ], BUILT, DEFAULT )
+
+    assert found[0].severity == ERROR
+    assert found[0].status == "error"
+    assert "cannot succeed" in found[0].notes[0]
+
+
+def test_warn_unused_develop_overrides_names_a_cli_path( caplog ):
+    from cuppa.develop import warn_unused_develop_overrides
+    import logging
+
+    dependency = package_dependency_with_develop( "capy", None )
+    env = fake_env(
+            { "capy": dependency },
+            develop=False,
+            **{ "capy-gitlab-develop": "../capy" },
+    )
+    with caplog.at_level( logging.WARNING ):
+        warn_unused_develop_overrides( env )
+
+    assert any(
+            "capy" in record.message and "--develop is not active" in record.message
+            for record in caplog.records
+    )
+
+
+def test_warn_unused_develop_overrides_stays_quiet_when_develop_is_active( caplog ):
+    from cuppa.develop import warn_unused_develop_overrides
+    import logging
+
+    dependency = package_dependency_with_develop( "capy", None )
+    env = fake_env(
+            { "capy": dependency },
+            develop=True,
+            **{ "capy-gitlab-develop": "../capy" },
+    )
+    with caplog.at_level( logging.WARNING ):
+        warn_unused_develop_overrides( env )
+
+    assert not any( "--develop is not active" in record.message for record in caplog.records )
 
 
 def test_a_package_dependency_with_no_source_anywhere_is_left_alone( tmp_path ):
