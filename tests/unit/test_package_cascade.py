@@ -2283,6 +2283,136 @@ def test_tip_forward_args_rejects_stage_only_with_project_only():
         )
 
 
+def test_order_location_stage_candidates_is_leaf_first( tmp_path ):
+    leaf = tmp_path / "leaf"
+    mid = tmp_path / "mid"
+    tip = tmp_path / "tip"
+    for path in ( leaf, mid, tip ):
+        path.mkdir()
+        ( path / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    ( mid / "sconstruct" ).write_text(
+            "import cuppa\nWidget = cuppa.location_dependency('leaf', develop={!r})\n"
+            .format( str( leaf ) ),
+            encoding="utf-8",
+    )
+    ( tip / "sconstruct" ).write_text(
+            "import cuppa\nMid = cuppa.location_dependency('mid', develop={!r})\n"
+            .format( str( mid ) ),
+            encoding="utf-8",
+    )
+    candidates = [
+            ( "tip", str( tip.resolve() ) ),
+            ( "mid", str( mid.resolve() ) ),
+            ( "leaf", str( leaf.resolve() ) ),
+    ]
+    ordered = cascade.order_location_stage_candidates( candidates )
+    assert [ name for name, _ in ordered ] == [ "leaf", "mid", "tip" ]
+
+
+def test_order_location_stage_candidates_refuses_a_cycle( tmp_path ):
+    a = tmp_path / "a"
+    b = tmp_path / "b"
+    for path, other in ( ( a, b ), ( b, a ) ):
+        path.mkdir()
+        ( path / "sconstruct" ).write_text(
+                "develop={!r}\n".format( str( other ) ),
+                encoding="utf-8",
+        )
+    candidates = [
+            ( "a", str( a.resolve() ) ),
+            ( "b", str( b.resolve() ) ),
+    ]
+    with pytest.raises( SCons.Errors.StopError, match="cycle" ):
+        cascade.order_location_stage_candidates( candidates )
+
+
+def test_stage_develop_plan_lines_number_leaf_first_order( tmp_path ):
+    leaf = tmp_path / "leaf"
+    mid = tmp_path / "mid"
+    leaf.mkdir()
+    mid.mkdir()
+    ( leaf / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    ( mid / "sconstruct" ).write_text(
+            "Widget = cuppa.location_dependency('leaf', develop={!r})\n"
+            .format( str( leaf ) ),
+            encoding="utf-8",
+    )
+
+    class _Loc:
+        _package_manager = None
+
+        def __init__( self, name, develop ):
+            self._name = name
+            self._develop = develop
+
+        def location_id( self, env ):
+            return (
+                    "https://example.com/{}.git".format( self._name ),
+                    self._develop,
+                    None,
+                    True,
+            )
+
+    leaf_dep = _Loc( "leaf", str( leaf ) )
+    mid_dep = _Loc( "mid", str( mid ) )
+    env = _PlanEnv(
+            { "develop": True, "stage-develop-plan": True },
+            {
+                    "dependencies": {
+                            "mid": mid_dep.location_id,
+                            "leaf": leaf_dep.location_id,
+                    },
+                    "default_dependencies": [ "mid", "leaf" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    body = "\n".join( cascade.stage_develop_plan_lines(
+            env, argv=[ "cuppa", "-D", "--develop", "--stage-develop-plan" ]
+    ) )
+    numbered = [ line for line in body.splitlines() if " of 2" in line ]
+    assert len( numbered ) >= 2
+    assert "leaf" in numbered[0]
+    assert "mid" in numbered[1]
+    assert "nothing was built or cleaned" in body
+    assert "--stage-develop-plan" in body
+
+
+def test_finish_stage_develop_plan_errors_on_missing_path( tmp_path ):
+    class _Loc:
+        _package_manager = None
+        _name = "ghost"
+        _develop = str( tmp_path / "missing" )
+
+        def location_id( self, env ):
+            return (
+                    "https://example.com/ghost.git",
+                    self._develop,
+                    None,
+                    True,
+            )
+
+    loc = _Loc()
+    env = _PlanEnv(
+            { "develop": True, "stage-develop-plan": True },
+            {
+                    "dependencies": { "ghost": loc.location_id },
+                    "default_dependencies": [ "ghost" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    out = io.StringIO()
+    status = cascade.finish_stage_develop_plan( env, out=out )
+    assert status == 1
+    assert "does not exist" in out.getvalue()
+
+
+def test_tip_forward_args_drops_stage_develop_plan():
+    tip = [ "cuppa", "-D", "--dbg", "--develop", "--stage-develop-plan" ]
+    forwarded = cascade.tip_forward_args( tip, project_only=True )
+    assert "--stage-develop-plan" not in forwarded
+    assert "--develop" in forwarded
+
+
 def test_run_location_stage_develop_nests_with_ordinals( tmp_path, monkeypatch ):
     project = tmp_path / "widget"
     project.mkdir()

@@ -58,6 +58,7 @@ MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
 STAGE_PACKAGE_OPTION = "stage-package"
 STAGE_DEVELOP_OPTION = "stage-develop"
+STAGE_DEVELOP_PLAN_OPTION = "stage-develop-plan"
 
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
@@ -194,6 +195,16 @@ def stage_develop_enabled( env ) -> bool:
     return bool( env.get( "stage_develop" ) or env.get( STAGE_DEVELOP_OPTION ) )
 
 
+def stage_develop_plan_enabled( env ) -> bool:
+    """Whether ``--stage-develop-plan`` asked for a dry-run of location stage order."""
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( STAGE_DEVELOP_PLAN_OPTION ):
+        return True
+    return bool(
+            env.get( "stage_develop_plan" ) or env.get( STAGE_DEVELOP_PLAN_OPTION )
+    )
+
+
 def develop_mode_enabled( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if callable( getter ) and getter( "develop" ):
@@ -207,6 +218,15 @@ def require_stage_develop_with_develop( env ) -> None:
                 "--{} requires --develop (it nest-builds package and location "
                 "develop trees that have an sconstruct)"
                 .format( STAGE_DEVELOP_OPTION )
+        )
+
+
+def require_stage_develop_plan_with_develop( env ) -> None:
+    if stage_develop_plan_enabled( env ) and not develop_mode_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --develop (it reports the location develop "
+                "stage order without building)"
+                .format( STAGE_DEVELOP_PLAN_OPTION )
         )
 
 
@@ -1828,6 +1848,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
 } )
@@ -2508,14 +2529,158 @@ def run_nested_location_project(
     sys.stdout.flush()
 
 
+_DEVELOP_KWARG_RE = re.compile(
+        r"""(?<![\w.])develop\s*=\s*(?:r|u|f|rf|fr|ur|ru)?(?P<q>['"])(?P<path>(?:(?!(?P=q)).)+)(?P=q)"""
+)
+
+
+def _iter_sconstruct_texts( project_root: str ):
+    """Yield text of the project's sconstruct / top-level sconscript files."""
+    names = (
+            "sconstruct", "SConstruct", "sconscript", "SConscript",
+    )
+    for name in names:
+        path = os.path.join( project_root, name )
+        if os.path.isfile( path ):
+            try:
+                with open( path, encoding="utf-8", errors="replace" ) as handle:
+                    yield path, handle.read()
+            except OSError:
+                continue
+
+
+def develop_paths_declared_in_tree( project_root: str ) -> list[str]:
+    """``develop=`` path strings declared in a project's top-level sconstruct files."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for _path, text in _iter_sconstruct_texts( project_root ):
+        for match in _DEVELOP_KWARG_RE.finditer( text ):
+            value = match.group( "path" )
+            if value not in seen:
+                seen.add( value )
+                found.append( value )
+    return found
+
+
+def publish_manifest_dependency_names( project_root: str ) -> list[str]:
+    """Dependency names from a staged ``cuppa-publish.json``, if present."""
+    try:
+        manifest = read_publish_manifest( project_root )
+    except Exception:
+        return []
+    if not manifest:
+        return []
+    names: list[str] = []
+    for entry in manifest.get( "dependencies" ) or []:
+        if isinstance( entry, dict ):
+            name = entry.get( "name" ) or entry.get( "package" )
+        else:
+            name = str( entry )
+        if name:
+            names.append( str( name ) )
+    return names
+
+
+def location_stage_edges(
+        candidates: list[tuple[str, str]],
+) -> dict[str, set[str]]:
+    """``name -> set of candidate names it depends on`` among the stage set.
+
+    Edges come from ``develop=`` paths in each project's sconstruct that resolve
+    to another candidate root, plus ``cuppa-publish.json`` dependency names that
+    match a candidate.
+    """
+    from cuppa.location import develop_location
+
+    by_root = { root: name for name, root in candidates }
+    by_name = { name: root for name, root in candidates }
+    edges: dict[str, set[str]] = { name: set() for name, _root in candidates }
+
+    for name, root in candidates:
+        for raw in develop_paths_declared_in_tree( root ):
+            try:
+                resolved = develop_location( root, raw )
+            except Exception:
+                continue
+            if not resolved:
+                continue
+            abs_resolved = os.path.abspath( resolved )
+            other = by_root.get( abs_resolved )
+            if other and other != name:
+                edges[name].add( other )
+        for dep_name in publish_manifest_dependency_names( root ):
+            if dep_name in by_name and dep_name != name:
+                edges[name].add( dep_name )
+    return edges
+
+
+def order_location_stage_candidates(
+        candidates: list[tuple[str, str]],
+        edges: dict[str, set[str]] | None = None,
+) -> list[tuple[str, str]]:
+    """Leaf-first order over location stage candidates; cycles raise ``StopError``.
+
+    When several candidates are ready (no remaining edges), preserve the input
+    declaration order rather than sorting names alphabetically.
+    """
+    if not candidates:
+        return []
+    if edges is None:
+        edges = location_stage_edges( candidates )
+    nodes = { name: { "name": name, "root": root } for name, root in candidates }
+    edge_keys = {
+            name: { dep for dep in deps if dep in nodes }
+            for name, deps in edges.items()
+    }
+    rank = { name: index for index, ( name, _root ) in enumerate( candidates ) }
+
+    node_keys = list( nodes.keys() )
+    waiting = { key: len( edge_keys.get( key, () ) ) for key in node_keys }
+    dependents: dict[str, set[str]] = defaultdict( set )
+    for parent, children in edge_keys.items():
+        for child in children:
+            dependents[child].add( parent )
+
+    def _ready_key( key: str ):
+        return ( rank.get( key, 10 ** 9 ), str( key ) )
+
+    ready = deque(
+            sorted(
+                    [ key for key, count in waiting.items() if count == 0 ],
+                    key=_ready_key,
+            )
+    )
+    ordered: list[str] = []
+    while ready:
+        node = ready.popleft()
+        ordered.append( node )
+        for parent in sorted( dependents.get( node, () ), key=_ready_key ):
+            waiting[parent] -= 1
+            if waiting[parent] == 0:
+                ready.append( parent )
+
+    if len( ordered ) != len( node_keys ):
+        raise SCons.Errors.StopError(
+                "location stage-develop dependency cycle detected among {}".format(
+                        [ key for key in node_keys if key not in ordered ]
+                )
+        )
+    by_name = { name: root for name, root in candidates }
+    return [ ( name, by_name[name] ) for name in ordered ]
+
+
 def location_stage_candidates( env ) -> list[tuple[str, str]]:
     """Location develop trees with an sconstruct, ready for ``--stage-develop``.
 
     Package dependencies are skipped — they nest via ``consume_develop_package_stage``.
-    Order: tip ``default_dependencies`` / ``BUILD_WITH`` declaration order first,
-    then any remaining names sorted. Real leaf-first topo across develop projects
-    is a follow-on if soak shows mis-ordered builds.
+    Order is leaf-first across the candidate set when edges are known; otherwise tip
+    ``default_dependencies`` declaration order, then remaining names sorted.
     """
+    return order_location_stage_candidates( location_stage_candidate_rows( env ) )
+
+
+def location_stage_candidate_rows( env ) -> list[tuple[str, str]]:
+    """Unordered (declaration-preferring) stageable location develop rows."""
     from cuppa.develop import configured_develop
 
     dependencies = env.get( "dependencies" ) or {}
@@ -2553,11 +2718,198 @@ def location_stage_candidates( env ) -> list[tuple[str, str]]:
     return candidates
 
 
+def location_stage_plan_rows( env ) -> list[dict]:
+    """Rows for ``--stage-develop-plan``: stageable location develops plus skips."""
+    from cuppa.develop import configured_develop
+
+    dependencies = env.get( "dependencies" ) or {}
+    preferred = []
+    for name in list( env.get( "default_dependencies" ) or [] ) + list(
+            env.get( "BUILD_WITH" ) or []
+    ):
+        if name not in preferred:
+            preferred.append( name )
+
+    names = list( preferred )
+    for name in sorted( dependencies ):
+        if name not in names:
+            names.append( name )
+
+    rows: list[dict] = []
+    seen_roots: set[str] = set()
+    for name in names:
+        if name not in dependencies:
+            continue
+        factory = dependencies[name]
+        dependency = getattr( factory, "__self__", factory )
+        if getattr( dependency, "_package_manager", None ):
+            continue
+        path = configured_develop( dependency, env )
+        if not path:
+            continue
+        abs_path = os.path.abspath( path )
+        if abs_path in seen_roots:
+            continue
+        seen_roots.add( abs_path )
+        if not os.path.isdir( abs_path ):
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "missing",
+                    "severity": "error",
+                    "note": "develop path does not exist",
+            } )
+        elif develop_names_a_publisher_tree( abs_path ):
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "stage",
+                    "severity": "ok",
+                    "note": "has sconstruct; will nest under --stage-develop",
+            } )
+        else:
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "skip",
+                    "severity": "note",
+                    "note": "no sconstruct; tip --develop swaps the path only",
+            } )
+    return rows
+
+
+def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
+    """Dry-run report for location ``--stage-develop`` order."""
+    require_stage_develop_plan_with_develop( env )
+    rows = location_stage_plan_rows( env )
+    stageable = [
+            ( row["name"], row["path"] )
+            for row in rows if row["status"] == "stage"
+    ]
+    edges = location_stage_edges( stageable )
+    try:
+        ordered = order_location_stage_candidates( stageable, edges )
+    except SCons.Errors.StopError as error:
+        raise SCons.Errors.StopError(
+                "--{}: {}".format( STAGE_DEVELOP_PLAN_OPTION, error )
+        ) from error
+
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    error_count = sum( 1 for row in rows if row["severity"] == "error" )
+    warning_count = sum( 1 for row in rows if row["severity"] == "warning" )
+    note_count = sum( 1 for row in rows if row["severity"] == "note" )
+
+    lines = [
+            "",
+            "Printing develop stage plan given the command:",
+            colour_plan_command_line( argv ),
+            "",
+            "Develop stage plan: {}: {}".format(
+                    storage.emphasised_count_phrase(
+                            len( stageable ),
+                            "location project",
+                            "location projects",
+                    ),
+                    storage.format_severity_count_brackets(
+                            errors=error_count,
+                            warnings=warning_count,
+                            notes=note_count,
+                    ),
+            ),
+            as_subdued( pipe.rstrip() ),
+    ]
+
+    total = len( ordered )
+    marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
+    under = pipe + " " * ( marker_width + 2 )
+    prose_width = max( storage.WIDEST_PROSE - len( under ), storage.NARROWEST_PROSE )
+
+    for ordinal, ( name, root ) in enumerate( ordered, 1 ):
+        marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
+        deps = sorted( edges.get( name, () ) )
+        dep_note = (
+                "depends on [{}]".format( ", ".join( deps ) ) if deps
+                else "no edges to other stage candidates"
+        )
+        lines.append( "{}{}  {}".format(
+                as_subdued( tee ), marker, as_emphasised( as_info( name ) )
+        ) )
+        lines.append( "{}{}project [{}]".format(
+                as_subdued( pipe ),
+                as_subdued( tee ),
+                as_notice( storage.display_path( root ) ),
+        ) )
+        _append_highlighted_prose(
+                lines,
+                dep_note,
+                as_notice,
+                pipe + elbow,
+                pipe + gap,
+                prose_width,
+        )
+
+    skips = [ row for row in rows if row["status"] != "stage" ]
+    if skips:
+        lines.append( as_subdued( pipe.rstrip() ) )
+        lines.append( "{}{}".format(
+                as_subdued( elbow ),
+                as_info( "not staged ({}):".format( len( skips ) ) ),
+        ) )
+        for index, row in enumerate( skips ):
+            last = index == len( skips ) - 1
+            branch = elbow if last else tee
+            colour = as_error if row["severity"] == "error" else as_notice
+            lines.append( "{}{}{}  {}".format(
+                    as_subdued( gap ),
+                    as_subdued( branch ),
+                    as_emphasised( colour( row["name"] ) ),
+                    colour( row["note"] ),
+            ) )
+            lines.append( "{}{}{}project [{}]".format(
+                    as_subdued( gap ),
+                    as_subdued( gap if last else pipe ),
+                    as_subdued( elbow ),
+                    as_notice( storage.display_path( row["path"] ) ),
+            ) )
+
+    lines.append( "" )
+    lines.append( "{}; nothing was built or cleaned.".format(
+            as_info_label(
+                    "--{}: {} planned".format(
+                            STAGE_DEVELOP_PLAN_OPTION,
+                            _plain_count_phrase(
+                                    len( stageable ),
+                                    "location project",
+                                    "location projects",
+                            ),
+                    )
+            )
+    ) )
+    return lines
+
+
+def finish_stage_develop_plan( cuppa_env, out=None ) -> int:
+    """Print ``--stage-develop-plan`` and return an exit status (develop-action style)."""
+    stream = out if out is not None else sys.stdout
+    require_stage_develop_plan_with_develop( cuppa_env )
+    try:
+        lines = stage_develop_plan_lines( cuppa_env )
+    except SCons.Errors.StopError as error:
+        write_lines( [ "", str( error ) ], out=stream )
+        return 1
+    write_lines( lines, out=stream )
+    rows = location_stage_plan_rows( cuppa_env )
+    if any( row["severity"] == "error" for row in rows ):
+        return 1
+    return 0
+
+
 def run_location_stage_develop( env ) -> None:
     """Nest-build or nest-clean every qualifying location develop tree once.
 
     Called from construct before tip sconscripts so ``N of M`` is known and nests
-    are not interleaved with tip ``BuildWith`` construction.
+    are not interleaved with tip ``BuildWith`` construction. Order is leaf-first
+    across edges discovered among the candidate set.
     """
     if _is_nested():
         return

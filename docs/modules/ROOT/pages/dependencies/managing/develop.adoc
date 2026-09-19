@@ -150,6 +150,8 @@ What lands is the **publisher's source tree**, which is the tree cascade publish
 With `--develop`, the tip consumes an existing staged package under `_build/.../final/<package>/<version>/` when that stage is present.
 Pass `--stage-develop` as well to nest-build (and nest-clean) that tree from the tip (`--stage-package`, no upload).
 The same flag also nest-builds **location** `develop=` trees that have an `sconstruct` (a normal project build in that checkout; the tip still compiles against the develop path afterward).
+Location nests run **leaf-first** when edges among those trees are known.
+`--stage-develop-plan` prints that order and exits without nesting.
 Location trees without an `sconstruct` are unchanged (path swap only).
 A develop path that is only a built prefix (`include/` and `lib/`, no `sconstruct`) still swaps in as the package directory, with a log note; prefer a publisher source tree for new work.
 See xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].

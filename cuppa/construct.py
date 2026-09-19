@@ -622,6 +622,12 @@ class Construct(object):
                         "LIST DEVELOP",
                         cuppa.develop.list_develop,
                 ) )
+            if cuppa_env.get( 'stage_develop_plan' ):
+                from cuppa.package_managers import package_cascade
+                develop_actions.append( (
+                        "STAGE DEVELOP PLAN",
+                        package_cascade.finish_stage_develop_plan,
+                ) )
 
             if develop_actions:
                 exit_status = 0

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--stage-develop-plan`` (requires ``--develop``) prints the leaf-first order of
+  location ``develop=`` trees that ``--stage-develop`` would nest-build, then
+  exits without nesting. Location ``--stage-develop`` itself now nests in that
+  order when edges among candidates are known (``develop=`` in each tree's
+  sconstruct / ``cuppa-publish.json``). Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4.
+
 - ``--stage-develop`` also nest-builds (and nest-cleans) **location** ``develop=``
   trees that have an ``sconstruct`` — a normal nested project session, then the tip
   still uses the develop path. Location ``--develop`` alone stays a path swap with
