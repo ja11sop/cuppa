@@ -143,11 +143,16 @@ covered by xref:dependencies/packages.adoc[Package dependencies].
 `sconstruct`: publisher-shaped package `develop=` paths (stage under
 `final/<package>/<version>/`, no upload) and location `develop=` Cuppa projects
 (normal project build/clean). It also nests `-c` / `--clean` into those trees.
-Without it, package `--develop` only discovers an existing stage (or swaps a
-prefix-shaped path); location `--develop` only swaps the path for the tip to
-compile. See
+Location nests run leaf-first when edges among develop trees are known (from
+`develop=` declarations and `cuppa-publish.json`). Without `--stage-develop`,
+package `--develop` only discovers an existing stage (or swaps a prefix-shaped
+path); location `--develop` only swaps the path for the tip to compile. See
 xref:packages.adoc#cascade-develop[Publishing from a tree you are working in]
 and xref:dependencies/managing/develop.adoc[Working with develop copies].
+
+`--stage-develop-plan` (requires `--develop`) prints that leaf-first order for
+location develop trees and exits without nesting, building, or cleaning. It does
+not require `--stage-develop`.
 
 `--stage-package` builds and stages *this* package's archive under `final/` without
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a

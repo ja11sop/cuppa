@@ -29,6 +29,18 @@ def add_location_options( add_option ):
             ),
     )
 
+    add_option(
+            '--stage-develop-plan',
+            dest='stage-develop-plan',
+            action='store_true',
+            help=(
+                    "With --develop, report the leaf-first order of location "
+                    "develop trees that --stage-develop would nest-build, then "
+                    "exit without building or cleaning. Does not require "
+                    "--stage-develop. Requires --develop."
+            ),
+    )
+
     add_option( '--location-default-branch', dest='location_default_branch', nargs=1, action='store',
                 default="master",
                 help="Tell cuppa what the name of the default branch is so it can be used"
@@ -111,11 +123,18 @@ def process_location_options( cuppa_env ):
 
     cuppa_env['develop']                          = cuppa_env.get_option( 'develop' )
     cuppa_env['stage_develop']                    = cuppa_env.get_option( 'stage-develop' )
+    cuppa_env['stage_develop_plan']               = cuppa_env.get_option( 'stage-develop-plan' )
     if cuppa_env['stage_develop'] and not cuppa_env['develop']:
         import SCons.Errors
         raise SCons.Errors.StopError(
                 "--stage-develop requires --develop (it nest-builds package and "
                 "location develop trees that have an sconstruct)"
+        )
+    if cuppa_env['stage_develop_plan'] and not cuppa_env['develop']:
+        import SCons.Errors
+        raise SCons.Errors.StopError(
+                "--stage-develop-plan requires --develop (it reports the "
+                "location develop stage order without building)"
         )
     cuppa_env['list_develop']                     = cuppa_env.get_option( 'list_develop' )
     cuppa_env['clone_develop']                    = cuppa_env.get_option( 'clone_develop' )
