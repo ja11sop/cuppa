@@ -1023,6 +1023,11 @@ class Construct(object):
                         "cuppa: failed while ordering sconscripts for Export/Import: {}".format( exc )
                 )
 
+            from cuppa.package_managers import package_cascade
+            # Nest location --stage-develop before tip BuildWith so N of M is
+            # known and nests are not interleaved with construction.
+            package_cascade.run_location_stage_develop( cuppa_env )
+
             for toolchain in toolchains:
                 build_envs = self.create_build_envs( toolchain, cuppa_env )
                 for build_env in build_envs:

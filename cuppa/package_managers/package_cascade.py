@@ -187,7 +187,7 @@ def _is_nested() -> bool:
 
 
 def stage_develop_enabled( env ) -> bool:
-    """Whether ``--stage-develop`` asked to nest-build publisher package develop trees."""
+    """Whether ``--stage-develop`` asked to nest-build develop trees with an sconstruct."""
     getter = getattr( env, "get_option", None )
     if callable( getter ) and getter( STAGE_DEVELOP_OPTION ):
         return True
@@ -204,10 +204,23 @@ def develop_mode_enabled( env ) -> bool:
 def require_stage_develop_with_develop( env ) -> None:
     if stage_develop_enabled( env ) and not develop_mode_enabled( env ):
         raise SCons.Errors.StopError(
-                "--{} requires --develop (it stages publisher-shaped package "
-                "develop trees for the tip to consume)"
+                "--{} requires --develop (it nest-builds package and location "
+                "develop trees that have an sconstruct)"
                 .format( STAGE_DEVELOP_OPTION )
         )
+
+
+def _location_stage_roots( env ) -> set:
+    """Absolute develop roots already nest-built for location ``--stage-develop``."""
+    key = "_cuppa_location_stage_develop_roots"
+    roots = env.get( key )
+    if roots is None:
+        roots = set()
+        try:
+            env[key] = roots
+        except Exception:
+            pass
+    return roots
 
 
 def _node_key( name: str, package: str, version: str ) -> tuple:
@@ -1433,18 +1446,24 @@ def session_begin_lines(
         command,
         width=None,
         kind: str = "cascade session",
+        tree_word: str = "publisher",
 ) -> list[str]:
     """Banner opening one nested session, so the extra ``scons`` run is visible.
 
     ``kind`` distinguishes cascade publishes from develop-local stages. The
     ``kind N of M`` chip is an info-label — jumping sconstruct is meant to read loud.
+    ``tree_word`` is ``publisher`` for package/cascade nests and ``project`` for
+    location develop stages.
     """
     head = as_info_label( "{} {} of {}".format( kind, ordinal, total ) )
     return [
             "",
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
             "{}: {}".format( head, as_info( str( label ) ) ),
-            "  publisher [{}]".format( as_notice( storage.display_path( str( publisher_dir ) ) ) ),
+            "  {} [{}]".format(
+                    tree_word,
+                    as_notice( storage.display_path( str( publisher_dir ) ) ),
+            ),
             "  command [{}]".format( as_notice( str( command ) ) ),
     ]
 
@@ -1876,8 +1895,13 @@ def tip_dependency_option_flags( env ) -> frozenset[str]:
     return frozenset( flags )
 
 
-def tip_forward_args( argv=None, env=None, stage_only: bool = False ) -> list[str]:
-    """Tip SCons/cuppa option args suitable for a nested publish or stage session.
+def tip_forward_args(
+        argv=None,
+        env=None,
+        stage_only: bool = False,
+        project_only: bool = False,
+) -> list[str]:
+    """Tip SCons/cuppa option args suitable for a nested publish, stage, or project session.
 
     Uses the live tip ``sys.argv`` (variant, toolchains, offline, …), not
     ``configured_options`` from ``~/.cuppaconfig`` — those conf keys are not
@@ -1888,7 +1912,14 @@ def tip_forward_args( argv=None, env=None, stage_only: bool = False ) -> list[st
 
     With ``stage_only=True``, the child builds and stages the package but does not
     upload (``--stage-package`` instead of ``--publish-package``).
+
+    With ``project_only=True``, the child runs a normal project build/clean (no
+    ``--publish-package`` / ``--stage-package``). Used for location develop trees
+    under ``--stage-develop``. ``--stage-develop`` itself is always dropped so
+    nesting stays single-level.
     """
+    if stage_only and project_only:
+        raise ValueError( "stage_only and project_only cannot both be True" )
     if argv is None:
         argv = sys.argv
     drop_exact = set( _NESTED_DROP_EXACT )
@@ -1925,7 +1956,9 @@ def tip_forward_args( argv=None, env=None, stage_only: bool = False ) -> list[st
                 if arg not in drop and not any( arg.startswith( p ) for p in prefixes )
         ]
 
-    if stage_only:
+    if project_only:
+        forwarded = _without( forwarded, "--publish-package", "--stage-package" )
+    elif stage_only:
         forwarded = _without( forwarded, "--publish-package", "--stage-package" )
         forwarded.append( "--" + STAGE_PACKAGE_OPTION )
     else:
@@ -1945,6 +1978,13 @@ def argv_for_nested_stage( argv=None, env=None ) -> list[str]:
     return [
             sys.executable, "-m", "cuppa"
     ] + tip_forward_args( argv, env=env, stage_only=True )
+
+
+def argv_for_nested_project( argv=None, env=None ) -> list[str]:
+    """Full subprocess argv for a nested project build/clean (location develop)."""
+    return [
+            sys.executable, "-m", "cuppa"
+    ] + tip_forward_args( argv, env=env, project_only=True )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
@@ -2358,6 +2398,9 @@ def _nested_session_env( env ) -> dict:
     """Environment for a nested cuppa subprocess (cascade publish or develop stage)."""
     nested_env = os.environ.copy()
     nested_env[NESTED_ENV] = "1"
+    # Nested cuppa's stdout is a pipe (tip cuppa masks secrets), so CPython
+    # block-buffers without this — the tip looks hung until the child exits.
+    nested_env["PYTHONUNBUFFERED"] = "1"
     root = str( env.get( "sconstruct_dir" ) or "" )
     pythonpath_parts = []
     if root:
@@ -2409,6 +2452,7 @@ def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
     write_lines( session_begin_lines(
             1, 1, label, publisher_dir, " ".join( argv ), kind=kind
     ) )
+    sys.stdout.flush()
     session_timer = timer.Timer()
     completion = subprocess.run(
             argv,
@@ -2425,6 +2469,127 @@ def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
     write_lines( session_end_lines(
             1, 1, label, session_timer.elapsed().wall, kind=kind
     ) )
+    sys.stdout.flush()
+
+
+def run_nested_location_project(
+        env,
+        project_dir: str,
+        label: str,
+        ordinal: int = 1,
+        total: int = 1,
+) -> None:
+    """Nested cuppa session that builds or cleans a location develop project."""
+    argv = argv_for_nested_project( env=env )
+    nested_env = _nested_session_env( env )
+    kind = "develop stage"
+
+    write_lines( session_begin_lines(
+            ordinal, total, label, project_dir, " ".join( argv ),
+            kind=kind, tree_word="project",
+    ) )
+    sys.stdout.flush()
+    session_timer = timer.Timer()
+    completion = subprocess.run(
+            argv,
+            cwd=project_dir,
+            env=nested_env,
+    )
+    session_timer.stop()
+    if completion.returncode != 0:
+        verb = "clean" if _clean_enabled( env ) else "build"
+        raise SCons.Errors.StopError(
+                "develop {} of location [{}] failed with return code [{}] (cwd={})"
+                .format( verb, label, completion.returncode, project_dir )
+        )
+    write_lines( session_end_lines(
+            ordinal, total, label, session_timer.elapsed().wall, kind=kind
+    ) )
+    sys.stdout.flush()
+
+
+def location_stage_candidates( env ) -> list[tuple[str, str]]:
+    """Location develop trees with an sconstruct, ready for ``--stage-develop``.
+
+    Package dependencies are skipped — they nest via ``consume_develop_package_stage``.
+    Order: tip ``default_dependencies`` / ``BUILD_WITH`` declaration order first,
+    then any remaining names sorted. Real leaf-first topo across develop projects
+    is a follow-on if soak shows mis-ordered builds.
+    """
+    from cuppa.develop import configured_develop
+
+    dependencies = env.get( "dependencies" ) or {}
+    preferred = []
+    for name in list( env.get( "default_dependencies" ) or [] ) + list(
+            env.get( "BUILD_WITH" ) or []
+    ):
+        if name not in preferred:
+            preferred.append( name )
+
+    seen_roots: set[str] = set()
+    candidates: list[tuple[str, str]] = []
+
+    def _consider( name: str ) -> None:
+        if name not in dependencies:
+            return
+        factory = dependencies[name]
+        dependency = getattr( factory, "__self__", factory )
+        if getattr( dependency, "_package_manager", None ):
+            return
+        path = configured_develop( dependency, env )
+        if not path or not develop_names_a_publisher_tree( path ):
+            return
+        root = os.path.abspath( path )
+        if root in seen_roots:
+            return
+        seen_roots.add( root )
+        candidates.append( ( name, root ) )
+
+    for name in preferred:
+        _consider( name )
+    for name in sorted( dependencies ):
+        if name not in preferred:
+            _consider( name )
+    return candidates
+
+
+def run_location_stage_develop( env ) -> None:
+    """Nest-build or nest-clean every qualifying location develop tree once.
+
+    Called from construct before tip sconscripts so ``N of M`` is known and nests
+    are not interleaved with tip ``BuildWith`` construction.
+    """
+    if _is_nested():
+        return
+    if not stage_develop_enabled( env ):
+        return
+    require_stage_develop_with_develop( env )
+    if env.get( "_cuppa_location_stages_ran" ):
+        return
+    env["_cuppa_location_stages_ran"] = True
+
+    candidates = location_stage_candidates( env )
+    if not candidates:
+        return
+    total = len( candidates )
+    write_lines( [
+            "",
+            "{}: {}".format(
+                    as_info_label( "develop stage" ),
+                    as_notice(
+                            "{} location project{}".format(
+                                    total, "" if total == 1 else "s"
+                            )
+                    ),
+            ),
+    ] )
+    sys.stdout.flush()
+    done = _location_stage_roots( env )
+    for ordinal, ( label, root ) in enumerate( candidates, 1 ):
+        if root in done:
+            continue
+        done.add( root )
+        run_nested_location_project( env, root, label, ordinal=ordinal, total=total )
 
 
 def consume_develop_package_stage(

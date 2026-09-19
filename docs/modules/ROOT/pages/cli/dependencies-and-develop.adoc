@@ -139,11 +139,15 @@ written to tracked configuration.
 xref:packages.adoc[Publishing packages] for GitLab and Conan publishing; consuming packages is
 covered by xref:dependencies/packages.adoc[Package dependencies].
 
-`--stage-develop` (requires `--develop`) nest-builds publisher-shaped package
-`develop=` trees so the tip can consume `final/<package>/<version>/`, and nests
-`-c` / `--clean` into those trees. Without it, `--develop` only discovers an
-existing stage (or swaps a prefix-shaped path). See
-xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
+`--stage-develop` (requires `--develop`) nest-builds develop trees that have an
+`sconstruct`: publisher-shaped package `develop=` paths (stage under
+`final/<package>/<version>/`, no upload) and location `develop=` Cuppa projects
+(normal project build/clean). It also nests `-c` / `--clean` into those trees.
+Without it, package `--develop` only discovers an existing stage (or swaps a
+prefix-shaped path); location `--develop` only swaps the path for the tip to
+compile. See
+xref:packages.adoc#cascade-develop[Publishing from a tree you are working in]
+and xref:dependencies/managing/develop.adoc[Working with develop copies].
 
 `--stage-package` builds and stages *this* package's archive under `final/` without
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a

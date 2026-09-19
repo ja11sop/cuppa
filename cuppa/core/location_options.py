@@ -18,12 +18,14 @@ def add_location_options( add_option ):
             dest='stage-develop',
             action='store_true',
             help=(
-                    "With --develop, nest-build publisher-shaped package develop "
-                    "trees (stage under final/<package>/<version>/, no upload) so "
-                    "the tip can consume them. Also nests -c/--clean into those "
-                    "trees. Without this flag, --develop only discovers an "
-                    "existing stage (or swaps a prefix-shaped develop= path). "
-                    "Requires --develop."
+                    "With --develop, nest-build develop trees that have an "
+                    "sconstruct: publisher-shaped package develop= paths "
+                    "(stage under final/<package>/<version>/, no upload) and "
+                    "location develop= Cuppa projects (normal project build). "
+                    "Also nests -c/--clean into those trees. Without this flag, "
+                    "package --develop only discovers an existing stage (or "
+                    "swaps a prefix-shaped path); location --develop only swaps "
+                    "the path for the tip to compile. Requires --develop."
             ),
     )
 
@@ -112,8 +114,8 @@ def process_location_options( cuppa_env ):
     if cuppa_env['stage_develop'] and not cuppa_env['develop']:
         import SCons.Errors
         raise SCons.Errors.StopError(
-                "--stage-develop requires --develop (it stages publisher-shaped "
-                "package develop trees for the tip to consume)"
+                "--stage-develop requires --develop (it nest-builds package and "
+                "location develop trees that have an sconstruct)"
         )
     cuppa_env['list_develop']                     = cuppa_env.get_option( 'list_develop' )
     cuppa_env['clone_develop']                    = cuppa_env.get_option( 'clone_develop' )

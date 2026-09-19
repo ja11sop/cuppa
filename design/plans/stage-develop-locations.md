@@ -1,7 +1,7 @@
 # Plan: `--stage-develop` for location dependencies
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `stage-develop-locations`; [`package-develop-local.md`](package-develop-local.md) (package half of `--stage-develop`); [`build_with_location.py`](../../cuppa/build_with_location.py); [`develop.py`](../../cuppa/develop.py)
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `stage-develop-locations`; [`package-develop-local.md`](package-develop-local.md) (package half of `--stage-develop`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade plan / topo precedent); [`build_with_location.py`](../../cuppa/build_with_location.py); [`develop.py`](../../cuppa/develop.py); [`location.py`](../../cuppa/location.py)
 - **Updated:** 2026-09-19
 - **Impact:** `minor` — new behaviour under an existing opt-in flag; location `--develop` alone unchanged
 
@@ -36,81 +36,93 @@ trees** would make one flag mean "also build my develop working copies when they
 | Build | Tip `BuildWith` / includes point at the develop tree; tip compiles those sources |
 | Clean | Tip `-c` cleans the tip graph only |
 
-`--stage-develop` without this work is a no-op for location deps (flag may be set; nothing nests).
+## Shipped meaning (L1/L2)
 
-## Proposed meaning
-
-Keep the same two modes as packages, applied to location develop trees that look like **Cuppa
-projects** (presence of `sconstruct` / `SConstruct` — same shape test as
-`develop_names_a_publisher_tree`):
+Same two modes as packages, applied to location develop trees that look like **Cuppa
+projects** (presence of `sconstruct` / `SConstruct`):
 
 | Mode | Flags | Location develop with sconstruct |
 |------|--------|----------------------------------|
 | Discover | `--develop` | Today's swap; tip compiles the tree. No nest. |
-| Stage | `--develop --stage-develop` | Nested `cuppa` session in that tree (forward tip variant/toolchain; **not** package `--stage-package` unless the nested project publishes). Then tip continues with the usual develop swap. With `-c`, nest-clean those trees too. |
+| Stage | `--develop --stage-develop` | Nested `cuppa` session in that tree (forward tip variant/toolchain/`--parallel`/`--test`; **not** package `--stage-package`). Then tip continues with the usual develop swap. With `-c`, nest-clean those trees too. |
 
-Location trees **without** an sconstruct stay discover-only (nothing to nest). Passing
-`--stage-develop` does not error for them — they simply do not participate (same as a
-prefix-shaped package path ignoring stage).
+Location trees **without** an sconstruct stay discover-only. Package publisher-shaped
+`develop=` trees still use the package nest path.
 
-### What the nested session builds
+### Nested session (settled)
 
-Open until first implementation soak, with this leaning:
+1. Nested `cuppa -D` via `tip_forward_args(..., project_only=True)` — no
+   `--publish-package` / `--stage-package`; `--stage-develop` dropped (single-level).
+2. Candidates surveyed from tip dependencies before tip sconscripts
+   (`run_location_stage_develop`) so banners show real `N of M`.
+3. Order today: tip `default_dependencies` declaration order, then remaining names
+   sorted. Not leaf-first across develop projects.
+4. Nested env sets `PYTHONUNBUFFERED=1` (tip cuppa pipes stdout).
+5. Tip still uses the develop path as source/include root (L3 deferred).
 
-1. **Default:** nested `cuppa -D` with tip-forwarded global flags (variant, toolchains, offline,
-   clean) — same argv shaping family as package stage / cascade, minus package-only flags and
-   tip dependency-scoped overrides.
-2. **Not** implied: upload, cascade, or `--stage-package` unless the nested sconstruct's own
-   `PublishPackage` graph runs as part of a normal build (as today without `--publish-package`).
-3. **Success for the tip:** nested session exit 0. Tip does **not** switch to consuming a package
-   stage for a location dep — it still uses the develop path as source/include root unless a
-   later slice teaches location deps to prefer staged libs (out of scope here).
+## Non-goals (still)
 
-So for locations, "stage" means **ensure the develop project's build has run** (artefacts on
-disk for whatever that project produces), not "rebind the tip to `final/<pkg>/<ver>/`."
-
-## Why this is useful
-
-- Tip depends on location project B; B needs a CMake configure/build (or Cuppa static libs)
-  before tip's link or codegen sees outputs under B's tree.
-- Operator iterates in tip; occasional `--stage-develop` rebuilds B without `cd`.
-- Tip `-c --stage-develop` deep-cleans B's Cuppa `_build` / registered cleans — closing the
-  same hole package D hit for package stages.
-
-## Non-goals
-
-- Changing location `--develop` alone (always in-tip compile).
-- Making every location dep behave like a GitLab package consume.
-- Auto-nesting on missing artefacts without `--stage-develop` (keep discover cheap).
-- Nesting into non-Cuppa trees (no sconstruct) or inventing a second develop kwarg.
+- Changing location `--develop` alone.
+- Auto-nesting on missing artefacts without `--stage-develop`.
+- Nesting into non-Cuppa trees.
 - Replacing cascade / package `--stage-develop` semantics.
 
-## Open questions
+## Soak findings (matching_facility)
 
-| # | Question | Leaning |
-|---|----------|---------|
-| 1 | Nested default targets: full project default, or require `PublishPackage` / a named method? | Full default build first; document that projects that only build on explicit targets need a follow-on. |
-| 2 | Should nested location sessions forward `--develop` (recursive stage of B's deps)? | Forward `--develop`; drop `--stage-develop` on the child (same as package nest drops tip `--stage-develop`) so recursion is one level unless the child opts in again — or never forward `--stage-develop` and document single-level only. Prefer **single-level** for v1. |
-| 3 | Ordering: nest before tip sconscript read (like package consume) vs SCons Depends? | Nest during location resolve / early BuildWith, sequential, package-style — tip must not compile against a half-built B. |
-| 4 | Interaction when the same path is both a package `develop=` and a location develop? | Rare; package path wins if both declare it. Call out in docs. |
-| 5 | Banner copy | Reuse `develop stage` banners; say `location` in the label when not a package pin (`develop stage 1 of 1: <name>`). |
+| Finding | Decision |
+|---------|----------|
+| Banner said `1 of 1: moo` then silence | Collect-then-run + `PYTHONUNBUFFERED`. |
+| Expect `1 of 13` | Survey all location develops with an sconstruct (skip package deps). |
+| `--parallel` / `--test` on the tip | Forward into each nest; nests themselves stay sequential `1…N`. |
+| Need cascade-style topo / plan? | Follow-on — see L4 below. |
 
-## Slices (suggested)
+## Follow-on: `--stage-develop-plan` and ordered stage builds (L4)
+
+**Why:** With 13 develop projects, declaration order is a guess. If project A’s nested
+build needs artefacts from B’s `_build`, nesting A before B fails or forces a second
+pass. Operators also want a dry-run like `--cascade-plan` before committing wall-clock
+to a full forest.
+
+### `--stage-develop-plan`
+
+| Requirement | Detail |
+|-------------|--------|
+| Flags | `--stage-develop-plan` requires `--develop` (and implies the stage-develop candidate set). Prefer **not** requiring `--stage-develop` so review is cheap — mirror `--cascade-plan` requiring the cascade flag only if that reads clearer in soak. |
+| Output | Judgement-tree / table: dependency name, path, reason included (has sconstruct), order index, notes (skipped prefix-shaped / package-managed). |
+| Side effects | No nested build or clean; exit after report (construct stop-before-build, same family as cascade plan/collect). |
+| Exit status | Non-zero only on hard errors (e.g. missing develop path that cannot stage); warnings for odd trees stay warnings. |
+
+### Ordered stage builds
+
+| Requirement | Detail |
+|-------------|--------|
+| Goal | Leaf-first (or otherwise safe) order over the **location stage candidate** set so a nested build of A sees B’s artefacts when A’s develop tree depends on B. |
+| Edge source (leaning) | For each candidate project, read that tree’s configured develop / package edges the way cascade resolves publisher deps — at minimum, tip-visible `default_dependencies` among candidates; better, survey each candidate’s own `sconstruct` dependency graph (location + package develop paths that intersect the candidate set). |
+| Cycles | Report and refuse (or break with a documented tie-break), same spirit as cascade topo. |
+| Interaction with plan | `--stage-develop-plan` prints the resolved order; `--stage-develop` executes it. |
+| Non-goal for L4 | Parallel nested sessions (multiple develops at once) — tip `--parallel` already fans out *inside* each nest; cross-nest parallelism is a later performance slice. |
+
+### Precedent
+
+Reuse vocabulary and stop-before-build patterns from
+[`package-build-publish-deps.md`](package-build-publish-deps.md) (`--cascade-plan`,
+topo publish order, nested session banners) rather than inventing a second report shape.
+
+## Slices
 
 | Slice | Content | Impact |
 |-------|---------|--------|
-| L0 | Plan + ROADMAP (this document) | none |
-| L1 | Qualify location develop trees with sconstruct; nest build under `--stage-develop`; drop flag on nested argv; unit + one integration fixture | `minor` |
-| L2 | Nest `-c` for those trees; docs (`develop.adoc` + CLI) | `minor` / patch if L1 already documented |
-| L3 | Optional: tip prefers staged libs from location `final/` when present — only if soak demands it | `minor` |
+| L0 | Plan + ROADMAP | none — **shipped** |
+| L1 | Nest location develops under `--stage-develop`; survey + `N of M`; unit + integration | `minor` — **this branch** (soak OK) |
+| L2 | Nest `-c`; docs; unbuffered nested output | `minor` — **with L1** |
+| L3 | Optional: tip prefers staged libs from location `final/` when present | `minor` — only if soak demands |
+| L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **next** |
 
-## Success criterion (soak)
+## Success criterion (L1/L2 soak) — met
 
-A tip with a location `develop=` pointing at another Cuppa checkout:
-
-- `cuppa -D --dbg --develop` — no nest; tip builds as today.
-- `cuppa -D --dbg --develop --stage-develop` — nested session in that checkout, then tip build.
-- `cuppa -D --dbg --develop --stage-develop -c` — nested clean then tip clean.
+- `cuppa -D --dbg --develop` — no nest.
+- `cuppa -D --dbg --develop --stage-develop` — `develop stage: N location projects`, then `1 of N` … with live nested output; tip build afterward.
+- `--parallel` / `--test` forward into nests; `-c --stage-develop` nest-cleans.
 
 ## Relationship to package D
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--stage-develop`` also nest-builds (and nest-cleans) **location** ``develop=``
+  trees that have an ``sconstruct`` — a normal nested project session, then the tip
+  still uses the develop path. Location ``--develop`` alone stays a path swap with
+  no nest. Design: [`stage-develop-locations`](design/plans/stage-develop-locations.md).
+
 - ``--develop`` on a **publisher-shaped** package ``develop=`` path (tree with an
   ``sconstruct``) **discovers** a local stage under
   ``_build/.../final/<package>/<version>/`` and links it — no registry round trip

@@ -2262,6 +2262,185 @@ def test_tip_forward_args_publish_strips_stage_package():
     assert "--stage-package" not in forwarded
 
 
+def test_tip_forward_args_project_only_drops_publish_and_stage_package():
+    tip = [
+            "cuppa", "-D", "--dbg", "--develop", "--stage-develop",
+            "--publish-package", "--stage-package",
+    ]
+    forwarded = cascade.tip_forward_args( tip, project_only=True )
+    assert "--publish-package" not in forwarded
+    assert "--stage-package" not in forwarded
+    assert "--stage-develop" not in forwarded
+    assert "--develop" in forwarded
+    assert "--dbg" in forwarded
+    assert "-D" in forwarded
+
+
+def test_tip_forward_args_rejects_stage_only_with_project_only():
+    with pytest.raises( ValueError, match="project_only" ):
+        cascade.tip_forward_args(
+                [ "cuppa", "-D" ], stage_only=True, project_only=True
+        )
+
+
+def test_run_location_stage_develop_nests_with_ordinals( tmp_path, monkeypatch ):
+    project = tmp_path / "widget"
+    project.mkdir()
+    ( project / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+    calls = []
+
+    def _nest( env, project_dir, label, ordinal=1, total=1 ):
+        calls.append( ( project_dir, label, ordinal, total ) )
+
+    monkeypatch.setattr(
+            "cuppa.package_managers.package_cascade.run_nested_location_project",
+            _nest,
+    )
+
+    class _Dep:
+        _name = "widget"
+        _package_manager = None
+        _develop = str( project )
+
+        def location_id( self, env ):
+            return (
+                    "https://example.com/widget.git",
+                    str( project ),
+                    None,
+                    True,
+            )
+
+    dep = _Dep()
+    env = _PlanEnv(
+            { "develop": True, "stage-develop": True },
+            {
+                    "dependencies": { "widget": dep.location_id },
+                    "default_dependencies": [ "widget" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    cascade.run_location_stage_develop( env )
+    assert calls == [ ( str( project.resolve() ), "widget", 1, 1 ) ]
+
+    # Same tip process: second call is a no-op.
+    cascade.run_location_stage_develop( env )
+    assert len( calls ) == 1
+
+
+def test_location_stage_candidates_skips_packages_and_counts_many( tmp_path ):
+    loc_a = tmp_path / "a"
+    loc_b = tmp_path / "b"
+    for path in ( loc_a, loc_b ):
+        path.mkdir()
+        ( path / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+
+    class _Loc:
+        _package_manager = None
+
+        def __init__( self, name, develop ):
+            self._name = name
+            self._develop = develop
+
+        def location_id( self, env ):
+            return (
+                    "https://example.com/{}.git".format( self._name ),
+                    self._develop,
+                    None,
+                    True,
+            )
+
+    class _Pkg:
+        _package_manager = "gitlab"
+        _name = "boost"
+        _develop = str( loc_a )
+
+    a = _Loc( "alpha", str( loc_a ) )
+    b = _Loc( "beta", str( loc_b ) )
+    pkg = _Pkg()
+    env = _PlanEnv(
+            {},
+            {
+                    "dependencies": {
+                            "alpha": a.location_id,
+                            "beta": b.location_id,
+                            "boost": pkg,
+                    },
+                    "default_dependencies": [ "beta", "alpha" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+
+    found = cascade.location_stage_candidates( env )
+    assert [ name for name, _ in found ] == [ "beta", "alpha" ]
+    assert found[0][1] == str( loc_b.resolve() )
+    assert found[1][1] == str( loc_a.resolve() )
+
+
+def test_run_location_stage_develop_skips_without_flag( tmp_path, monkeypatch ):
+    project = tmp_path / "widget"
+    project.mkdir()
+    ( project / "sconstruct" ).write_text( "import cuppa\n", encoding="utf-8" )
+
+    class _Dep:
+        _package_manager = None
+        _name = "widget"
+        _develop = str( project )
+
+        def location_id( self, env ):
+            return (
+                    "https://example.com/widget.git",
+                    str( project ),
+                    None,
+                    True,
+            )
+
+    dep = _Dep()
+    monkeypatch.setattr(
+            "cuppa.package_managers.package_cascade.run_nested_location_project",
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "nest" ) ),
+    )
+    env = _PlanEnv(
+            { "develop": True, "stage-develop": False },
+            {
+                    "dependencies": { "widget": dep.location_id },
+                    "default_dependencies": [ "widget" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    cascade.run_location_stage_develop( env )
+
+
+def test_run_location_stage_develop_skips_prefix_shaped_tree(
+        tmp_path, monkeypatch
+):
+    prefix = tmp_path / "widget"
+    ( prefix / "include" ).mkdir( parents=True )
+    ( prefix / "lib" ).mkdir()
+
+    class _Loc:
+        _package_manager = None
+        _name = "widget"
+        _develop = str( prefix )
+
+        def location_id( self, env ):
+            return ( "https://example.com/w.git", str( prefix ), None, True )
+
+    loc = _Loc()
+    monkeypatch.setattr(
+            "cuppa.package_managers.package_cascade.run_nested_location_project",
+            lambda *a, **k: (_ for _ in ()).throw( AssertionError( "nest" ) ),
+    )
+    env = _PlanEnv(
+            { "develop": True, "stage-develop": True },
+            {
+                    "dependencies": { "widget": loc.location_id },
+                    "default_dependencies": [ "widget" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    cascade.run_location_stage_develop( env )
+
+
 def test_looks_like_package_stage_requires_include_and_lib( tmp_path ):
     path = tmp_path / "stage"
     ( path / "include" ).mkdir( parents=True )
