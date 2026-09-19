@@ -113,8 +113,8 @@ topo publish order, nested session banners) rather than inventing a second repor
 | Slice | Content | Impact |
 |-------|---------|--------|
 | L0 | Plan + ROADMAP | none — **shipped** |
-| L1 | Nest location develops under `--stage-develop`; survey + `N of M`; unit + integration | `minor` — **this branch** (soak OK) |
-| L2 | Nest `-c`; docs; unbuffered nested output | `minor` — **with L1** |
+| L1 | Nest location develops under `--stage-develop`; survey + `N of M`; unit + integration | `minor` — **shipped** in [#313](https://github.com/ja11sop/cuppa/pull/313) |
+| L2 | Nest `-c`; docs; unbuffered nested output | `minor` — **shipped** with L1 in [#313](https://github.com/ja11sop/cuppa/pull/313) |
 | L3 | Optional: tip prefers staged libs from location `final/` when present | `minor` — only if soak demands |
 | L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **next** |
 
