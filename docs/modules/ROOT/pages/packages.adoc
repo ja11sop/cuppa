@@ -118,6 +118,9 @@ with a clear error naming ``--stage-develop``.
 
 Pass ``--develop --stage-develop`` to nest-build that tree (stage, no upload) from
 the tip, and to nest ``-c`` / ``--clean`` into those trees as well. The same
+flag also nest-builds **location** ``develop=`` Cuppa projects (normal project
+build; the tip still compiles against the develop path). See
+xref:dependencies/managing/develop.adoc[Working with develop copies]. The same
 develop path still ranks first for cascade when you also pass
 ``--build-and-publish-dependencies``; cascade may upload afterward, but local
 consume does not depend on the upload succeeding.
