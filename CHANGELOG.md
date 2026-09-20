@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Under ``--build-and-publish-dependencies``, tip package deps that cascade can
+  publish no longer die on an initial registry ``404`` during pre-sconscript
+  ``BuildWith``: the fetch is deferred until nested publish refreshes the tip
+  consume cache (package-develop-local Slice F). Ineligible registry-only deps
+  still fail immediately. Design:
+  [`cascade-defer-404`](design/plans/cascade-defer-404.md)
+  ([`package-develop-local`](design/plans/package-develop-local.md) §6).
+
 - ``--stage-develop-plan`` (requires ``--develop``) prints the leaf-first order of
   location ``develop=`` trees that ``--stage-develop`` would nest-build, then
   exits without nesting. Location ``--stage-develop`` itself now nests in that

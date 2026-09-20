@@ -2990,3 +2990,122 @@ def test_a_package_source_declared_on_the_dependency_resolves_a_publisher_tree( 
             "git@gitlab.example:packages/capy"
     )
     assert cascade.resolve_publisher_dir( env, entry ) == str( tree )
+
+
+# Slice F — tip registry 404 defer under cascade
+
+
+def test_tip_package_eligible_via_declared_package_source( tmp_path ):
+    ( tmp_path / "project" ).mkdir()
+    dependency = _package_dependency( "capy", None )
+    dependency._package_source = "git@gitlab.example:packages/capy"
+    env = _PlanEnv(
+            { "build-and-publish-dependencies": True },
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    assert cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "1.0" )
+
+
+def test_tip_package_eligible_via_develop_path( tmp_path ):
+    ( tmp_path / "project" ).mkdir()
+    env = _develop_env(
+            tmp_path, "capy", "../capy",
+            **{ "build-and-publish-dependencies": True },
+    )
+    assert cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "1.0" )
+
+
+def test_tip_package_eligible_via_publish_manifest_edge( tmp_path ):
+    project = tmp_path / "project"
+    project.mkdir()
+    write_publish_manifest(
+            str( project ),
+            "widget",
+            "1",
+            dependencies=[
+                    {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "2.0",
+                            "package_source": "git@gitlab.example:packages/capy",
+                    }
+            ],
+    )
+    env = _PlanEnv(
+            { "build-and-publish-dependencies": True },
+            { "sconstruct_dir": str( project ) },
+    )
+    assert cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "2.0" )
+
+
+def test_tip_package_ineligible_without_cascade_flag( tmp_path ):
+    ( tmp_path / "project" ).mkdir()
+    dependency = _package_dependency( "capy", None )
+    dependency._package_source = "git@gitlab.example:packages/capy"
+    env = _PlanEnv(
+            {},
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    assert not cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "1.0" )
+
+
+def test_tip_package_ineligible_when_nested( tmp_path, monkeypatch ):
+    ( tmp_path / "project" ).mkdir()
+    dependency = _package_dependency( "capy", None )
+    dependency._package_source = "git@gitlab.example:packages/capy"
+    env = _PlanEnv(
+            { "build-and-publish-dependencies": True },
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    monkeypatch.setenv( cascade.NESTED_ENV, "1" )
+    assert not cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "1.0" )
+
+
+def test_tip_package_ineligible_registry_only( tmp_path ):
+    project = tmp_path / "project"
+    project.mkdir()
+    write_publish_manifest(
+            str( project ),
+            "widget",
+            "1",
+            dependencies=[
+                    { "name": "capy", "package": "capy", "version": "2.0" },
+            ],
+    )
+    env = _PlanEnv(
+            { "build-and-publish-dependencies": True },
+            {
+                    "sconstruct_dir": str( project ),
+                    "dependencies": { "capy": _package_dependency( "capy", None ) },
+            },
+    )
+    assert not cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "2.0" )
+
+
+def test_register_and_audit_deferred_cascade_fetches_ok( tmp_path ):
+    cascade.reset_deferred_cascade_fetches()
+    stage = tmp_path / "capy_stage"
+    ( stage / "include" ).mkdir( parents=True )
+    cascade.register_deferred_cascade_fetch( "capy", "1.0", str( stage ) )
+    assert cascade.deferred_cascade_fetches() == { ( "capy", "1.0" ): str( stage ) }
+    cascade.audit_deferred_cascade_fetches()
+    assert cascade.deferred_cascade_fetches() == {}
+
+
+def test_audit_deferred_cascade_fetches_raises_when_include_missing( tmp_path ):
+    cascade.reset_deferred_cascade_fetches()
+    stage = tmp_path / "capy_stage"
+    stage.mkdir()
+    cascade.register_deferred_cascade_fetch( "capy", "1.0", str( stage ) )
+    with pytest.raises( SCons.Errors.StopError, match=r"capy \[==1\.0\]" ):
+        cascade.audit_deferred_cascade_fetches()
+    assert cascade.deferred_cascade_fetches() == {}

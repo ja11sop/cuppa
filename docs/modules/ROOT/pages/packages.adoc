@@ -62,8 +62,16 @@ Cuppa then:
   leaf-first order (**without** re-entering cascade)
 * Invalidates that package’s download/extract caches under the tip’s storage
   roots and re-fetches from the registry so the tip build sees the new
-  artefacts (the tip’s ``BuildWith`` paths were already resolved before cascade)
+  artefacts
 * Continues with this project’s normal build and publish
+
+Pre-sconscript ``BuildWith`` still runs before cascade. When a tip dependency is
+one cascade can publish (``package_source``, a publisher-shaped ``develop=``, or
+a tip ``cuppa-publish.json`` edge with a source) and the registry returns
+``404``, cuppa **defers** that fetch instead of stopping: nested publish and the
+refresh above fill the consume cache. A registry-only pin that cascade cannot
+publish still fails immediately. If a deferred pin is still missing after
+cascade, cuppa stops and names the package.
 
 Publisher builds also stage ``cuppa-publish.json`` next to
 ``cuppa-dependency.json`` (same edges, plus ``package_source``) and seed a copy
