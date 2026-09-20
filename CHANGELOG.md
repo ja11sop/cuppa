@@ -33,6 +33,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ``--cascade-plan`` and ``--stage-develop-plan`` trees insert subdued breathing
+  stubs under each numbered node and between siblings. ``--stage-develop-plan``
+  lists every considered location develop in declaration order: nestable rows
+  show leaf-first ``K of M`` ordinals; unstaged rows (missing path or no
+  sconstruct) stay interleaved with cascade-style nested judgements. Missing
+  paths are errors; no-sconstruct and off-branch checkouts are warnings; a
+  non-git nestable path is a note. ``depends on`` lists the full considered set
+  and colours unstaged names by severity. The footer summarises nestable vs
+  unstaged and suggests ``--clone-develop`` once when paths are missing. The
+  command banner emphasises ``--stage-develop-plan``. Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4b.
+
 - Nested session banners use an info-label chip for the jump
   (``cascade session N of M``, ``develop stage N of M``, and
   ``cascade sessions complete``) so crossing into another sconstruct reads loud.

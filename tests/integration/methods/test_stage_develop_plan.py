@@ -80,11 +80,12 @@ cuppa.run(
     )
     assert_success(result)
     assert "Develop stage plan" in result.stdout
+    assert "Stage plan summary" in result.stdout
     assert "nothing was built or cleaned" in result.stdout
     assert "develop stage" not in result.stdout or "Develop stage plan" in result.stdout
     numbered = [line for line in result.stdout.splitlines() if " of 2" in line]
-    assert len(numbered) >= 2
-    assert "leaf" in numbered[0]
-    assert "mid" in numbered[1]
+    assert len(numbered) == 2
+    assert any("1 of 2" in line and "leaf" in line for line in numbered)
+    assert any("2 of 2" in line and "mid" in line for line in numbered)
     assert not any(leaf.rglob("_build"))
     assert not any(mid.rglob("_build"))

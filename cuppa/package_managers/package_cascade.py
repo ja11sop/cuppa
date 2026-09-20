@@ -75,6 +75,8 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
         "--publish-package",
 } )
@@ -1037,6 +1039,141 @@ def _plan_dependency_label( entry ) -> str:
     return label
 
 
+def _plan_node_under( continuation, marker_width: int ) -> str:
+    """Hang nested glyphs under a numbered plan node (``continuation`` is pipe or gap)."""
+    return continuation + " " * ( marker_width + 2 )
+
+
+# Branches that read as "the published default" without a configured name.
+_STAGE_DEFAULT_BRANCHES = frozenset( { "master", "main" } )
+
+
+def _display_stage_repo_url( url ) -> str | None:
+    """``host/org/repo`` for a stage-plan label. Local paths are omitted."""
+    if not url:
+        return None
+    from cuppa.core.dependency_identity import short_name_from_git_url
+    return short_name_from_git_url( str( url ).strip() )
+
+
+def _location_configured_url( env, name ) -> str | None:
+    """Configured ``location=`` URL for a dependency name, when ``location_id`` is available."""
+    dependencies = env.get( "dependencies" ) or {}
+    factory = dependencies.get( name )
+    if factory is None:
+        return None
+    dependency = getattr( factory, "__self__", factory )
+    location_id = getattr( dependency, "location_id", None )
+    if not callable( location_id ):
+        return None
+    try:
+        identity = location_id( env )
+        if identity:
+            return identity[0]
+    except ( TypeError, IndexError, KeyError, AttributeError ):
+        return None
+    return None
+
+
+def _observed_origin_url( root ) -> str | None:
+    """Origin URL of a working copy, or None when it is not a git tree."""
+    from cuppa.scms.git import Git
+    try:
+        _url, repository, _branch, _remote, _revision = Git.info( root )
+    except ( OSError, TypeError, ValueError, Git.Error ):
+        return None
+    return repository or None
+
+
+def _checkout_ref( copy, root ) -> str | None:
+    """Branch, tag, or ``detached`` actually checked out — not the declared pin."""
+    from cuppa.scms.git import Git
+    if not copy.is_working_copy:
+        return None
+    if not copy.detached and copy.branch:
+        return copy.branch
+    try:
+        revision = ( Git.get_revision( root ) or "" ).strip()
+    except ( OSError, TypeError, ValueError, Git.Error ):
+        revision = ""
+    if revision and "~" not in revision and "^" not in revision:
+        if revision.startswith( "tags/" ):
+            revision = revision[ len( "tags/" ) : ]
+        return revision
+    return "detached"
+
+
+def _tip_stage_branch( env ) -> str | None:
+    """Branch of the project running the plan (the one other develops are judged against)."""
+    from cuppa.develop import inspect
+
+    root = env.get( "sconstruct_dir" )
+    if not root:
+        return None
+    copy = inspect( "tip", root )
+    if copy.detached or not copy.branch:
+        return None
+    return copy.branch
+
+
+def _stage_branch_unexpected( ref, tip_branch, env ) -> bool:
+    """True when the checkout is neither the tip branch nor a default branch."""
+    if not ref or ref == "detached":
+        return bool( ref )
+    acceptable = set( _STAGE_DEFAULT_BRANCHES )
+    for key in ( "location_default_branch", "location_base_branch" ):
+        configured = env.get( key )
+        if configured:
+            acceptable.add( str( configured ) )
+    if tip_branch:
+        acceptable.add( tip_branch )
+    return ref not in acceptable
+
+
+def _format_stage_repo_hint( short, ref, state, unexpected ) -> str:
+    """Muted ``(host/org/repo@branch state)``; an off-branch ref is a warning."""
+    parts = [ as_subdued( " (" ) ]
+    if short and ref:
+        parts.append( as_subdued( "{}@".format( short ) ) )
+        parts.append( as_warning( ref ) if unexpected else as_subdued( ref ) )
+        parts.append( as_subdued( " {}".format( state ) ) )
+    elif short:
+        parts.append( as_subdued( "{} {}".format( short, state ) ) )
+    elif ref:
+        parts.append( as_warning( ref ) if unexpected else as_subdued( ref ) )
+        parts.append( as_subdued( " {}".format( state ) ) )
+    else:
+        parts.append( as_subdued( state ) )
+    parts.append( as_subdued( ")" ) )
+    return "".join( parts )
+
+
+def _stage_repo_state_hint(
+        env, name, root, tip_branch=None, wants_only=False
+) -> str:
+    """Muted ``(host/org/repo@branch state)`` from the develop working copy."""
+    from cuppa.develop import inspect, state_summary
+
+    if wants_only:
+        short = _display_stage_repo_url( _location_configured_url( env, name ) )
+        if short:
+            return as_subdued( " (wants {})".format( short ) )
+        return ""
+
+    copy = inspect( name, root )
+    state = state_summary( copy )
+    short = _display_stage_repo_url(
+            _observed_origin_url( root ) or _location_configured_url( env, name )
+    )
+    ref = _checkout_ref( copy, root )
+    return _format_stage_repo_hint(
+            short,
+            ref,
+            state,
+            _stage_branch_unexpected( ref, tip_branch, env ),
+    )
+
+
 def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
     """``N noun`` without colour — safe to nest inside an info-label chip."""
     word = noun if count == 1 else ( plural_noun or noun + "s" )
@@ -1408,17 +1545,23 @@ def cascade_plan_lines(
     total = len( order )
     marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
     # Outer pipe + pad past the ordinal so nested glyphs hang under the label.
-    under = pipe + " " * ( marker_width + 2 )
+    # Packages are never the last outer sibling — the tip line is — so under stays pipe.
+    under = _plan_node_under( pipe, marker_width )
     prose_width = max( storage.WIDEST_PROSE - len( under ), storage.NARROWEST_PROSE )
+    stub = pipe.rstrip()
 
     for ordinal, key in enumerate( order, start=1 ):
+        last = ordinal == total
         entry = nodes[key]
         marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
         lines.append( "{}{}  {}".format(
                 as_subdued( tee ), marker, _plan_dependency_label( entry )
         ) )
         judgements = judgements_by_key[key]
-        if entry.get( "_publisher_dir" ):
+        has_publisher = bool( entry.get( "_publisher_dir" ) )
+        if has_publisher:
+            # Breathing space from the package node before nested leaves.
+            lines.append( as_subdued( under + stub ) )
             publisher = entry["_publisher_dir"]
             # Nested under the package like a judgement leaf: elbow when alone,
             # tee when errors/warnings/notes follow.
@@ -1430,8 +1573,10 @@ def cascade_plan_lines(
             ) )
         if judgements:
             _append_severity_groups( lines, judgements, under, prose_width, encoding )
+        if not last:
+            lines.append( as_subdued( stub ) )
 
-    lines.append( as_subdued( pipe.rstrip() ) )
+    lines.append( as_subdued( stub ) )
     if clean:
         lines.append( "{}then clean {} from this tree".format(
                 as_subdued( elbow ), tip
@@ -2772,32 +2917,217 @@ def location_stage_plan_rows( env ) -> list[dict]:
                     "name": name,
                     "path": abs_path,
                     "status": "skip",
-                    "severity": "note",
-                    "note": "no sconstruct; tip --develop swaps the path only",
+                    "severity": "warning",
+                    "note": "no sconstruct; will not nest under --stage-develop",
             } )
     return rows
 
 
+def location_stage_plan_edges( rows: list[dict] ) -> dict[str, set[str]]:
+    """Edges among all considered location develops (including unstaged names).
+
+    Missing paths contribute no outbound edges; inbound edges still appear when
+    another tree declares them by ``develop=`` path or publish-manifest name.
+    """
+    from cuppa.location import develop_location
+
+    by_root = { row["path"]: row["name"] for row in rows }
+    by_name = { row["name"]: row["path"] for row in rows }
+    edges: dict[str, set[str]] = { row["name"]: set() for row in rows }
+
+    for row in rows:
+        if row["status"] == "missing" or not os.path.isdir( row["path"] ):
+            continue
+        root = row["path"]
+        name = row["name"]
+        for raw in develop_paths_declared_in_tree( root ):
+            try:
+                resolved = develop_location( root, raw )
+            except Exception:
+                continue
+            if not resolved:
+                continue
+            other = by_root.get( os.path.abspath( resolved ) )
+            if other and other != name:
+                edges[name].add( other )
+        for dep_name in publish_manifest_dependency_names( root ):
+            if dep_name in by_name and dep_name != name:
+                edges[name].add( dep_name )
+    return edges
+
+
+def _stage_row_judgements( row, env, tip_branch=None ) -> list[tuple[str, str]]:
+    """``(severity, prose)`` nested under one develop-stage plan node."""
+    path = storage.display_path( row["path"] )
+    if row["status"] == "missing":
+        return [ (
+                "error",
+                "project [{}] is missing.".format( path ),
+        ) ]
+    if row["status"] == "skip":
+        return [ (
+                "warning",
+                "This project is not an SCons project (no SConstruct found)",
+        ) ]
+
+    from cuppa.develop import inspect
+
+    judgements: list[tuple[str, str]] = []
+    copy = inspect( row["name"], row["path"] )
+    if copy.exists and not copy.is_working_copy:
+        judgements.append( (
+                "note",
+                "Not a working copy: expected a repository but can proceed "
+                "with path only",
+        ) )
+    ref = _checkout_ref( copy, row["path"] )
+    if _stage_branch_unexpected( ref, tip_branch, env ):
+        expected = []
+        if tip_branch:
+            expected.append( tip_branch )
+        for name in sorted( _STAGE_DEFAULT_BRANCHES ):
+            if name not in expected:
+                expected.append( name )
+        judgements.append( (
+                "warning",
+                "{} branch is [{}] which deviates from the expected branches "
+                "({})".format(
+                        row["name"],
+                        ref,
+                        " or ".join( expected ),
+                ),
+        ) )
+    return judgements
+
+
+def _stage_depends_lines( deps, width, colour_for_name=None ) -> list[str]:
+    """``depends on [a, b]`` with each name coloured, wrapping between names.
+
+    Brackets, commas, and the words stay plain. ``colour_for_name(name)`` defaults
+    to ``as_info``. An empty list is the no-edges sentence.
+    """
+    if not deps:
+        return [ "no edges to other stage candidates" ]
+    colour = colour_for_name or ( lambda _name: as_info( _name ) )
+    prefix = "depends on ["
+    lines = []
+    plain = prefix
+    coloured = prefix
+    last = len( deps ) - 1
+    for index, name in enumerate( deps ):
+        extra_plain = name if index == 0 else ", " + name
+        painted = colour( name )
+        extra_coloured = painted if index == 0 else ", " + painted
+        closing = 1 if index == last else 0
+        if (
+                plain != prefix
+                and len( plain ) + len( extra_plain ) + closing > width
+        ):
+            lines.append( coloured )
+            plain = name
+            coloured = painted
+        else:
+            plain += extra_plain
+            coloured += extra_coloured
+    lines.append( coloured + "]" )
+    return lines
+
+
+def _append_stage_edge(
+        lines, deps, first_branch, carried_branch, prose_width, colour_for_name=None
+):
+    """Hang a depends-on / no-edges line under a stage node."""
+    wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
+    branch = first_branch
+    for piece in _stage_depends_lines( deps, wrap_width, colour_for_name ):
+        lines.append( as_subdued( branch ) + piece )
+        branch = carried_branch
+
+
+def _stage_dep_colour( name, severity_by_name ):
+    """Info for nestable names; error/warning for unstaged deps by their severity."""
+    severity = severity_by_name.get( name )
+    if severity == "error":
+        return as_error( name )
+    if severity == "warning":
+        return as_warning( name )
+    return as_info( name )
+
+
+def _tip_stage_label( env ) -> str:
+    root = env.get( "sconstruct_dir" )
+    if root:
+        return os.path.basename( os.path.abspath( root ) )
+    return "this project"
+
+
 def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
-    """Dry-run report for location ``--stage-develop`` order."""
+    """Dry-run report for location ``--stage-develop`` (cascade-plan-shaped)."""
     require_stage_develop_plan_with_develop( env )
     rows = location_stage_plan_rows( env )
-    stageable = [
+    nestable = [
             ( row["name"], row["path"] )
             for row in rows if row["status"] == "stage"
     ]
-    edges = location_stage_edges( stageable )
+    nest_edges = location_stage_edges( nestable )
     try:
-        ordered = order_location_stage_candidates( stageable, edges )
+        ordered_nest = order_location_stage_candidates( nestable, nest_edges )
     except SCons.Errors.StopError as error:
         raise SCons.Errors.StopError(
                 "--{}: {}".format( STAGE_DEVELOP_PLAN_OPTION, error )
         ) from error
 
+    plan_edges = location_stage_plan_edges( rows )
+    tip_branch = _tip_stage_branch( env )
+    judgements_by_name = {
+            row["name"]: _stage_row_judgements( row, env, tip_branch )
+            for row in rows
+    }
+    severity_by_name = {}
+    for row in rows:
+        judgements = judgements_by_name[row["name"]]
+        if any( sev == "error" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "error"
+        elif any( sev == "warning" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "warning"
+        elif any( sev == "note" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "note"
+        else:
+            severity_by_name[row["name"]] = "ok"
+
+    error_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "error"
+    )
+    warning_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "warning"
+    )
+    note_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "note"
+    )
+
     tee, elbow, pipe, gap = storage.glyphs( encoding )
-    error_count = sum( 1 for row in rows if row["severity"] == "error" )
-    warning_count = sum( 1 for row in rows if row["severity"] == "warning" )
-    note_count = sum( 1 for row in rows if row["severity"] == "note" )
+    stub = pipe.rstrip()
+    nest_total = len( ordered_nest )
+    ordinal_of = {
+            name: index for index, ( name, _path ) in enumerate( ordered_nest, 1 )
+    }
+    unstaged = [ row for row in rows if row["status"] != "stage" ]
+    marker_width = max(
+            len( "unstaged" ),
+            len( "{} of {}".format( nest_total, nest_total ) ) if nest_total else len( "0 of 0" ),
+    )
+    under_active = _plan_node_under( pipe, marker_width )
+    prose_width = max( storage.WIDEST_PROSE - len( under_active ), storage.NARROWEST_PROSE )
+
+    tip_name = _tip_stage_label( env )
+    tip_root = env.get( "sconstruct_dir" )
+    tip_hint = (
+            _stage_repo_state_hint( env, tip_name, tip_root, tip_branch=tip_branch )
+            if tip_root else ""
+    )
 
     lines = [
             "",
@@ -2806,7 +3136,7 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             "",
             "Develop stage plan: {}: {}".format(
                     storage.emphasised_count_phrase(
-                            len( stageable ),
+                            len( rows ),
                             "location project",
                             "location projects",
                     ),
@@ -2816,69 +3146,142 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
                             notes=note_count,
                     ),
             ),
-            as_subdued( pipe.rstrip() ),
+            as_subdued( stub ),
+            "{}this node {}{}".format(
+                    as_subdued( tee ),
+                    as_emphasised( as_info( tip_name ) ),
+                    tip_hint,
+            ),
+            "{}{} location develop{}; {} nestable, {} unstaged".format(
+                    as_subdued( tee ),
+                    len( rows ),
+                    "" if len( rows ) == 1 else "s",
+                    nest_total,
+                    len( unstaged ),
+            ),
+            as_subdued( stub ),
     ]
 
-    total = len( ordered )
-    marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
-    under = pipe + " " * ( marker_width + 2 )
-    prose_width = max( storage.WIDEST_PROSE - len( under ), storage.NARROWEST_PROSE )
+    for index, row in enumerate( rows ):
+        last = index == len( rows ) - 1
+        name = row["name"]
+        root = row["path"]
+        judgements = judgements_by_name[name]
+        under = _plan_node_under( gap if last else pipe, marker_width )
+        outer = elbow if last else tee
+        if row["status"] == "stage":
+            marker = "{} of {}".format(
+                    ordinal_of[name], nest_total
+            ).rjust( marker_width )
+        else:
+            marker = "unstaged".rjust( marker_width )
 
-    for ordinal, ( name, root ) in enumerate( ordered, 1 ):
-        marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
-        deps = sorted( edges.get( name, () ) )
-        dep_note = (
-                "depends on [{}]".format( ", ".join( deps ) ) if deps
-                else "no edges to other stage candidates"
-        )
-        lines.append( "{}{}  {}".format(
-                as_subdued( tee ), marker, as_emphasised( as_info( name ) )
+        lines.append( "{}{}  {}{}".format(
+                as_subdued( outer ),
+                marker,
+                as_emphasised( as_info( name ) ),
+                _stage_repo_state_hint(
+                        env, name, root, tip_branch=tip_branch,
+                        wants_only=( row["status"] == "missing" ),
+                ),
         ) )
-        lines.append( "{}{}project [{}]".format(
-                as_subdued( pipe ),
-                as_subdued( tee ),
-                as_notice( storage.display_path( root ) ),
-        ) )
-        _append_highlighted_prose(
-                lines,
-                dep_note,
-                as_notice,
-                pipe + elbow,
-                pipe + gap,
-                prose_width,
-        )
 
-    skips = [ row for row in rows if row["status"] != "stage" ]
-    if skips:
-        lines.append( as_subdued( pipe.rstrip() ) )
-        lines.append( "{}{}".format(
-                as_subdued( elbow ),
-                as_info( "not staged ({}):".format( len( skips ) ) ),
-        ) )
-        for index, row in enumerate( skips ):
-            last = index == len( skips ) - 1
-            branch = elbow if last else tee
-            colour = as_error if row["severity"] == "error" else as_notice
-            lines.append( "{}{}{}  {}".format(
-                    as_subdued( gap ),
-                    as_subdued( branch ),
-                    as_emphasised( colour( row["name"] ) ),
-                    colour( row["note"] ),
+        has_project = row["status"] != "missing"
+        deps = sorted( plan_edges.get( name, () ) ) if has_project else []
+        show_deps = has_project and row["status"] == "stage"
+        has_children = has_project or bool( judgements )
+
+        if has_children:
+            lines.append( as_subdued( under + stub ) )
+
+        if has_project:
+            more_after_project = show_deps or bool( judgements )
+            project_branch = tee if more_after_project else elbow
+            lines.append( "{}project [{}]".format(
+                    as_subdued( under + project_branch ),
+                    as_info( storage.display_path( root ) ),
             ) )
-            lines.append( "{}{}{}project [{}]".format(
-                    as_subdued( gap ),
-                    as_subdued( gap if last else pipe ),
-                    as_subdued( elbow ),
-                    as_notice( storage.display_path( row["path"] ) ),
+
+        if show_deps:
+            if judgements:
+                lines.append( as_subdued( under + stub ) )
+            _append_stage_edge(
+                    lines,
+                    deps,
+                    under + ( tee if judgements else elbow ),
+                    under + ( pipe if judgements else gap ),
+                    prose_width,
+                    colour_for_name=lambda dep: _stage_dep_colour(
+                            dep, severity_by_name
+                    ),
+            )
+
+        if judgements:
+            if has_project:
+                lines.append( as_subdued( under + stub ) )
+            _append_severity_groups(
+                    lines, judgements, under, prose_width, encoding
+            )
+
+        if not last:
+            lines.append( as_subdued( stub ) )
+
+    lines.append( as_subdued( stub ) )
+    lines.append( "{}{}".format(
+            as_subdued( elbow ),
+            as_info( "Stage plan summary:" ),
+    ) )
+    summary_under = gap
+    lines.append( as_subdued( summary_under + stub ) )
+    lines.append( "{}{}".format(
+            as_subdued( summary_under + ( tee if unstaged else elbow ) ),
+            "{} nestable".format(
+                    _plain_count_phrase( nest_total, "project", "projects" )
+            ),
+    ) )
+    if unstaged:
+        missing = [ row for row in unstaged if row["status"] == "missing" ]
+        lines.append( as_subdued( summary_under + stub ) )
+        lines.append( "{}{}".format(
+                as_subdued( summary_under + elbow ),
+                "{} unstaged:".format(
+                        _plain_count_phrase(
+                                len( unstaged ), "project", "projects"
+                        )
+                ),
+        ) )
+        detail_under = summary_under + gap
+        for detail_index, row in enumerate( unstaged ):
+            last_among = detail_index == len( unstaged ) - 1
+            if missing:
+                branch = tee
+            else:
+                branch = elbow if last_among else tee
+            if row["status"] == "missing":
+                name_colour = as_error
+            elif row["status"] == "skip":
+                name_colour = as_warning
+            else:
+                name_colour = as_info
+            lines.append( "{}{} [{}]".format(
+                    as_subdued( detail_under + branch ),
+                    as_emphasised( name_colour( row["name"] ) ),
+                    as_info( storage.display_path( row["path"] ) ),
+            ) )
+        if missing:
+            lines.append( as_subdued( detail_under + stub ) )
+            lines.append( "{}{}".format(
+                    as_subdued( detail_under + elbow ),
+                    "Use --clone-develop to obtain missing projects",
             ) )
 
     lines.append( "" )
     lines.append( "{}; nothing was built or cleaned.".format(
             as_info_label(
-                    "--{}: {} planned".format(
+                    "--{}: {} considered".format(
                             STAGE_DEVELOP_PLAN_OPTION,
                             _plain_count_phrase(
-                                    len( stageable ),
+                                    len( rows ),
                                     "location project",
                                     "location projects",
                             ),

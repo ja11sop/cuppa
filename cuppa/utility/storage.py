@@ -312,10 +312,28 @@ def wrapped( text, width ):
     """Wrap prose, keeping bracketed values whole so they can still be coloured."""
     if not width:
         return [ text ]
-    return textwrap.wrap(
-        text, max( width, NARROWEST_PROSE ),
-        break_long_words=False, break_on_hyphens=False
-    ) or [ text ]
+    width = max( width, NARROWEST_PROSE )
+    brackets = []
+
+    def protect( match ):
+        brackets.append( match.group( 0 ) )
+        # A single unsplittable token; restoring may exceed ``width`` (preferred
+        # over splitting ``[...]`` and losing highlight_values colouring).
+        return "BRACKETPLACEHOLDER{:d}X".format( len( brackets ) - 1 )
+
+    protected = re.sub( r'\[[^\[\]]*\]', protect, text )
+    lines = textwrap.wrap(
+            protected, width,
+            break_long_words=False, break_on_hyphens=False,
+    ) or [ protected ]
+    restored = []
+    for line in lines:
+        for index, original in enumerate( brackets ):
+            line = line.replace(
+                    "BRACKETPLACEHOLDER{:d}X".format( index ), original
+            )
+        restored.append( line )
+    return restored
 
 
 def directory_stats( path ):

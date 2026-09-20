@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `stage-develop-locations`; [`package-develop-local.md`](package-develop-local.md) (package half of `--stage-develop`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade plan / topo precedent); [`build_with_location.py`](../../cuppa/build_with_location.py); [`develop.py`](../../cuppa/develop.py); [`location.py`](../../cuppa/location.py)
-- **Updated:** 2026-09-19
+- **Updated:** 2026-09-20
 - **Impact:** `minor` — new behaviour under an existing opt-in flag; location `--develop` alone unchanged
 
 ## Problem
@@ -31,9 +31,10 @@ project I am editing" and want the tip to nest-build those projects on demand.
 1. Nested `cuppa -D` via `tip_forward_args(..., project_only=True)`; drop `--stage-develop` /
    `--stage-develop-plan` (single-level).
 2. Survey before tip sconscripts; banners show `N of M`.
-3. **Order:** leaf-first over edges from each candidate's `develop=` declarations (top-level
-   sconstruct/sconscript) and `cuppa-publish.json` dependency names that intersect the
-   candidate set. Cycles refuse. Candidates with no edges keep a stable topo among isolates.
+3. **Order (nest execute):** leaf-first over edges from each candidate's `develop=` declarations
+   (top-level sconstruct/sconscript) and `cuppa-publish.json` dependency names that intersect the
+   **nestable** candidate set. Cycles refuse. Candidates with no edges keep a stable topo among
+   isolates.
 4. Nested env sets `PYTHONUNBUFFERED=1`.
 5. Tip still uses the develop path as source/include root (L3 deferred).
 
@@ -45,18 +46,94 @@ project I am editing" and want the tip to nest-build those projects on demand.
 | Expect `1 of 13` | Survey all location develops with an sconstruct. |
 | `--parallel` / `--test` | Forward into each nest; nests stay sequential `1…N`. |
 | Need cascade-style topo / plan? | **L4** — `--stage-develop-plan` + leaf-first order. |
+| Plan should show broken deps in-place | L4 UX revision — interleaved `unstaged` nodes (below). |
 
 ## L4: `--stage-develop-plan` and ordered stage builds
 
 | Requirement | Detail |
 |-------------|--------|
 | Flags | `--stage-develop-plan` requires `--develop`; does **not** require `--stage-develop`. |
-| Output | Cascade-plan-shaped tree: `N of M`, project path, depends-on notes; skips (no sconstruct / missing path) listed after. |
 | Side effects | None — develop-action early exit (same family as `--list-develop`). |
-| Exit status | Non-zero on missing develop paths or cycles; notes for non-sconstruct trees stay exit 0. |
-| Edge source | `develop=` in each candidate's top-level sconstruct files + publish-manifest dependency names ∩ candidates. |
-| Execute | `--stage-develop` uses the same order. |
-| Non-goal | Parallel nested sessions across develops. |
+| Edge source (nest) | Among nestable candidates only. |
+| Execute | `--stage-develop` uses leaf-first nestable order (unchanged by plan UX). |
+| Non-goal | Parallel nested sessions across develops; changing nest refuse rules via the plan alone. |
+
+### L4 plan report UX (settled 2026-09-20)
+
+Closer to `--cascade-plan`: every location develop stays visible; judgements hang under the
+node; a footer summarises nestable vs unstaged. Nest behaviour is **unchanged** — this slice
+is report-shaped.
+
+#### Vocabulary and counts
+
+| Term | Meaning |
+|------|---------|
+| Considered | Every tip location `develop=` (packages excluded). |
+| Nestable | Path is a directory with `sconstruct` / `SConstruct` — gets `K of M`. |
+| Unstaged | Considered but will not be nest-built — tree marker `unstaged` (not an ordinal). |
+
+| Number | Where |
+|--------|--------|
+| Intro subject | All considered (e.g. `13 location projects`) |
+| `[E errors][W warnings][N notes]` | Sum of nested judgements under those nodes |
+| `K of M` | Nestable only (`M` = nestable count) |
+| Summary | `M` nestable / `U` unstaged (+ reasons); `--clone-develop` once if any path missing |
+
+#### Tree order
+
+Declaration order: tip `default_dependencies` then `BUILD_WITH`, then remaining names sorted —
+**unstaged interleaved** where each name appears (not “all unstaged first”). Nestable nodes
+among that sequence still show leaf-first **ordinals** (`1 of M` …) reflecting execute order;
+the visual list order stays declaration order so impact on the tip’s dependency list stays honest.
+
+#### Severity map
+
+| Situation | Marker | Severity | Nested under node | Exit |
+|-----------|--------|----------|-------------------|------|
+| Develop path missing | `unstaged` | **error** | Short prose: path does not exist (no per-node `--clone-develop`) | 1 |
+| Path exists, no sconstruct | `unstaged` | **warning** | Not an SCons project; will not nest; tip may still use files | 0 |
+| Nestable, branch neither tip nor `main`/`master` (nor configured default/base) | `K of M` | **warning** | Branch deviates from expected set | 0 |
+| Nestable, not a git working copy | `K of M` | **note** | Expected a repository; can proceed with path only | 0 |
+| Nestable, clean / modified / ahead / behind | `K of M` | (none) | State stays in muted `(host/org/repo@branch state)` only | 0 |
+| Cycle among nestables / plan without `--develop` | — | hard stop | No tree | 1 |
+
+Off-branch is a counted warning on a **nestable** node. No-sconstruct is **unstaged** + warning.
+Do not conflate them.
+
+#### Node chrome
+
+- Command banner: emphasise `--stage-develop-plan` (info/bold) like `--develop`.
+- Tip preamble: this project’s name + muted `(host/org/repo@branch …)`; one line on considered vs
+  nestable counts.
+- Parenthetical: observed checkout (`host/org/repo@branch state`); missing trees use
+  `wants host/org/repo` from configured `location=`. Same short-name style throughout.
+- Off-branch: warning colour on the branch token **and** a nested warning judgement.
+- `project […]` path in info; breathing stubs as today.
+- `depends on […]`: edges among the **full considered name set** (including unstaged). Nestable
+  names info; unstaged names coloured by that dependency’s severity (missing → error,
+  no-sconstruct → warning). Plain words/brackets/commas; wrap between names.
+- Unstaged nodes: cascade-style nested severity group (`1 error` / `1 warning`); no depends-on
+  when the tree is missing (nothing to observe).
+
+#### Footer
+
+```
+└── Stage plan summary
+    ├── M projects nestable
+    └── U unstaged (…):
+        ├── name [path]
+        …
+        └── Use --clone-develop to obtain missing projects   # only if any missing
+```
+
+Replace the old `--stage-develop-plan: N planned; nothing was built…` chip with this summary; keep
+a one-line “nothing was built or cleaned” note if useful beside the summary.
+
+#### Explicit non-goals (this UX slice)
+
+- Refusing `--stage-develop` nests for off-branch checkouts (plan warns only).
+- Promoting `modified` / `N behind` into counted notes.
+- Package develops in this tree (still the package stage path).
 
 ## Slices
 
@@ -66,12 +143,14 @@ project I am editing" and want the tip to nest-build those projects on demand.
 | L1 | Nest location develops; survey + `N of M` | `minor` — **shipped** in [#313](https://github.com/ja11sop/cuppa/pull/313) |
 | L2 | Nest `-c`; docs; unbuffered nested output | `minor` — **shipped** with L1 in [#313](https://github.com/ja11sop/cuppa/pull/313) |
 | L3 | Optional: tip prefers staged libs from location `final/` | `minor` — only if soak demands |
-| L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **this branch** |
+| L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **this branch** / [#315](https://github.com/ja11sop/cuppa/pull/315) |
+| L4b | Plan report UX: interleaved `unstaged`, nested judgements, summary | `minor` — **next on this branch** |
 
 ## Success criterion (L4)
 
-- `cuppa -D --develop --stage-develop-plan` — prints leaf-first order; no nests; no `_build` under develops.
-- `cuppa -D --develop --stage-develop` — nests in that same order.
+- `cuppa -D --develop --stage-develop-plan` — prints the plan; no nests; no `_build` under develops.
+- `cuppa -D --develop --stage-develop` — nests nestable trees in leaf-first order.
+- Plan shows every considered location develop; unstaged stay visible; `[E]/W]/N]` matches nested judgements.
 
 ## Relationship to package D
 
@@ -79,7 +158,7 @@ project I am editing" and want the tip to nest-build those projects on demand.
 |--|------------------------------|-------------------------------------|
 | `--develop` | Discover package stage / fail with hint | Tip compiles develop tree |
 | `--develop --stage-develop` | Nest `--stage-package`; tip links stage | Nest project build (leaf-first); tip still uses develop path |
-| `--develop --stage-develop-plan` | (n/a — package stage has no separate plan yet) | Report order; exit |
+| `--develop --stage-develop-plan` | (n/a — package stage has no separate plan yet) | Report order + unstaged judgements; exit |
 | Clean with `--stage-develop` | Nest clean | Nest clean |
 
 One flag family, two consume models: **discover by default, stage when asked, plan when reviewing.**

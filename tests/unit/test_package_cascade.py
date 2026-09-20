@@ -614,15 +614,20 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
         tee, elbow, pipe, _gap = storage_util.glyphs()
         # Nested elbow hangs under the package label pad (under = pipe + spaces).
         under = pipe + " " * ( len( "2 of 2" ) + 2 )
+        stub = pipe.rstrip()
         assert any(
                 line.startswith( as_subdued( under + elbow ) )
                 and "using publisher at" in plain( line )
                 for line in lines
         )
+        # Breathing stub under each package node before nested leaves.
+        assert as_subdued( under + stub ) in lines
+        # Breathing stub between package siblings.
+        assert lines.count( as_subdued( stub ) ) >= 2
         assert "2 of 2  widget [==1.2]" in visible
         assert visible.rstrip().endswith( "then corosio [==0.2.0] from this tree" )
         # Outer tree glyphs match judgement trees (subdued stems).
-        assert as_subdued( pipe.rstrip() ) in lines
+        assert as_subdued( stub ) in lines
         assert any( line.startswith( as_subdued( tee ) ) for line in lines )
         assert any( line.startswith( as_subdued( elbow ) ) for line in lines )
     finally:
@@ -1958,8 +1963,7 @@ def test_unused_develop_with_no_other_tree_is_a_warning_and_notes_not_a_false_er
 
     assert "pass --develop to make this plan executable" in visible
     assert "--clone-publishers" in visible
-    assert "to clone" in visible
-    assert "into [" in visible
+    assert "to clone into" in visible
     assert "publishers/capy" in visible
     assert "use --publisher-root" in visible
     assert "filesystem package_source" not in visible
@@ -2341,20 +2345,25 @@ def test_stage_develop_plan_lines_number_leaf_first_order( tmp_path ):
     class _Loc:
         _package_manager = None
 
-        def __init__( self, name, develop ):
+        def __init__( self, name, develop, location ):
             self._name = name
             self._develop = develop
+            self._location = location
 
         def location_id( self, env ):
             return (
-                    "https://example.com/{}.git".format( self._name ),
+                    self._location,
                     self._develop,
                     None,
                     True,
             )
 
-    leaf_dep = _Loc( "leaf", str( leaf ) )
-    mid_dep = _Loc( "mid", str( mid ) )
+    leaf_dep = _Loc(
+            "leaf", str( leaf ), "git@git.example:org/leaf.git"
+    )
+    mid_dep = _Loc(
+            "mid", str( mid ), "git@git.example:org/mid.git"
+    )
     env = _PlanEnv(
             { "develop": True, "stage-develop-plan": True },
             {
@@ -2366,15 +2375,230 @@ def test_stage_develop_plan_lines_number_leaf_first_order( tmp_path ):
                     "sconstruct_dir": str( tmp_path ),
             },
     )
-    body = "\n".join( cascade.stage_develop_plan_lines(
-            env, argv=[ "cuppa", "-D", "--develop", "--stage-develop-plan" ]
-    ) )
-    numbered = [ line for line in body.splitlines() if " of 2" in line ]
-    assert len( numbered ) >= 2
-    assert "leaf" in numbered[0]
-    assert "mid" in numbered[1]
-    assert "nothing was built or cleaned" in body
-    assert "--stage-develop-plan" in body
+    from cuppa.colourise import as_info, as_subdued, colouriser
+    from cuppa.utility import storage as storage_util
+    import re
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines = cascade.stage_develop_plan_lines(
+                env, argv=[ "cuppa", "-D", "--develop", "--stage-develop-plan" ]
+        )
+        body = "\n".join( lines )
+        visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
+        numbered = [ line for line in visible.splitlines() if " of 2" in line ]
+        assert len( numbered ) == 2
+        assert any( "1 of 2" in line and "leaf" in line for line in numbered )
+        assert any( "2 of 2" in line and "mid" in line for line in numbered )
+        # Declaration order: mid before leaf visually.
+        mid_i = next( i for i, line in enumerate( visible.splitlines() ) if "mid" in line and " of 2" in line )
+        leaf_i = next( i for i, line in enumerate( visible.splitlines() ) if "leaf" in line and " of 2" in line )
+        assert mid_i < leaf_i
+        assert "git.example/org/leaf" in visible
+        assert "not a working copy" in visible
+        assert "Stage plan summary" in visible
+        assert "2 projects nestable" in visible
+        assert "nothing was built or cleaned" in visible
+        assert "--stage-develop-plan" in visible
+        from cuppa.colourise import as_emphasised
+        assert as_emphasised( as_info( "--stage-develop-plan" ) ) in body
+
+        tee, elbow, pipe, gap = storage_util.glyphs()
+        stub = pipe.rstrip()
+        marker_width = max( len( "unstaged" ), len( "2 of 2" ) )
+        under = pipe + " " * ( marker_width + 2 )
+        under_last = gap + " " * ( marker_width + 2 )
+        assert as_subdued( under + stub ) in lines
+        assert as_subdued( under_last + stub ) in lines
+        assert as_subdued( stub ) in lines
+        assert any(
+                "no edges to other stage candidates" in line
+                and as_info( "no edges to other stage candidates" ) not in line
+                for line in lines
+        )
+        assert any(
+                "depends on [" in line and as_info( "leaf" ) in line
+                and as_info( "depends on [" ) not in line
+                for line in lines
+        )
+        assert any(
+                "project [" in line
+                and as_info( storage_util.display_path( str( leaf ) ) ) in line
+                for line in lines
+        )
+    finally:
+        colouriser.use_colour = was
+
+
+def test_stage_depends_lines_colour_each_name_and_wrap():
+    from cuppa.colourise import as_info, colouriser
+
+    names = [
+            "application", "baa", "common_types", "moo",
+            "protocols", "session_protocol", "system",
+    ]
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        short = cascade._stage_depends_lines( [ "leaf" ], 80 )
+        assert short == [ "depends on [" + as_info( "leaf" ) + "]" ]
+
+        wrapped = cascade._stage_depends_lines( names, 55 )
+        assert len( wrapped ) >= 2
+        assert wrapped[0].startswith( "depends on [" )
+        assert wrapped[-1].endswith( "]" )
+        assert "depends on [" not in wrapped[1]
+        body = "".join( wrapped )
+        for name in names:
+            assert as_info( name ) in body
+        assert as_info( ", " ) not in body
+        assert as_info( "depends on [" ) not in body
+    finally:
+        colouriser.use_colour = was
+
+
+def test_wrapped_keeps_bracketed_values_whole_for_colouring():
+    from cuppa.colourise import as_info, colouriser
+    from cuppa.utility import storage as storage_util
+
+    long_deps = (
+            "depends on [application, baa, common_types, moo, protocols, "
+            "session_protocol, system, transport_layer]"
+    )
+    pieces = storage_util.wrapped( long_deps, 60 )
+    assert len( pieces ) == 1
+    assert pieces[0] == long_deps
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        highlighted = storage_util.highlight_values( pieces[0], as_info )
+        assert as_info(
+                "application, baa, common_types, moo, protocols, "
+                "session_protocol, system, transport_layer"
+        ) in highlighted
+    finally:
+        colouriser.use_colour = was
+
+
+def test_stage_repo_hint_reads_location_id_from_dependency_class():
+    class _Loc:
+        _package_manager = None
+
+        @classmethod
+        def create( cls, env ):
+            return cls
+
+        @classmethod
+        def location_id( cls, env ):
+            return (
+                    "git@git.example:org/widget.git",
+                    "/tmp/widget",
+                    None,
+                    True,
+            )
+
+    env = _PlanEnv( {}, { "dependencies": { "widget": _Loc.create } } )
+    assert cascade._location_configured_url( env, "widget" ) == (
+            "git@git.example:org/widget.git"
+    )
+    assert cascade._display_stage_repo_url(
+            "git@git.example:org/widget.git"
+    ) == "git.example/org/widget"
+
+
+def test_stage_repo_hint_shows_checkout_branch_and_warns_when_off_branch():
+    from cuppa.colourise import as_subdued, as_warning, colouriser
+
+    env = _PlanEnv( {}, {} )
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        assert cascade._stage_branch_unexpected( "master", "feature_1", env ) is False
+        assert cascade._stage_branch_unexpected( "main", "feature_1", env ) is False
+        assert cascade._stage_branch_unexpected( "feature_1", "feature_1", env ) is False
+        assert cascade._stage_branch_unexpected( "feature_22", "feature_1", env ) is True
+
+        expected = cascade._format_stage_repo_hint(
+                "git.example/org/storage", "feature_1", "clean", False
+        )
+        assert re.sub( r"\x1b\[[0-9;]*m", "", expected ) == (
+                " (git.example/org/storage@feature_1 clean)"
+        )
+        assert as_subdued( "feature_1" ) in expected
+        assert as_warning( "feature_1" ) not in expected
+
+        unexpected = cascade._format_stage_repo_hint(
+                "git.example/org/storage", "feature_22", "clean", True
+        )
+        assert re.sub( r"\x1b\[[0-9;]*m", "", unexpected ) == (
+                " (git.example/org/storage@feature_22 clean)"
+        )
+        assert as_warning( "feature_22" ) in unexpected
+        assert as_subdued( "feature_22" ) not in unexpected
+    finally:
+        colouriser.use_colour = was
+
+
+def test_stage_develop_plan_interleaves_unstaged_missing_with_error_depends( tmp_path ):
+    import re
+
+    from cuppa.colourise import as_error, colouriser
+
+    present = tmp_path / "present"
+    present.mkdir()
+    ( present / "sconstruct" ).write_text(
+            "Missing = cuppa.location_dependency('ghost', develop={!r})\n"
+            .format( str( tmp_path / "ghost" ) ),
+            encoding="utf-8",
+    )
+    missing = tmp_path / "ghost"
+
+    class _Loc:
+        _package_manager = None
+
+        def __init__( self, name, develop, location ):
+            self._name = name
+            self._develop = develop
+            self._location = location
+
+        def location_id( self, env ):
+            return ( self._location, self._develop, None, True )
+
+    ghost = _Loc( "ghost", str( missing ), "git@git.example:org/ghost.git" )
+    present_dep = _Loc(
+            "present", str( present ), "git@git.example:org/present.git"
+    )
+    env = _PlanEnv(
+            { "develop": True, "stage-develop-plan": True },
+            {
+                    "dependencies": {
+                            "ghost": ghost.location_id,
+                            "present": present_dep.location_id,
+                    },
+                    "default_dependencies": [ "ghost", "present" ],
+                    "sconstruct_dir": str( tmp_path ),
+            },
+    )
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        body = "\n".join( cascade.stage_develop_plan_lines( env ) )
+    finally:
+        colouriser.use_colour = was
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
+    assert "unstaged" in visible
+    assert "1 of 1" in visible
+    assert "project [" in visible and "is missing" in visible
+    assert "1 error" in visible
+    assert "[1 error]" in visible
+    assert "Use --clone-develop to obtain missing projects" in visible
+    assert "wants git.example/org/ghost" in visible or "wants " in visible
+    ghost_i = visible.index( "unstaged" )
+    present_i = visible.index( "1 of 1" )
+    assert ghost_i < present_i
+    assert as_error( "ghost" ) in body
 
 
 def test_finish_stage_develop_plan_errors_on_missing_path( tmp_path ):
@@ -2403,7 +2627,8 @@ def test_finish_stage_develop_plan_errors_on_missing_path( tmp_path ):
     out = io.StringIO()
     status = cascade.finish_stage_develop_plan( env, out=out )
     assert status == 1
-    assert "does not exist" in out.getvalue()
+    assert "is missing" in out.getvalue()
+    assert "unstaged" in out.getvalue()
 
 
 def test_tip_forward_args_drops_stage_develop_plan():
