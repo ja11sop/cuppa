@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--stage-develop-plan`` (requires ``--develop``) prints the leaf-first order of
+  location ``develop=`` trees that ``--stage-develop`` would nest-build, then
+  exits without nesting. Location ``--stage-develop`` itself now nests in that
+  order when edges among candidates are known (``develop=`` in each tree's
+  sconstruct / ``cuppa-publish.json``). Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4.
+
 - ``--stage-develop`` also nest-builds (and nest-cleans) **location** ``develop=``
   trees that have an ``sconstruct`` — a normal nested project session, then the tip
   still uses the develop path. Location ``--develop`` alone stays a path swap with
@@ -25,6 +32,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--stage-package`` cannot be combined with ``--publish-package``.
 
 ### Changed
+
+- ``--cascade-plan`` and ``--stage-develop-plan`` trees insert subdued breathing
+  stubs under each numbered node and between siblings. ``--stage-develop-plan``
+  lists location develops in leaf-first **stage** order (`K of M`), then unstaged
+  rows with cascade-style nested judgements. Missing paths are errors; no-sconstruct
+  and off-branch checkouts are warnings; a non-git stageable path is a note.
+  **Staging** means a nested project build under ``--stage-develop``. ``depends on``
+  lists the full considered set and colours unstaged names by severity. The footer
+  summarises will-stage vs unstaged and suggests ``--clone-develop`` once when paths
+  are missing. The command banner emphasises ``--stage-develop-plan``. The tip node's
+  ``@branch`` is emphasised info; off-branch warnings list tip, then the tip repo
+  default from local ``origin/HEAD`` (else configured / ``master``) as emphasised
+  info, then the other of ``main``/``master`` as plain info. Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4b.
+
+- Location ``--develop`` tip consume (L3 baseline): when a package-shaped stage
+  exists under the develop tree (``final/<name>/<version>/{include,lib}``), tip
+  uses that prefix (and optional ``modules/`` BMIs) instead of path-swap.
+  ``env.StageLocationDevelop`` installs into that layout. Missing stage keeps
+  path-swap. Integration covers include/lib consume and a ``--modules`` BMI
+  round-trip via nest + tip ``BuildWith``. Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L3.
 
 - Nested session banners use an info-label chip for the jump
   (``cascade session N of M``, ``develop stage N of M``, and

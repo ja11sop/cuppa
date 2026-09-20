@@ -143,11 +143,22 @@ covered by xref:dependencies/packages.adoc[Package dependencies].
 `sconstruct`: publisher-shaped package `develop=` paths (stage under
 `final/<package>/<version>/`, no upload) and location `develop=` Cuppa projects
 (normal project build/clean). It also nests `-c` / `--clean` into those trees.
-Without it, package `--develop` only discovers an existing stage (or swaps a
-prefix-shaped path); location `--develop` only swaps the path for the tip to
-compile. See
+Location nests run leaf-first when edges among develop trees are known (from
+`develop=` declarations and `cuppa-publish.json`). Without `--stage-develop`,
+package `--develop` only discovers an existing stage (or swaps a prefix-shaped
+path). Location `--develop` path-swaps the checkout, or — when a package-shaped
+stage already exists under that tree (`final/<name>/<version>/{include,lib}`) —
+links that prefix (and optional `modules/` BMIs) the same way. Location projects
+produce the stage with `env.StageLocationDevelop`. After nest-clean, a missing
+location stage falls back to path-swap (packages StopError instead). See
 xref:packages.adoc#cascade-develop[Publishing from a tree you are working in]
-and xref:dependencies/managing/develop.adoc[Working with develop copies].
+and xref:dependencies/managing/develop.adoc#location-tip-consume-stage-prefix[Working with develop copies].
+
+`--stage-develop-plan` (requires `--develop`) prints every considered location
+develop in leaf-first stage order (unstaged rows after), with judgements for
+missing paths and other issues, then exits without nesting, building, or
+cleaning. It does not require `--stage-develop`. Staging means a nested project
+build in that develop tree.
 
 `--stage-package` builds and stages *this* package's archive under `final/` without
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a

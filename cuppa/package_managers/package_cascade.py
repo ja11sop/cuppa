@@ -58,6 +58,7 @@ MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
 STAGE_PACKAGE_OPTION = "stage-package"
 STAGE_DEVELOP_OPTION = "stage-develop"
+STAGE_DEVELOP_PLAN_OPTION = "stage-develop-plan"
 
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
@@ -74,6 +75,8 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
         "--publish-package",
 } )
@@ -194,6 +197,16 @@ def stage_develop_enabled( env ) -> bool:
     return bool( env.get( "stage_develop" ) or env.get( STAGE_DEVELOP_OPTION ) )
 
 
+def stage_develop_plan_enabled( env ) -> bool:
+    """Whether ``--stage-develop-plan`` asked for a dry-run of location stage order."""
+    getter = getattr( env, "get_option", None )
+    if callable( getter ) and getter( STAGE_DEVELOP_PLAN_OPTION ):
+        return True
+    return bool(
+            env.get( "stage_develop_plan" ) or env.get( STAGE_DEVELOP_PLAN_OPTION )
+    )
+
+
 def develop_mode_enabled( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if callable( getter ) and getter( "develop" ):
@@ -207,6 +220,15 @@ def require_stage_develop_with_develop( env ) -> None:
                 "--{} requires --develop (it nest-builds package and location "
                 "develop trees that have an sconstruct)"
                 .format( STAGE_DEVELOP_OPTION )
+        )
+
+
+def require_stage_develop_plan_with_develop( env ) -> None:
+    if stage_develop_plan_enabled( env ) and not develop_mode_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --develop (it reports the location develop "
+                "stage order without building)"
+                .format( STAGE_DEVELOP_PLAN_OPTION )
         )
 
 
@@ -452,6 +474,39 @@ def looks_like_package_stage( path: str ) -> bool:
     return (
             os.path.isdir( os.path.join( path, "include" ) )
             and os.path.isdir( os.path.join( path, "lib" ) )
+    )
+
+
+def location_stage_version( develop_root: str ) -> str:
+    """Version folder under ``final/<name>/`` for a location develop stage."""
+    try:
+        from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+        manifest = read_publish_manifest( develop_root )
+    except Exception:
+        manifest = None
+    if manifest:
+        version = manifest.get( "version" )
+        if version:
+            return str( version )
+    return "develop"
+
+
+def resolve_develop_location_stage(
+        develop_root: str,
+        name: str,
+        version=None,
+        env=None,
+) -> str | None:
+    """Locate ``final/<name>/<version>/`` under a location develop tree (L3).
+
+    Same layout and scan as package stages. ``version`` defaults to the publish
+    manifest version or ``develop``. Returns ``None`` when no usable stage exists
+    (tip keeps path-swap).
+    """
+    if version is None:
+        version = location_stage_version( develop_root )
+    return resolve_develop_package_stage(
+            develop_root, name, version, env=env
     )
 
 
@@ -1017,6 +1072,200 @@ def _plan_dependency_label( entry ) -> str:
     return label
 
 
+def _plan_node_under( continuation, marker_width: int ) -> str:
+    """Hang nested glyphs under a numbered plan node (``continuation`` is pipe or gap)."""
+    return continuation + " " * ( marker_width + 2 )
+
+
+# Branches that read as "the published default" without a configured name.
+_STAGE_DEFAULT_BRANCHES = frozenset( { "master", "main" } )
+
+
+def _display_stage_repo_url( url ) -> str | None:
+    """``host/org/repo`` for a stage-plan label. Local paths are omitted.
+
+    Trailing ``@`` (or ``@rev``) from the configured ``location=`` is kept so a
+    ``wants`` hint matches what the tip sconstruct declares.
+    """
+    if not url:
+        return None
+    from cuppa.core.dependency_identity import short_name_from_git_url
+    return short_name_from_git_url( str( url ).strip() )
+
+
+def _location_configured_url( env, name ) -> str | None:
+    """Configured ``location=`` URL for a dependency name, when ``location_id`` is available."""
+    dependencies = env.get( "dependencies" ) or {}
+    factory = dependencies.get( name )
+    if factory is None:
+        return None
+    dependency = getattr( factory, "__self__", factory )
+    location_id = getattr( dependency, "location_id", None )
+    if not callable( location_id ):
+        return None
+    try:
+        identity = location_id( env )
+        if identity:
+            return identity[0]
+    except ( TypeError, IndexError, KeyError, AttributeError ):
+        return None
+    return None
+
+
+def _observed_origin_url( root ) -> str | None:
+    """Origin URL of a working copy, or None when it is not a git tree."""
+    from cuppa.scms.git import Git
+    try:
+        _url, repository, _branch, _remote, _revision = Git.info( root )
+    except ( OSError, TypeError, ValueError, Git.Error ):
+        return None
+    return repository or None
+
+
+def _checkout_ref( copy, root ) -> str | None:
+    """Branch, tag, or ``detached`` actually checked out — not the declared pin."""
+    from cuppa.scms.git import Git
+    if not copy.is_working_copy:
+        return None
+    if not copy.detached and copy.branch:
+        return copy.branch
+    try:
+        revision = ( Git.get_revision( root ) or "" ).strip()
+    except ( OSError, TypeError, ValueError, Git.Error ):
+        revision = ""
+    if revision and "~" not in revision and "^" not in revision:
+        if revision.startswith( "tags/" ):
+            revision = revision[ len( "tags/" ) : ]
+        return revision
+    return "detached"
+
+
+def _tip_stage_branch( env ) -> str | None:
+    """Branch of the project running the plan (the one other develops are judged against)."""
+    from cuppa.develop import inspect
+
+    root = env.get( "sconstruct_dir" )
+    if not root:
+        return None
+    copy = inspect( "tip", root )
+    if copy.detached or not copy.branch:
+        return None
+    return copy.branch
+
+
+def _stage_branch_unexpected( ref, tip_branch, env ) -> bool:
+    """True when the checkout is neither the tip branch nor a default branch."""
+    if not ref or ref == "detached":
+        return bool( ref )
+    acceptable = set( _STAGE_DEFAULT_BRANCHES )
+    for key in ( "location_default_branch", "location_base_branch" ):
+        configured = env.get( key )
+        if configured:
+            acceptable.add( str( configured ) )
+    if tip_branch:
+        acceptable.add( tip_branch )
+    return ref not in acceptable
+
+
+def _stage_preferred_default_branch( env, tip_root=None ) -> str:
+    """Repo default for expected-branch prose: tip ``origin/HEAD``, else config, else master."""
+    if tip_root:
+        detected = Git.working_copy_default_branch( tip_root )
+        if detected:
+            return detected
+    configured = env.get( "location_default_branch" ) if env is not None else None
+    if configured:
+        return str( configured )
+    return "master"
+
+
+def _stage_expected_branches( tip_branch, preferred_default ) -> list[str]:
+    """Ordered expected set: tip, preferred default, then the other of main/master."""
+    ordered: list[str] = []
+    if tip_branch:
+        ordered.append( tip_branch )
+    if preferred_default and preferred_default not in ordered:
+        ordered.append( preferred_default )
+    for name in ( "master", "main" ):
+        if name not in ordered:
+            ordered.append( name )
+    return ordered
+
+
+def _colour_stage_expected_branch( name, tip_branch, preferred_default ) -> str:
+    """Tip and preferred default are emphasised info; other alternates are plain info."""
+    if name == tip_branch or name == preferred_default:
+        return as_emphasised( as_info( name ) )
+    return as_info( name )
+
+
+def _format_stage_expected_branches_phrase( tip_branch, preferred_default ) -> str:
+    """Coloured ``feature_1 or master or main`` for off-branch warning prose.
+
+    Non-breaking spaces around ``or`` keep the list one wrap unit so the tree
+    does not leave a dangling ``or main`` on the next line.
+    """
+    return "\u00a0or\u00a0".join(
+            _colour_stage_expected_branch( name, tip_branch, preferred_default )
+            for name in _stage_expected_branches( tip_branch, preferred_default )
+    )
+
+
+def _format_stage_repo_hint(
+        short, ref, state, unexpected, emphasise_ref=False
+) -> str:
+    """Muted ``(host/org/repo@branch state)``; off-branch is warning; tip ref can be bold info."""
+    if unexpected:
+        ref_text = as_warning( ref ) if ref else ""
+    elif emphasise_ref and ref:
+        ref_text = as_emphasised( as_info( ref ) )
+    elif ref:
+        ref_text = as_subdued( ref )
+    else:
+        ref_text = ""
+    parts = [ as_subdued( " (" ) ]
+    if short and ref:
+        parts.append( as_subdued( "{}@".format( short ) ) )
+        parts.append( ref_text )
+        parts.append( as_subdued( " {}".format( state ) ) )
+    elif short:
+        parts.append( as_subdued( "{} {}".format( short, state ) ) )
+    elif ref:
+        parts.append( ref_text )
+        parts.append( as_subdued( " {}".format( state ) ) )
+    else:
+        parts.append( as_subdued( state ) )
+    parts.append( as_subdued( ")" ) )
+    return "".join( parts )
+
+
+def _stage_repo_state_hint(
+        env, name, root, tip_branch=None, wants_only=False, emphasise_ref=False
+) -> str:
+    """Muted ``(host/org/repo@branch state)`` from the develop working copy."""
+    from cuppa.develop import inspect, state_summary
+
+    if wants_only:
+        short = _display_stage_repo_url( _location_configured_url( env, name ) )
+        if short:
+            return as_subdued( " (wants {})".format( short ) )
+        return ""
+
+    copy = inspect( name, root )
+    state = state_summary( copy )
+    short = _display_stage_repo_url(
+            _observed_origin_url( root ) or _location_configured_url( env, name )
+    )
+    ref = _checkout_ref( copy, root )
+    return _format_stage_repo_hint(
+            short,
+            ref,
+            state,
+            _stage_branch_unexpected( ref, tip_branch, env ),
+            emphasise_ref=emphasise_ref,
+    )
+
+
 def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
     """``N noun`` without colour — safe to nest inside an info-label chip."""
     word = noun if count == 1 else ( plural_noun or noun + "s" )
@@ -1388,17 +1637,23 @@ def cascade_plan_lines(
     total = len( order )
     marker_width = len( "{} of {}".format( total, total ) ) if total else len( "0 of 0" )
     # Outer pipe + pad past the ordinal so nested glyphs hang under the label.
-    under = pipe + " " * ( marker_width + 2 )
+    # Packages are never the last outer sibling — the tip line is — so under stays pipe.
+    under = _plan_node_under( pipe, marker_width )
     prose_width = max( storage.WIDEST_PROSE - len( under ), storage.NARROWEST_PROSE )
+    stub = pipe.rstrip()
 
     for ordinal, key in enumerate( order, start=1 ):
+        last = ordinal == total
         entry = nodes[key]
         marker = "{} of {}".format( ordinal, total ).rjust( marker_width )
         lines.append( "{}{}  {}".format(
                 as_subdued( tee ), marker, _plan_dependency_label( entry )
         ) )
         judgements = judgements_by_key[key]
-        if entry.get( "_publisher_dir" ):
+        has_publisher = bool( entry.get( "_publisher_dir" ) )
+        if has_publisher:
+            # Breathing space from the package node before nested leaves.
+            lines.append( as_subdued( under + stub ) )
             publisher = entry["_publisher_dir"]
             # Nested under the package like a judgement leaf: elbow when alone,
             # tee when errors/warnings/notes follow.
@@ -1410,8 +1665,10 @@ def cascade_plan_lines(
             ) )
         if judgements:
             _append_severity_groups( lines, judgements, under, prose_width, encoding )
+        if not last:
+            lines.append( as_subdued( stub ) )
 
-    lines.append( as_subdued( pipe.rstrip() ) )
+    lines.append( as_subdued( stub ) )
     if clean:
         lines.append( "{}then clean {} from this tree".format(
                 as_subdued( elbow ), tip
@@ -1828,6 +2085,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
+        "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
         "--cuppa-mode",
 } )
@@ -2508,14 +2766,158 @@ def run_nested_location_project(
     sys.stdout.flush()
 
 
+_DEVELOP_KWARG_RE = re.compile(
+        r"""(?<![\w.])develop\s*=\s*(?:r|u|f|rf|fr|ur|ru)?(?P<q>['"])(?P<path>(?:(?!(?P=q)).)+)(?P=q)"""
+)
+
+
+def _iter_sconstruct_texts( project_root: str ):
+    """Yield text of the project's sconstruct / top-level sconscript files."""
+    names = (
+            "sconstruct", "SConstruct", "sconscript", "SConscript",
+    )
+    for name in names:
+        path = os.path.join( project_root, name )
+        if os.path.isfile( path ):
+            try:
+                with open( path, encoding="utf-8", errors="replace" ) as handle:
+                    yield path, handle.read()
+            except OSError:
+                continue
+
+
+def develop_paths_declared_in_tree( project_root: str ) -> list[str]:
+    """``develop=`` path strings declared in a project's top-level sconstruct files."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for _path, text in _iter_sconstruct_texts( project_root ):
+        for match in _DEVELOP_KWARG_RE.finditer( text ):
+            value = match.group( "path" )
+            if value not in seen:
+                seen.add( value )
+                found.append( value )
+    return found
+
+
+def publish_manifest_dependency_names( project_root: str ) -> list[str]:
+    """Dependency names from a staged ``cuppa-publish.json``, if present."""
+    try:
+        manifest = read_publish_manifest( project_root )
+    except Exception:
+        return []
+    if not manifest:
+        return []
+    names: list[str] = []
+    for entry in manifest.get( "dependencies" ) or []:
+        if isinstance( entry, dict ):
+            name = entry.get( "name" ) or entry.get( "package" )
+        else:
+            name = str( entry )
+        if name:
+            names.append( str( name ) )
+    return names
+
+
+def location_stage_edges(
+        candidates: list[tuple[str, str]],
+) -> dict[str, set[str]]:
+    """``name -> set of candidate names it depends on`` among the stage set.
+
+    Edges come from ``develop=`` paths in each project's sconstruct that resolve
+    to another candidate root, plus ``cuppa-publish.json`` dependency names that
+    match a candidate.
+    """
+    from cuppa.location import develop_location
+
+    by_root = { root: name for name, root in candidates }
+    by_name = { name: root for name, root in candidates }
+    edges: dict[str, set[str]] = { name: set() for name, _root in candidates }
+
+    for name, root in candidates:
+        for raw in develop_paths_declared_in_tree( root ):
+            try:
+                resolved = develop_location( root, raw )
+            except Exception:
+                continue
+            if not resolved:
+                continue
+            abs_resolved = os.path.abspath( resolved )
+            other = by_root.get( abs_resolved )
+            if other and other != name:
+                edges[name].add( other )
+        for dep_name in publish_manifest_dependency_names( root ):
+            if dep_name in by_name and dep_name != name:
+                edges[name].add( dep_name )
+    return edges
+
+
+def order_location_stage_candidates(
+        candidates: list[tuple[str, str]],
+        edges: dict[str, set[str]] | None = None,
+) -> list[tuple[str, str]]:
+    """Leaf-first order over location stage candidates; cycles raise ``StopError``.
+
+    When several candidates are ready (no remaining edges), preserve the input
+    declaration order rather than sorting names alphabetically.
+    """
+    if not candidates:
+        return []
+    if edges is None:
+        edges = location_stage_edges( candidates )
+    nodes = { name: { "name": name, "root": root } for name, root in candidates }
+    edge_keys = {
+            name: { dep for dep in deps if dep in nodes }
+            for name, deps in edges.items()
+    }
+    rank = { name: index for index, ( name, _root ) in enumerate( candidates ) }
+
+    node_keys = list( nodes.keys() )
+    waiting = { key: len( edge_keys.get( key, () ) ) for key in node_keys }
+    dependents: dict[str, set[str]] = defaultdict( set )
+    for parent, children in edge_keys.items():
+        for child in children:
+            dependents[child].add( parent )
+
+    def _ready_key( key: str ):
+        return ( rank.get( key, 10 ** 9 ), str( key ) )
+
+    ready = deque(
+            sorted(
+                    [ key for key, count in waiting.items() if count == 0 ],
+                    key=_ready_key,
+            )
+    )
+    ordered: list[str] = []
+    while ready:
+        node = ready.popleft()
+        ordered.append( node )
+        for parent in sorted( dependents.get( node, () ), key=_ready_key ):
+            waiting[parent] -= 1
+            if waiting[parent] == 0:
+                ready.append( parent )
+
+    if len( ordered ) != len( node_keys ):
+        raise SCons.Errors.StopError(
+                "location stage-develop dependency cycle detected among {}".format(
+                        [ key for key in node_keys if key not in ordered ]
+                )
+        )
+    by_name = { name: root for name, root in candidates }
+    return [ ( name, by_name[name] ) for name in ordered ]
+
+
 def location_stage_candidates( env ) -> list[tuple[str, str]]:
     """Location develop trees with an sconstruct, ready for ``--stage-develop``.
 
     Package dependencies are skipped — they nest via ``consume_develop_package_stage``.
-    Order: tip ``default_dependencies`` / ``BUILD_WITH`` declaration order first,
-    then any remaining names sorted. Real leaf-first topo across develop projects
-    is a follow-on if soak shows mis-ordered builds.
+    Order is leaf-first across the candidate set when edges are known; otherwise tip
+    ``default_dependencies`` declaration order, then remaining names sorted.
     """
+    return order_location_stage_candidates( location_stage_candidate_rows( env ) )
+
+
+def location_stage_candidate_rows( env ) -> list[tuple[str, str]]:
+    """Unordered (declaration-preferring) stageable location develop rows."""
     from cuppa.develop import configured_develop
 
     dependencies = env.get( "dependencies" ) or {}
@@ -2553,11 +2955,461 @@ def location_stage_candidates( env ) -> list[tuple[str, str]]:
     return candidates
 
 
+def location_stage_plan_rows( env ) -> list[dict]:
+    """Rows for ``--stage-develop-plan``: stageable location develops plus skips."""
+    from cuppa.develop import configured_develop
+
+    dependencies = env.get( "dependencies" ) or {}
+    preferred = []
+    for name in list( env.get( "default_dependencies" ) or [] ) + list(
+            env.get( "BUILD_WITH" ) or []
+    ):
+        if name not in preferred:
+            preferred.append( name )
+
+    names = list( preferred )
+    for name in sorted( dependencies ):
+        if name not in names:
+            names.append( name )
+
+    rows: list[dict] = []
+    seen_roots: set[str] = set()
+    for name in names:
+        if name not in dependencies:
+            continue
+        factory = dependencies[name]
+        dependency = getattr( factory, "__self__", factory )
+        if getattr( dependency, "_package_manager", None ):
+            continue
+        path = configured_develop( dependency, env )
+        if not path:
+            continue
+        abs_path = os.path.abspath( path )
+        if abs_path in seen_roots:
+            continue
+        seen_roots.add( abs_path )
+        if not os.path.isdir( abs_path ):
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "missing",
+                    "severity": "error",
+                    "note": "develop path does not exist",
+            } )
+        elif develop_names_a_publisher_tree( abs_path ):
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "stage",
+                    "severity": "ok",
+                    "note": "has sconstruct; will nest under --stage-develop",
+            } )
+        else:
+            rows.append( {
+                    "name": name,
+                    "path": abs_path,
+                    "status": "skip",
+                    "severity": "warning",
+                    "note": "no sconstruct; will not nest under --stage-develop",
+            } )
+    return rows
+
+
+def location_stage_plan_edges( rows: list[dict] ) -> dict[str, set[str]]:
+    """Edges among all considered location develops (including unstaged names).
+
+    Missing paths contribute no outbound edges; inbound edges still appear when
+    another tree declares them by ``develop=`` path or publish-manifest name.
+    """
+    from cuppa.location import develop_location
+
+    by_root = { row["path"]: row["name"] for row in rows }
+    by_name = { row["name"]: row["path"] for row in rows }
+    edges: dict[str, set[str]] = { row["name"]: set() for row in rows }
+
+    for row in rows:
+        if row["status"] == "missing" or not os.path.isdir( row["path"] ):
+            continue
+        root = row["path"]
+        name = row["name"]
+        for raw in develop_paths_declared_in_tree( root ):
+            try:
+                resolved = develop_location( root, raw )
+            except Exception:
+                continue
+            if not resolved:
+                continue
+            other = by_root.get( os.path.abspath( resolved ) )
+            if other and other != name:
+                edges[name].add( other )
+        for dep_name in publish_manifest_dependency_names( root ):
+            if dep_name in by_name and dep_name != name:
+                edges[name].add( dep_name )
+    return edges
+
+
+def _stage_row_judgements(
+        row, env, tip_branch=None, preferred_default=None
+) -> list[tuple[str, str]]:
+    """``(severity, prose)`` nested under one develop-stage plan node."""
+    path = storage.display_path( row["path"] )
+    if row["status"] == "missing":
+        return [ (
+                "error",
+                "project [{}] is missing.".format( path ),
+        ) ]
+    if row["status"] == "skip":
+        return [ (
+                "warning",
+                "This project is not an SCons project (no SConstruct found)",
+        ) ]
+
+    from cuppa.develop import inspect
+
+    judgements: list[tuple[str, str]] = []
+    copy = inspect( row["name"], row["path"] )
+    if copy.exists and not copy.is_working_copy:
+        judgements.append( (
+                "note",
+                "Not a working copy: expected a repository but can proceed "
+                "with path only",
+        ) )
+    ref = _checkout_ref( copy, row["path"] )
+    if _stage_branch_unexpected( ref, tip_branch, env ):
+        if preferred_default is None:
+            preferred_default = _stage_preferred_default_branch( env )
+        judgements.append( (
+                "warning",
+                "{} branch is [{}] which deviates from the expected\u00a0"
+                "branches\u00a0({})".format(
+                        row["name"],
+                        ref,
+                        _format_stage_expected_branches_phrase(
+                                tip_branch, preferred_default
+                        ),
+                ),
+        ) )
+    return judgements
+
+
+def _stage_depends_lines( deps, width, colour_for_name=None ) -> list[str]:
+    """``depends on [a, b]`` with each name coloured, wrapping between names.
+
+    Brackets, commas, and the words stay plain. ``colour_for_name(name)`` defaults
+    to ``as_info``. An empty list is the no-edges sentence.
+    """
+    if not deps:
+        return [ "no edges to other stage candidates" ]
+    colour = colour_for_name or ( lambda _name: as_info( _name ) )
+    prefix = "depends on ["
+    lines = []
+    plain = prefix
+    coloured = prefix
+    last = len( deps ) - 1
+    for index, name in enumerate( deps ):
+        extra_plain = name if index == 0 else ", " + name
+        painted = colour( name )
+        extra_coloured = painted if index == 0 else ", " + painted
+        closing = 1 if index == last else 0
+        if (
+                plain != prefix
+                and len( plain ) + len( extra_plain ) + closing > width
+        ):
+            lines.append( coloured + "," )
+            plain = name
+            coloured = painted
+        else:
+            plain += extra_plain
+            coloured += extra_coloured
+    lines.append( coloured + "]" )
+    return lines
+
+
+def _append_stage_edge(
+        lines, deps, first_branch, carried_branch, prose_width, colour_for_name=None
+):
+    """Hang a depends-on / no-edges line under a stage node."""
+    wrap_width = max( prose_width - len( first_branch ), storage.NARROWEST_PROSE )
+    branch = first_branch
+    for piece in _stage_depends_lines( deps, wrap_width, colour_for_name ):
+        lines.append( as_subdued( branch ) + piece )
+        branch = carried_branch
+
+
+def _stage_dep_colour( name, severity_by_name ):
+    """Info for nestable names; error/warning for unstaged deps by their severity."""
+    severity = severity_by_name.get( name )
+    if severity == "error":
+        return as_error( name )
+    if severity == "warning":
+        return as_warning( name )
+    return as_info( name )
+
+
+def _tip_stage_label( env ) -> str:
+    root = env.get( "sconstruct_dir" )
+    if root:
+        return os.path.basename( os.path.abspath( root ) )
+    return "this project"
+
+
+def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
+    """Dry-run report for location ``--stage-develop`` (cascade-plan-shaped)."""
+    require_stage_develop_plan_with_develop( env )
+    rows = location_stage_plan_rows( env )
+    nestable = [
+            ( row["name"], row["path"] )
+            for row in rows if row["status"] == "stage"
+    ]
+    nest_edges = location_stage_edges( nestable )
+    try:
+        ordered_nest = order_location_stage_candidates( nestable, nest_edges )
+    except SCons.Errors.StopError as error:
+        raise SCons.Errors.StopError(
+                "--{}: {}".format( STAGE_DEVELOP_PLAN_OPTION, error )
+        ) from error
+
+    plan_edges = location_stage_plan_edges( rows )
+    tip_branch = _tip_stage_branch( env )
+    tip_root = env.get( "sconstruct_dir" )
+    preferred_default = _stage_preferred_default_branch( env, tip_root )
+    judgements_by_name = {
+            row["name"]: _stage_row_judgements(
+                    row, env, tip_branch, preferred_default=preferred_default
+            )
+            for row in rows
+    }
+    severity_by_name = {}
+    for row in rows:
+        judgements = judgements_by_name[row["name"]]
+        if any( sev == "error" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "error"
+        elif any( sev == "warning" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "warning"
+        elif any( sev == "note" for sev, _ in judgements ):
+            severity_by_name[row["name"]] = "note"
+        else:
+            severity_by_name[row["name"]] = "ok"
+
+    error_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "error"
+    )
+    warning_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "warning"
+    )
+    note_count = sum(
+            1 for judgements in judgements_by_name.values()
+            for severity, _ in judgements if severity == "note"
+    )
+
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    stub = pipe.rstrip()
+    nest_total = len( ordered_nest )
+    ordinal_of = {
+            name: index for index, ( name, _path ) in enumerate( ordered_nest, 1 )
+    }
+    by_name = { row["name"]: row for row in rows }
+    # Leaf-first execute order for nestable rows, then unstaged (declaration order).
+    unstaged = [ row for row in rows if row["status"] != "stage" ]
+    display_rows = [ by_name[name] for name, _path in ordered_nest ] + unstaged
+    marker_width = max(
+            len( "unstaged" ),
+            len( "{} of {}".format( nest_total, nest_total ) ) if nest_total else len( "0 of 0" ),
+    )
+    under_active = _plan_node_under( pipe, marker_width )
+    prose_width = max( storage.WIDEST_PROSE - len( under_active ), storage.NARROWEST_PROSE )
+
+    tip_name = _tip_stage_label( env )
+    tip_hint = (
+            _stage_repo_state_hint(
+                    env,
+                    tip_name,
+                    tip_root,
+                    tip_branch=tip_branch,
+                    emphasise_ref=True,
+            )
+            if tip_root else ""
+    )
+
+    lines = [
+            "",
+            "Printing develop stage plan given the command:",
+            colour_plan_command_line( argv ),
+            "",
+            "Develop stage plan: {}: {}".format(
+                    storage.emphasised_count_phrase(
+                            len( rows ),
+                            "location project",
+                            "location projects",
+                    ),
+                    storage.format_severity_count_brackets(
+                            errors=error_count,
+                            warnings=warning_count,
+                            notes=note_count,
+                    ),
+            ),
+            as_subdued( stub ),
+            "{}this node {}{}".format(
+                    as_subdued( tee ),
+                    as_emphasised( as_info( tip_name ) ),
+                    tip_hint,
+            ),
+            "{}{} location develop{}; {} will stage, {} unstaged".format(
+                    as_subdued( tee ),
+                    len( rows ),
+                    "" if len( rows ) == 1 else "s",
+                    nest_total,
+                    len( unstaged ),
+            ),
+            as_subdued( stub ),
+    ]
+
+    # Summary is the last outer sibling — every develop row keeps a tee + pipe stem.
+    for row in display_rows:
+        name = row["name"]
+        root = row["path"]
+        judgements = judgements_by_name[name]
+        under = _plan_node_under( pipe, marker_width )
+        if row["status"] == "stage":
+            marker = "{} of {}".format(
+                    ordinal_of[name], nest_total
+            ).rjust( marker_width )
+        else:
+            marker = "unstaged".rjust( marker_width )
+
+        lines.append( "{}{}  {}{}".format(
+                as_subdued( tee ),
+                marker,
+                as_emphasised( as_info( name ) ),
+                _stage_repo_state_hint(
+                        env, name, root, tip_branch=tip_branch,
+                        wants_only=( row["status"] == "missing" ),
+                ),
+        ) )
+
+        has_project = row["status"] != "missing"
+        deps = sorted( plan_edges.get( name, () ) ) if has_project else []
+        show_deps = has_project and row["status"] == "stage"
+
+        if has_project:
+            lines.append( as_subdued( under + stub ) )
+            more_after_project = show_deps or bool( judgements )
+            project_branch = tee if more_after_project else elbow
+            lines.append( "{}project [{}]".format(
+                    as_subdued( under + project_branch ),
+                    as_info( storage.display_path( root ) ),
+            ) )
+
+        if show_deps:
+            _append_stage_edge(
+                    lines,
+                    deps,
+                    under + ( tee if judgements else elbow ),
+                    under + ( pipe if judgements else gap ),
+                    prose_width,
+                    colour_for_name=lambda dep: _stage_dep_colour(
+                            dep, severity_by_name
+                    ),
+            )
+
+        if judgements:
+            # ``_append_severity_groups`` supplies the stub before each heading.
+            _append_severity_groups(
+                    lines, judgements, under, prose_width, encoding
+            )
+
+        lines.append( as_subdued( stub ) )
+
+    lines.append( "{}{}".format(
+            as_subdued( elbow ),
+            as_info( "Stage plan summary:" ),
+    ) )
+    summary_under = gap
+    lines.append( as_subdued( summary_under + stub ) )
+    lines.append( "{}{}".format(
+            as_subdued( summary_under + ( tee if unstaged else elbow ) ),
+            "{} will stage under {} (nested project build)".format(
+                    _plain_count_phrase( nest_total, "project", "projects" ),
+                    _footer_flag( STAGE_DEVELOP_OPTION ),
+            ),
+    ) )
+    if unstaged:
+        missing = [ row for row in unstaged if row["status"] == "missing" ]
+        lines.append( as_subdued( summary_under + stub ) )
+        lines.append( "{}{}".format(
+                as_subdued( summary_under + elbow ),
+                "{} unstaged:".format(
+                        _plain_count_phrase(
+                                len( unstaged ), "project", "projects"
+                        )
+                ),
+        ) )
+        detail_under = summary_under + gap
+        lines.append( as_subdued( detail_under + stub ) )
+        for detail_index, row in enumerate( unstaged ):
+            last_among = detail_index == len( unstaged ) - 1
+            if missing:
+                branch = tee
+            else:
+                branch = elbow if last_among else tee
+            if row["status"] == "missing":
+                name_colour = as_error
+            elif row["status"] == "skip":
+                name_colour = as_warning
+            else:
+                name_colour = as_info
+            lines.append( "{}{} [{}]".format(
+                    as_subdued( detail_under + branch ),
+                    as_emphasised( name_colour( row["name"] ) ),
+                    as_info( storage.display_path( row["path"] ) ),
+            ) )
+        if missing:
+            lines.append( as_subdued( detail_under + stub ) )
+            lines.append( "{}Use {} to obtain missing projects".format(
+                    as_subdued( detail_under + elbow ),
+                    _footer_flag( "clone-develop" ),
+            ) )
+
+    lines.append( "" )
+    lines.append( "{}; nothing was built or cleaned.".format(
+            as_info_label(
+                    "--{}: {} considered".format(
+                            STAGE_DEVELOP_PLAN_OPTION,
+                            _plain_count_phrase(
+                                    len( rows ),
+                                    "location project",
+                                    "location projects",
+                            ),
+                    )
+            )
+    ) )
+    return lines
+
+
+def finish_stage_develop_plan( cuppa_env, out=None ) -> int:
+    """Print ``--stage-develop-plan`` and return an exit status (develop-action style)."""
+    stream = out if out is not None else sys.stdout
+    require_stage_develop_plan_with_develop( cuppa_env )
+    try:
+        lines = stage_develop_plan_lines( cuppa_env )
+    except SCons.Errors.StopError as error:
+        write_lines( [ "", str( error ) ], out=stream )
+        return 1
+    write_lines( lines, out=stream )
+    rows = location_stage_plan_rows( cuppa_env )
+    if any( row["severity"] == "error" for row in rows ):
+        return 1
+    return 0
+
+
 def run_location_stage_develop( env ) -> None:
     """Nest-build or nest-clean every qualifying location develop tree once.
 
     Called from construct before tip sconscripts so ``N of M`` is known and nests
-    are not interleaved with tip ``BuildWith`` construction.
+    are not interleaved with tip ``BuildWith`` construction. Order is leaf-first
+    across edges discovered among the candidate set.
     """
     if _is_nested():
         return

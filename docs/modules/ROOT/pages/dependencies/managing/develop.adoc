@@ -149,8 +149,68 @@ A filesystem `package_source` is left alone, since it names a tree you already h
 What lands is the **publisher's source tree**, which is the tree cascade publishes from under `--develop`.
 With `--develop`, the tip consumes an existing staged package under `_build/.../final/<package>/<version>/` when that stage is present.
 Pass `--stage-develop` as well to nest-build (and nest-clean) that tree from the tip (`--stage-package`, no upload).
-The same flag also nest-builds **location** `develop=` trees that have an `sconstruct` (a normal project build in that checkout; the tip still compiles against the develop path afterward).
-Location trees without an `sconstruct` are unchanged (path swap only).
+The same flag also nest-builds **location** `develop=` trees that have an `sconstruct`
+(a normal project build in that checkout).
+Location nests run **leaf-first** when edges among those trees are known.
+`--stage-develop-plan` prints every considered location develop in leaf-first
+stage order (then unstaged) and exits without nesting.
+Location trees without an `sconstruct` are reported as unstaged warnings on that
+plan; tip `--develop` alone still swaps the path when no package-shaped stage exists.
+**Staging** a location develop (`--stage-develop`) means nest-building that
+project; the plan says “will stage” for the same set.
+
+[#location-tip-consume-stage-prefix]
+==== Location tip consume (stage prefix)
+
+When the location develop tree already has a package-shaped stage under
+`_build/.../final/<name>/<version>/` with `include/` and `lib/` (and optionally
+`modules/`), tip `--develop` **links that prefix** instead of compiling the
+checkout as sources — the same layout as a package develop stage.
+Produce it from the location project with `env.StageLocationDevelop`:
+
+[source,python]
+----
+Import('env')
+env.AppendUnique(CPPPATH=['#/include'])
+lib = env.BuildStaticLib('widget', 'src/widget.cpp')
+env.StageLocationDevelop('widget', lib, include_dir='#/include')
+----
+
+Then from the tip (with `develop=` pointing at that tree):
+
+[source,python]
+----
+Widget = cuppa.location_dependency(
+    'widget',
+    location='https://example.com/org/widget.git',
+    develop='../widget',
+    include='include',
+)
+----
+
+`cuppa -D --develop --stage-develop` nests the location build, stages the prefix,
+and the tip links `include/` + `lib/` (and loads `modules/` BMIs when present).
+
+Common shapes:
+
+* **Nest + link the library** — tip needs **L**'s `.a` / shared lib, not a tip-side
+  recompile of **L**'s sources. Call `StageLocationDevelop` in **L**; run tip with
+  `--develop --stage-develop`.
+* **Discover an existing stage** — **L** was already built (or nested earlier). Tip
+  `--develop` alone links the stage when `include/` and `lib/` are present; no nest.
+* **Header-only / no stage** — **L** has no package-shaped prefix (or only nests for
+  its own tests). Tip keeps classic path-swap; Cuppa does not invent a stage.
+* **After nest-clean** — tip `-c --stage-develop` cleans **L**'s `_build`. The stage
+  is gone, so the next tip `--develop` without `--stage-develop` path-swaps until
+  you nest-build again (unlike package develop, which StopErrors when the stage is
+  missing).
+* **One declaration instead of dual** — the same tree no longer needs both a
+  location entry (for edit / `--list-develop`) and a package entry (for prefix
+  linking). Stage from the location project and keep a single `location_dependency`.
+
+If there is no usable stage, tip keeps classic path-swap (header-only and
+docs-style trees stay safe).
+
 A develop path that is only a built prefix (`include/` and `lib/`, no `sconstruct`) still swaps in as the package directory, with a log note; prefer a publisher source tree for new work.
 See xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
 

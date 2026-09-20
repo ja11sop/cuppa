@@ -285,6 +285,35 @@ class Git:
         return None
 
 
+    @classmethod
+    def working_copy_default_branch( cls, path ):
+        """Default branch of a local working copy from ``origin/HEAD`` (offline).
+
+        Returns the short branch name (for example ``master``), or ``None`` when
+        there is no remote HEAD symlink / the path is not a Git working copy.
+        """
+        if not path or not os.path.exists( os.path.join( path, ".git" ) ):
+            return None
+        try:
+            ref = cls.execute_command(
+                    "{git} symbolic-ref --short refs/remotes/origin/HEAD".format(
+                            git=cls.binary()
+                    ),
+                    path,
+            )
+        except cls.Error:
+            return None
+        ref = ( ref or "" ).strip()
+        if not ref:
+            return None
+        if ref.startswith( "refs/remotes/" ):
+            ref = ref[ len( "refs/remotes/" ) : ]
+        if "/" in ref:
+            # ``origin/master`` → ``master``
+            return ref.split( "/", 1 )[ 1 ]
+        return ref
+
+
     ## Example outputs:
     #
     ## 1. rebasing branch "rebase_test"
