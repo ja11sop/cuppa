@@ -51,6 +51,16 @@ present. See xref:dependencies/managing/removing.adoc#force-wipe-dependencies[Fo
 With `--develop`, location dependencies that define a develop path use the local tree instead of fetching.
 Check those copies with xref:dependencies/managing/develop.adoc#checking-your-develop-copies[`--list-develop`].
 
+When that tree is also a Cuppa project, `--stage-develop` nest-builds it.
+If the nested (or previously built) tree leaves a package-shaped stage at
+`_build/.../final/<name>/<version>/{include,lib}`, tip **consumes that prefix**
+(and optional `modules/` BMIs) instead of compiling the checkout as sources.
+Produce the stage with `env.StageLocationDevelop` in the location project; see
+xref:dependencies/managing/develop.adoc#location-tip-consume-stage-prefix[Working with develop copies]
+for producer/tip listings and the common shapes (nest+link, discover-only,
+header-only path-swap, clean then missing stage, one declaration instead of dual).
+Without a usable stage, tip keeps classic path-swap includes.
+
 Relative locations ending in `@` participate in `--location-match-*` branch/tag behaviour (see
 xref:cli/dependencies-and-develop.adoc[Dependencies and develop]).
 

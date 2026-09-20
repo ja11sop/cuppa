@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   info, then the other of ``main``/``master`` as plain info. Design:
   [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4b.
 
+- Location ``--develop`` tip consume (L3 baseline): when a package-shaped stage
+  exists under the develop tree (``final/<name>/<version>/{include,lib}``), tip
+  uses that prefix (and optional ``modules/`` BMIs) instead of path-swap.
+  ``env.StageLocationDevelop`` installs into that layout. Missing stage keeps
+  path-swap. Integration covers include/lib consume and a ``--modules`` BMI
+  round-trip via nest + tip ``BuildWith``. Design:
+  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L3.
+
 - Nested session banners use an info-label chip for the jump
   (``cascade session N of M``, ``develop stage N of M``, and
   ``cascade sessions complete``) so crossing into another sconstruct reads loud.

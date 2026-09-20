@@ -477,6 +477,39 @@ def looks_like_package_stage( path: str ) -> bool:
     )
 
 
+def location_stage_version( develop_root: str ) -> str:
+    """Version folder under ``final/<name>/`` for a location develop stage."""
+    try:
+        from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+        manifest = read_publish_manifest( develop_root )
+    except Exception:
+        manifest = None
+    if manifest:
+        version = manifest.get( "version" )
+        if version:
+            return str( version )
+    return "develop"
+
+
+def resolve_develop_location_stage(
+        develop_root: str,
+        name: str,
+        version=None,
+        env=None,
+) -> str | None:
+    """Locate ``final/<name>/<version>/`` under a location develop tree (L3).
+
+    Same layout and scan as package stages. ``version`` defaults to the publish
+    manifest version or ``develop``. Returns ``None`` when no usable stage exists
+    (tip keeps path-swap).
+    """
+    if version is None:
+        version = location_stage_version( develop_root )
+    return resolve_develop_package_stage(
+            develop_root, name, version, env=env
+    )
+
+
 def resolve_develop_package_stage(
         develop_root: str,
         package: str,

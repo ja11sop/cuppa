@@ -251,8 +251,63 @@ class base(object):
 
 
     def __call__( self, env, toolchain, variant ):
+        if self._try_consume_location_stage( env ):
+            return
         env.AppendUnique( INCPATH = self._includes )
         env.AppendUnique( SYSINCPATH = self._sys_includes )
+
+
+    def _try_consume_location_stage( self, env ) -> bool:
+        """L3: prefer package-shaped stage under the develop tree when present."""
+        if not env.get( "develop" ):
+            return False
+        location = getattr( self, "_location", None )
+        if location is None:
+            return False
+        local = location.local()
+        if not local or not os.path.isdir( local ):
+            return False
+        from cuppa.package_managers.package_cascade import (
+                resolve_develop_location_stage,
+        )
+        from cuppa.utility.storage import display_path
+
+        stage = resolve_develop_location_stage( local, self._name, env=env )
+        if not stage:
+            return False
+
+        include_dir = os.path.join( stage, "include" )
+        lib_dir = os.path.join( stage, "lib" )
+        env.AppendUnique( INCPATH = [ include_dir ] )
+        env.AppendUnique( LIBPATH = [ lib_dir ] )
+
+        from cuppa.package_managers.package_link_libs import (
+                env_lib_naming,
+                list_linkable_lib_stems,
+        )
+        lib_prefix, lib_suffix, shlib_prefix, shlib_suffix = env_lib_naming( env )
+        stems = list_linkable_lib_stems(
+                lib_dir,
+                lib_prefix,
+                lib_suffix,
+                shlib_prefix,
+                shlib_suffix,
+        )
+        if stems:
+            env.AppendUnique( LIBS = list( stems ) )
+
+        modules_dir = os.path.join( stage, "modules" )
+        if os.path.isdir( modules_dir ):
+            from cuppa.cpp.cxx_modules import load_packaged_modules
+            load_packaged_modules( env, modules_dir )
+
+        logger.info(
+                "--develop: using locally staged location [{}] from [{}]".format(
+                        as_info( self._name ),
+                        as_notice( display_path( stage ) ),
+                )
+        )
+        return True
 
 
     def storage_paths( self ):
