@@ -86,6 +86,7 @@ cuppa -D --rel --toolchains=gcc15 \
 
 - Nested sessions are leaf-first and upload as they go; parents should fetch already-published leaves from the registry. §6 is primarily the **tip** pre-sconscript gate. If a nested parent 404s on a leaf that this same cascade has not uploaded yet, that is a separate bug — watch for it in soak; do not expand Slice F to nested defer unless soak proves it.
 - Tip auto-enables its direct package deps → those pins hit the defer path on a virgin registry/toolchain.
+- **`--parallel` + `--publish-package`:** nested abseil failed after “Package … created” with `Source '….tar.gz' not found` for `.published` — archive is a side effect of `.packaged`, not declared to SCons. Workaround: omit `--parallel` for this soak. Fix: [#317](https://github.com/ja11sop/cuppa/issues/317) / [`publish-package-parallel-side-effect.md`](publish-package-parallel-side-effect.md).
 
 ## Implementation checklist
 
