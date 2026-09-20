@@ -614,7 +614,8 @@ def test_write_used_by_wipe_warning_colours_paths_and_explains_safe( tmp_path ):
     assert '[0 warnings]' in done_text
     assert '[1 note]' in done_text
     assert 'wiped' in done_text
-    assert 'will be re-fetched' in done_text
+    # Rendered trees wrap prose; the phrase may split across lines.
+    assert 'will be re-fetched' in ' '.join( done_text.split() )
     assert 'removing the copy was safe' in done_text or \
             as_emphasised( 'removing the copy was safe' ) in done_text
 
