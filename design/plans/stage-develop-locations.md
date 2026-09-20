@@ -38,7 +38,7 @@ project I am editing" and want the tip to nest-build those projects on demand.
 4. Nested env sets `PYTHONUNBUFFERED=1`.
 5. Tip consumes a package-shaped stage when present ([L3](#l3-tip-consumes-staged-location-artefacts));
    otherwise path-swaps the checkout.
-## Soak findings (matching_facility)
+## Soak findings (multi-location develop tip)
 
 | Finding | Decision |
 |---------|----------|
