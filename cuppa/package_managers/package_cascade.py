@@ -1049,7 +1049,11 @@ _STAGE_DEFAULT_BRANCHES = frozenset( { "master", "main" } )
 
 
 def _display_stage_repo_url( url ) -> str | None:
-    """``host/org/repo`` for a stage-plan label. Local paths are omitted."""
+    """``host/org/repo`` for a stage-plan label. Local paths are omitted.
+
+    Trailing ``@`` (or ``@rev``) from the configured ``location=`` is kept so a
+    ``wants`` hint matches what the tip sconstruct declares.
+    """
     if not url:
         return None
     from cuppa.core.dependency_identity import short_name_from_git_url
@@ -1130,17 +1134,71 @@ def _stage_branch_unexpected( ref, tip_branch, env ) -> bool:
     return ref not in acceptable
 
 
-def _format_stage_repo_hint( short, ref, state, unexpected ) -> str:
-    """Muted ``(host/org/repo@branch state)``; an off-branch ref is a warning."""
+def _stage_preferred_default_branch( env, tip_root=None ) -> str:
+    """Repo default for expected-branch prose: tip ``origin/HEAD``, else config, else master."""
+    if tip_root:
+        detected = Git.working_copy_default_branch( tip_root )
+        if detected:
+            return detected
+    configured = env.get( "location_default_branch" ) if env is not None else None
+    if configured:
+        return str( configured )
+    return "master"
+
+
+def _stage_expected_branches( tip_branch, preferred_default ) -> list[str]:
+    """Ordered expected set: tip, preferred default, then the other of main/master."""
+    ordered: list[str] = []
+    if tip_branch:
+        ordered.append( tip_branch )
+    if preferred_default and preferred_default not in ordered:
+        ordered.append( preferred_default )
+    for name in ( "master", "main" ):
+        if name not in ordered:
+            ordered.append( name )
+    return ordered
+
+
+def _colour_stage_expected_branch( name, tip_branch, preferred_default ) -> str:
+    """Tip and preferred default are emphasised info; other alternates are plain info."""
+    if name == tip_branch or name == preferred_default:
+        return as_emphasised( as_info( name ) )
+    return as_info( name )
+
+
+def _format_stage_expected_branches_phrase( tip_branch, preferred_default ) -> str:
+    """Coloured ``feature_1 or master or main`` for off-branch warning prose.
+
+    Non-breaking spaces around ``or`` keep the list one wrap unit so the tree
+    does not leave a dangling ``or main`` on the next line.
+    """
+    return "\u00a0or\u00a0".join(
+            _colour_stage_expected_branch( name, tip_branch, preferred_default )
+            for name in _stage_expected_branches( tip_branch, preferred_default )
+    )
+
+
+def _format_stage_repo_hint(
+        short, ref, state, unexpected, emphasise_ref=False
+) -> str:
+    """Muted ``(host/org/repo@branch state)``; off-branch is warning; tip ref can be bold info."""
+    if unexpected:
+        ref_text = as_warning( ref ) if ref else ""
+    elif emphasise_ref and ref:
+        ref_text = as_emphasised( as_info( ref ) )
+    elif ref:
+        ref_text = as_subdued( ref )
+    else:
+        ref_text = ""
     parts = [ as_subdued( " (" ) ]
     if short and ref:
         parts.append( as_subdued( "{}@".format( short ) ) )
-        parts.append( as_warning( ref ) if unexpected else as_subdued( ref ) )
+        parts.append( ref_text )
         parts.append( as_subdued( " {}".format( state ) ) )
     elif short:
         parts.append( as_subdued( "{} {}".format( short, state ) ) )
     elif ref:
-        parts.append( as_warning( ref ) if unexpected else as_subdued( ref ) )
+        parts.append( ref_text )
         parts.append( as_subdued( " {}".format( state ) ) )
     else:
         parts.append( as_subdued( state ) )
@@ -1149,7 +1207,7 @@ def _format_stage_repo_hint( short, ref, state, unexpected ) -> str:
 
 
 def _stage_repo_state_hint(
-        env, name, root, tip_branch=None, wants_only=False
+        env, name, root, tip_branch=None, wants_only=False, emphasise_ref=False
 ) -> str:
     """Muted ``(host/org/repo@branch state)`` from the develop working copy."""
     from cuppa.develop import inspect, state_summary
@@ -1171,6 +1229,7 @@ def _stage_repo_state_hint(
             ref,
             state,
             _stage_branch_unexpected( ref, tip_branch, env ),
+            emphasise_ref=emphasise_ref,
     )
 
 
@@ -2956,7 +3015,9 @@ def location_stage_plan_edges( rows: list[dict] ) -> dict[str, set[str]]:
     return edges
 
 
-def _stage_row_judgements( row, env, tip_branch=None ) -> list[tuple[str, str]]:
+def _stage_row_judgements(
+        row, env, tip_branch=None, preferred_default=None
+) -> list[tuple[str, str]]:
     """``(severity, prose)`` nested under one develop-stage plan node."""
     path = storage.display_path( row["path"] )
     if row["status"] == "missing":
@@ -2982,19 +3043,17 @@ def _stage_row_judgements( row, env, tip_branch=None ) -> list[tuple[str, str]]:
         ) )
     ref = _checkout_ref( copy, row["path"] )
     if _stage_branch_unexpected( ref, tip_branch, env ):
-        expected = []
-        if tip_branch:
-            expected.append( tip_branch )
-        for name in sorted( _STAGE_DEFAULT_BRANCHES ):
-            if name not in expected:
-                expected.append( name )
+        if preferred_default is None:
+            preferred_default = _stage_preferred_default_branch( env )
         judgements.append( (
                 "warning",
-                "{} branch is [{}] which deviates from the expected branches "
-                "({})".format(
+                "{} branch is [{}] which deviates from the expected\u00a0"
+                "branches\u00a0({})".format(
                         row["name"],
                         ref,
-                        " or ".join( expected ),
+                        _format_stage_expected_branches_phrase(
+                                tip_branch, preferred_default
+                        ),
                 ),
         ) )
     return judgements
@@ -3023,7 +3082,7 @@ def _stage_depends_lines( deps, width, colour_for_name=None ) -> list[str]:
                 plain != prefix
                 and len( plain ) + len( extra_plain ) + closing > width
         ):
-            lines.append( coloured )
+            lines.append( coloured + "," )
             plain = name
             coloured = painted
         else:
@@ -3079,8 +3138,12 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
 
     plan_edges = location_stage_plan_edges( rows )
     tip_branch = _tip_stage_branch( env )
+    tip_root = env.get( "sconstruct_dir" )
+    preferred_default = _stage_preferred_default_branch( env, tip_root )
     judgements_by_name = {
-            row["name"]: _stage_row_judgements( row, env, tip_branch )
+            row["name"]: _stage_row_judgements(
+                    row, env, tip_branch, preferred_default=preferred_default
+            )
             for row in rows
     }
     severity_by_name = {}
@@ -3114,7 +3177,10 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
     ordinal_of = {
             name: index for index, ( name, _path ) in enumerate( ordered_nest, 1 )
     }
+    by_name = { row["name"]: row for row in rows }
+    # Leaf-first execute order for nestable rows, then unstaged (declaration order).
     unstaged = [ row for row in rows if row["status"] != "stage" ]
+    display_rows = [ by_name[name] for name, _path in ordered_nest ] + unstaged
     marker_width = max(
             len( "unstaged" ),
             len( "{} of {}".format( nest_total, nest_total ) ) if nest_total else len( "0 of 0" ),
@@ -3123,9 +3189,14 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
     prose_width = max( storage.WIDEST_PROSE - len( under_active ), storage.NARROWEST_PROSE )
 
     tip_name = _tip_stage_label( env )
-    tip_root = env.get( "sconstruct_dir" )
     tip_hint = (
-            _stage_repo_state_hint( env, tip_name, tip_root, tip_branch=tip_branch )
+            _stage_repo_state_hint(
+                    env,
+                    tip_name,
+                    tip_root,
+                    tip_branch=tip_branch,
+                    emphasise_ref=True,
+            )
             if tip_root else ""
     )
 
@@ -3152,7 +3223,7 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
                     as_emphasised( as_info( tip_name ) ),
                     tip_hint,
             ),
-            "{}{} location develop{}; {} nestable, {} unstaged".format(
+            "{}{} location develop{}; {} will stage, {} unstaged".format(
                     as_subdued( tee ),
                     len( rows ),
                     "" if len( rows ) == 1 else "s",
@@ -3162,13 +3233,12 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             as_subdued( stub ),
     ]
 
-    for index, row in enumerate( rows ):
-        last = index == len( rows ) - 1
+    # Summary is the last outer sibling — every develop row keeps a tee + pipe stem.
+    for row in display_rows:
         name = row["name"]
         root = row["path"]
         judgements = judgements_by_name[name]
-        under = _plan_node_under( gap if last else pipe, marker_width )
-        outer = elbow if last else tee
+        under = _plan_node_under( pipe, marker_width )
         if row["status"] == "stage":
             marker = "{} of {}".format(
                     ordinal_of[name], nest_total
@@ -3177,7 +3247,7 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             marker = "unstaged".rjust( marker_width )
 
         lines.append( "{}{}  {}{}".format(
-                as_subdued( outer ),
+                as_subdued( tee ),
                 marker,
                 as_emphasised( as_info( name ) ),
                 _stage_repo_state_hint(
@@ -3189,12 +3259,9 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
         has_project = row["status"] != "missing"
         deps = sorted( plan_edges.get( name, () ) ) if has_project else []
         show_deps = has_project and row["status"] == "stage"
-        has_children = has_project or bool( judgements )
-
-        if has_children:
-            lines.append( as_subdued( under + stub ) )
 
         if has_project:
+            lines.append( as_subdued( under + stub ) )
             more_after_project = show_deps or bool( judgements )
             project_branch = tee if more_after_project else elbow
             lines.append( "{}project [{}]".format(
@@ -3203,8 +3270,6 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             ) )
 
         if show_deps:
-            if judgements:
-                lines.append( as_subdued( under + stub ) )
             _append_stage_edge(
                     lines,
                     deps,
@@ -3217,16 +3282,13 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             )
 
         if judgements:
-            if has_project:
-                lines.append( as_subdued( under + stub ) )
+            # ``_append_severity_groups`` supplies the stub before each heading.
             _append_severity_groups(
                     lines, judgements, under, prose_width, encoding
             )
 
-        if not last:
-            lines.append( as_subdued( stub ) )
+        lines.append( as_subdued( stub ) )
 
-    lines.append( as_subdued( stub ) )
     lines.append( "{}{}".format(
             as_subdued( elbow ),
             as_info( "Stage plan summary:" ),
@@ -3235,8 +3297,9 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
     lines.append( as_subdued( summary_under + stub ) )
     lines.append( "{}{}".format(
             as_subdued( summary_under + ( tee if unstaged else elbow ) ),
-            "{} nestable".format(
-                    _plain_count_phrase( nest_total, "project", "projects" )
+            "{} will stage under {} (nested project build)".format(
+                    _plain_count_phrase( nest_total, "project", "projects" ),
+                    _footer_flag( STAGE_DEVELOP_OPTION ),
             ),
     ) )
     if unstaged:
@@ -3251,6 +3314,7 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
                 ),
         ) )
         detail_under = summary_under + gap
+        lines.append( as_subdued( detail_under + stub ) )
         for detail_index, row in enumerate( unstaged ):
             last_among = detail_index == len( unstaged ) - 1
             if missing:
@@ -3270,9 +3334,9 @@ def stage_develop_plan_lines( env, argv=None, encoding=None ) -> list[str]:
             ) )
         if missing:
             lines.append( as_subdued( detail_under + stub ) )
-            lines.append( "{}{}".format(
+            lines.append( "{}Use {} to obtain missing projects".format(
                     as_subdued( detail_under + elbow ),
-                    "Use --clone-develop to obtain missing projects",
+                    _footer_flag( "clone-develop" ),
             ) )
 
     lines.append( "" )

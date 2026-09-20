@@ -2391,14 +2391,16 @@ def test_stage_develop_plan_lines_number_leaf_first_order( tmp_path ):
         assert len( numbered ) == 2
         assert any( "1 of 2" in line and "leaf" in line for line in numbered )
         assert any( "2 of 2" in line and "mid" in line for line in numbered )
-        # Declaration order: mid before leaf visually.
+        # Execute (leaf-first) order: leaf before mid visually and by ordinal.
         mid_i = next( i for i, line in enumerate( visible.splitlines() ) if "mid" in line and " of 2" in line )
         leaf_i = next( i for i, line in enumerate( visible.splitlines() ) if "leaf" in line and " of 2" in line )
-        assert mid_i < leaf_i
+        assert leaf_i < mid_i
         assert "git.example/org/leaf" in visible
         assert "not a working copy" in visible
         assert "Stage plan summary" in visible
-        assert "2 projects nestable" in visible
+        assert "will stage" in visible
+        assert "2 projects will stage" in visible or "2 project will stage" in visible
+        assert "nested project build" in visible
         assert "nothing was built or cleaned" in visible
         assert "--stage-develop-plan" in visible
         from cuppa.colourise import as_emphasised
@@ -2408,10 +2410,11 @@ def test_stage_develop_plan_lines_number_leaf_first_order( tmp_path ):
         stub = pipe.rstrip()
         marker_width = max( len( "unstaged" ), len( "2 of 2" ) )
         under = pipe + " " * ( marker_width + 2 )
-        under_last = gap + " " * ( marker_width + 2 )
         assert as_subdued( under + stub ) in lines
-        assert as_subdued( under_last + stub ) in lines
         assert as_subdued( stub ) in lines
+        assert any( line.startswith( as_subdued( elbow ) ) and "Stage plan summary" in re.sub(
+                r"\x1b\[[0-9;]*m", "", line
+        ) for line in lines )
         assert any(
                 "no edges to other stage candidates" in line
                 and as_info( "no edges to other stage candidates" ) not in line
@@ -2447,6 +2450,7 @@ def test_stage_depends_lines_colour_each_name_and_wrap():
         wrapped = cascade._stage_depends_lines( names, 55 )
         assert len( wrapped ) >= 2
         assert wrapped[0].startswith( "depends on [" )
+        assert wrapped[0].endswith( "," )
         assert wrapped[-1].endswith( "]" )
         assert "depends on [" not in wrapped[1]
         body = "".join( wrapped )
@@ -2509,7 +2513,7 @@ def test_stage_repo_hint_reads_location_id_from_dependency_class():
 
 
 def test_stage_repo_hint_shows_checkout_branch_and_warns_when_off_branch():
-    from cuppa.colourise import as_subdued, as_warning, colouriser
+    from cuppa.colourise import as_emphasised, as_info, as_subdued, as_warning, colouriser
 
     env = _PlanEnv( {}, {} )
     was = colouriser.use_colour
@@ -2529,6 +2533,16 @@ def test_stage_repo_hint_shows_checkout_branch_and_warns_when_off_branch():
         assert as_subdued( "feature_1" ) in expected
         assert as_warning( "feature_1" ) not in expected
 
+        tip = cascade._format_stage_repo_hint(
+                "git.example/org/matching_facility",
+                "feature_1",
+                "clean, no upstream",
+                False,
+                emphasise_ref=True,
+        )
+        assert as_emphasised( as_info( "feature_1" ) ) in tip
+        assert as_subdued( "feature_1" ) not in tip
+
         unexpected = cascade._format_stage_repo_hint(
                 "git.example/org/storage", "feature_22", "clean", True
         )
@@ -2541,7 +2555,94 @@ def test_stage_repo_hint_shows_checkout_branch_and_warns_when_off_branch():
         colouriser.use_colour = was
 
 
-def test_stage_develop_plan_interleaves_unstaged_missing_with_error_depends( tmp_path ):
+def test_stage_expected_branches_prefer_detected_default_and_emphasise():
+    from cuppa.colourise import as_emphasised, as_info, colouriser
+    from cuppa.utility.preprocess import AnsiEscape
+    from cuppa.utility import storage as storage_util
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        assert cascade._stage_expected_branches( "feature_1", "master" ) == [
+                "feature_1",
+                "master",
+                "main",
+        ]
+        assert cascade._stage_expected_branches( "feature_1", "main" ) == [
+                "feature_1",
+                "main",
+                "master",
+        ]
+        assert cascade._stage_expected_branches( None, "master" ) == [
+                "master",
+                "main",
+        ]
+
+        phrase = cascade._format_stage_expected_branches_phrase(
+                "feature_1", "master"
+        )
+        assert AnsiEscape.strip( phrase ).replace( "\u00a0", " " ) == (
+                "feature_1 or master or main"
+        )
+        assert as_emphasised( as_info( "feature_1" ) ) in phrase
+        assert as_emphasised( as_info( "master" ) ) in phrase
+        assert as_info( "main" ) in phrase
+        assert as_emphasised( as_info( "main" ) ) not in phrase
+
+        env = _PlanEnv( {}, { "location_default_branch": "main" } )
+        assert cascade._stage_preferred_default_branch( env ) == "main"
+        assert cascade._stage_preferred_default_branch( _PlanEnv( {}, {} ) ) == (
+                "master"
+        )
+
+        # Keep ``expected branches (…)`` together when the line wraps.
+        warning = (
+                "transport_layer branch is [feature_22] which deviates from "
+                "the expected\u00a0branches\u00a0({})".format( phrase )
+        )
+        pieces = storage_util.wrapped( warning, 70 )
+        assert not any(
+                AnsiEscape.strip( piece ).lstrip().startswith( "(" )
+                for piece in pieces
+        )
+        joined = " ".join(
+                AnsiEscape.strip( piece ).replace( "\u00a0", " " )
+                for piece in pieces
+        )
+        assert "expected branches (feature_1 or master or main)" in joined
+    finally:
+        colouriser.use_colour = was
+
+
+def test_working_copy_default_branch_reads_origin_head( tmp_path, monkeypatch ):
+    from cuppa.scms.git import Git
+
+    repo = tmp_path / "repo"
+    ( repo / ".git" ).mkdir( parents=True )
+
+    monkeypatch.setattr(
+            Git,
+            "execute_command",
+            lambda command, path=None: "origin/master",
+    )
+    assert Git.working_copy_default_branch( str( repo ) ) == "master"
+
+    monkeypatch.setattr(
+            Git,
+            "execute_command",
+            lambda command, path=None: "origin/main",
+    )
+    assert Git.working_copy_default_branch( str( repo ) ) == "main"
+
+    def raise_error( command, path=None ):
+        raise Git.Error( "missing" )
+
+    monkeypatch.setattr( Git, "execute_command", raise_error )
+    assert Git.working_copy_default_branch( str( repo ) ) is None
+    assert Git.working_copy_default_branch( str( tmp_path / "absent" ) ) is None
+
+
+def test_stage_develop_plan_lists_unstaged_after_leaf_first_stage_order( tmp_path ):
     import re
 
     from cuppa.colourise import as_error, colouriser
@@ -2593,11 +2694,20 @@ def test_stage_develop_plan_interleaves_unstaged_missing_with_error_depends( tmp
     assert "project [" in visible and "is missing" in visible
     assert "1 error" in visible
     assert "[1 error]" in visible
-    assert "Use --clone-develop to obtain missing projects" in visible
-    assert "wants git.example/org/ghost" in visible or "wants " in visible
-    ghost_i = visible.index( "unstaged" )
-    present_i = visible.index( "1 of 1" )
-    assert ghost_i < present_i
+    assert "Use " in visible and "clone-develop" in visible
+    assert "wants git.example/org/ghost" in visible
+    # Execute order: nestable first, then unstaged marker row.
+    present_i = next(
+            i for i, line in enumerate( visible.splitlines() )
+            if "1 of 1" in line and "present" in line
+    )
+    ghost_i = next(
+            i for i, line in enumerate( visible.splitlines() )
+            if "unstaged" in line and "ghost" in line
+    )
+    assert present_i < ghost_i
+    from cuppa.colourise import as_emphasised, as_info
+    assert as_emphasised( as_info( "--clone-develop" ) ) in body
     assert as_error( "ghost" ) in body
 
 

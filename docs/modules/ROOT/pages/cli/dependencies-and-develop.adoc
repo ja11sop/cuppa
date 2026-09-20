@@ -151,9 +151,10 @@ xref:packages.adoc#cascade-develop[Publishing from a tree you are working in]
 and xref:dependencies/managing/develop.adoc[Working with develop copies].
 
 `--stage-develop-plan` (requires `--develop`) prints every considered location
-develop in declaration order (nestable rows with leaf-first `K of M` ordinals;
-unstaged rows interleaved with judgements) and exits without nesting, building,
-or cleaning. It does not require `--stage-develop`.
+develop in leaf-first stage order (unstaged rows after), with judgements for
+missing paths and other issues, then exits without nesting, building, or
+cleaning. It does not require `--stage-develop`. Staging means a nested project
+build in that develop tree.
 
 `--stage-package` builds and stages *this* package's archive under `final/` without
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a

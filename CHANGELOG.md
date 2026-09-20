@@ -35,14 +35,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ``--cascade-plan`` and ``--stage-develop-plan`` trees insert subdued breathing
   stubs under each numbered node and between siblings. ``--stage-develop-plan``
-  lists every considered location develop in declaration order: nestable rows
-  show leaf-first ``K of M`` ordinals; unstaged rows (missing path or no
-  sconstruct) stay interleaved with cascade-style nested judgements. Missing
-  paths are errors; no-sconstruct and off-branch checkouts are warnings; a
-  non-git nestable path is a note. ``depends on`` lists the full considered set
-  and colours unstaged names by severity. The footer summarises nestable vs
-  unstaged and suggests ``--clone-develop`` once when paths are missing. The
-  command banner emphasises ``--stage-develop-plan``. Design:
+  lists location develops in leaf-first **stage** order (`K of M`), then unstaged
+  rows with cascade-style nested judgements. Missing paths are errors; no-sconstruct
+  and off-branch checkouts are warnings; a non-git stageable path is a note.
+  **Staging** means a nested project build under ``--stage-develop``. ``depends on``
+  lists the full considered set and colours unstaged names by severity. The footer
+  summarises will-stage vs unstaged and suggests ``--clone-develop`` once when paths
+  are missing. The command banner emphasises ``--stage-develop-plan``. The tip node's
+  ``@branch`` is emphasised info; off-branch warnings list tip, then the tip repo
+  default from local ``origin/HEAD`` (else configured / ``master``) as emphasised
+  info, then the other of ``main``/``master`` as plain info. Design:
   [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4b.
 
 - Nested session banners use an info-label chip for the jump
