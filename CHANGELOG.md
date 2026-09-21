@@ -77,7 +77,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``.packaged`` stamp ([#317](https://github.com/ja11sop/cuppa/issues/317)).
 - ``CMakeBuild`` without Cuppa ``--parallel`` now passes
   ``cmake --build --parallel 1`` so the default Ninja generator cannot invent an
-  all-CPU job count; ``jobs=False`` still omits ``--parallel``
+  all-CPU job count; with Cuppa ``--parallel`` it passes the same affinity-sized
+  ``env['job_count']`` as an explicit ``--parallel N`` (never bare
+  ``--parallel``). ``jobs=False`` still omits ``--parallel``
   ([#318](https://github.com/ja11sop/cuppa/issues/318)).
 
 - ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``

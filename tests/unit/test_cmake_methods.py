@@ -108,6 +108,26 @@ def test_cmake_build_args_and_command():
     ]
 
 
+def test_cmake_build_args_never_emits_bare_parallel():
+    """Bare --parallel lets Ninja use cpu_count(), not Cuppa's restricted job_count."""
+    for jobs in ( 1, 14 ):
+        tokens = cmake.cmake_build_args( '_build/x', jobs=jobs )
+        assert '--parallel' in tokens
+        assert tokens[ tokens.index( '--parallel' ) + 1 ] == str( jobs )
+    assert cmake.cmake_build_args( '_build/x', jobs=None ) == [ '--build', '_build/x' ]
+
+
+def test_cmake_build_jobs_parallel_matches_affinity_sized_job_count():
+    # Construct sets job_count from effective_cpu_count() after restrict_cpus
+    # (e.g. 14 on a 16-core host). CMake must get that same integer.
+    assert cmake.cmake_build_jobs( _env( parallel=True, job_count=14 ) ) == 14
+    tokens = cmake.cmake_build_args(
+            '_build/x',
+            jobs=cmake.cmake_build_jobs( _env( parallel=True, job_count=14 ) ),
+    )
+    assert tokens == [ '--build', '_build/x', '--parallel', '14' ]
+
+
 def test_cmake_configure_method_wires_command( silence_progress ):
     env = _RecordingEnv( _env( 'rel' ) )
     nodes = CMakeConfigureMethod()(

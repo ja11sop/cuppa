@@ -219,12 +219,17 @@ def cmake_configure_command(
 def cmake_build_jobs( env, jobs=None ):
     """Resolve a ``cmake --build --parallel`` job count, or ``None`` to omit.
 
+    Cuppa's ``--parallel`` leaves OS cores free via process affinity and sets
+    ``env['job_count']`` to that restricted size (for example 14 on a 16-core
+    host). This helper must pass that **same** count as ``--parallel N`` —
+    never bare ``--parallel``, which lets CMake/Ninja invent a full
+    ``cpu_count()`` job count and oversubscribe the affinity mask.
+
     ``jobs``:
 
-    - ``None`` (default): use ``env['job_count']`` when ``env['parallel']`` is
-      true and the count is at least 2 (Cuppa ``--parallel``); otherwise
-      return ``1`` so Ninja (Cuppa's usual default generator) cannot invent an
-      all-CPU job count when Cuppa parallelism is off
+    - ``None`` (default): when Cuppa ``--parallel`` is on and
+      ``env['job_count'] >= 2``, return that count; otherwise return ``1`` so
+      Ninja cannot invent an all-CPU job count when Cuppa parallelism is off
     - ``False`` or ``0``: omit ``--parallel`` / ``-j`` (generator default)
     - positive ``int``: that many jobs (manual override)
     """
@@ -244,7 +249,8 @@ def cmake_build_args( build_dir, jobs=None, target=None ):
     """Return ``cmake --build`` argv tokens (without a leading ``cmake``).
 
     ``jobs`` must already be resolved (positive ``int`` or ``None`` to omit).
-    Uses CMake's generator-agnostic ``--parallel N`` rather than ``-- -j N``.
+    Always emits ``--parallel N`` with an explicit integer — never bare
+    ``--parallel`` — so Ninja cannot fall back to all logical CPUs.
     """
     args = [ '--build', str( build_dir ) ]
     if target is not None:
