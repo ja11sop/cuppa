@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2022
+#          Copyright Jamie Allsop 2011-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -119,6 +119,12 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
     args.append( "stage" )
     args.append( "--stagedir=." + path_sep + stage_dir )
     args.append( "--ignore-site-config" )
+
+    # Per-toolchain jam written by WriteToolsetConfigJam (Linux). Avoids a shared
+    # project-config.jam that raced under --parallel multi-toolchain builds.
+    if cuppa.build_platform.name() == "Linux":
+        user_config = os.path.join( location, toolchain.name() + "._jam" )
+        args.append( "--user-config=" + user_config )
 
     return args
 

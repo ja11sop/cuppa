@@ -90,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Boost library builds under ``--parallel`` with multiple toolchains no longer
+  race on a shared ``project-config.jam`` (``No such file or directory`` while
+  writing per-toolchain jam stamps). Each Linux toolchain writes only
+  ``<toolchain>._jam`` and b2 is invoked with ``--user-config`` pointing at that
+  file; leftover cuppa-authored ``project-config.jam`` files are removed.
+
 - Cascade tip consume refresh after a nested publish wipes only the tip's
   current toolchain stem (and its extract), not the whole
   ``downloads/packages/<pkg>/<ver>/`` directory — sibling toolchain archives

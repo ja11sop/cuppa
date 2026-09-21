@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2022
+#          Copyright Jamie Allsop 2011-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -398,12 +398,6 @@ class BoostLibraryBuilder(object):
 
                 toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
                 toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
-
-                project_config_target = os.path.join( self._boost.local(), "project-config.jam" )
-                if not os.path.exists( project_config_target ):
-                    project_config_jam = env.Requires( project_config_target, env.AlwaysBuild( toolset_config_jam ) )
-                    env.Requires( built_libraries, project_config_jam )
-
                 env.Requires( built_libraries, toolset_config_jam )
 
         install_dir = linktype == 'shared' and env['abs_final_dir'] or env['abs_build_dir']
