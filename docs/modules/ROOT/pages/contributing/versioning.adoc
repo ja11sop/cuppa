@@ -111,3 +111,19 @@ gitGraph
 ....
 
 The release-specific branches and tags are on xref:contributing/release.adoc[Cutting a release].
+
+== Design plans: done vs shipped
+[#design-plans-done-vs-shipped]
+
+Repository design plans under `design/` use a status that must not be confused with “merged”:
+
+* **`done`** — the behaviour is on `master` and the plan matches the tree. Mark this on the
+  **feature pull request** that lands the work (progress snapshot + index row). Do not open a
+  follow-up “cite” pull request only to flip status after merge.
+* **`shipped`** — the work is in a **named** Cuppa release. At release housekeeping, promote
+  `done` plans (move kept rationale to `design/archive/`) together with dating the open
+  `CHANGELOG.md` section and dropping `.dev` from `cuppa/VERSION`.
+
+Nothing is shipped to users while `cuppa/VERSION` still ends in `.dev`. Agent operating detail:
+link:https://github.com/ja11sop/cuppa/blob/master/AGENTS.md[AGENTS.md] (Working documents) and
+`design/README.md`.

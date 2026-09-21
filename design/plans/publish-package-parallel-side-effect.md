@@ -1,7 +1,7 @@
 # Plan: `PublishPackage` archive as SCons SideEffect under `--parallel`
 
-- **Status:** in progress
-- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [#318](https://github.com/ja11sop/cuppa/issues/318); shipped [#319](https://github.com/ja11sop/cuppa/pull/319); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298)); soak context [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) / [#316](https://github.com/ja11sop/cuppa/pull/316)
+- **Status:** done
+- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [#318](https://github.com/ja11sop/cuppa/issues/318); done on master [#319](https://github.com/ja11sop/cuppa/pull/319); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298)); soak context [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) / [#316](https://github.com/ja11sop/cuppa/pull/316)
 - **Updated:** 2026-09-21
 - **Impact:** `patch`
 
@@ -74,3 +74,5 @@ None needed after [#319](https://github.com/ja11sop/cuppa/pull/319) — live soa
 | Settled approach (SideEffect) | Done |
 | Code + unit tests | Done on [#319](https://github.com/ja11sop/cuppa/pull/319) |
 | Live soak with `--publish-package --parallel` | **Done** 2026-09-21 |
+| Merged to master | **Done** [#319](https://github.com/ja11sop/cuppa/pull/319) |
+| Promote to `shipped` / archive | Next named release |

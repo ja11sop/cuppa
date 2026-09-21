@@ -12,9 +12,9 @@ maintainer workflow evolved.
 | Folder | Holds | Lifecycle |
 |--------|-------|-----------|
 | `ideas/` | Pre-plan scratch notes (not yet proposals) | Graduate into `plans/` + [`ROADMAP.md`](../ROADMAP.md), then delete the note from the scratchpad |
-| `plans/` | Proposals and design work that has not shipped | Delete when the work ships, unless the reasoning still answers questions later — then move to `archive/` |
+| `plans/` | Proposals, in-flight work, and work **done** on `master` but not yet in a named release | Stay here through merge; promote to `archive/` only at **release** when rationale is kept (else delete) |
 | `issues/` | Text drafted for a GitHub issue that has not been filed yet | Delete it once the issue is filed; the issue becomes the record, and the folder is empty until the next draft |
-| `archive/` | Shipped work whose design rationale is still cited from code or documentation | Keep while something references it |
+| `archive/` | Work **shipped** in a named release whose design rationale is still cited | Keep while something references it |
 | `process/` | Living maintainer process narrative (how agents and humans work this repo) | Keep and append; not a product plan |
 
 ## Index
@@ -27,7 +27,7 @@ maintainer workflow evolved.
 | [`archive/dependency-resolve.md`](archive/dependency-resolve.md) | shipped | BuildWith untyped resolve + type selectors; Quince `use_libs` — [#250](https://github.com/ja11sop/cuppa/issues/250) / [#270](https://github.com/ja11sop/cuppa/pull/270) |
 | [`plans/package-develop-local.md`](plans/package-develop-local.md) | in progress | Package `--develop` source-tree consume (A–D + Slice F shipped); Slice E remains — [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | [`archive/cascade-defer-404.md`](archive/cascade-defer-404.md) | shipped | Slice F tip registry 404 defer under cascade — [#316](https://github.com/ja11sop/cuppa/pull/316) / [#297](https://github.com/ja11sop/cuppa/issues/297) |
-| [`plans/publish-package-parallel-side-effect.md`](plans/publish-package-parallel-side-effect.md) | in progress | `PublishPackage` archive SideEffect + CMake `--parallel N`; shipped [#319](https://github.com/ja11sop/cuppa/pull/319) — [#317](https://github.com/ja11sop/cuppa/issues/317) / [#318](https://github.com/ja11sop/cuppa/issues/318) |
+| [`plans/publish-package-parallel-side-effect.md`](plans/publish-package-parallel-side-effect.md) | done | `PublishPackage` archive SideEffect + CMake `--parallel N`; done on master [#319](https://github.com/ja11sop/cuppa/pull/319) — [#317](https://github.com/ja11sop/cuppa/issues/317) / [#318](https://github.com/ja11sop/cuppa/issues/318) |
 | [`plans/stage-develop-locations.md`](plans/stage-develop-locations.md) | in progress | Location `--stage-develop` (L1/L2) + plan (L4) + L3 tip stage consume — on [#315](https://github.com/ja11sop/cuppa/pull/315); ROADMAP `stage-develop-locations` |
 | [`issues/package-build-provenance.md`](issues/package-build-provenance.md) | issue draft | A published package records the source revisions it was built from (`built_from` in `cuppa-publish.json`); the packaging recipe's own revision is deliberately not identity — [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | [`plans/boost-updates.md`](plans/boost-updates.md) | proposal | Boost source vs GitLab `boost_package` identity; #206 `use_libs`; #248/#249 runners; Quince gap → dependency-resolve |
@@ -91,8 +91,13 @@ Filenames are kebab-case. Each document opens with a title and a three-item head
 - **Updated:** YYYY-MM-DD
 ```
 
-`Status` is one of `proposal`, `in progress`, `issue draft`, `shipped`, or `living`
+`Status` is one of `proposal`, `in progress`, `done`, `issue draft`, `shipped`, or `living`
 (`living` is only for documents under `process/` or `ideas/`).
+
+**Done vs shipped:** `done` means the behaviour is on `master` and the plan matches the tree
+(mark it on the **feature PR**). `shipped` means it is in a **named** Cuppa release — promote
+`done` plans (and move kept rationale to `archive/`) in the release housekeeping pass, not in a
+per-merge “cite” PR. See `AGENTS.md` § Working documents.
 
 A document in `issues/` adds an `Impact` line naming the release impact of the work — `none`,
 `patch`, `minor`, or `major`, followed by the reason:

@@ -61,31 +61,46 @@ repository root and never in `docs/` (that tree is the published Antora site):
   [`design/ideas/scratchpad.md`](design/ideas/scratchpad.md). Graduate a note into `plans/` and
   [`ROADMAP.md`](ROADMAP.md), then remove it from the scratchpad. Do not use scrum “backlog”
   naming for this tree.
-- `design/plans/` — proposals that have not shipped. Delete a plan when its work ships, unless
-  the reasoning is still cited from code or docs, in which case move it to `design/archive/`.
+- `design/plans/` — proposals, work in flight, and work **done** on `master` but not yet in a
+  named release. Do **not** move a finished slice to `archive/` on feature merge.
   Console judgement-tree / severity-timing rules:
   [`design/archive/console-report-patterns.md`](design/archive/console-report-patterns.md).
 - `design/issues/` — text drafted for a GitHub issue. Delete it once the issue is filed.
-- `design/archive/` — shipped work whose rationale something still references.
+- `design/archive/` — work **shipped** in a named release whose rationale something still
+  references. Promote `done` → `shipped` (and `plans/` → `archive/` when the rationale is kept)
+  at **release** time, not on every merge.
 - `design/process/` — living maintainer process narrative (how this repo is operated with CI and
   agents). Not a product plan. Today: [`design/process/agent-workflow-journey.md`](design/process/agent-workflow-journey.md).
 
 Filenames are kebab-case. Every document opens with a `Status` / `Related` / `Updated` header,
 and must be added to the Index table in `design/README.md`; `tests/unit/test_design_index.py`
-fails otherwise. Statuses are `proposal`, `in progress`, `issue draft`, `shipped`, or `living`
-(`living` only under `process/` or `ideas/`). An issue draft also carries an `Impact` line —
-the release impact of the work, which becomes the pull request's `impact:` label and decides
-the version it targets. Gitignored `*.local.md` stays for private maps only
-(`INTERNAL_PROJECTS.local.md`), not for public product ideation.
+fails otherwise. Statuses are `proposal`, `in progress`, `done`, `issue draft`, `shipped`, or
+`living` (`living` only under `process/` or `ideas/`).
+
+**Done vs shipped (do not conflate):**
+
+| Status | Means | When |
+|--------|--------|------|
+| `done` | Behaviour is on `master`; plan progress matches the tree (soak included) | On the **feature PR** that lands the work — never a follow-up “cite” PR |
+| `shipped` | Included in a **named** Cuppa release (`finish_release` / tag) | Release housekeeping: promote all `done` plans, archive those still cited |
+
+Nothing is shipped to users until the open CHANGELOG section is dated and the version drops
+`.dev`. Per-feature “cite” PRs that only rewrite will-do → has-done after merge waste matrix
+cycles and create interleaved rebase debt — avoid them. A batch **done → shipped** pass at
+release is the right place for that promotion.
+
+An issue draft also carries an `Impact` line — the release impact of the work, which becomes the
+pull request's `impact:` label and decides the version it targets. Gitignored `*.local.md` stays
+for private maps only (`INTERNAL_PROJECTS.local.md`), not for public product ideation.
 
 `ROADMAP.md` remains the canonical statement of what is planned — a design document explains the
 reasoning behind a roadmap entry and links back to it, rather than duplicating it.
 
 For a multi-PR workstream, **settle vocabulary and refusal rules in the plan before the first
 implementation commit** (a short settled-decisions table beats rewiring CLI help mid-flight).
-When behaviour lands, **update that plan's progress snapshot in the same change** (or the same
-PR), not only in a late housekeeping sweep — stale “still a proposal” rows are how agents and
-people lose the plot.
+When behaviour lands, **update that plan's progress snapshot and mark the slice `done` in the
+same change** (or the same PR), not only in a late housekeeping sweep — stale “still a proposal”
+rows are how agents and people lose the plot. Leave `shipped` / `archive/` for the release.
 
 ### Process journey (`design/process/`)
 
@@ -375,17 +390,20 @@ only polish remains), **do a documentation and housekeeping pass before the fina
 treat merge readiness as “CI green alone”. In the same local batch (see batching above):
 
 1. **Documentation review** — Antora pages under `docs/`, CLI reference, integration-test pages,
-   and any consumer-facing samples touched by the work. Confirm they match shipped behaviour
-   (flags, report shape, verify hints, examples). Prefer updating the eventual topic page from
-   [Documentation](#documentation) / the removal-plan docs split rather than leaving stale prose.
+   and any consumer-facing samples touched by the work. Confirm they match the behaviour this PR
+   lands (flags, report shape, verify hints, examples). Prefer updating the eventual topic page
+   from [Documentation](#documentation) / the removal-plan docs split rather than leaving stale
+   prose.
 2. **`CHANGELOG.md`** — open section has accurate Added / Changed / Fixed entries for everything
    that lands in the PR (including late fixes). No sweep of unrelated history.
-3. **`ROADMAP.md`** — Today / Planned rows reflect what this PR ships and what is next; do not
-   leave “on branch `…`” once the PR is the landing vehicle (cite the PR number).
+3. **`ROADMAP.md`** — Today / Planned rows reflect what this PR lands and what is next; do not
+   leave “on branch `…`” once the PR is the landing vehicle (cite the PR number). Say **done on
+   master** (or link the PR), not **shipped**, until a named release.
 4. **Related design plans** — progress snapshot, phase tables, “next focus”, and `design/README.md`
-   index row. Mark shipped slices done; park deferred work explicitly; update `Updated:` dates.
-   Prefer that these already moved with the behaviour commits; this pass is the safety net.
-   Do not close umbrella issues in PR text unless the plan says that slice closes them.
+   index row. Mark finished slices **`done`** on this PR; park deferred work explicitly; update
+   `Updated:` dates. Prefer that these already moved with the behaviour commits; this pass is the
+   safety net. Do **not** open a follow-up “cite” PR only to flip status after merge. Do not
+   close umbrella issues in PR text unless the plan says that slice closes them.
    If this PR changed agent/release *process* (`AGENTS.md`, `release.yml`, Contributing release
    pages), append to [`design/process/agent-workflow-journey.md`](design/process/agent-workflow-journey.md)
    per the Working documents rules — skip that file on ordinary feature PRs.
