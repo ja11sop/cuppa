@@ -448,7 +448,7 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
 | `--update-publishers` (FF clean/behind forest trees; skip develop) | **Shipped** (2026-09-18) — settled decisions in this plan; ACTION table + quiet fetch; soak on corosio→capy forest |
 | Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date / skip-if-current is Phase 2c. |
 | Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak ([#322](https://github.com/ja11sop/cuppa/pull/322)) |
-| Phase 2c implementation | **Done** (skip-if-current + `--force`, cascade-once, sibling-stem invalidate, upload-only refresh, semantic `cuppa-publish.json` seed); project D dual-toolchain tip soak confirmed — not yet in a named release |
+| Phase 2c implementation | **Done** in [#323](https://github.com/ja11sop/cuppa/pull/323) (skip-if-current + `--force`, cascade-once, sibling-stem invalidate, upload-only refresh, semantic `cuppa-publish.json` seed); project D dual-toolchain tip soak confirmed — not yet in a named release |
 | Phase 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |
