@@ -1,7 +1,7 @@
 # Plan: `PublishPackage` archive as SCons SideEffect under `--parallel`
 
-- **Status:** proposal
-- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298)); soak context [`cascade-defer-404.md`](cascade-defer-404.md) / [#316](https://github.com/ja11sop/cuppa/pull/316)
+- **Status:** in progress
+- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [#318](https://github.com/ja11sop/cuppa/issues/318); PR [#319](https://github.com/ja11sop/cuppa/pull/319); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298))
 - **Updated:** 2026-09-21
 - **Impact:** `patch`
 
@@ -58,10 +58,19 @@ publish source). Do **not** make the archive the sole Command target — the
 
 ## Workaround (until shipped)
 
-Omit `--parallel` / `--jobs` for `--publish-package` and cascade nested publishes.
+None needed after [#319](https://github.com/ja11sop/cuppa/pull/319) — live soak under
+`--publish-package --parallel` succeeded (2026-09-21).
 
 ## Non-goals
 
 - `--parallel=N` CLI spelling ([#298](https://github.com/ja11sop/cuppa/issues/298))
 - Changing cascade session parallelism across nested cuppa processes
 - Lazy fetch / Slice F defer-404 behaviour
+
+## Progress snapshot
+
+| Item | State |
+|------|--------|
+| Settled approach (SideEffect) | Done |
+| Code + unit tests | Done on [#319](https://github.com/ja11sop/cuppa/pull/319) |
+| Live soak with `--publish-package --parallel` | **Done** 2026-09-21 |

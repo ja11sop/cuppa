@@ -491,8 +491,11 @@ Use xref:methods/custom-commands.adoc[Custom commands] when you need a raw
 for the usual configure → build → install graph. Those methods wrap
 `cuppa.buildsys.cmake` (Option B argv helpers) and `cuppa.utility.command.run` so
 `CMAKE_BUILD_TYPE` / `CMAKE_CXX_COMPILER` track the active variant and toolchain,
-and `CMakeBuild` passes ``cmake --build --parallel N`` when you pass Cuppa
-``--parallel``. Pair with xref:methods/staging-files.adoc[Staging files]
+and `CMakeBuild` passes ``cmake --build --parallel N`` with the **same**
+``N`` as Cuppa ``--parallel`` / ``env['job_count']`` (affinity-sized, never
+bare ``--parallel``), or ``--parallel 1`` when Cuppa ``--parallel`` is off.
+Pass ``jobs=False`` on ``CMakeBuild`` to omit ``--parallel`` and leave the
+generator default. Pair with xref:methods/staging-files.adoc[Staging files]
 when you need `Install()` into a package layout under `final/`.
 
 Lower-level: `cmake_configure_command` / `cmake_build_command` remain available if
@@ -615,11 +618,13 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 
 | `--parallel` / `env['job_count']`
 | `cmake --build … --parallel N` via `env.CMakeBuild`
-| When Cuppa `--parallel` is set, `CMakeBuild` passes `--parallel` with
-  `env['job_count']` (affinity-aware — same count as SCons `-j`, after the
-  wrapper leaves cores free for the OS). Override with `jobs=N` or omit with
-  `jobs=False`. Nested oversubscribe is possible if several CMake builds run
-  under SCons `-j` at once; use `jobs=` then.
+| With Cuppa `--parallel`, `CMakeBuild` passes `--parallel` with
+  `env['job_count']` — the same affinity-aware count as SCons `-j` after the
+  wrapper leaves cores free for the OS (e.g. 14 on a 16-core host). Never bare
+  `--parallel` (that lets Ninja use all logical CPUs and oversubscribe the
+  mask). Without Cuppa `--parallel`, it still passes `--parallel 1`. Override
+  with `jobs=N` or omit with `jobs=False`. Nested oversubscribe is possible if
+  several CMake builds run under SCons `-j` at once; use `jobs=` then.
 
 | Generator (`-G Ninja`, …)
 | Default: `Ninja` when `ninja` is on `PATH`; else omit `-G`. Pass

@@ -1,7 +1,7 @@
 # Plan: Cascade defer-404 for first publish (§6 / Slice F)
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); parent [`package-develop-local.md`](package-develop-local.md) §6; cascade [`package-build-publish-deps.md`](package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; PR [#316](https://github.com/ja11sop/cuppa/pull/316)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); parent [`package-develop-local.md`](package-develop-local.md) §6; cascade [`package-build-publish-deps.md`](package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; merged [#316](https://github.com/ja11sop/cuppa/pull/316); cite/archive [#320](https://github.com/ja11sop/cuppa/pull/320)
 - **Updated:** 2026-09-21
 - **Impact:** `minor`
 
@@ -121,3 +121,5 @@ cuppa -D --rel --toolchains=gcc15 \
 | Unit tests + Antora | Done |
 | Collect-cascade soak (7/7 cloned) | Done |
 | Full publish soak (tip + 7 nested) | **Done** 2026-09-21 |
+| Merged to master | **Done** [#316](https://github.com/ja11sop/cuppa/pull/316) |
+| Cite / move to `design/archive/` | [#320](https://github.com/ja11sop/cuppa/pull/320) |

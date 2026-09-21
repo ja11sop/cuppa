@@ -104,11 +104,11 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` — **shipped** |
 | D | Consume from a locally built package: discover `final/<package>/<version>/` under `--develop`; opt-in `--stage-develop` for nest build + deep clean | `minor` — **shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak complete |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | `minor` (inference + note shipped with D; distinct kwarg only if needed) |
-| F | First-publish: defer tip registry 404 for cascade-eligible packages until nested publish refreshes consume cache | `minor` — **this branch** |
+| F | First-publish: defer tip registry 404 for cascade-eligible packages until nested publish refreshes consume cache | `minor` — **shipped** in [#316](https://github.com/ja11sop/cuppa/pull/316) |
 
 Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop/cuppa/pull/310).
 **Slice D shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak complete. Extending `--stage-develop` to location develop trees: [`stage-develop-locations.md`](stage-develop-locations.md) (L1–L4 shipped in [#313](https://github.com/ja11sop/cuppa/pull/313) / [#315](https://github.com/ja11sop/cuppa/pull/315)).
-**Slice F** is next for cascade first-publish (open question §6).
+**Slice F shipped** in [#316](https://github.com/ja11sop/cuppa/pull/316). **Slice E** (prefix migration) remains.
 
 ### Soak findings (post slice C)
 
@@ -176,7 +176,7 @@ See **Slice D settled decisions** above.
 
 ### 6. Publishing a version the registry does not have yet — Slice F
 
-**Status:** soak complete on [#316](https://github.com/ja11sop/cuppa/pull/316); ready to merge.
+**Status:** **shipped** in [#316](https://github.com/ja11sop/cuppa/pull/316).
 
 #### Why it fails today
 

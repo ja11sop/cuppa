@@ -71,6 +71,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``PublishPackage`` under ``--parallel`` / SCons ``-j`` no longer fails with
+  ``Source '….tar.gz' not found`` for ``.published`` after a successful package
+  create: the archive is declared as an SCons ``SideEffect`` of the
+  ``.packaged`` stamp ([#317](https://github.com/ja11sop/cuppa/issues/317)).
+- ``CMakeBuild`` without Cuppa ``--parallel`` now passes
+  ``cmake --build --parallel 1`` so the default Ninja generator cannot invent an
+  all-CPU job count; with Cuppa ``--parallel`` it passes the same affinity-sized
+  ``env['job_count']`` as an explicit ``--parallel N`` (never bare
+  ``--parallel``). ``jobs=False`` still omits ``--parallel``
+  ([#318](https://github.com/ja11sop/cuppa/issues/318)).
+
 - ``--update-develop`` reports the same **ACTION** table as ``--update-publishers``
   (**updated** / **no change** / **left alone**; dry-run **would update** /
   **leave alone**). On a tty, remote checks rewrite one subdued status line

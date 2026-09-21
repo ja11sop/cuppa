@@ -472,7 +472,7 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 | See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 
 | xref:methods/packages.adoc[`CMakeBuild()`]
-| `cmake --build`; ``--parallel`` when Cuppa ``--parallel`` is set
+| `cmake --build`; ``--parallel N`` with Cuppa ``--parallel``, else ``--parallel 1``
 |
 
 | xref:methods/packages.adoc[`CMakeInstall()`]

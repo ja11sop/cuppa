@@ -122,8 +122,9 @@ class CMakeBuildMethod(object):
     """``env.CMakeBuild(source, build_dir=…, working_dir=…, jobs=…)``.
 
     With ``jobs=None`` (default), passes ``--parallel N`` when Cuppa
-    ``--parallel`` set ``env['parallel']`` and ``env['job_count'] >= 2``.
-    Pass ``jobs=False`` to omit; pass a positive int to override.
+    ``--parallel`` set ``env['parallel']`` and ``env['job_count'] >= 2``,
+    otherwise ``--parallel 1`` so Ninja does not use all CPUs. Pass
+    ``jobs=False`` to omit; pass a positive int to override.
     Also ``Clean``s the CMake ``-B`` tree (same as configure).
     """
 
