@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`cascade-defer-404.md`](cascade-defer-404.md) (Slice F detail + soak); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-20
+- **Updated:** 2026-09-21
 - **Impact:** `minor` for the resolution, clone, local-consume (D), and first-publish defer-404 (F) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
 
 ## Problem
@@ -176,7 +176,7 @@ See **Slice D settled decisions** above.
 
 ### 6. Publishing a version the registry does not have yet — Slice F
 
-**Status:** in progress on this branch.
+**Status:** soak complete on [#316](https://github.com/ja11sop/cuppa/pull/316); ready to merge.
 
 #### Why it fails today
 
@@ -217,10 +217,10 @@ Default cold-start path (not a pre-planted `--publisher-root` forest):
    nothing built or uploaded.
 2. Re-run `--cascade-plan` — graph expands via each child’s `cuppa-publish.json`
    (tip-direct alone while clones are missing).
-3. `--publish-package --clone-publishers` — Slice F lets tip `BuildWith` survive
-   missing registry archives until nested publish + refresh fills consume cache
-   (**pending** after this branch is green).
+3. `--publish-package` (omit `--parallel` until [#317](https://github.com/ja11sop/cuppa/issues/317) /
+   [#319](https://github.com/ja11sop/cuppa/pull/319)) — **Done (2026-09-21):** tip
+   google-cloud-cpp + 7 nested publishers published; Slice F defer held.
 
 `--publisher-root` remains a secondary shortcut when trees already exist on disk.
-Nested leaf-first upload should feed parent nested sessions from the registry;
-watch soak for nested 404s but do not expand F to nested defer unless proven.
+Nested leaf-first upload fed parents from the registry on this soak; no nested
+defer expansion needed.

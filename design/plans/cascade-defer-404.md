@@ -1,8 +1,8 @@
 # Plan: Cascade defer-404 for first publish (§6 / Slice F)
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); parent [`package-develop-local.md`](package-develop-local.md) §6; cascade [`package-build-publish-deps.md`](package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`
-- **Updated:** 2026-09-20
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); parent [`package-develop-local.md`](package-develop-local.md) §6; cascade [`package-build-publish-deps.md`](package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; PR [#316](https://github.com/ja11sop/cuppa/pull/316)
+- **Updated:** 2026-09-21
 - **Impact:** `minor`
 
 ## Problem
@@ -62,7 +62,14 @@ Cascade plan: google-cloud-cpp [==3.9.0] (this package) with 7 package dependenc
 nothing was built, published, or uploaded.
 ```
 
-That confirms the **clone + DAG visibility** half of the soak. Remaining: full `--publish-package --clone-publishers` once Slice F code is green (tip `BuildWith` must survive missing registry archives until nested publish + refresh).
+That confirms the **clone + DAG visibility** half of the soak.
+
+### Full publish soak (2026-09-21) — succeeded
+
+`--build-and-publish-dependencies --publish-package` (without `--parallel`; see
+[#317](https://github.com/ja11sop/cuppa/issues/317) / [#319](https://github.com/ja11sop/cuppa/pull/319))
+completed the tip google-cloud-cpp package after nested leaf-first publishes.
+Tip defer-404 held; no nested-parent 404 expansion of Slice F was required.
 
 ### Recommended soak commands
 
@@ -84,18 +91,18 @@ cuppa -D --rel --toolchains=gcc15 \
 
 ### Soak notes (not Slice F scope, but will bite)
 
-- Nested sessions are leaf-first and upload as they go; parents should fetch already-published leaves from the registry. §6 is primarily the **tip** pre-sconscript gate. If a nested parent 404s on a leaf that this same cascade has not uploaded yet, that is a separate bug — watch for it in soak; do not expand Slice F to nested defer unless soak proves it.
+- Nested sessions are leaf-first and upload as they go; parents should fetch already-published leaves from the registry. §6 is primarily the **tip** pre-sconscript gate. Project D full publish did **not** hit nested parent 404s; do not expand F to nested defer unless a later soak proves it.
 - Tip auto-enables its direct package deps → those pins hit the defer path on a virgin registry/toolchain.
-- **`--parallel` + `--publish-package`:** nested abseil failed after “Package … created” with `Source '….tar.gz' not found` for `.published` — archive is a side effect of `.packaged`, not declared to SCons. Workaround: omit `--parallel` for this soak. Fix: [#317](https://github.com/ja11sop/cuppa/issues/317) / [`publish-package-parallel-side-effect.md`](publish-package-parallel-side-effect.md).
+- **`--parallel` + `--publish-package`:** nested abseil failed after “Package … created” with `Source '….tar.gz' not found` for `.published` — archive is a side effect of `.packaged`, not declared to SCons. Workaround used for this soak: omit `--parallel`. Fix: [#317](https://github.com/ja11sop/cuppa/issues/317) / [#319](https://github.com/ja11sop/cuppa/pull/319).
 
 ## Implementation checklist
 
 1. Eligibility helper — `tip_package_is_cascade_eligible` (**done**)
 2. Defer in `gitlab.py` + register deferred keys (**done**)
 3. Post-cascade `audit_deferred_cascade_fetches` (**done**)
-4. Unit tests for eligible / ineligible / audit (**this PR**)
-5. Antora one-paragraph note under cascading publishes (**this PR**)
-6. Project D full publish soak after CI green
+4. Unit tests for eligible / ineligible / audit (**done**)
+5. Antora one-paragraph note under cascading publishes (**done**)
+6. Project D full publish soak (**done** 2026-09-21)
 
 ## Non-goals
 
@@ -110,7 +117,7 @@ cuppa -D --rel --toolchains=gcc15 \
 | Item | State |
 |------|--------|
 | Settled decisions in parent plan §6 | Done |
-| Code: eligibility + defer + audit | Done on `feature/cascade-defer-404` |
+| Code: eligibility + defer + audit | Done on [#316](https://github.com/ja11sop/cuppa/pull/316) |
 | Unit tests + Antora | Done |
 | Collect-cascade soak (7/7 cloned) | Done |
-| Full publish soak | Pending after green |
+| Full publish soak (tip + 7 nested) | **Done** 2026-09-21 |
