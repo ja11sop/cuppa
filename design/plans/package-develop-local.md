@@ -1,7 +1,7 @@
 # Plan: Develop a package dependency from its own source tree
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`cascade-defer-404.md`](cascade-defer-404.md) (Slice F detail + soak); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) (Slice F detail + soak, shipped [#316](https://github.com/ja11sop/cuppa/pull/316)); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
 - **Updated:** 2026-09-21
 - **Impact:** `minor` for the resolution, clone, local-consume (D), and first-publish defer-404 (F) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
 
@@ -178,12 +178,12 @@ See **Slice D settled decisions** above.
 
 **Status:** **shipped** in [#316](https://github.com/ja11sop/cuppa/pull/316).
 
-#### Why it fails today
+#### Why it failed before F
 
 Tip `BuildWith(default_dependencies)` runs in `init_env_for_variant` **before** the
 sconscript body, so `GitlabPackageDependency.__init__` downloads **before**
 `PublishPackage` → `maybe_run_cascade`. Cascade already refreshes the tip consume
-cache after each nested publish; the gap is the early fatal 404.
+cache after each nested publish; the gap was the early fatal 404.
 
 #### Approaches considered
 
@@ -207,7 +207,7 @@ cache after each nested publish; the gap is the early fatal 404.
 
 #### Soak (project D)
 
-Detail and command recipes: [`cascade-defer-404.md`](cascade-defer-404.md).
+Detail and command recipes: [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md).
 
 Default cold-start path (not a pre-planted `--publisher-root` forest):
 
