@@ -407,6 +407,17 @@ traveling file rather than keep a derived twin for a release that never shipped.
 | Couples with | [`package-metadata-amend.md`](package-metadata-amend.md) (amend already on master via #300; single-file behaviour is this slice) |
 | Boost ``latest`` | Still open follow-on (question 10) — not 2d |
 
+### Soak note (project D, after #324)
+
+Amending/republishing a **dependency** (same version, new tarball — even when only
+``cuppa-publish.json`` changed) still causes cascade to **invalidate + re-fetch**
+that pin into the tip consume cache. Tip CMake then sees a newer prefix under
+``CMAKE_PREFIX_PATH`` and may **fully rebuild** a fat tip such as google-cloud-cpp.
+That is expected today, not a 2d regression. For a tip-only metadata soak, amend
+the **tip** itself (``--amend-package-manifest``) and avoid leaf cascade /
+``--force`` unless you want that rebuild. Tip no-op when a refreshed dependency
+extract is payload-identical aside from traveling JSON is open question 11.
+
 ## Open questions (Phase 2+)
 
 1. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
@@ -430,6 +441,11 @@ traveling file rather than keep a derived twin for a release that never shipped.
     Goal: avoid hand-editing `cuppa-publish.json` on every Boost release while
     keeping publish identity honest. Not started; do not put literal `"latest"`
     in a published package version today.
+11. **Tip no-op after metadata-only dependency refresh** — when cascade (or a
+    same-version leaf amend) re-fetches a dependency whose ``include/`` / ``lib/``
+    are unchanged and only traveling JSON differs, avoid dirtying tip CMake /
+    a full tip rebuild. Not started; operators should amend the tip itself for
+    tip-only metadata soaks (see Phase 2d soak note).
 
 ## Acceptance (when implemented)
 
@@ -470,3 +486,4 @@ traveling file rather than keep a derived twin for a release that never shipped.
 | Phase 2d implementation | **Done** in [#324](https://github.com/ja11sop/cuppa/pull/324) — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |
+| Follow-on: tip no-op after metadata-only dependency refresh | Open — question 11; project D soak after #324 |

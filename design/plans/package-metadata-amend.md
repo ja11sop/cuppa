@@ -65,7 +65,10 @@ build; **B** when only the registry artefact exists (google-cloud-cpp one-off).
   motivation (`default_use_libs: []` on fat packages)
 - [`package-build-publish-deps.md`](package-build-publish-deps.md) Phase **2d** —
   single traveling `cuppa-publish.json`; amend is the metadata shortcut and
-  removes the legacy dependency twin on retar
+  removes the legacy dependency twin on retar. **Note:** amending a *dependency*
+  and cascading from a fat tip can still trigger a full tip CMake rebuild today
+  (consume re-fetch); tip-only metadata soaks should amend the tip itself — see
+  that plan’s Phase 2d soak note / open question 11.
 
 ## Acceptance
 
@@ -86,4 +89,4 @@ build; **B** when only the registry artefact exists (google-cloud-cpp one-off).
 | Unit tests + Antora + CHANGELOG | **Done** |
 | Issue filed | [#299](https://github.com/ja11sop/cuppa/issues/299) |
 | Single traveling file (`cuppa-publish.json`; drop twin) | Coupled to cascade Phase **2d** |
-| Project D google-cloud-cpp amend soak | Parked — private one-off republish after 2d lands |
+| Project D google-cloud-cpp amend soak | Tip amend OK after #324; leaf amend + tip cascade can still rebuild tip CMake (expected; see cascade plan Q11) |
