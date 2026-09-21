@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md); [`design/README.md`](../README.md) (graduate notes into `plans/` then ROADMAP)
-- **Updated:** 2026-09-13
+- **Updated:** 2026-09-22
 
 Scratchpad for suggestions that may become new plans or updates to existing ones.
 The goal is to turn these notes into actionable, well-understood plan elements.
@@ -45,6 +45,17 @@ Assess what is involved and write a plan. Should integrate with the existing GCC
 reporting path. Deferred while Boost latest persistence and `--list-toolchains` are in flight.
 
 ## New plan(s): Dependencies / Packages
+
+### `--deep-clean` (agnostic out-of-tree product wipe)
+
+`cuppa -c` should stay selection-safe: `_build/…` plus cuppa-owned out-of-tree
+stages that are precise (Boost `build.<abi>/<toolchain>/…`, CMake `-B`). A future
+**`--deep-clean`** would be the opt-in agnostic command for coarser shared-cache
+products (Boost.Build `bin.<abi>` toolset trees, other location-dep build dirs)
+without inventing per-dependency “clean harder” flags. Related today:
+`--remove-dependencies=boost` / `storage_clean` already wipe stage + matching
+`bin.*` for Boost only. Graduate when CMake/Boost/`Acquire` clean stories need
+one CLI.
 
 ### Publish-side CLI pins (version, …) — parked on cmake-drive plan
 

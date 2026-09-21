@@ -96,6 +96,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``<toolchain>._jam`` and b2 is invoked with ``--user-config`` pointing at that
   file; leftover cuppa-authored ``project-config.jam`` files are removed.
 
+- ``cuppa -c`` now also removes the cuppa-scoped Boost **stage** directory under
+  the shared extract (``build.<abi>/<toolchain>/…``) when cleaning installed
+  Boost libraries under ``_build/``. Boost.Build ``bin.<abi>`` object trees, the
+  extract, and ``b2`` stay; use ``--remove-dependencies=boost`` for a fuller
+  product wipe.
+
 - Cascade tip consume refresh after a nested publish wipes only the tip's
   current toolchain stem (and its extract), not the whole
   ``downloads/packages/<pkg>/<ver>/`` directory — sibling toolchain archives

@@ -422,6 +422,17 @@ class BoostLibraryBuilder(object):
 
             installed_libraries.append( installed_library )
 
-        logger.debug( "Boost 'Installed' Libraries = [{}]".format( colour_items( l.path for l in Flatten( installed_libraries ) ) ) )
+        installed = Flatten( installed_libraries )
 
-        return Flatten( installed_libraries )
+        # Cuppa-scoped stage under the shared extract (build.<abi>/<toolchain>/…).
+        # Mirror CMake's env.Clean on -B for what this variant owns. Leave bin.<abi>
+        # and the extract for --remove-dependencies=boost (and a future --deep-clean).
+        if installed:
+            stage_abs = os.path.join( self._boost.local(), stage_dir )
+            env.Clean( installed, stage_abs )
+            if built_libraries:
+                env.Clean( built_libraries, stage_abs )
+
+        logger.debug( "Boost 'Installed' Libraries = [{}]".format( colour_items( l.path for l in installed ) ) )
+
+        return installed
