@@ -96,10 +96,10 @@ def test_package_archive_rebuilds_when_manifest_file_is_newer( tmp_path ):
     archive.write_bytes( b"archive" )
     time.sleep( 0.02 )
 
-    manifest = staging / "cuppa-dependency.json"
+    manifest = staging / "cuppa-publish.json"
     manifest.write_text(
-            '{"cuppa_dependency_format":1,"default_use_libs":["widget"],'
-            '"dependencies":[]}\n',
+            '{"cuppa_publish_format":1,"package":"widget","version":"1.0.0",'
+            '"default_use_libs":["widget"],"dependencies":[]}\n',
             encoding="utf-8",
     )
 
@@ -351,17 +351,24 @@ def test_amend_package_writes_manifest_on_existing_stage( tmp_path, monkeypatch 
             { "name": "fmt", "package": "fmt", "version": "12.2.0", "registry": "same" },
     ]
 
+    legacy = staging / "cuppa-dependency.json"
+    legacy.write_text(
+            '{"cuppa_dependency_format":1,"dependencies":[]}\n',
+            encoding="utf-8",
+    )
+
     touched = []
     env = _publisher_env( tmp_path, touched )
     assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
     assert create_calls == [ ( str( archive ), str( tmp_path ), "widget" ) ]
     assert touched
 
-    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
-    document = read_manifest( str( staging ) )
+    from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+    document = read_publish_manifest( str( staging ) )
     assert document["default_use_libs"] == []
     assert document["dependencies"][0]["name"] == "fmt"
     assert ( include_dir / "widget.hpp" ).read_text( encoding="utf-8" ) == "header\n"
+    assert not legacy.exists()
 
 
 def test_amend_package_extracts_local_archive_when_stage_missing( tmp_path, monkeypatch ):
@@ -400,8 +407,9 @@ def test_amend_package_extracts_local_archive_when_stage_missing( tmp_path, monk
     assert ( include_dir / "widget.hpp" ).read_text( encoding="utf-8" ) == "from-archive\n"
     assert create_calls
 
-    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
-    assert read_manifest( str( staging ) )["default_use_libs"] == [ "widget" ]
+    from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+    assert read_publish_manifest( str( staging ) )["default_use_libs"] == [ "widget" ]
+    assert not ( staging / "cuppa-dependency.json" ).exists()
 
 
 def test_amend_package_downloads_when_stage_and_archive_missing( tmp_path, monkeypatch ):

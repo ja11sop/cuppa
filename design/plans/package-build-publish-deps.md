@@ -265,8 +265,8 @@ design.
 | **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop — **shipped** ([#302](https://github.com/ja11sop/cuppa/pull/302)) |
 | **2a — Plan and session visibility** | `--cascade-plan` dry run (judgement-tree report, collected resolution errors) + nested session banners; no registry writes |
 | **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
-| **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **done** (implementation on branch; not yet in a named release) |
-| **2d — Converge** | One traveling manifest if `cuppa-publish.json` / `cuppa-dependency.json` are still bridged |
+| **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **done** ([#323](https://github.com/ja11sop/cuppa/pull/323); not yet in a named release) |
+| **2d — Converge** | Single traveling **`cuppa-publish.json`** (stop writing `cuppa-dependency.json`; read fallback for old extracts); amend coupled — **done** (not yet in a named release) |
 | **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
 | **Later** | Parallel independent leaves; Conan parity if needed |
 
@@ -276,7 +276,7 @@ design.
 |----------|----------|
 | Skip policy | **Phase 1:** always rebuild+publish every resolved node. **Superseded by Phase 2c** (skip-if-current + `--force`) |
 | Field name | **`package_source`** |
-| File layout | **Bridge:** keep `cuppa-dependency.json` for consume (no `package_source`); write **`cuppa-publish.json`** with the same edges **plus** `package_source` / package identity. One authoring input (`dependencies=`). |
+| File layout | **Phase 1 bridge (superseded by 2d):** dual file. **Phase 2d:** single traveling ``cuppa-publish.json``. |
 | Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
 | Flag without `--publish-package` | **Refuse** — require `--publish-package` |
 | Flag name | **`--build-and-publish-dependencies`** (aliases later) |
@@ -390,11 +390,28 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
   skip recreate and no publish. Dirty `cuppa-publish.json` warnings on the uploaders were
   sort-key rewrites from the seed, not operator edits.
 
+## Phase 2d settled decisions (single traveling file)
+
+Neither ``cuppa-dependency.json`` nor ``cuppa-publish.json`` is in a named Cuppa
+release yet (both landed under open ``1.11.0.dev``). Converge **now** to one
+traveling file rather than keep a derived twin for a release that never shipped.
+
+| Question | Decision |
+|----------|----------|
+| Traveling SoT | **``cuppa-publish.json`` only** — identity, deps (incl. ``package_source``), ``default_use_libs`` / ``link`` |
+| Stop writing | Do **not** emit ``cuppa-dependency.json`` from ``build_package`` / ``amend_package`` / seed |
+| Legacy extracts | **Read fallback:** consume apply and ``--list-dependencies`` ``requires`` prefer publish; if absent, read ``cuppa-dependency.json`` |
+| Both present | **Publish wins** |
+| Amend | Rewrite publish; **remove** any leftover ``cuppa-dependency.json`` before retar |
+| Private registry / source trees | Operator **one-off** amend/republish after this lands — not part of the Cuppa PR |
+| Couples with | [`package-metadata-amend.md`](package-metadata-amend.md) (amend already on master via #300; single-file behaviour is this slice) |
+| Boost ``latest`` | Still open follow-on (question 10) — not 2d |
+
 ## Open questions (Phase 2+)
 
 1. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
    so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
-2. File convergence to a single traveling manifest
+2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only — distinct from
    `--cascade-plan` (builds nothing) and `--collect-cascade` (clones only)
 4. Richer `--publisher-root` layout rules
@@ -434,7 +451,7 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
 | Problem / gap (publisher location ≠ package develop) | Captured |
 | Authoring: `package_source` on edges + optional root | Captured |
 | SoT: traveling **`cuppa-publish.json`** (auto-discovery; one graph) | Settled (2026-09-14) |
-| Bridge / converge with `cuppa-dependency.json` | Settled for Phase 1 — dual file, one authoring input |
+| Bridge / converge with `cuppa-dependency.json` | Phase 1 dual-file bridge; **Phase 2d** single `cuppa-publish.json` |
 | Defer until after #294 | Done — unblocked |
 | Phase 1 settled decisions (skip / flag / when) | Settled (2026-09-14) |
 | Project D tip (google-cloud-cpp **3.9.0**) build + publish | Done (manual bottom-up; motivates this feature) |
@@ -449,6 +466,7 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
 | Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date / skip-if-current is Phase 2c. |
 | Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak ([#322](https://github.com/ja11sop/cuppa/pull/322)) |
 | Phase 2c implementation | **Done** in [#323](https://github.com/ja11sop/cuppa/pull/323) (skip-if-current + `--force`, cascade-once, sibling-stem invalidate, upload-only refresh, semantic `cuppa-publish.json` seed); project D dual-toolchain tip soak confirmed — not yet in a named release |
-| Phase 2d | Not started |
+| Phase 2d settled decisions (single `cuppa-publish.json`) | **Settled** (2026-09-21) — neither file in a named release yet |
+| Phase 2d implementation | **Done** — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |

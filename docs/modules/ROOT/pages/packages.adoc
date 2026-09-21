@@ -30,7 +30,7 @@ upload without re-tarring multi-gigabyte trees.
 Add `--publish-package` to upload it to the GitLab generic registry.
 `env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
 The publish step depends on the archive file as well as the empty ``.packaged`` stamp, so
-a retar (for example after updating ``cuppa-dependency.json``) invalidates upload under
+a retar (for example after updating ``cuppa-publish.json``) invalidates upload under
 SCons ``MD5-timestamp``.
 
 [#build-and-publish-dependencies]
@@ -73,10 +73,11 @@ refresh above fill the consume cache. A registry-only pin that cascade cannot
 publish still fails immediately. If a deferred pin is still missing after
 cascade, cuppa stops and names the package.
 
-Publisher builds also stage ``cuppa-publish.json`` next to
-``cuppa-dependency.json`` (same edges, plus ``package_source``) and seed a copy
-beside the tip ``sconstruct`` for local cascade discovery. Consume still uses
-``cuppa-dependency.json`` only.
+Publisher builds stage a single traveling ``cuppa-publish.json`` (identity, deps
+including ``package_source``, optional ``default_use_libs`` / ``link``) and seed
+a copy beside the tip ``sconstruct`` for local cascade discovery. Consume and
+``--list-dependencies`` ``requires`` read that file; legacy
+``cuppa-dependency.json`` remains a **read-only fallback** for older extracts.
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
 fail before nested uploads. A ``package_source`` URL needs either a tree that
@@ -420,8 +421,9 @@ Cuppa then:
 * skips ``DownloadExtract``, ``RemoveEmptyDirs``, and ``CMakeConfigure`` /
   ``CMakeBuild`` / ``CMakeInstall`` (they register no-op stamps so the graph still
   links)
-* rewrites ``cuppa-dependency.json`` from the current ``GitlabPackagePublisher``
-  kwargs (``dependencies``, ``default_use_libs``, ``link``)
+* rewrites ``cuppa-publish.json`` from the current ``GitlabPackagePublisher``
+  kwargs (``dependencies``, ``default_use_libs``, ``link``) and removes any
+  legacy ``cuppa-dependency.json`` twin
 * retars from an existing ``final/<package>/<version>/`` stage when present;
   otherwise extracts a local ``.tar.gz`` / ``.zip`` under ``final/``, or downloads
   that archive from the registry first
@@ -438,7 +440,7 @@ xref:dependencies/gitlab.adoc[GitLab packages] and the planned
 === Declaring transitive dependencies
 
 Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab
-packages at include or link time. Cuppa writes ``cuppa-dependency.json`` into the staged package
+packages at include or link time. Cuppa writes ``cuppa-publish.json`` into the staged package
 directory (next to ``include/`` / ``lib/``) before creating the archive. Entries may be bare
 BuildWith **names** (``'protobuf'``), partial dicts, or mixed. When only ``name`` is given,
 ``package`` defaults to the hyphenated form (``opentelemetry_cpp`` → ``opentelemetry-cpp``);

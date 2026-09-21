@@ -670,21 +670,18 @@ class GitlabPackagePublisher:
                     as_notice( source_modules ),
             ) )
 
-        from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
-        from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
-        package_base = str( self._package_base_dir )
-        manifest_path_written = write_manifest(
-                package_base,
-                getattr( self, '_dependencies', None ),
-                env=env,
-                default_use_libs=getattr( self, '_default_use_libs', None ),
-                link=getattr( self, '_link', None ),
+        from cuppa.package_managers.cuppa_publish_manifest import (
+                remove_legacy_dependency_manifest,
+                write_publish_manifest,
         )
-        if manifest_path_written:
-            logger.info( "Wrote [{}] for package [{}]".format(
-                    as_info( manifest_path_written ),
-                    as_info( self._package_file_name ),
-            ) )
+        package_base = str( self._package_base_dir )
+        if remove_legacy_dependency_manifest( package_base ):
+            logger.info(
+                    "Removed legacy cuppa-dependency.json under [{}] "
+                    "(traveling SoT is cuppa-publish.json)".format(
+                            as_info( package_base )
+                    )
+            )
         publish_path_written = write_publish_manifest(
                 package_base,
                 getattr( self, '_package', None ),
@@ -728,8 +725,6 @@ class GitlabPackagePublisher:
         modules_dir = os.path.join( package_base, 'modules' )
         if os.path.isdir( modules_dir ):
             staging_roots.append( modules_dir )
-        if manifest_path_written:
-            staging_roots.append( manifest_path_written )
         staging_roots.append( publish_path_written )
 
         if package_archive_is_up_to_date( archive_path, staging_roots ):
@@ -770,12 +765,12 @@ class GitlabPackagePublisher:
 
 
     def amend_package( self, target, source, env ):
-        """Rewrite ``cuppa-dependency.json`` and retar without restaging binaries.
+        """Rewrite ``cuppa-publish.json`` and retar without restaging binaries.
 
         Prefer an existing ``final/<package>/<version>/`` stage (mode A). Otherwise
         extract a local archive into ``abs_final_dir`` (mode B), or download that
         archive from the registry first. Does not copy from ``source_include_dir`` /
-        ``source_lib_dir``.
+        ``source_lib_dir``. Removes any legacy ``cuppa-dependency.json`` twin.
         """
         from SCons.Script import Touch
 
@@ -839,32 +834,17 @@ class GitlabPackagePublisher:
             )
             return 1
 
-        from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
-        from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
-        manifest_path_written = write_manifest(
-                package_base,
-                getattr( self, '_dependencies', None ),
-                env=env,
-                default_use_libs=getattr( self, '_default_use_libs', None ),
-                link=getattr( self, '_link', None ),
+        from cuppa.package_managers.cuppa_publish_manifest import (
+                remove_legacy_dependency_manifest,
+                write_publish_manifest,
         )
-        if manifest_path_written:
-            logger.info( "Amended [{}] for package [{}]".format(
-                    as_info( manifest_path_written ),
-                    as_info( self._package_file_name ),
-            ) )
-        else:
+        if remove_legacy_dependency_manifest( package_base ):
             logger.info(
-                    "No cuppa-dependency.json content for package [{}] "
-                    "(omitted dependencies / default_use_libs / link); "
-                    "removing any existing manifest before retar"
-                    .format( as_info( self._package_file_name ) )
+                    "Removed legacy cuppa-dependency.json under [{}] "
+                    "(traveling SoT is cuppa-publish.json)".format(
+                            as_info( package_base )
+                    )
             )
-            from cuppa.package_managers.cuppa_dependency_manifest import manifest_path
-            existing = manifest_path( package_base )
-            if os.path.isfile( existing ):
-                os.remove( existing )
-
         publish_path_written = write_publish_manifest(
                 package_base,
                 getattr( self, '_package', None ),

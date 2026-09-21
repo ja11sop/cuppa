@@ -164,7 +164,7 @@ build in that develop tree.
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a
 publisher tree yourself. It cannot be combined with `--publish-package`.
 
-`--amend-package-manifest` rewrites `cuppa-dependency.json` from the publisher kwargs,
+`--amend-package-manifest` rewrites `cuppa-publish.json` from the publisher kwargs,
 retars from an existing stage or registry archive, and skips DownloadExtract / CMake
 rebuild. Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].

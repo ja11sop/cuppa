@@ -49,6 +49,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Cascade Phase **2d**: the single traveling package manifest is
+  ``cuppa-publish.json`` (identity, deps including ``package_source``,
+  ``default_use_libs`` / ``link``). Publishers and ``--amend-package-manifest``
+  stop writing ``cuppa-dependency.json`` and remove any leftover twin on retar.
+  Consume apply and ``--list-dependencies`` ``requires`` prefer publish and fall
+  back to legacy ``cuppa-dependency.json`` for older extracts. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Phase 2d; [`package-metadata-amend`](design/plans/package-metadata-amend.md)
+  ([#297](https://github.com/ja11sop/cuppa/issues/297),
+  [#299](https://github.com/ja11sop/cuppa/issues/299)).
+
 - ``--cascade-plan`` and ``--stage-develop-plan`` trees insert subdued breathing
   stubs under each numbered node and between siblings. ``--stage-develop-plan``
   lists location develops in leaf-first **stage** order (`K of M`), then unstaged

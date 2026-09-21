@@ -397,7 +397,7 @@ def _gitlab_children( leaves_in ):
                             archive or '', leaf.get( 'has_download' )
                     ),
             ) )
-        # Declared transitive edges from cuppa-dependency.json (on-disk extract).
+        # Declared transitive edges from the traveling package manifest (on-disk extract).
         requires_node = _requires_group_for_variants( variants )
         if requires_node is not None:
             tool_children.append( requires_node )
@@ -435,10 +435,10 @@ def _requires_group_for_variants( variants ):
 
 
 def requires_group_from_package_dir( package_dir ):
-    """Build a ``requires`` tree node from ``cuppa-dependency.json``, or ``None``."""
-    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+    """Build a ``requires`` tree node from the traveling package manifest, or ``None``."""
+    from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
 
-    document = read_manifest( package_dir )
+    document = read_traveling_manifest( package_dir )
     if not document:
         return None
     return _requires_group_from_entries( document.get( 'dependencies' ) or [] )

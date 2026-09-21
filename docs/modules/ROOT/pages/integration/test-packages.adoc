@@ -10,7 +10,7 @@
 * Relative generated library dirs (`BuildStaticLib(..., final_dir='package_lib')` with
   `source_lib_dir='package_lib'`) stage from the variant tree under `--rel --parallel`.
   The archive contains the static library (not only a `.packaged` stamp).
-* ``GitlabPackagePublisher(..., dependencies=[...])`` writes ``cuppa-dependency.json`` into the
+* ``GitlabPackagePublisher(..., dependencies=[...])`` writes ``cuppa-publish.json`` into the
   archive (transitive package metadata).
 * Offline **alpha → beta → gamma** develop extracts: auto-enable only ``alpha``; transitive
   ``BuildWith`` supplies includes so a test that ``#include <alpha.hpp>`` compiles and runs.

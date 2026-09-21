@@ -7,11 +7,11 @@
 
 from pathlib import Path
 
-from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
 
 
 def plant_transitive_gitlab_chain( storage, tool_variant="gcc153_rel_x86_64_cxx2c" ):
-    """Plant alpha → beta → gamma extracts with ``cuppa-dependency.json``.
+    """Plant alpha → beta → gamma extracts with ``cuppa-publish.json``.
 
     Headers form an include chain (``alpha.hpp`` → ``beta.hpp`` → ``gamma.hpp``)
     so a consumer that only ``BuildWith('alpha')`` can compile against all three
@@ -42,9 +42,11 @@ def plant_transitive_gitlab_chain( storage, tool_variant="gcc153_rel_x86_64_cxx2
             encoding="utf-8",
     )
 
-    write_manifest(
+    write_publish_manifest(
             str( alpha ),
-            [
+            "alpha",
+            "1.0.0",
+            dependencies=[
                     {
                             "name": "beta",
                             "package": "beta",
@@ -54,9 +56,11 @@ def plant_transitive_gitlab_chain( storage, tool_variant="gcc153_rel_x86_64_cxx2
                     },
             ],
     )
-    write_manifest(
+    write_publish_manifest(
             str( beta ),
-            [
+            "beta",
+            "2.0.0",
+            dependencies=[
                     {
                             "name": "gamma",
                             "package": "gamma",
