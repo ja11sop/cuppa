@@ -13,9 +13,11 @@
 # --- Each release (happy path) ---------------------------------------------------
 #
 # Prerequisites: open cycle on master (`cuppa/VERSION` is X.Y.Z.dev, CHANGELOG has entries).
+# Also promote design plans marked `done` → `shipped` / archive (see contributing/versioning.adoc).
 #
 # 1. Actions → release → Run workflow → action: **prepare**
 #      Opens a PR that runs finish_release (VERSION + dated CHANGELOG, impact:none).
+#      Include the done→shipped plan/archive pass on that PR (or the merge-ready batch before it).
 # 2. Merge that PR when CI is green.
 # 3. Actions → release → Run workflow → action: **publish** (leave tag blank)
 #      Builds from master tip, creates the GitHub Release + tag via API, deploys GitHub

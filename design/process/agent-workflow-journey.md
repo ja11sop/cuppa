@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-09-16
+- **Updated:** 2026-09-21
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -189,7 +189,8 @@ Use this as an ordered checklist. Cuppa did not follow it perfectly (see §5); t
 - [ ] Changelog with one open section; SemVer impact labels on PRs.
 - [ ] Mechanical `start_release` / `finish_release` (or equivalent); CI gates that refuse `.dev` tags.
 - [ ] Roadmap “Today / Planned” that cites PR numbers, not stale branch names.
-- [ ] Design plans for multi-PR workstreams; archive or delete when shipped.
+- [ ] Design plans for multi-PR workstreams; mark **done** on the feature PR; promote **shipped** /
+      archive at named release (not per-merge cite PRs).
 
 ### Stage 5b — Make the release path push-button (learned the hard way)
 
@@ -310,6 +311,14 @@ These are recommendations for the next project, not self-flagellation.
     from CSS/HTML and their notes. Scan or process a screenshot only when they ask, or when they
     cannot check locally. Prefer one targeted crop over a full-page dump. Encoded in `AGENTS.md`
     under Documentation.
+
+18. **Do not open per-merge “cite” PRs that only rewrite will-do → has-done.**  
+    That habit (#312, #314, #320-style) doubles the matrix and forces interleaved rebases whenever
+    another feature lands first. Mark plan slices **`done` on the feature PR**. Reserve
+    **`shipped`** / `plans/` → `archive/` for the **named release** pass (batch all `done` work
+    with `finish_release`). Exception: true post-merge discovery (broken link, wrong squash
+    message) — not status theatre. Encoded in `AGENTS.md` § Working documents, `design/README.md`,
+    and Contributing versioning.
 
 ---
 
