@@ -440,6 +440,39 @@ def test_explicit_registry_url_is_passed_through( tmp_path: Path, monkeypatch ):
     assert created["b"]["registry"] == other
 
 
+def test_apply_prefers_cuppa_publish_when_both_present( tmp_path: Path, monkeypatch ):
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+
+    package_dir = tmp_path / "a" / "1.0.0"
+    _write_manifest( package_dir, [
+            {
+                    "name": "legacy",
+                    "package": "legacy",
+                    "version": "1.0.0",
+                    "registry": "same",
+            },
+    ] )
+    write_publish_manifest(
+            str( package_dir ),
+            "a",
+            "1.0.0",
+            dependencies=[
+                    {
+                            "name": "fmt",
+                            "package": "fmt",
+                            "version": "12.2.0",
+                            "registry": "same",
+                    },
+            ],
+    )
+    created = _install_fake_package_dependency( monkeypatch )
+    env = _FakeEnv()
+    apply_transitive_build_with( env, str( package_dir ), "a", _REGISTRY )
+    assert "fmt" in created
+    assert "legacy" not in created
+    assert env.build_with_calls == [ "fmt" ]
+
+
 def test_use_all_libs_selects_stems_and_delegates( tmp_path: Path ):
     lib_dir = tmp_path / "lib"
     lib_dir.mkdir()

@@ -110,8 +110,8 @@ def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
     package_dir = tmp_path / "gcc15_rel_x86_64_cxx2c" / "alpha" / "1.0.0"
     package_dir.mkdir( parents=True )
     ( package_dir / "include" ).mkdir()
-    from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
-    write_manifest( str( package_dir ), [
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+    write_publish_manifest( str( package_dir ), "alpha", "1.0.0", dependencies=[
             {
                     "name": "beta",
                     "package": "beta",

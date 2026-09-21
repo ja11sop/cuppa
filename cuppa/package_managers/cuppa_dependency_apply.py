@@ -3,7 +3,10 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""Apply ``cuppa-dependency.json`` edges during GitLab package BuildWith / use_libs."""
+"""Apply traveling package manifest edges during GitLab package BuildWith / use_libs.
+
+Prefers ``cuppa-publish.json``; falls back to legacy ``cuppa-dependency.json``.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +15,7 @@ import SCons.Script
 
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
-from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
 from cuppa.package_managers.package_link_libs import (
         list_linkable_lib_stems,
         list_static_lib_stems,
@@ -100,7 +103,7 @@ def _ensure_registered( env, entry, parent_registry ):
     pins[name] = str( version )
     logger.info(
             "Registered transitive package dependency [{}] (package [{}], version [{}]) "
-            "from cuppa-dependency.json".format(
+            "from the traveling package manifest".format(
                     as_info( name ),
                     as_notice( entry.get( "package" ) or name ),
                     as_info( str( version ) ),
@@ -116,7 +119,7 @@ def apply_stack( env ):
 
 def apply_transitive_build_with( env, package_dir, parent_name, parent_registry ):
     """``BuildWith`` each manifest dependency (includes / modules); detect cycles."""
-    document = read_manifest( package_dir )
+    document = read_traveling_manifest( package_dir )
     if not document:
         return
     dependencies = document.get( "dependencies" ) or []
@@ -152,7 +155,7 @@ def apply_transitive_build_with( env, package_dir, parent_name, parent_registry 
 
 def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
     """Apply each manifest edge's ``use_libs`` against the dependency (once per parent)."""
-    document = read_manifest( package_dir )
+    document = read_traveling_manifest( package_dir )
     if not document:
         return
 
@@ -180,7 +183,9 @@ def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
         if not callable( use ):
             raise SCons.Errors.StopError(
                 "Transitive package [{}] does not support use_libs "
-                "(required by [{}]'s cuppa-dependency.json).".format( name, parent_name )
+                "(required by [{}]'s traveling package manifest).".format(
+                        name, parent_name
+                )
             )
         logger.debug(
                 "Applying transitive use_libs {} on [{}] for package [{}]".format(

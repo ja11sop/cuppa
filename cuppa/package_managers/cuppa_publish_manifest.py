@@ -9,9 +9,10 @@
 
 """Read/write ``cuppa-publish.json`` staged beside package include/lib.
 
-See ``design/plans/package-build-publish-deps.md``. Consume continues to use
-``cuppa-dependency.json``; this file carries the same edges plus
-``package_source`` for cascade discovery.
+See ``design/plans/package-build-publish-deps.md``. This is the single traveling
+package SoT (identity, dependency edges including ``package_source``, and
+optional ``default_use_libs`` / ``link``). Legacy ``cuppa-dependency.json`` is
+read only as a fallback for extracts published before Phase 2d.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from typing import Any
 from cuppa.package_managers.cuppa_dependency_manifest import (
         fill_dependency_versions,
         normalise_dependency_entry,
+        read_manifest as read_legacy_dependency_manifest,
         _normalise_default_use_libs,
         _normalise_link,
 )
@@ -150,3 +152,47 @@ def read_publish_manifest( package_dir: str ) -> dict | None:
     if link_mode is not None:
         document["link"] = link_mode
     return document
+
+
+def read_traveling_manifest( package_dir: str ) -> dict | None:
+    """Load the traveling package document: publish first, else legacy dependency.
+
+    Prefer ``cuppa-publish.json``. Fall back to ``cuppa-dependency.json`` only for
+    extracts that predate Phase 2d. When both exist, publish wins.
+    """
+    document = read_publish_manifest( package_dir )
+    if document is not None:
+        return document
+    return read_legacy_dependency_manifest( package_dir )
+
+
+def remove_legacy_dependency_manifest( package_dir: str ) -> bool:
+    """Delete ``cuppa-dependency.json`` under ``package_dir`` if present.
+
+    Returns True when a file was removed. New archives must not keep the twin.
+    """
+    from cuppa.package_managers.cuppa_dependency_manifest import manifest_path
+
+    path = manifest_path( package_dir )
+    if not os.path.isfile( path ):
+        return False
+    os.remove( path )
+    return True
+
+
+def package_default_use_libs( package_dir: str ) -> list[str] | None:
+    """Return ``default_use_libs`` from the traveling manifest, or ``None``."""
+    document = read_traveling_manifest( package_dir )
+    if not document:
+        return None
+    if "default_use_libs" not in document:
+        return None
+    return list( document.get( "default_use_libs" ) or [] )
+
+
+def package_link_mode( package_dir: str ) -> str | None:
+    """Return the package ``link`` preference from the traveling manifest, if any."""
+    document = read_traveling_manifest( package_dir )
+    if not document:
+        return None
+    return document.get( "link" )

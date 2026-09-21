@@ -150,25 +150,29 @@ env.PublishPackage(lib, publisher)
     assert len(archives) == 1, archives
     members = _archive_member_names(archives[0])
     normalised = [name.replace("\\", "/") for name in members]
-    assert any(path.endswith("cuppa-dependency.json") for path in normalised), normalised
+    assert any(path.endswith("cuppa-publish.json") for path in normalised), normalised
     archive = archives[0]
     if archive.name.endswith(".zip"):
         with zipfile.ZipFile(archive) as zf:
             names = [
                 n for n in zf.namelist()
-                if n.replace("\\", "/").endswith("cuppa-dependency.json")
+                if n.replace("\\", "/").endswith("cuppa-publish.json")
             ]
             payload = json.loads(zf.read(names[0]))
     else:
         with tarfile.open(archive, "r:*") as tf:
             names = [
                 n for n in tf.getnames()
-                if n.replace("\\", "/").endswith("cuppa-dependency.json")
+                if n.replace("\\", "/").endswith("cuppa-publish.json")
             ]
             payload = json.loads(tf.extractfile(names[0]).read())
-    assert payload["cuppa_dependency_format"] == 1
+    assert payload["cuppa_publish_format"] == 1
+    assert payload["package"] == "widget"
     assert payload["dependencies"][0]["name"] == "fmt"
     assert payload["dependencies"][0]["use_libs"] == ["fmt"]
+    assert not any(
+            path.endswith("cuppa-dependency.json") for path in normalised
+    ), normalised
 
 
 def test_gitlab_publisher_stages_generated_relative_lib_dir(tmp_path):

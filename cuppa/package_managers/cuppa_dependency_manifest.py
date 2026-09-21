@@ -282,18 +282,19 @@ def read_manifest( package_dir: str ) -> dict | None:
 
 
 def package_default_use_libs( package_dir: str ) -> list[str] | None:
-    """Return ``default_use_libs`` from the manifest, or ``None`` if omitted / absent."""
-    document = read_manifest( package_dir )
-    if not document:
-        return None
-    if "default_use_libs" not in document:
-        return None
-    return list( document.get( "default_use_libs" ) or [] )
+    """Return ``default_use_libs`` from the traveling manifest, or ``None``.
+
+    Prefers ``cuppa-publish.json``; falls back to legacy ``cuppa-dependency.json``.
+    """
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            package_default_use_libs as _traveling_defaults,
+    )
+    return _traveling_defaults( package_dir )
 
 
 def package_link_mode( package_dir: str ) -> str | None:
-    """Return the package ``link`` preference from the manifest, if any."""
-    document = read_manifest( package_dir )
-    if not document:
-        return None
-    return document.get( "link" )
+    """Return the package ``link`` preference from the traveling manifest, if any."""
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            package_link_mode as _traveling_link,
+    )
+    return _traveling_link( package_dir )

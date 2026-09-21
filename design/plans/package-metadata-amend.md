@@ -1,28 +1,28 @@
 # Plan: Metadata-only GitLab package amend / republish
 
-- **Status:** in progress
-- **Related:** [#299](https://github.com/ja11sop/cuppa/issues/299); [`ROADMAP.md`](../../ROADMAP.md) — `package-metadata-amend`; [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-download-refresh.md`](package-download-refresh.md); project **D** google-cloud-cpp soak
-- **Updated:** 2026-09-14
+- **Status:** done
+- **Related:** [#299](https://github.com/ja11sop/cuppa/issues/299); [`ROADMAP.md`](../../ROADMAP.md) — `package-metadata-amend`; [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-download-refresh.md`](package-download-refresh.md); [`package-build-publish-deps.md`](package-build-publish-deps.md) Phase 2d; project **D** google-cloud-cpp soak
+- **Updated:** 2026-09-21
 - **Impact:** `minor` (new opt-in amend / republish path; full rebuild unchanged)
 
 ## Problem
 
-Shipping a `cuppa-dependency.json` change (for example `default_use_libs: []` on
-**google-cloud-cpp**, or correcting a dependency pin) today means a **full**
+Shipping a traveling metadata change (for example `default_use_libs: []` on
+**google-cloud-cpp**, or correcting a dependency pin) used to mean a **full**
 publisher rebuild: DownloadExtract → CMake configure/build/install → stage →
 tarball → upload. For multi-hour packages that is disproportionate when only
 Cuppa metadata changed and the binary layout is identical.
 
-Operators already have a painful manual escape hatch: download the registry
-archive, untar, edit `cuppa-dependency.json`, retar, `curl` upload. That should
-be a first-class Cuppa path.
+Operators already had a painful manual escape hatch: download the registry
+archive, untar, edit the traveling JSON, retar, `curl` upload. That is now a
+first-class Cuppa path.
 
 ## Intent
 
 Opt-in **metadata-only amend**: take an existing toolchain-scoped package
 archive (local final/ or registry download), update traveling metadata
-(`cuppa-dependency.json` / future `cuppa-publish.json`), rewrite the archive,
-and optionally `--publish-package` — **without** re-running the upstream build.
+(`cuppa-publish.json`), rewrite the archive, and optionally `--publish-package`
+— **without** re-running the upstream build.
 
 ## Shape
 
@@ -32,9 +32,9 @@ cuppa --rel --toolchains=gcc15 --amend-package-manifest --publish-package
 ```
 
 Publisher kwargs already carry `default_use_libs`, `dependencies`, `link`. Amend
-reuses `write_manifest` into the staged `final/<pkg>/<ver>/` tree (or after
-extracting the existing archive), then `create_package_archive` + the usual
-publish Command (which depends on the `.tar.gz`).
+writes `cuppa-publish.json` into the staged `final/<pkg>/<ver>/` tree (or after
+extracting the existing archive), removes any legacy `cuppa-dependency.json`
+twin, then `create_package_archive` + the usual publish Command.
 
 With `--amend-package-manifest`, `DownloadExtract`, `RemoveEmptyDirs`, and
 `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` register no-op stamps so the
@@ -63,17 +63,17 @@ build; **B** when only the registry artefact exists (google-cloud-cpp one-off).
   re-fetch after same-version overwrite
 - [`package-use-libs-defaults.md`](package-use-libs-defaults.md) — primary
   motivation (`default_use_libs: []` on fat packages)
-- [`package-build-publish-deps.md`](package-build-publish-deps.md) — cascade
-  still rebuilds when sources change; amend is the metadata shortcut
+- [`package-build-publish-deps.md`](package-build-publish-deps.md) Phase **2d** —
+  single traveling `cuppa-publish.json`; amend is the metadata shortcut and
+  removes the legacy dependency twin on retar
 
 ## Acceptance
 
-1. Amend updates only metadata files inside the package layout.
+1. Amend updates only metadata files inside the package layout (`cuppa-publish.json`).
 2. Retar + `--publish-package` uploads; publish stamp depends on the archive.
 3. Docs name the path clearly vs full rebuild.
-4. Fat-package example: google-cloud-cpp ships explicit empty `default_use_libs`
-   without a multi-hour CMake rebuild (project **D** soak; not
-   `clearpool_git/packages`).
+4. Fat-package example: google-cloud-cpp can ship explicit empty `default_use_libs`
+   without a multi-hour CMake rebuild (private one-off after Cuppa lands).
 
 ## Progress snapshot
 
@@ -81,8 +81,9 @@ build; **B** when only the registry artefact exists (google-cloud-cpp one-off).
 |------|-------|
 | Problem from google-cloud-cpp / use_libs defaults | Captured |
 | Provisional A/B amend modes | Captured |
-| `--amend-package-manifest` + `GitlabPackagePublisher.amend_package` | Done |
-| Skip DownloadExtract / RemoveEmptyDirs / CMake under amend | Done |
-| Unit tests + Antora + CHANGELOG | Done |
+| `--amend-package-manifest` + `GitlabPackagePublisher.amend_package` | **Done** ([#300](https://github.com/ja11sop/cuppa/pull/300)) |
+| Skip DownloadExtract / RemoveEmptyDirs / CMake under amend | **Done** |
+| Unit tests + Antora + CHANGELOG | **Done** |
 | Issue filed | [#299](https://github.com/ja11sop/cuppa/issues/299) |
-| Project D google-cloud-cpp amend soak | Publisher kwargs updated; amend+publish after Cuppa lands |
+| Single traveling file (`cuppa-publish.json`; drop twin) | Coupled to cascade Phase **2d** |
+| Project D google-cloud-cpp amend soak | Parked — private one-off republish after 2d lands |

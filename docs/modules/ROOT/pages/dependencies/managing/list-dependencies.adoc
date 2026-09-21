@@ -13,7 +13,7 @@ large root can take a while; later runs reuse the cache). Pass `--exact-sizes` t
 remeasure of every tree. Rows are grouped referenced first then unreferenced,
 then by type (repository dependencies, gitlab packages, source archives, …), then by short name or
 registry name, with branch or version children underneath. For GitLab package extracts that contain
-``cuppa-dependency.json``, a ``requires`` group lists each declared transitive edge (name, version,
+``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``), a ``requires`` group lists each declared transitive edge (name, version,
 and optional ``libs: …`` remark) under the version’s toolchain leaves — see
 xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
 On-disk paths are omitted by
@@ -73,7 +73,7 @@ stem (`│`) keep the hanging lines continuous between siblings. Referenced tree
 [#list-dependencies-requires]
 == GitLab ``requires`` edges
 
-GitLab packages that ship ``cuppa-dependency.json`` also show a ``requires`` group under each
+GitLab packages that ship ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``) also show a ``requires`` group under each
 version (declared transitive edges). The sample below is the offline alpha → beta → gamma
 fixture shape (no live registry). Coloured output uses the same ``cuppa-output`` chrome as the
 main listing:

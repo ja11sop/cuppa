@@ -105,3 +105,78 @@ def test_write_publish_manifest_skips_key_order_only_rewrite( tmp_path: Path ):
     assert text.index( '"package"' ) < text.index( '"version"' )
     assert text.index( '"version"' ) < text.index( '"dependencies"' )
     assert '"cuppa_publish_format"' in text
+
+
+def test_read_traveling_manifest_prefers_publish( tmp_path: Path ):
+    from cuppa.package_managers.cuppa_dependency_manifest import (
+            MANIFEST_FILENAME,
+            write_manifest,
+    )
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            read_traveling_manifest,
+            remove_legacy_dependency_manifest,
+    )
+
+    write_manifest(
+            str( tmp_path ),
+            [
+                    {
+                            "name": "legacy",
+                            "package": "legacy",
+                            "version": "1.0.0",
+                    }
+            ],
+    )
+    write_publish_manifest(
+            str( tmp_path ),
+            "widget",
+            "2.0.0",
+            dependencies=[
+                    {
+                            "name": "fmt",
+                            "package": "fmt",
+                            "version": "12.2.0",
+                    }
+            ],
+    )
+    document = read_traveling_manifest( str( tmp_path ) )
+    assert document["cuppa_publish_format"] == 1
+    assert document["dependencies"][0]["name"] == "fmt"
+
+
+def test_read_traveling_manifest_falls_back_to_legacy_dependency( tmp_path: Path ):
+    from cuppa.package_managers.cuppa_dependency_manifest import write_manifest
+    from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
+
+    write_manifest(
+            str( tmp_path ),
+            [
+                    {
+                            "name": "legacy",
+                            "package": "legacy",
+                            "version": "1.0.0",
+                    }
+            ],
+    )
+    document = read_traveling_manifest( str( tmp_path ) )
+    assert document["dependencies"][0]["name"] == "legacy"
+    assert "cuppa_publish_format" not in document
+
+
+def test_remove_legacy_dependency_manifest( tmp_path: Path ):
+    from cuppa.package_managers.cuppa_dependency_manifest import (
+            MANIFEST_FILENAME,
+            write_manifest,
+    )
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            remove_legacy_dependency_manifest,
+    )
+
+    write_manifest(
+            str( tmp_path ),
+            [ { "name": "fmt", "package": "fmt", "version": "1.0.0" } ],
+    )
+    assert ( tmp_path / MANIFEST_FILENAME ).is_file()
+    assert remove_legacy_dependency_manifest( str( tmp_path ) ) is True
+    assert not ( tmp_path / MANIFEST_FILENAME ).exists()
+    assert remove_legacy_dependency_manifest( str( tmp_path ) ) is False

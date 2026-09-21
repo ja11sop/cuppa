@@ -146,10 +146,14 @@ class PublishPackageMethod(object):
                 dest=AMEND_PACKAGE_MANIFEST_OPTION,
                 action='store_true',
                 help=(
-                        'Rewrite cuppa-dependency.json from the publisher kwargs, '
-                        'retar the existing package archive (stage or registry), '
-                        'and skip DownloadExtract / CMake rebuild. Pair with '
-                        '--publish-package to upload.'
+                        'Rewrite cuppa-publish.json from the publisher kwargs, '
+                        'retar the package archive, and skip DownloadExtract / '
+                        'CMake (and RemoveEmptyDirs). Prefer an existing '
+                        'final/<package>/<version>/ stage; otherwise extract a '
+                        'local archive or download it from the registry first. '
+                        'Removes any legacy cuppa-dependency.json twin. Pair with '
+                        '--publish-package to upload. Does not restage binaries '
+                        'from source_include_dir / source_lib_dir.'
                 ),
         )
         add_option(

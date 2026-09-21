@@ -378,12 +378,12 @@ def _format_age_epoch( epoch ):
 
 
 def _requires_entries_for_path( path, storage_type ):
-    """Return normalised requires dicts from ``cuppa-dependency.json``, if any."""
+    """Return normalised requires dicts from the traveling package manifest, if any."""
     if storage_type != 'gitlab' or not path or not os.path.isdir( path ):
         return []
-    from cuppa.package_managers.cuppa_dependency_manifest import read_manifest
+    from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
 
-    document = read_manifest( path )
+    document = read_traveling_manifest( path )
     if not document:
         return []
     return list( document.get( 'dependencies' ) or [] )
