@@ -1479,6 +1479,33 @@ class GitlabPackageDependency:
                     )
                     self._download_target = dest
                 except DownloadError as error:
+                    from cuppa.utility.download import is_http_not_found
+                    from cuppa.package_managers.package_cascade import (
+                            register_deferred_cascade_fetch,
+                            tip_package_is_cascade_eligible,
+                    )
+                    # Slice F: tip + cascade + eligible pin — wait for nested publish
+                    # rather than dying before PublishPackage can run.
+                    if (
+                            is_http_not_found( error )
+                            and tip_package_is_cascade_eligible(
+                                    cuppa_env,
+                                    package,
+                                    package,
+                                    self.version(),
+                            )
+                    ):
+                        self._cascade_fetch_deferred = True
+                        register_deferred_cascade_fetch(
+                                package, self.version(), self._package_dir
+                        )
+                        logger.info(
+                                "Package [{}] is not in the registry yet (404); "
+                                "deferring tip consume until "
+                                "--build-and-publish-dependencies publishes it"
+                                .format( as_info( self._package_id ) )
+                        )
+                        return
                     logger.error( "Downloading package archives [{}] failed: {}".format(
                             as_error( ", ".join( stems ) ),
                             as_error( str( error.parameter ) ),

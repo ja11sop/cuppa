@@ -89,6 +89,78 @@ def cascade_enabled( env ) -> bool:
     return bool( getter( CASCADE_OPTION ) )
 
 
+# Tip package pins whose registry fetch was deferred until cascade publishes them.
+# Maps (package, version) → expected package_dir extract path.
+_deferred_cascade_fetches: dict[tuple[str, str], str] = {}
+
+
+def reset_deferred_cascade_fetches() -> None:
+    """Clear deferred tip fetches (tests / session boundaries)."""
+    _deferred_cascade_fetches.clear()
+
+
+def register_deferred_cascade_fetch( package: str, version: str, package_dir: str ) -> None:
+    """Record a tip package pin waiting on cascade publish + refresh."""
+    _deferred_cascade_fetches[ ( str( package ), str( version ) ) ] = str( package_dir )
+
+
+def deferred_cascade_fetches() -> dict[tuple[str, str], str]:
+    return dict( _deferred_cascade_fetches )
+
+
+def tip_package_is_cascade_eligible( env, name, package, version=None ) -> bool:
+    """True when this tip pin is one cascade can publish (Slice F eligibility).
+
+    Eligible when the tip declares a ``package_source``, a develop path, or the tip
+    ``cuppa-publish.json`` lists the pin with a ``package_source``.
+    """
+    if not cascade_enabled( env ) or _is_nested():
+        return False
+    entry = {
+            "name": name,
+            "package": package,
+            "version": version,
+    }
+    if declared_package_source( env, entry ):
+        return True
+    if develop_publisher_dir( env, entry ):
+        return True
+    sconstruct_dir = env.get( "sconstruct_dir" )
+    if not sconstruct_dir:
+        return False
+    package = str( package )
+    version_s = None if version is None else str( version )
+    for edge in _edges_from_publish_file( str( sconstruct_dir ) ):
+        if str( edge.get( "package", "" ) ) != package:
+            if str( edge.get( "name", "" ) ) != str( name ):
+                continue
+        if version_s is not None and edge.get( "version" ) is not None:
+            if str( edge.get( "version" ) ) != version_s:
+                continue
+        if edge.get( "package_source" ):
+            return True
+    return False
+
+
+def audit_deferred_cascade_fetches( env=None ) -> None:
+    """Stop when a deferred tip pin still has no usable ``include/`` after cascade."""
+    del env  # reserved for call-site symmetry
+    import SCons.Errors
+    missing = []
+    for ( package, version ), package_dir in sorted( _deferred_cascade_fetches.items() ):
+        include_dir = os.path.join( package_dir, "include" )
+        if not os.path.isdir( include_dir ):
+            missing.append( "{} [=={}] (expected {})".format( package, version, package_dir ) )
+    _deferred_cascade_fetches.clear()
+    if not missing:
+        return
+    raise SCons.Errors.StopError(
+            "cascade finished but tip still has no package stage for: {}. "
+            "Nested publish did not produce a registry archive the tip could consume"
+            .format( "; ".join( missing ) )
+    )
+
+
 def cascade_plan_enabled( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if not callable( getter ):
@@ -3631,6 +3703,9 @@ def maybe_run_cascade( env, publisher ) -> None:
                             else CASCADE_PLAN_OPTION
                     ),
             )
+            reset_deferred_cascade_fetches()
+            return
+        audit_deferred_cascade_fetches( env )
         return
 
     order = topological_publish_order( nodes, edges )
@@ -3692,6 +3767,7 @@ def maybe_run_cascade( env, publisher ) -> None:
                 trees_collected=trees_collected,
                 trees_updated=trees_updated,
         )
+        reset_deferred_cascade_fetches()
         return
 
     if not update_publishers:
@@ -3715,3 +3791,5 @@ def maybe_run_cascade( env, publisher ) -> None:
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning
     ) )
+    if not cleaning:
+        audit_deferred_cascade_fetches( env )

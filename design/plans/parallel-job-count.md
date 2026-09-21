@@ -1,8 +1,8 @@
 # Plan: Optional job count on `--parallel`
 
 - **Status:** proposal
-- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
-- **Updated:** 2026-09-14
+- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317))
+- **Updated:** 2026-09-21
 - **Impact:** `minor` (CLI shape change for an existing flag)
 
 ## Problem

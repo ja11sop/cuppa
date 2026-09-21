@@ -1,9 +1,9 @@
 # Plan: Develop a package dependency from its own source tree
 
 - **Status:** in progress
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-18
-- **Impact:** `minor` for the resolution, clone, and local-consume (D) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`cascade-defer-404.md`](cascade-defer-404.md) (Slice F detail + soak); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
+- **Updated:** 2026-09-21
+- **Impact:** `minor` for the resolution, clone, local-consume (D), and first-publish defer-404 (F) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
 
 ## Problem
 
@@ -93,7 +93,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Cascade + develop | Tip still consumes the local stage when present; cascade upload is independent. |
 | `--list-develop` | Unchanged vocabulary. |
 | Rooted/cloned dirty warn | Stay warn, not refuse. |
-| First-publish registry 404 (§6) | **Out of scope for D.** |
+| First-publish registry 404 (§6) | **Slice F** (below) — not D |
 
 ## Slices
 
@@ -104,9 +104,11 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | C | `--clone-develop` clones package dependencies from `package_source` | `minor` — **shipped** |
 | D | Consume from a locally built package: discover `final/<package>/<version>/` under `--develop`; opt-in `--stage-develop` for nest build + deep clean | `minor` — **shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak complete |
 | E | Migration for today's prefix-shaped `develop=`, once D defines the replacement | `minor` (inference + note shipped with D; distinct kwarg only if needed) |
+| F | First-publish: defer tip registry 404 for cascade-eligible packages until nested publish refreshes consume cache | `minor` — **this branch** |
 
 Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop/cuppa/pull/310).
-**Slice D shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak complete. Extending `--stage-develop` to location develop trees: [`stage-develop-locations.md`](stage-develop-locations.md).
+**Slice D shipped** in [#311](https://github.com/ja11sop/cuppa/pull/311); soak complete. Extending `--stage-develop` to location develop trees: [`stage-develop-locations.md`](stage-develop-locations.md) (L1–L4 shipped in [#313](https://github.com/ja11sop/cuppa/pull/313) / [#315](https://github.com/ja11sop/cuppa/pull/315)).
+**Slice F** is next for cascade first-publish (open question §6).
 
 ### Soak findings (post slice C)
 
@@ -142,14 +144,11 @@ does not. The combination the slice exists to enable was therefore broken by con
 | What makes a develop path a publisher tree | An **sconstruct**, not `cuppa-publish.json`. A publisher build stages that manifest beside `include/` and `lib/`, so accepting it would read a built package as the project that built it. Rooted and cloned trees keep the broader test, which they cannot fail that way. |
 | Scope of the local-work refusal | **Refused** for develop trees, **warned** for `--publisher-root` and cloned trees. The hazard is identical, but refusing there would stop the workflow Phase 1 shipped, so the plan report grades those as warning rows and the publish proceeds. Promoting the warning is a deliberate `major`, not a side effect of this slice. |
 
-Publishing a dependency version that is not yet in the registry remains awkward, and is not
-made worse by this slice: the tip resolves its packages while sconscripts are read, before
-cascade runs, so the first publish of a new version still fails on the tip's own fetch.
+Publishing a dependency version that is not yet in the registry used to fail on the tip's
+own fetch before cascade ran; that is **Slice F** (defer eligible tip 404s until after
+nested publish refreshes consume cache).
 
-Slice D is the one that makes `--develop` coherent end to end, and the one with real unknowns:
-which stage a publisher build leaves behind for each publisher shape, what happens when the stage
-is older than the source, and whether the nested build should run automatically or be demanded of
-the operator. Those are open questions below, not settled decisions.
+Slice D is the one that makes `--develop` coherent end to end.
 
 ### What slice C settled
 
@@ -173,22 +172,55 @@ that tree and consume its stage so the tip no longer links a source tree as a pr
 
 ### 1–5 — settled in slice D
 
-See **Slice D settled decisions** above (build locally; stage at `final/<package>/<version>/`;
-inference for prefix vs source; list-develop unchanged; rooted/cloned warn stays warn).
+See **Slice D settled decisions** above.
 
-### 6. Publishing a version the registry does not have yet
+### 6. Publishing a version the registry does not have yet — Slice F
 
-The tip resolves its own packages while sconscripts are read, inside
-`GitlabPackageDependency.__init__`, whereas cascade runs later from `env.PublishPackage(...)`.
-Publishing version 0.4 of a dependency for the first time therefore fails on the tip's own fetch
-before cascade gets a turn. Three ways out:
+**Status:** soak complete on [#316](https://github.com/ja11sop/cuppa/pull/316); ready to merge.
+
+#### Why it fails today
+
+Tip `BuildWith(default_dependencies)` runs in `init_env_for_variant` **before** the
+sconscript body, so `GitlabPackageDependency.__init__` downloads **before**
+`PublishPackage` → `maybe_run_cascade`. Cascade already refreshes the tip consume
+cache after each nested publish; the gap is the early fatal 404.
+
+#### Approaches considered
 
 | Approach | What it costs |
 |----------|---------------|
-| Run cascade before sconscripts are read, bootstrapping from the `cuppa-publish.json` seeded beside the tip sconstruct | Needs that manifest to exist, so a first cascade in a fresh tree has nothing to read |
-| Defer the package fetch to the build phase, so resolution names paths without fetching | The largest change to `gitlab.py`, and the shape that behaves best under `--parallel` |
-| Let cascade mark the packages it is about to publish, so an initial `404` on exactly those is deferred rather than fatal | Contained; the failure moves to after cascade, where it is a real error if the publish did not produce the archive |
+| Run cascade before sconscripts are read, bootstrapping from tip `cuppa-publish.json` | Needs that manifest; first cascade in a fresh tree may have nothing to read |
+| Defer the package fetch to the build phase | Largest change to `gitlab.py`; best under `--parallel` eventually |
+| Defer initial `404` for packages cascade will publish; fail after cascade if still missing | Contained; matches current refresh path |
 
-**Leaning:** the third now, the second eventually. Note that this is not a regression introduced
-by slice B — it is how cascade has behaved since Phase 1 — but `--develop` makes it more visible,
-because an operator with the source tree in hand reasonably expects not to need the registry.
+#### Slice F settled decisions
+
+| Question | Choice |
+|----------|--------|
+| Approach | **3 now**; approach 2 (lazy fetch) later |
+| When deferral is allowed | Tip session only (`not` nested), and `--build-and-publish-dependencies` |
+| Which packages | **Cascade-eligible tip deps only**: `package_source` / publisher-shaped `develop=` / tip `cuppa-publish.json` edge with a source. Registry-only deps keep today’s fatal 404 |
+| Deferred behaviour | Construct the dependency; keep the usual `_package_dir`; do **not** raise; log that fetch waits on cascade |
+| After cascade | Existing invalidate + re-fetch; still-missing deferred pin → `StopError` |
+| Plan / collect / update-stop | Same deferral (pre-sconscript BuildWith still runs) |
+| Offline | Unchanged refusal when no local archive/stage |
+
+#### Soak (project D)
+
+Detail and command recipes: [`cascade-defer-404.md`](cascade-defer-404.md).
+
+Default cold-start path (not a pre-planted `--publisher-root` forest):
+
+1. `--collect-cascade --clone-publishers` — clones into `~/.cuppa/publishers/<name>`.
+   **Done (2026-09-20):** 7 of 7 tip deps collected, 7 newly cloned
+   (abseil_cpp, c_ares, nlohmann_json, opentelemetry_cpp, protobuf, re2, grpc);
+   nothing built or uploaded.
+2. Re-run `--cascade-plan` — graph expands via each child’s `cuppa-publish.json`
+   (tip-direct alone while clones are missing).
+3. `--publish-package` (omit `--parallel` until [#317](https://github.com/ja11sop/cuppa/issues/317) /
+   [#319](https://github.com/ja11sop/cuppa/pull/319)) — **Done (2026-09-21):** tip
+   google-cloud-cpp + 7 nested publishers published; Slice F defer held.
+
+`--publisher-root` remains a secondary shortcut when trees already exist on disk.
+Nested leaf-first upload fed parents from the registry on this soak; no nested
+defer expansion needed.
