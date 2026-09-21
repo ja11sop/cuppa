@@ -827,6 +827,231 @@ def test_maybe_run_cascade_clean_skips_consume_refresh( monkeypatch ):
     assert refreshed == []
 
 
+def test_invalidate_package_consume_cache_keeps_sibling_stems( tmp_path, monkeypatch ):
+    downloads = tmp_path / "downloads"
+    deps = tmp_path / "deps"
+    cache = downloads / "packages" / "fmt" / "12.2.0"
+    cache.mkdir( parents=True )
+    keep = cache / "fmt_debian_gcc16_rel_x86_64_cxx2c.tar.gz"
+    drop = cache / "fmt_debian_gcc15_rel_x86_64_cxx2c.tar.gz"
+    keep.write_bytes( b"keep" )
+    drop.write_bytes( b"drop" )
+    extract_drop = deps / "gcc15_rel_x86_64_cxx2c" / "fmt" / "12.2.0"
+    extract_keep = deps / "gcc16_rel_x86_64_cxx2c" / "fmt" / "12.2.0"
+    extract_drop.mkdir( parents=True )
+    extract_keep.mkdir( parents=True )
+    ( extract_drop / "include" ).mkdir()
+    ( extract_keep / "include" ).mkdir()
+
+    class _Variant:
+        def name( self ):
+            return "rel"
+
+    class _Toolchain:
+        def package_name( self ):
+            return "gcc15"
+
+    class _Env( dict ):
+        pass
+
+    env = _Env(
+            downloads_root=str( downloads ),
+            dependencies_root=str( deps ),
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.os_release_id",
+            lambda: "debian",
+    )
+    removed = cascade.invalidate_package_consume_cache( env, "fmt", "12.2.0" )
+    assert any( str( drop ) == path for path in removed )
+    assert not drop.exists()
+    assert keep.exists()
+    assert not extract_drop.exists()
+    assert extract_keep.exists()
+
+
+def test_maybe_run_cascade_skips_current_and_skips_refresh( monkeypatch ):
+    refreshed = []
+    nested = []
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-package",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+        _registry = "https://gitlab.example/api/v4/projects/1"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "package_pin_is_current", lambda *a, **k: True )
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: nested.append( True ) or False,
+    )
+    monkeypatch.setattr(
+            cascade, "refresh_package_consume_cache",
+            lambda *a, **k: refreshed.append( True ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    cascade.reset_cascade_nested_done()
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert nested == []
+    assert refreshed == []
+
+
+def test_maybe_run_cascade_runs_nested_graph_once( monkeypatch ):
+    runs = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self, sconstruct_dir="/tip" )
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-package",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "package_pin_is_current", lambda *a, **k: False )
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: runs.append( "nested" ) or False,
+    )
+    monkeypatch.setattr(
+            cascade, "refresh_package_consume_cache",
+            lambda *a, **k: runs.append( "refresh" ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    monkeypatch.setattr( cascade, "audit_deferred_cascade_fetches", lambda *a, **k: None )
+    cascade.reset_cascade_nested_done()
+
+    env = _Env()
+    publisher = _Publisher()
+    cascade.maybe_run_cascade( env, publisher )
+    cascade.maybe_run_cascade( env, publisher )
+    assert runs == [ "nested" ]
+
+
+def test_maybe_run_cascade_refreshes_only_after_upload( monkeypatch ):
+    refreshed = []
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-package",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "package_pin_is_current", lambda *a, **k: False )
+    monkeypatch.setattr( cascade, "run_nested_publish", lambda *a, **k: False )
+    monkeypatch.setattr(
+            cascade, "refresh_package_consume_cache",
+            lambda *a, **k: refreshed.append( True ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    monkeypatch.setattr( cascade, "audit_deferred_cascade_fetches", lambda *a, **k: None )
+    cascade.reset_cascade_nested_done()
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert refreshed == []
+
+
+def test_session_skipped_lines_name_current():
+    from cuppa.colourise import as_info_label, colouriser
+
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+    was = colouriser.use_colour
+    colouriser.use_colour = True
+    try:
+        lines = cascade.session_skipped_lines( 2, 7, "protobuf [==36.1]" )
+        visible = plain( "\n".join( lines ) )
+        assert as_info_label( "cascade session 2 of 7" ) in lines[2] or (
+                "cascade session 2 of 7" in visible
+        )
+        assert "skipped (current)" in visible
+        assert "protobuf [==36.1]" in visible
+    finally:
+        colouriser.use_colour = was
+
+
 def test_cascade_stop_before_build_update_without_publish():
     class _Env:
         def __init__( self, flags ):

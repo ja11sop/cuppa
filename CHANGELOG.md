@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Cascade Phase **2c**: ``--force`` with ``--build-and-publish-dependencies``
+  rebuilds and uploads every resolved dependency even when the tip's consume
+  archive already matches the registry. Nested sessions that are current are
+  skipped with a ``skipped (current)`` banner; end banners report ``uploaded``
+  or ``no registry upload``. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - Under ``--build-and-publish-dependencies``, tip package deps that cascade can
   publish no longer die on an initial registry ``404`` during pre-sconscript
   ``BuildWith``: the fetch is deferred until nested publish refreshes the tip
@@ -70,6 +78,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   session also closes with the same subdued rule line as the opening banner.
 
 ### Fixed
+
+- Cascade tip consume refresh after a nested publish wipes only the tip's
+  current toolchain stem (and its extract), not the whole
+  ``downloads/packages/<pkg>/<ver>/`` directory — sibling toolchain archives
+  survive a multi-toolchain tip run. Refresh runs only when the nested session
+  actually uploaded (or ``--force``). Nested publish graph runs **once** per tip
+  command under multiple ``--toolchains=``.
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Seeding ``cuppa-publish.json`` into a publisher tree no longer rewrites the
+  file when the parsed document already matches (key-order-only
+  ``sort_keys`` churn). New writes keep insertion order from
+  ``build_publish_document`` instead of sorting keys.
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``PublishPackage`` under ``--parallel`` / SCons ``-j`` no longer fails with
   ``Source '….tar.gz' not found`` for ``.published`` after a successful package

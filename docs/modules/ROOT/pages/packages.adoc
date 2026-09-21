@@ -376,6 +376,17 @@ re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
 boundaries instead, and a closing banner says this package is resuming.
 
+When a dependency's tip consume archive already matches the registry (local file
+size equals a successful ``HEAD`` ``Content-Length``, and the extract has
+``include/``), cascade **skips** that nested session and reports
+``skipped (current)``. Pass ``--force`` to rebuild and upload every node anyway
+(nested ``PublishPackage`` targets are ``AlwaysBuild``). Tip consume cache is
+invalidated and re-fetched **only after a nested session that actually
+uploaded**, and only for the tip's current toolchain stem — sibling stems under
+``downloads/packages/<pkg>/<ver>/`` stay put. With multiple tip toolchains
+(``--toolchains=gcc15,gcc16``), the nested publish graph runs **once** per tip
+command (forwarding the full toolchain list), not once per tip variant.
+
 With ``-c`` / ``--clean``, the plan intro says **cleaning package**, nested
 sessions forward ``-c``, the closing banner counts **nested clean(s)**, and
 cascade does **not** invalidate/re-fetch the tip consume cache afterward (nothing
@@ -387,12 +398,9 @@ next rebuild can look like an incremental Ninja build while re-packaging and
 re-uploading. See xref:#publishing-from-external-cmake[Publishing from an external
 CMake project].
 
-A session banner reports that a nested publish finished, not whether it uploaded
-anything. A nested publish of an already-current package is a no-op inside SCons,
-and telling that apart from a real upload needs the registry query that the
-skip-if-current work will add. When the tip's ``.published`` stamp is already
-current, SCons may also skip the tip upload without a dedicated confirmation line
-until that work lands.
+Session end banners report ``uploaded`` or ``no registry upload`` when the tip
+can tell (nested upload marker). Skipped-current nodes never start a nested
+``scons``.
 
 [#amend-package-manifest]
 === Amending metadata without rebuilding

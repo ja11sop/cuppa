@@ -52,13 +52,18 @@ CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
+FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
 MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
+UPLOAD_MARKER_ENV = "CUPPA_CASCADE_UPLOAD_MARKER"
 STAGE_PACKAGE_OPTION = "stage-package"
 STAGE_DEVELOP_OPTION = "stage-develop"
 STAGE_DEVELOP_PLAN_OPTION = "stage-develop-plan"
+
+# Tip (package, version, sconstruct) keys that already ran nested publish this process.
+_cascade_nested_done: set[tuple[str, str, str]] = set()
 
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
@@ -72,6 +77,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
+        "--" + FORCE_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
@@ -180,6 +186,30 @@ def cascade_update_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( UPDATE_PUBLISHERS_OPTION ) )
+
+
+def cascade_force_enabled( env ) -> bool:
+    """``--force``: rebuild+upload every resolved node even when registry-current."""
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( FORCE_OPTION ) )
+
+
+def reset_cascade_nested_done() -> None:
+    """Clear the per-process nested-graph guard (tests / session boundaries)."""
+    _cascade_nested_done.clear()
+
+
+def _cascade_nested_key( env, publisher ) -> tuple[str, str, str]:
+    getter = getattr( env, "get", None )
+    sconstruct = ""
+    if callable( getter ):
+        sconstruct = str( getter( "sconstruct_dir" ) or "" )
+    sconstruct = os.path.abspath( sconstruct )
+    package = str( getattr( publisher, "_package", "" ) )
+    version = str( getattr( publisher, "_version", "" ) )
+    return ( sconstruct, package, version )
 
 
 def cascade_stop_before_build( env ) -> bool:
@@ -1804,13 +1834,12 @@ def session_end_lines(
         elapsed_nanosecs=None,
         kind: str = "cascade session",
         width=None,
+        outcome: str | None = None,
 ) -> list[str]:
-    """Banner closing one nested session. Claims nothing about what was uploaded.
+    """Banner closing one nested session.
 
-    Telling an up-to-date no-op from a real upload needs the registry query that
-    Phase 2c builds; see ``design/plans/package-build-publish-deps.md``. The rule
-    under the finished chip mirrors the opening banner so return to the tip session
-    is as visible as the jump out.
+    ``outcome`` is ``uploaded``, ``skipped (current)``, or ``None`` (legacy: exit
+    only). Phase 2c sets an explicit outcome when the tip knows what happened.
     """
     taken = ""
     if elapsed_nanosecs is not None:
@@ -1818,22 +1847,72 @@ def session_end_lines(
                 as_notice( timer.as_duration_string( elapsed_nanosecs ) )
         )
     head = as_info_label( "{} {} of {} finished".format( kind, ordinal, total ) )
-    return [
+    lines = [
             "{}: {}{}".format( head, as_info( str( label ) ), taken ),
+    ]
+    if outcome:
+        lines.append( "  {}".format( as_notice( str( outcome ) ) ) )
+    lines.extend( [
+            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
+            "",
+    ] )
+    return lines
+
+
+def session_skipped_lines(
+        ordinal,
+        total,
+        label,
+        reason: str = "current",
+        width=None,
+) -> list[str]:
+    """Banner for a nested publish that was not started (registry already current)."""
+    head = as_info_label( "cascade session {} of {}".format( ordinal, total ) )
+    return [
+            "",
+            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
+            "{}: {}".format( head, as_info( str( label ) ) ),
+            "  skipped ({})".format( as_notice( str( reason ) ) ),
             as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
             "",
     ]
 
 
 def sessions_complete_lines(
-        total, tip_package, tip_version, width=None, clean=False
+        total, tip_package, tip_version, width=None, clean=False,
+        skipped: int = 0, uploaded: int = 0,
 ) -> list[str]:
     """Banner handing the console back to this package's build (or clean)."""
-    nested = storage.emphasised_count_phrase(
-            total,
-            "nested clean" if clean else "nested publish",
-            "nested cleans" if clean else "nested publishes",
-    )
+    if clean:
+        nested = storage.emphasised_count_phrase(
+                total, "nested clean", "nested cleans",
+        )
+    elif skipped and skipped == total:
+        nested = storage.emphasised_count_phrase(
+                total, "skipped publish", "skipped publishes",
+        )
+    elif skipped or uploaded:
+        parts = []
+        ran = total - skipped
+        if uploaded:
+            parts.append( storage.emphasised_count_phrase(
+                    uploaded, "upload", "uploads",
+            ) )
+        elif ran:
+            parts.append( storage.emphasised_count_phrase(
+                    ran, "nested publish", "nested publishes",
+            ) )
+        if skipped:
+            parts.append( storage.emphasised_count_phrase(
+                    skipped, "skipped", "skipped",
+            ) )
+        nested = "; ".join( parts ) if parts else storage.emphasised_count_phrase(
+                total, "nested publish", "nested publishes",
+        )
+    else:
+        nested = storage.emphasised_count_phrase(
+                total, "nested publish", "nested publishes",
+        )
     resume = "resuming clean of this package" if clean else "resuming this package"
     return [
             "",
@@ -2320,6 +2399,10 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
     """Remove download archives and extracts for ``package``/``version``.
 
+    Only the tip's current toolchain identity is wiped — sibling stems under
+    ``downloads/packages/<pkg>/<ver>/`` and other ``dependencies_root/<variant>/``
+    extracts stay so a multi-toolchain tip does not lose the other identity.
+
     Cascade-internal step so the tip does not keep stale same-version bits.
     Pair with :func:`refresh_package_consume_cache` so the tip's already-resolved
     ``package_dir`` is populated again. Returns paths removed.
@@ -2328,17 +2411,46 @@ def invalidate_package_consume_cache( env, package: str, version: str ) -> list[
     downloads_root = env.get( "downloads_root" ) or env.get( "cache_root" )
     dependencies_root = env.get( "dependencies_root" )
     variant = None
+    stems: list[str] = []
     try:
-        from cuppa.package_managers.gitlab import tool_variant
+        from cuppa.package_managers.gitlab import (
+                consume_package_file_stems,
+                tool_variant,
+        )
         variant = tool_variant( env )
+        variant_obj = env.get( "variant" )
+        variant_name = variant_obj.name() if hasattr( variant_obj, "name" ) else None
+        stems = list( consume_package_file_stems(
+                env, package=package, variant=variant_name,
+        ) )
     except Exception:
-        variant = None
+        try:
+            from cuppa.package_managers.gitlab import tool_variant
+            variant = tool_variant( env )
+        except Exception:
+            variant = None
 
     if downloads_root:
         cache_dir = os.path.join( str( downloads_root ), "packages", package, str( version ) )
         if os.path.isdir( cache_dir ):
-            shutil.rmtree( cache_dir )
-            removed.append( cache_dir )
+            from cuppa.package_managers.gitlab import resolve_existing_package_archive
+            removed_any = False
+            for stem in stems:
+                existing = resolve_existing_package_archive( cache_dir, stem )
+                if existing and os.path.isfile( existing ):
+                    os.remove( existing )
+                    removed.append( existing )
+                    removed_any = True
+            if variant:
+                alt_variant = os.path.join( cache_dir, variant )
+                if os.path.isdir( alt_variant ):
+                    shutil.rmtree( alt_variant )
+                    removed.append( alt_variant )
+                    removed_any = True
+            if not removed_any and not stems:
+                # No stem resolution — fall back to wiping the version dir (old behaviour).
+                shutil.rmtree( cache_dir )
+                removed.append( cache_dir )
 
     if dependencies_root and variant:
         extract_pkg = os.path.join(
@@ -2347,16 +2459,160 @@ def invalidate_package_consume_cache( env, package: str, version: str ) -> list[
         if os.path.isdir( extract_pkg ):
             shutil.rmtree( extract_pkg )
             removed.append( extract_pkg )
-        # Installer layout may nest under downloads/packages/.../<tool_variant>
-        if downloads_root:
-            alt_variant = os.path.join(
-                    str( downloads_root ), "packages", package, str( version ), variant
-            )
-            if os.path.isdir( alt_variant ):
-                shutil.rmtree( alt_variant )
-                removed.append( alt_variant )
 
     return removed
+
+
+def _entry_registry( entry: dict, tip_publisher=None ) -> str | None:
+    registry = entry.get( "registry" )
+    if not registry or registry == "same":
+        registry = getattr( tip_publisher, "_registry", None ) if tip_publisher else None
+    if not registry or registry == "same":
+        return None
+    return str( registry )
+
+
+def _tip_active_toolchains( env ) -> list:
+    """Toolchain objects the tip command is publishing for."""
+    tools = env.get( "active_toolchains" )
+    if tools:
+        return list( tools )
+    cuppa_env = env.get( "cuppa_env" )
+    if cuppa_env is not None:
+        tools = cuppa_env.get( "active_toolchains" )
+        if tools:
+            return list( tools )
+    toolchain = env.get( "toolchain" )
+    if toolchain is not None:
+        return [ toolchain ]
+    return []
+
+
+def _registry_matches_local( url: str, local_path: str, headers: dict ) -> bool:
+    """True when HEAD returns 200 and Content-Length equals the local file size."""
+    from cuppa.utility.download import DownloadError, http_head
+    try:
+        local_size = os.path.getsize( local_path )
+    except OSError:
+        return False
+    try:
+        status, response_headers = http_head( url, headers=headers )
+    except DownloadError:
+        return False
+    if status != 200:
+        return False
+    length = response_headers.get( "content-length" )
+    if length is None:
+        return False
+    try:
+        return int( length ) == local_size
+    except ( TypeError, ValueError ):
+        return False
+
+
+def package_pin_is_current(
+        env,
+        entry: dict,
+        tip_publisher=None,
+        custom_token=None,
+) -> bool:
+    """True when tip consume + registry already match for every tip toolchain.
+
+    Skip only when sure: each active tip toolchain has a local archive whose size
+    matches a successful registry HEAD ``Content-Length``, and a usable extract
+    with ``include/``. Missing length, HEAD failure, or missing extract → not
+    current.
+    """
+    from cuppa.package_managers.gitlab import (
+            consume_archive_candidates,
+            registry_auth_headers,
+            tool_variant,
+    )
+
+    package = entry.get( "package" )
+    version = entry.get( "version" )
+    if not package or version is None:
+        return False
+    registry = _entry_registry( entry, tip_publisher )
+    if not registry:
+        return False
+
+    downloads_root = env.get( "downloads_root" ) or env.get( "cache_root" )
+    dependencies_root = env.get( "dependencies_root" )
+    if not downloads_root or not dependencies_root:
+        return False
+
+    variant_name = entry.get( "variant" )
+    if not variant_name and tip_publisher is not None:
+        variant_name = getattr( tip_publisher, "_variant", None )
+    if not variant_name:
+        variant_obj = env.get( "variant" )
+        variant_name = variant_obj.name() if hasattr( variant_obj, "name" ) else None
+    if not variant_name:
+        variant_name = "rel"
+
+    toolchains = _tip_active_toolchains( env )
+    if not toolchains:
+        return False
+
+    headers = registry_auth_headers( custom_token )
+    cache_dir = os.path.join( str( downloads_root ), "packages", str( package ), str( version ) )
+
+    for toolchain in toolchains:
+        try:
+            token = toolchain.package_name()
+        except Exception:
+            return False
+        candidates = consume_archive_candidates(
+                env,
+                registry=registry,
+                package=package,
+                version=version,
+                variant=variant_name,
+                package_toolchain=token,
+        )
+        matched = False
+        for _stem, cand_name, cand_url, _tok in candidates:
+            cand_local = os.path.join( cache_dir, cand_name )
+            if not os.path.isfile( cand_local ):
+                continue
+            if _registry_matches_local( cand_url, cand_local, headers ):
+                matched = True
+                break
+        if not matched:
+            return False
+
+        extract_variant = tool_variant( env, variant=variant_name, toolchain_token=token )
+        extract_pkg = os.path.join(
+                str( dependencies_root ), extract_variant, str( package ), str( version )
+        )
+        if not os.path.isdir( os.path.join( extract_pkg, "include" ) ):
+            return False
+    return True
+
+
+def _nested_upload_marker_dir() -> str:
+    import tempfile
+    return tempfile.mkdtemp( prefix="cuppa-cascade-upload-" )
+
+
+def _nested_session_uploaded( marker_dir: str | None ) -> bool:
+    if not marker_dir:
+        return False
+    return os.path.isfile( os.path.join( marker_dir, "uploaded" ) )
+
+
+def record_nested_upload() -> None:
+    """Nested publish touches this when a registry upload actually ran."""
+    marker = os.environ.get( UPLOAD_MARKER_ENV )
+    if not marker:
+        return
+    try:
+        os.makedirs( marker, exist_ok=True )
+        with open( os.path.join( marker, "uploaded" ), "w", encoding="utf-8" ) as handle:
+            handle.write( "1\n" )
+    except OSError:
+        pass
 
 
 def _tip_dependency_factory( env, entry: dict ):
@@ -2747,30 +3003,47 @@ def _nested_session_env( env ) -> dict:
     return nested_env
 
 
-def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> None:
+def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> bool:
+    """Run one nested publish session. Returns True when a registry upload ran."""
     argv = argv_for_nested_publish( env=env )
     nested_env = _nested_session_env( env )
+    marker_dir = None
+    if not _clean_enabled( env ):
+        marker_dir = _nested_upload_marker_dir()
+        nested_env[UPLOAD_MARKER_ENV] = marker_dir
 
     write_lines( session_begin_lines(
             ordinal, total, label, publisher_dir, " ".join( argv )
     ) )
     session_timer = timer.Timer()
-    completion = subprocess.run(
-            argv,
-            cwd=publisher_dir,
-            env=nested_env,
-    )
-    session_timer.stop()
-    if completion.returncode != 0:
+    completion = None
+    try:
+        completion = subprocess.run(
+                argv,
+                cwd=publisher_dir,
+                env=nested_env,
+        )
+    finally:
+        uploaded = _nested_session_uploaded( marker_dir )
+        if marker_dir:
+            shutil.rmtree( marker_dir, ignore_errors=True )
+        session_timer.stop()
+    if completion is None or completion.returncode != 0:
+        code = completion.returncode if completion is not None else "unknown"
         verb = "clean" if _clean_enabled( env ) else "publish"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
-                .format( ordinal, total, verb, label, completion.returncode, publisher_dir )
+                .format( ordinal, total, verb, label, code, publisher_dir )
         )
+    outcome = None
+    if not _clean_enabled( env ):
+        outcome = "uploaded" if uploaded else "no registry upload"
     write_lines( session_end_lines(
-            ordinal, total, label, session_timer.elapsed().wall
+            ordinal, total, label, session_timer.elapsed().wall,
+            outcome=outcome,
     ) )
+    return uploaded
 
 
 def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
@@ -3621,6 +3894,11 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{}".format( CASCADE_OPTION )
         )
         return
+
+    tip_package = str( getattr( publisher, "_package", "" ) )
+    tip_version = str( getattr( publisher, "_version", "" ) )
+    nested_key = _cascade_nested_key( env, publisher )
+
     # Plan, collect, and update-without-publish do not need --publish-package.
     if not stop_only and not publish:
         raise SCons.Errors.StopError(
@@ -3632,6 +3910,13 @@ def maybe_run_cascade( env, publisher ) -> None:
                         UPDATE_PUBLISHERS_OPTION,
                 )
         )
+    if not stop_only and nested_key in _cascade_nested_done:
+        logger.info(
+                "Cascade: nested publish graph already completed for [{}] — "
+                "skipping re-entry (multi-toolchain tip runs the graph once)"
+                .format( as_info( tip_package ) )
+        )
+        return
     if update_publishers and env.get( "offline" ) and not _no_exec_enabled( env ):
         raise SCons.Errors.StopError(
                 "--{} needs the network, but --offline was specified"
@@ -3669,9 +3954,6 @@ def maybe_run_cascade( env, publisher ) -> None:
                 ),
         )
 
-    tip_package = str( getattr( publisher, "_package", "" ) )
-    tip_version = str( getattr( publisher, "_version", "" ) )
-
     # Plan: tolerant, no clone. Collect/update-stop: tolerant, clone when allowed.
     # Full run: fail-fast, clone when allowed.
     nodes, edges = build_cascade_graph(
@@ -3705,6 +3987,8 @@ def maybe_run_cascade( env, publisher ) -> None:
             )
             reset_deferred_cascade_fetches()
             return
+        if not stop_only:
+            _cascade_nested_done.add( nested_key )
         audit_deferred_cascade_fetches( env )
         return
 
@@ -3716,6 +4000,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             else None
     )
     cleaning = _clean_enabled( env )
+    force = cascade_force_enabled( env )
     if stop_only:
         _record_publisher_objections( env, nodes, order )
     plan_report_mode = (
@@ -3774,22 +4059,43 @@ def maybe_run_cascade( env, publisher ) -> None:
         judge_publisher_trees( env, nodes, order )
 
     total = len( order )
+    skipped = 0
+    uploaded_count = 0
     for ordinal, key in enumerate( order, start=1 ):
         entry = nodes[key]
-        run_nested_publish(
+        label = node_label( entry )
+        if (
+                not cleaning
+                and not force
+                and package_pin_is_current( env, entry, tip_publisher=publisher )
+        ):
+            write_lines( session_skipped_lines( ordinal, total, label ) )
+            skipped += 1
+            continue
+        uploaded = run_nested_publish(
                 env,
                 entry["_publisher_dir"],
-                node_label( entry ),
+                label,
                 ordinal=ordinal,
                 total=total,
         )
         # Clean sessions remove targets; nothing was published, so do not wipe and
         # re-download the tip's consume cache (that only confuses a following rebuild).
-        if not cleaning:
+        # Skip-if-current sessions never ran; refresh only after a real upload.
+        if cleaning:
+            continue
+        if uploaded:
+            uploaded_count += 1
+            refresh_package_consume_cache( env, entry, tip_publisher=publisher )
+        elif force:
+            # Forced rebuild may have rewritten stamps without a detectable upload
+            # marker race; still refresh so tip consume matches nested output.
             refresh_package_consume_cache( env, entry, tip_publisher=publisher )
 
     write_lines( sessions_complete_lines(
-            total, tip_package, tip_version, clean=cleaning
+            total, tip_package, tip_version, clean=cleaning,
+            skipped=skipped, uploaded=uploaded_count,
     ) )
+    _cascade_nested_done.add( nested_key )
     if not cleaning:
         audit_deferred_cascade_fetches( env )
