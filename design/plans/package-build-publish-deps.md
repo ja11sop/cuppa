@@ -467,6 +467,6 @@ traveling file rather than keep a derived twin for a release that never shipped.
 | Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak ([#322](https://github.com/ja11sop/cuppa/pull/322)) |
 | Phase 2c implementation | **Done** in [#323](https://github.com/ja11sop/cuppa/pull/323) (skip-if-current + `--force`, cascade-once, sibling-stem invalidate, upload-only refresh, semantic `cuppa-publish.json` seed); project D dual-toolchain tip soak confirmed — not yet in a named release |
 | Phase 2d settled decisions (single `cuppa-publish.json`) | **Settled** (2026-09-21) — neither file in a named release yet |
-| Phase 2d implementation | **Done** — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
+| Phase 2d implementation | **Done** in [#324](https://github.com/ja11sop/cuppa/pull/324) — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |
