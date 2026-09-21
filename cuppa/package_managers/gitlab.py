@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2024-2024
+#          Copyright Jamie Allsop 2024-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -733,13 +733,23 @@ class GitlabPackagePublisher:
         staging_roots.append( publish_path_written )
 
         if package_archive_is_up_to_date( archive_path, staging_roots ):
+            force = False
+            getter = getattr( env, 'get_option', None )
+            if callable( getter ):
+                force = bool( getter( 'force' ) )
+            if not force:
+                logger.info(
+                        "Package archive [{}] is up to date; skipping recreate".format(
+                                as_info( archive_path )
+                        )
+                )
+                env.Execute( Touch( target[0] ) )
+                return None
             logger.info(
-                    "Package archive [{}] is up to date; skipping recreate".format(
+                    "Package archive [{}] is up to date; --force recreating".format(
                             as_info( archive_path )
                     )
             )
-            env.Execute( Touch( target[0] ) )
-            return None
 
         returncode = create_package_archive(
                 archive_path,
@@ -894,7 +904,7 @@ class GitlabPackagePublisher:
         from SCons.Script import Touch
 
         logger.info( "Publishing package [{}]...".format( as_info( str(self._package_archive) ) ) )
-        logger.info( "Using commnd [{}]".format( as_notice( self._curl_command ) ) )
+        logger.info( "Using command [{}]".format( as_notice( self._curl_command ) ) )
 
         completion = subprocess.run( shlex.split( self._curl_command ) )
         if completion.returncode != 0:
@@ -906,6 +916,11 @@ class GitlabPackagePublisher:
 
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
+        try:
+            from cuppa.package_managers.package_cascade import record_nested_upload
+            record_nested_upload()
+        except Exception:
+            pass
 
         return None
 
@@ -1086,7 +1101,7 @@ class GitlabPackageInstaller:
                     libraries=" ".join( libraries )
             )
 
-            print( "PKG-CONFIG COMMAND = [{}]".format( command ) )
+            logger.debug( "Using pkg-config command [{}]".format( as_info( command ) ) )
 
             env.ParseConfig( command )
         else:

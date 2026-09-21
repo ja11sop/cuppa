@@ -112,6 +112,11 @@ class PublishPackageMethod(object):
                     publisher.publish_package,
             )
             target = published_package
+            if env.get_option( 'force' ):
+                always = getattr( env, 'AlwaysBuild', None )
+                if callable( always ):
+                    always( built_package )
+                    always( published_package )
 
         cuppa.progress.NotifyProgress.add( env, target )
         return target
@@ -159,7 +164,20 @@ class PublishPackageMethod(object):
                         '--collect-cascade, or --update-publishers. Not compatible '
                         'with -n/--no-exec when nested sessions would run '
                         '(use --cascade-plan, --collect-cascade, or '
-                        '--update-publishers -n instead).'
+                        '--update-publishers -n instead). Nested publishes that '
+                        'are already current in the registry are skipped unless '
+                        '--force is set.'
+                ),
+        )
+        add_option(
+                '--force',
+                dest='force',
+                action='store_true',
+                help=(
+                        'With --build-and-publish-dependencies, rebuild and '
+                        'upload every resolved dependency even when the tip\'s '
+                        'consume archive already matches the registry. Also '
+                        'forces nested PublishPackage targets to rebuild.'
                 ),
         )
         add_option(

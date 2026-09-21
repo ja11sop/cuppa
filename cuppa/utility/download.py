@@ -521,6 +521,63 @@ def extract_zip_archive(
     return extract_root
 
 
+def http_head( url, headers=None ):
+    """Issue an HTTP HEAD for ``url``.
+
+    Returns ``(status_code, headers_mapping)`` where header names are lower-case.
+    Raises ``DownloadError`` on transport failure. A non-2xx/3xx status is still
+    returned (callers decide whether 404 means missing).
+    """
+    request = Request( url, method='HEAD' )
+    if headers:
+        for name, value in headers.items():
+            if name is None or value is None:
+                continue
+            request.add_header( str( name ), str( value ) )
+    try:
+        response = urlopen( request )
+        try:
+            status = getattr( response, 'status', None )
+            if status is None:
+                status = response.getcode()
+            raw = getattr( response, 'headers', None )
+            mapping = {}
+            if raw is not None:
+                try:
+                    items = raw.items()
+                except Exception:
+                    items = []
+                for name, value in items:
+                    if name is None:
+                        continue
+                    mapping[ str( name ).lower() ] = value
+            return int( status ), mapping
+        finally:
+            try:
+                response.close()
+            except Exception:
+                pass
+    except HTTPError as error:
+        raw = getattr( error, 'headers', None )
+        mapping = {}
+        if raw is not None:
+            try:
+                for name, value in raw.items():
+                    if name is None:
+                        continue
+                    mapping[ str( name ).lower() ] = value
+            except Exception:
+                pass
+        return int( getattr( error, 'code', 0 ) or 0 ), mapping
+    except Exception as error:
+        wrapped = DownloadError(
+                "failed to HEAD [{}]: {}".format( url, error ),
+                http_status=getattr( error, 'code', None ),
+        )
+        wrapped.__cause__ = error
+        raise wrapped
+
+
 def download_file(
         url,
         dest_path,

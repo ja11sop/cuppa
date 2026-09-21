@@ -65,6 +65,16 @@ def build_publish_document(
     return document
 
 
+def _publish_documents_equal( left: dict, right: dict ) -> bool:
+    """True when two publish documents are semantically equal.
+
+    Key order and whitespace do not matter — cascade must not rewrite a tracked
+    ``cuppa-publish.json`` solely because ``json.dumps(sort_keys=True)`` differs
+    from the author's insertion order.
+    """
+    return left == right
+
+
 def write_publish_manifest(
         package_dir: str,
         package: str,
@@ -76,8 +86,9 @@ def write_publish_manifest(
 ) -> str:
     """Write ``cuppa-publish.json`` under ``package_dir``. Returns the path.
 
-    Skips rewriting when the on-disk document already matches, so archive
-    freshness checks are not spuriously invalidated.
+    Skips rewriting when the on-disk document already matches semantically, so
+    archive freshness checks and publisher-tree git status are not spuriously
+    invalidated by key-order-only differences.
     """
     if env is not None:
         dependencies = fill_dependency_versions( env, dependencies )
@@ -90,11 +101,19 @@ def write_publish_manifest(
     )
     path = publish_manifest_path( package_dir )
     os.makedirs( package_dir, exist_ok=True )
-    payload = json.dumps( document, indent=2, sort_keys=True ) + "\n"
     if os.path.isfile( path ):
-        with open( path, encoding="utf-8" ) as handle:
-            if handle.read() == payload:
+        try:
+            with open( path, encoding="utf-8" ) as handle:
+                existing = json.load( handle )
+            if isinstance( existing, dict ) and _publish_documents_equal(
+                    existing, document
+            ):
                 return path
+        except ( OSError, ValueError, TypeError, json.JSONDecodeError ):
+            pass
+    # Insertion order from build_publish_document (not sort_keys) so new seeds
+    # match the usual authored shape: package / version / dependencies first.
+    payload = json.dumps( document, indent=2 ) + "\n"
     with open( path, "w", encoding="utf-8" ) as handle:
         handle.write( payload )
     return path

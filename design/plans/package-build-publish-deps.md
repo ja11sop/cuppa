@@ -265,7 +265,7 @@ design.
 | **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop — **shipped** ([#302](https://github.com/ja11sop/cuppa/pull/302)) |
 | **2a — Plan and session visibility** | `--cascade-plan` dry run (judgement-tree report, collected resolution errors) + nested session banners; no registry writes |
 | **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
-| **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **settled** (2026-09-21), implementation next |
+| **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **done** (implementation on branch; not yet in a named release) |
 | **2d — Converge** | One traveling manifest if `cuppa-publish.json` / `cuppa-dependency.json` are still bridged |
 | **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
 | **Later** | Parallel independent leaves; Conan parity if needed |
@@ -403,8 +403,16 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
 6. ~~Implementing `--collect-cascade`~~ — shipped
 7. Collect finish: say **reused** vs **cloned** when a forest tree already existed
 8. ~~Publisher forest currency~~ — `--update-publishers` (this section)
-9. Exact registry comparison for skip-if-current (ETag / package file metadata vs local
-   archive hash) — implementation detail inside 2c; default must be safe (skip only when sure)
+9. Exact registry comparison for skip-if-current — **done for 2c**: prefer
+   local archive size vs registry ``HEAD`` ``Content-Length``; skip only when
+   sure (missing length / HEAD failure → publish)
+10. **`cuppa-publish.json` + Boost `latest`** — allow a publisher seed / tip
+    manifest to keep ``"version": "latest"`` (matching source Boost /
+    ``boost_package`` consume) while the staged archive and registry upload
+    still record the **resolved concrete** version after `boost.version()`.
+    Goal: avoid hand-editing `cuppa-publish.json` on every Boost release while
+    keeping publish identity honest. Not started; do not put literal `"latest"`
+    in a published package version today.
 
 ## Acceptance (when implemented)
 
@@ -435,11 +443,12 @@ re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
 | Phase 2 settled decisions (`--cascade-plan`, banners, `url@rev`) | Settled (2026-09-16) |
 | Phase 2a — plan report + nested session banners | Shipped ([#303](https://github.com/ja11sop/cuppa/pull/303)) |
 | Phase 2b settled decisions (`--clone-publishers`, storage root, no `--develop` role) | Settled (2026-09-16) |
-| Phase 2b — clone on demand | In progress |
+| Phase 2b — clone on demand | Shipped ([#305](https://github.com/ja11sop/cuppa/pull/305)) |
 | `--collect-cascade` vocabulary (resolve + clone/reuse; stop before build/upload) | **Shipped** (2026-09-18) |
 | `--update-publishers` (FF clean/behind forest trees; skip develop) | **Shipped** (2026-09-18) — settled decisions in this plan; ACTION table + quiet fetch; soak on corosio→capy forest |
-| Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date upload confirmation remains slice 2c. |
-| Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak |
-| Phase 2c implementation | Not started — next focus |
+| Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date / skip-if-current is Phase 2c. |
+| Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak ([#322](https://github.com/ja11sop/cuppa/pull/322)) |
+| Phase 2c implementation | **Done** (skip-if-current + `--force`, cascade-once, sibling-stem invalidate, upload-only refresh, semantic `cuppa-publish.json` seed); project D dual-toolchain tip soak confirmed — not yet in a named release |
 | Phase 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
+| Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |
