@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-18
+- **Updated:** 2026-09-21
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -265,7 +265,7 @@ design.
 | **1 — MVP** | Author `package_source` on publisher deps → stage **`cuppa-publish.json`** (bridge `cuppa-dependency.json`) + cascade flag + optional `--publisher-root` + refresh + fail-stop — **shipped** ([#302](https://github.com/ja11sop/cuppa/pull/302)) |
 | **2a — Plan and session visibility** | `--cascade-plan` dry run (judgement-tree report, collected resolution errors) + nested session banners; no registry writes |
 | **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
-| **2c — Skip and force** | Skip-if-registry-current + `--force`; settles “already up to date” vs “uploaded” in session banners |
+| **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **settled** (2026-09-21), implementation next |
 | **2d — Converge** | One traveling manifest if `cuppa-publish.json` / `cuppa-dependency.json` are still bridged |
 | **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
 | **Later** | Parallel independent leaves; Conan parity if needed |
@@ -274,7 +274,7 @@ design.
 
 | Question | Decision |
 |----------|----------|
-| Skip policy | **Always** rebuild+publish every resolved node (no skip-if-registry-current) |
+| Skip policy | **Phase 1:** always rebuild+publish every resolved node. **Superseded by Phase 2c** (skip-if-current + `--force`) |
 | Field name | **`package_source`** |
 | File layout | **Bridge:** keep `cuppa-dependency.json` for consume (no `package_source`); write **`cuppa-publish.json`** with the same edges **plus** `package_source` / package identity. One authoring input (`dependencies=`). |
 | Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
@@ -361,20 +361,50 @@ Currency needs its own verb, parallel to `--update-develop`.
 | Pins (`url@branch`) | Update does not switch to the pin. If the working copy is on another branch, leave alone (or FF that branch’s upstream if clean+behind). Pin mismatch stays a report, not a checkout. |
 | Finish / plan visibility | **ACTION** table shared with `--update-develop` (not `--list-develop`’s STATUS severity): live **updated** / **no change** / **left alone**; dry-run **would update** / **no change** / **leave alone**. Quiet fetch so the table is the only update surface. Finish counts trees updated. Collect finish should eventually distinguish **cloned now** vs **reused** (separate polish). |
 
+## Phase 2c settled decisions (skip-if-current)
+
+Project **D** dual-toolchain tip soak (`google-cloud-cpp` + `--toolchains=gcc15,gcc16`
++ `--publish-package --build-and-publish-dependencies --parallel`, 2026-09-21): a second
+identical run still re-downloaded tip packages, ran all nested sessions twice, and
+re-uploaded some packages. Operator expectation: **no-op**. That is this slice.
+
+| Question | Decision |
+|----------|----------|
+| Skip policy (replaces Phase 1 “always publish”) | **Skip nested publish** when the tip’s consume archive for that pin+toolchain identity already matches what nested publish would upload (local `.packaged` / archive up to date **and** registry already has that stem — exact check TBD in implementation: prefer comparing local archive to registry object when cheap; `--force` overrides). Session banners must say **skipped (current)** vs **uploaded**. |
+| `--force` | Opt-in: rebuild+upload every resolved node even when current. |
+| When to invalidate + re-fetch tip consume | **Only after a nested session that actually uploaded** (or otherwise changed the registry object). Clean sessions already skip refresh; no-op / skipped sessions must too. Do not wipe tip caches “just in case.” |
+| Shared download dir vs multi-toolchain | `invalidate_package_consume_cache` must **not** delete sibling toolchain stems under `downloads/packages/<pkg>/<ver>/`. Wipe only the stem (and extract) for the tip variant being refreshed, or refresh in place without deleting other identities. |
+| Cascade once per tip command | With multiple tip toolchains, run the nested publish graph **once per publisher tree**, forwarding the tip’s full `--toolchains=` list (already today’s nested argv). Do **not** re-enter `maybe_run_cascade` once per tip `PublishPackage` variant. Tip variant publish still runs per identity after deps are current. |
+| Honest second-run no-op | Tip configure must find existing consume archives; nested sessions that skip must not retouch stamps in a way that forces `.published` rebuild; tip must not re-upload when archive + registry are current. |
+| `cuppa-publish.json` seed churn | **Bug (fix with or just before 2c).** Nested `build_package` seeds `cuppa-publish.json` into the publisher sconstruct dir via `json.dumps(…, sort_keys=True)`. Tracked manifests authored as `package`/`version` then `dependencies` (edge keys ending in `package_source`) are rewritten to alphabetical key order with **identical semantics** — git shows dirty, cascade warns “uncommitted changes”, and operators think they edited the file. Soak proof: protobuf / re2 / grpc `git diff` is key order only (`json.load` equal). **Fix:** treat on-disk manifest as current when the parsed document equals the document about to be written (do not rewrite for key order alone); prefer stable insertion order from `build_publish_document` over `sort_keys` for new writes. Do not require operators to commit sort-order noise. |
+
+### Soak evidence (project D, 2026-09-21)
+
+- Tip start: `Downloading package […]` for stems missing after the previous run’s last
+  cascade wave wiped the shared version dir and re-fetched only one toolchain identity.
+- Two full `cascade session 1 of 7` … `sessions complete` waves in one tip command
+  (one per tip toolchain / `PublishPackage`).
+- Mid-run: `Cascade: invalidated consume cache` + `re-fetched` after **every** nested
+  session, including when nested only logged `Package archive […] is up to date; skipping recreate`.
+- Re-upload: protobuf / re2 / grpc → `201 Created`; abseil / c-ares / nlohmann / otel →
+  skip recreate and no publish. Dirty `cuppa-publish.json` warnings on the uploaders were
+  sort-key rewrites from the seed, not operator edits.
+
 ## Open questions (Phase 2+)
 
-1. Skip-if-registry-current + `--force` (slice 2c; also settles no-op reporting)
-2. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
+1. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
    so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
-3. File convergence to a single traveling manifest
-4. Flag without `--publish-package` for **build**-deps-only — distinct from
+2. File convergence to a single traveling manifest
+3. Flag without `--publish-package` for **build**-deps-only — distinct from
    `--cascade-plan` (builds nothing) and `--collect-cascade` (clones only)
-5. Richer `--publisher-root` layout rules
-6. Cascade under multiple active toolchains — one nested publish per toolchain
-   today; whether to batch identities per publisher tree is unexamined
-7. ~~Implementing `--collect-cascade`~~ — shipped
-8. Collect finish: say **reused** vs **cloned** when a forest tree already existed
-9. ~~Publisher forest currency~~ — `--update-publishers` (this section)
+4. Richer `--publisher-root` layout rules
+5. ~~Cascade under multiple active toolchains~~ — settled under Phase 2c (one nested graph
+   per tip command; preserve sibling stems on refresh)
+6. ~~Implementing `--collect-cascade`~~ — shipped
+7. Collect finish: say **reused** vs **cloned** when a forest tree already existed
+8. ~~Publisher forest currency~~ — `--update-publishers` (this section)
+9. Exact registry comparison for skip-if-current (ETag / package file metadata vs local
+   archive hash) — implementation detail inside 2c; default must be safe (skip only when sure)
 
 ## Acceptance (when implemented)
 
@@ -409,5 +439,7 @@ Currency needs its own verb, parallel to `--update-develop`.
 | `--collect-cascade` vocabulary (resolve + clone/reuse; stop before build/upload) | **Shipped** (2026-09-18) |
 | `--update-publishers` (FF clean/behind forest trees; skip develop) | **Shipped** (2026-09-18) — settled decisions in this plan; ACTION table + quiet fetch; soak on corosio→capy forest |
 | Corosio→capy clean + rebuild soak (`-c` then republish) | **Works.** Clean polish shipped (skip re-fetch on clean; clean banners; CMake `-B` survival note). Tip up-to-date upload confirmation remains slice 2c. |
-| Phase 2c / 2d | Not started |
+| Phase 2c settled decisions (skip-if-current, multi-toolchain once, sibling stems, manifest seed churn) | **Settled** (2026-09-21) from project D dual-toolchain tip soak |
+| Phase 2c implementation | Not started — next focus |
+| Phase 2d | Not started |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
