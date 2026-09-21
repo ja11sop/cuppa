@@ -41,6 +41,7 @@ def test_publish_package_sources_uses_env_file():
 
 def test_publish_package_method_passes_archive_to_publish_command( monkeypatch ):
     recorded = []
+    side_effects = []
 
     class _Env( dict ):
         def File( self, path ):
@@ -49,6 +50,9 @@ def test_publish_package_method_passes_archive_to_publish_command( monkeypatch )
         def Command( self, target, source, action ):
             recorded.append( ( target, list( source ), action ) )
             return target
+
+        def SideEffect( self, side_effect, target ):
+            side_effects.append( ( side_effect, target ) )
 
         def get_option( self, name ):
             return name == "publish-package"
@@ -79,10 +83,12 @@ def test_publish_package_method_passes_archive_to_publish_command( monkeypatch )
     assert action == "publish"
     assert "working/widget.packaged" in publish_sources
     assert "final/widget.tar.gz" in publish_sources
+    assert side_effects == [ ( "final/widget.tar.gz", "working/widget.packaged" ) ]
 
 
 def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
     recorded = []
+    side_effects = []
 
     class _Env( dict ):
         def File( self, path ):
@@ -91,6 +97,9 @@ def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
         def Command( self, target, source, action ):
             recorded.append( ( target, list( source ) if source else [], action ) )
             return target
+
+        def SideEffect( self, side_effect, target ):
+            side_effects.append( ( side_effect, target ) )
 
         def get_option( self, name ):
             return name in ( "publish-package", "amend-package-manifest" )
@@ -120,6 +129,7 @@ def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
     assert callable( recorded[0][2] )
     assert recorded[0][1] == []
     assert recorded[1][2] == "publish"
+    assert side_effects == [ ( "final/widget.tar.gz", "working/widget.packaged" ) ]
 
 
 def test_publish_package_method_amend_rejects_conan_style( monkeypatch ):

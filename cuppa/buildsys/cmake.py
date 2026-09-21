@@ -222,8 +222,10 @@ def cmake_build_jobs( env, jobs=None ):
     ``jobs``:
 
     - ``None`` (default): use ``env['job_count']`` when ``env['parallel']`` is
-      true and the count is at least 2 (Cuppa ``--parallel``)
-    - ``False`` or ``0``: omit ``--parallel`` / ``-j``
+      true and the count is at least 2 (Cuppa ``--parallel``); otherwise
+      return ``1`` so Ninja (Cuppa's usual default generator) cannot invent an
+      all-CPU job count when Cuppa parallelism is off
+    - ``False`` or ``0``: omit ``--parallel`` / ``-j`` (generator default)
     - positive ``int``: that many jobs (manual override)
     """
     if jobs is False or jobs == 0:
@@ -235,7 +237,7 @@ def cmake_build_jobs( env, jobs=None ):
         return count
     if env.get( 'parallel' ) and int( env.get( 'job_count' ) or 1 ) >= 2:
         return int( env['job_count'] )
-    return None
+    return 1
 
 
 def cmake_build_args( build_dir, jobs=None, target=None ):

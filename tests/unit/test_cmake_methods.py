@@ -77,9 +77,9 @@ class _RecordingEnv(dict):
         self.cleans.append( ( target, files ) )
 
 
-def test_cmake_build_jobs_default_omits_without_parallel():
-    assert cmake.cmake_build_jobs( _env() ) is None
-    assert cmake.cmake_build_jobs( _env( parallel=True, job_count=1 ) ) is None
+def test_cmake_build_jobs_default_is_one_without_parallel():
+    assert cmake.cmake_build_jobs( _env() ) == 1
+    assert cmake.cmake_build_jobs( _env( parallel=True, job_count=1 ) ) == 1
 
 
 def test_cmake_build_jobs_honours_parallel():
@@ -147,6 +147,19 @@ def test_cmake_build_method_honours_parallel_jobs( silence_progress ):
     action = env.commands[0]['action']
     assert shlex.split( action._command ) == [
             'cmake', '--build', '_build/x', '--parallel', '6',
+    ]
+
+
+def test_cmake_build_method_defaults_to_parallel_one( silence_progress ):
+    env = _RecordingEnv( _env() )
+    CMakeBuildMethod()(
+            env,
+            'configure',
+            build_dir='_build/x',
+            working_dir='/tmp/src',
+    )
+    assert shlex.split( env.commands[0]['action']._command ) == [
+            'cmake', '--build', '_build/x', '--parallel', '1',
     ]
 
 

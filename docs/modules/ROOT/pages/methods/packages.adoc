@@ -35,7 +35,7 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 | Configure an external CMake project (toolchain/variant flags via `cuppa.buildsys.cmake`)
 
 | `env.CMakeBuild(…)`
-| `cmake --build`; honours Cuppa `--parallel` as `--parallel N` unless `jobs=` overrides
+| `cmake --build`; Cuppa `--parallel` → `--parallel N`, otherwise `--parallel 1` (pass `jobs=False` to omit)
 
 | `env.CMakeInstall(…)`
 | `cmake --build … --target install` (default omits `--parallel`)

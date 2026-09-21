@@ -28,19 +28,42 @@ def publish_package_sources( publisher, built_package, env=None ):
     from SCons.Script import Flatten
 
     sources = list( Flatten( [ built_package ] ) )
+    archive = publisher_package_archive_node( publisher, env )
+    if archive is not None:
+        sources.append( archive )
+    return sources
+
+
+def publisher_package_archive_node( publisher, env=None ):
+    """Return the publisher archive File/path, or ``None`` when unset."""
     archive_fn = getattr( publisher, "package_archive", None )
     if not callable( archive_fn ):
-        return sources
+        return None
     archive = archive_fn()
     if archive is None:
-        return sources
+        return None
     if env is not None:
         file_fn = getattr( env, "File", None )
         if callable( file_fn ):
-            sources.append( file_fn( archive ) )
-            return sources
-    sources.append( archive )
-    return sources
+            return file_fn( archive )
+    return archive
+
+
+def declare_package_archive_side_effect( env, built_package, publisher ):
+    """Tell SCons the archive is produced with the ``.packaged`` stamp.
+
+    ``build_package`` / ``amend_package`` write the ``.tar.gz`` / ``.zip`` as a
+    side effect. Listing that archive as a ``.published`` source (for MD5
+    invalidation) without ``SideEffect`` lets ``-j`` demand the file before
+    packaging finishes — ``Source not found``.
+    """
+    archive = publisher_package_archive_node( publisher, env )
+    if archive is None:
+        return
+    side_effect = getattr( env, "SideEffect", None )
+    if not callable( side_effect ):
+        return
+    side_effect( archive, built_package )
 
 
 class PublishPackageMethod(object):
@@ -66,6 +89,7 @@ class PublishPackageMethod(object):
                     [ source, publisher.sources() ],
                     publisher.build_package,
             )
+        declare_package_archive_side_effect( env, built_package, publisher )
         target = built_package
 
         if env['clean']:
