@@ -3215,6 +3215,74 @@ def test_a_package_source_declared_on_the_dependency_resolves_a_publisher_tree( 
             "git@gitlab.example:packages/capy"
     )
     assert cascade.resolve_publisher_dir( env, entry ) == str( tree )
+    assert entry["package_source"] == "git@gitlab.example:packages/capy"
+
+
+def test_cli_package_source_override_resolves_like_clone_develop( tmp_path ):
+    """CLI --<name>-gitlab-package-source= outranks a missing declaration."""
+    ( tmp_path / "project" ).mkdir()
+    tree = _publisher_tree( tmp_path / "packages" / "capy" )
+    dependency = _package_dependency( "capy", None )
+
+    env = _PlanEnv(
+            {
+                    "publisher-root": str( tmp_path / "packages" ),
+                    "capy-gitlab-package-source": "git@gitlab.example:packages/capy",
+            },
+            {
+                    "sconstruct_dir": str( tmp_path / "project" ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    entry = { "name": "capy", "package": "capy", "version": "1.0" }
+    assert cascade.effective_package_source( env, entry ) == (
+            "git@gitlab.example:packages/capy"
+    )
+    assert cascade.resolve_publisher_dir( env, entry ) == str( tree )
+    assert entry["package_source"] == "git@gitlab.example:packages/capy"
+
+
+def test_tip_seed_package_source_stamps_onto_name_only_edge( tmp_path ):
+    """Tip cuppa-publish.json fills package_source when the publisher edge omitted it."""
+    project = tmp_path / "project"
+    project.mkdir()
+    tree = _publisher_tree( tmp_path / "packages" / "capy" )
+    write_publish_manifest(
+            str( project ),
+            "widget",
+            "1",
+            dependencies=[
+                    {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "2.0",
+                            "package_source": "git@gitlab.example:packages/capy",
+                    }
+            ],
+    )
+    dependency = _package_dependency( "capy", None )
+    env = _PlanEnv(
+            { "publisher-root": str( tmp_path / "packages" ) },
+            {
+                    "sconstruct_dir": str( project ),
+                    "dependencies": { "capy": dependency },
+            },
+    )
+    entry = { "name": "capy", "package": "capy", "version": "2.0" }
+    assert cascade.resolve_publisher_dir( env, entry ) == str( tree )
+    assert entry["package_source"] == "git@gitlab.example:packages/capy"
+
+
+def test_plan_dependency_label_shows_stamped_package_source():
+    entry = {
+            "name": "capy",
+            "package": "capy",
+            "version": "1.0",
+            "package_source": "git@gitlab.example:packages/capy",
+    }
+    label = cascade._plan_dependency_label( entry )
+    assert "capy" in label
+    assert "git@gitlab.example:packages/capy" in label
 
 
 # Slice F — tip registry 404 defer under cascade

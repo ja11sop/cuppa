@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``boost_package.define(..., package_source=…)`` forwards the same consume-site
+  publisher URL metadata as ``package_dependency`` (for ``--clone-develop`` /
+  cascade). Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Phase 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - ``GitlabPackagePublisher`` accepts ``version="latest"`` (or ``"current"`` /
   ``None``): the publisher-tree ``cuppa-publish.json`` seed may keep that
   floating token while the staged archive and registry upload always record
@@ -56,6 +62,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stage without ``--stage-develop`` stops with a hint. Prefix-shaped ``develop=``
   (``include/`` + ``lib/``, no ``sconstruct``) still swaps in with a log note.
   ``--stage-package`` cannot be combined with ``--publish-package``.
+
+### Fixed
+
+- Cascade publisher resolve now uses the same ``package_source`` precedence as
+  ``--clone-develop`` (CLI override → declaration → tip ``cuppa-publish.json``)
+  and stamps the effective source onto plan nodes so ``--cascade-plan`` labels
+  stay honest. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Phase 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 ### Changed
 

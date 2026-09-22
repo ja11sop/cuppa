@@ -267,8 +267,8 @@ design.
 | **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
 | **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **done** ([#323](https://github.com/ja11sop/cuppa/pull/323); not yet in a named release) |
 | **2d — Converge** | Single traveling **`cuppa-publish.json`** (stop writing `cuppa-dependency.json`; read fallback for old extracts); amend coupled — **done** (not yet in a named release) |
-| **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata |
-| **Later** | Parallel independent leaves; Conan parity if needed |
+| **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata — **done** (feature with develop/cascade; polish aligns cascade resolve with `--clone-develop` precedence + `boost_package.define`) |
+| **Later** | **Plan** pure-consume cascade (want / refuse / semantics); parallel independent leaves; Conan parity if needed |
 
 ## Phase 1 settled decisions
 
@@ -405,7 +405,7 @@ traveling file rather than keep a derived twin for a release that never shipped.
 | Amend | Rewrite publish; **remove** any leftover ``cuppa-dependency.json`` before retar |
 | Private registry / source trees | Operator **one-off** amend/republish after this lands — not part of the Cuppa PR |
 | Couples with | [`package-metadata-amend.md`](package-metadata-amend.md) (amend already on master via #300; single-file behaviour is this slice) |
-| Boost ``latest`` | **Done** on branch ``feature/boost-publish-latest`` — seed may keep ``latest``; stage/upload concrete (question 10) |
+| Boost ``latest`` | **Done** in [#328](https://github.com/ja11sop/cuppa/pull/328) — seed may keep ``latest``; stage/upload concrete (question 10) |
 
 ### Soak note (project D, after #324)
 
@@ -417,6 +417,24 @@ That is expected today, not a 2d regression. For a tip-only metadata soak, amend
 the **tip** itself (``--amend-package-manifest``) and avoid leaf cascade /
 ``--force`` unless you want that rebuild. Tip no-op when a refreshed dependency
 extract is payload-identical aside from traveling JSON is open question 11.
+
+## Phase 3 settled decisions (consume-site parity)
+
+Inventory (2026-09-22): the Phase 3 one-liner was already product behaviour
+(``package_dependency(..., package_source=…)``, CLI override, develop + cascade
+fallback, docs). Phase 3 closes with polish so cascade and ``--clone-develop``
+share one precedence, plan labels stamp the effective source, and
+``boost_package.define`` forwards ``package_source=``.
+
+| Question | Decision |
+|----------|----------|
+| Intent | Consume-site ``package_source`` is the same metadata as publisher-edge / traveling-manifest fields |
+| Status | **Feature already shipped**; this slice is polish + plan/ROADMAP honesty |
+| Source precedence (cascade) | Match develop: **CLI → factory declaration → tip ``cuppa-publish.json`` edge**; publisher-edge field on the node still wins when set |
+| Plan / node display | Stamp the effective source onto the cascade node so ``--cascade-plan`` shows it |
+| ``boost_package.define`` | Optional ``package_source=`` forwarded like other ``package_dependency`` kwargs |
+| Tip without publisher | Unchanged — cascade still requires tip ``GitlabPackagePublisher`` |
+| Next after Phase 3 | **Plan** pure-consume cascade (decide want / refuse / exact meaning); then question 11 or ``--deep-clean`` |
 
 ## Open questions (Phase 2+)
 
@@ -495,5 +513,6 @@ extract is payload-identical aside from traveling JSON is open question 11.
 | Phase 2d settled decisions (single `cuppa-publish.json`) | **Settled** (2026-09-21) — neither file in a named release yet |
 | Phase 2d implementation | **Done** in [#324](https://github.com/ja11sop/cuppa/pull/324) — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
-| Follow-on: resolve `latest` in publish manifests (Boost) | **Done** on `feature/boost-publish-latest` (question 10; not ranges / `>=`) |
+| Follow-on: resolve `latest` in publish manifests (Boost) | **Done** in [#328](https://github.com/ja11sop/cuppa/pull/328) (question 10; not ranges / `>=`) |
+| Phase 3 consume-site parity | **Done** on `feature/phase3-consume-parity` — inventory + polish (shared resolve precedence, plan stamp, `boost_package.define`); next **plan** pure-consume cascade |
 | Follow-on: tip no-op after metadata-only dependency refresh | Open — question 11; project D soak after #324 |

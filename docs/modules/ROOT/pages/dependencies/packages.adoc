@@ -87,6 +87,12 @@ the develop working copy above, and xref:packages.adoc#build-and-publish-depende
 uses it to find the project that publishes the package. An optional `@branch` pin may be given,
 and `--<name>-<manager>-package-source=` overrides the declaration for one run.
 
+**Precedence** (shared by `--clone-develop` and cascade): CLI override →
+`package_dependency(..., package_source=…)` (or `boost_package.define(..., package_source=…)`)
+→ matching edge in the tip's `cuppa-publish.json`. Publisher-edge
+`package_source` on a traveling / `dependencies=` entry still wins when present
+on that edge.
+
 A project that publishes already declares the same field on its `PublishPackage` dependency
 edges, and a publisher build stages those in `cuppa-publish.json`, so declaring it here is for
-consumers that do not publish.
+consumers that do not publish (and so cascade need not require the field twice).
