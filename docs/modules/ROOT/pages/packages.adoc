@@ -33,6 +33,87 @@ The publish step depends on the archive file as well as the empty ``.packaged`` 
 a retar (for example after updating ``cuppa-publish.json``) invalidates upload under
 SCons ``MD5-timestamp``.
 
+[#publish-version-latest]
+=== Publisher ``version="latest"`` (seed vs staged identity)
+
+The same floating tokens used on consume —
+xref:dependencies/gitlab.adoc#version-latest[registry ``latest``] —
+are available on ``GitlabPackagePublisher``: ``version="latest"``, ``"current"``,
+or ``None``. This is a **general** publisher facility, not Boost-only. Boost is
+the workflow that needs it most often today; any GitLab package publisher can
+use the same kwargs.
+
+Cuppa splits identity on purpose:
+
+| Where | What is written |
+|-------|-----------------|
+| Publisher-tree seed ``cuppa-publish.json`` (beside ``sconstruct``) | May keep the floating token (``"latest"`` / ``"current"``) so you need not hand-edit the seed on every release |
+| Staged archive under ``final/<package>/<concrete>/`` and its traveling ``cuppa-publish.json`` | Always a **concrete** version string |
+| Registry upload URL | Same concrete version |
+
+Nothing in the uploaded tarball claims to be the word ``latest``. Consumers that
+pin ``version="latest"`` still resolve against **registry** contents after you
+upload; they never re-resolve the publisher's floating seed.
+
+==== How Cuppa picks the concrete pin
+
+When the publisher ``version`` is floating, resolve order is:
+
+. **Active ``BuildWith``** for that package name (and, for registry slug
+  ``boost``, source ``BuildWith('boost')`` before ``boost_package``) — the
+  usual case when the sconscript already built or consumed the package this
+  session.
+. **Upstream Boost latest** (package ``boost`` only) — major.minor form, same
+  as ``Boost.version().replace('_', '.')`` / ``boost_package.latest_release()``.
+. **Registry latest** for ``registry`` + ``package`` — the same
+  ``gitlab_latest`` helper as consume ``version="latest"``.
+
+If none of those yield a pin, configure / publisher construction fails with an
+actionable error. Pass an explicit concrete ``version=`` when you want the seed
+and the archive to agree (most libraries that cut named releases in git).
+
+==== When floating helps, and when it does not
+
+*Use* ``version="latest"`` when the publisher tree's authored identity is meant
+to float with the session — for example a leaf that always publishes “whatever
+``BuildWith`` resolved,” or a tip seed you do not want to bump by hand every
+cut. Cascade still discovers the tree from the seed; nested publish uploads
+under the concrete folder and URL.
+
+*Prefer a concrete* ``version=`` when the tracked seed should be a reviewable
+pin (typical for application and library publishers with SemVer tags).
+
+*Do not confuse* registry latest with upstream software latest. For ordinary
+packages, step 3 above means “newest version **already in our registry**,”
+which is a poor pin for a *first* upload of a brand-new upstream release (the
+registry has nothing newer yet). In that case resolve from ``BuildWith`` of the
+tree you just built (step 1), or pass the concrete version explicitly. Source
+Boost is the exception that also understands upstream latest (step 2).
+
+Minimum / range pins (``>=1.28.0``) are a separate story; this token is only
+the named floating ``latest`` / ``current`` spelling.
+
+==== Example (any package)
+
+[source,python]
+----
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# After BuildWith('abseil_cpp') (or equivalent) has a concrete version this session:
+Publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = include_path,
+    source_lib_dir     = lib_path,
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'abseil-cpp',
+    version            = 'latest',  # seed keeps latest; stage/upload use BuildWith pin
+)
+----
+
+For a full Boost sconscript that uses the same facility (plus upstream Boost
+resolve when needed), see
+xref:dependencies/gitlab.adoc#publishing-boost-from-source[Publishing Boost from source].
+
 [#build-and-publish-dependencies]
 === Cascading dependency publishes
 
@@ -75,8 +156,11 @@ cascade, cuppa stops and names the package.
 
 Publisher builds stage a single traveling ``cuppa-publish.json`` (identity, deps
 including ``package_source``, optional ``default_use_libs`` / ``link``) and seed
-a copy beside the tip ``sconstruct`` for local cascade discovery. Consume and
-``--list-dependencies`` ``requires`` read that file; legacy
+a copy beside the tip ``sconstruct`` for local cascade discovery. The publisher
+may use floating ``version="latest"`` on that seed while the staged archive and
+registry upload stay concrete — see
+xref:#publish-version-latest[Publisher version latest]. Consume and
+``--list-dependencies`` ``requires`` read the traveling file; legacy
 ``cuppa-dependency.json`` remains a **read-only fallback** for older extracts.
 
 Requires ``--publish-package``. Missing ``package_source`` / unresolved trees

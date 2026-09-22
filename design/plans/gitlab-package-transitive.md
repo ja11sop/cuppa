@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); [`archive/sconscript-exports.md`](../archive/sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); scratchpad graduate
-- **Updated:** 2026-09-06
+- **Updated:** 2026-09-22
 - **Impact:** minor — new publish/consume behaviour for GitLab packages; existing flat declarations stay valid
 - **Issue:** [#279](https://github.com/ja11sop/cuppa/issues/279)
 
@@ -103,7 +103,11 @@ Illustrative schema (not final):
 - **`name`** — Cuppa **BuildWith / registry name** (what `BuildWith('…')` looks up).
 - **`package`** — GitLab Packages API package slug when it differs from `name`.
 - **Concrete versions in MVP** — no ranges; publish-time resolve of `latest` into a pin is
-  allowed so offline consumers do not re-resolve B.
+  allowed so offline consumers do not re-resolve B. A richer spelling for **minimum vs
+  exact** pins (`>=1.28.0` vs `1.28.0` / `==1.28.0`) is explicitly out of MVP; related
+  follow-on to Boost publish-seed `latest` under
+  [`package-build-publish-deps.md`](package-build-publish-deps.md) open question 10
+  (named floating token ≠ constraint solver).
 - `registry: "same"` means A's registry URL (or an explicit URL later).
 - **`use_libs`** — libraries to request from B when A is applied (see link closure below).
   Omit or `[]` when B is headers-only.

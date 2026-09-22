@@ -73,7 +73,9 @@ Run a release build with upload when you intend to push:
 cuppa -D --rel --publish-package
 ----
 
-See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage.
+See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage,
+including xref:packages.adoc#publish-version-latest[floating ``version="latest"``]
+(seed may stay floating; staged archive and upload stay concrete).
 
 Custom `Command()` steps that wrap external CMake generate/build before `Install()` are common in
 publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands] and

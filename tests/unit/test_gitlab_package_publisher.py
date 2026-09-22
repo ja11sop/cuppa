@@ -8,14 +8,22 @@ from cuppa.package_managers import gitlab
 pytestmark = pytest.mark.unit
 
 
-def _publisher_env( tmp_path, touched=None ):
+def _publisher_env( tmp_path, touched=None, sconstruct_dir=None ):
     class Env:
         abs_final_dir = str( tmp_path )
 
         def __getitem__( self, key ):
             if key == 'abs_final_dir':
                 return str( tmp_path )
+            if key == 'sconstruct_dir' and sconstruct_dir is not None:
+                return str( sconstruct_dir )
             raise KeyError( key )
+
+        def get( self, key, default=None ):
+            try:
+                return self[ key ]
+            except KeyError:
+                return default
 
         def Execute( self, action ):
             if touched is not None:
@@ -157,6 +165,8 @@ def _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive, source_in
     publisher._registry = None
     publisher._package = "widget"
     publisher._version = "1.0.0"
+    publisher._seed_version = "1.0.0"
+    publisher._preserves_floating_seed = False
     publisher._custom_token = None
     publisher._package_location = None
     return publisher
@@ -448,3 +458,36 @@ def test_amend_package_downloads_when_stage_and_archive_missing( tmp_path, monke
     assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
     assert downloads
     assert ( staging / "include" / "widget.hpp" ).read_text( encoding="utf-8" ) == "from-registry\n"
+
+
+def test_build_package_seed_keeps_latest_stage_is_concrete( tmp_path, monkeypatch ):
+    monkeypatch.setattr( gitlab, 'create_package_archive', lambda *args, **kwargs: 0 )
+
+    publisher_root = tmp_path / "publisher"
+    publisher_root.mkdir()
+    staging = tmp_path / "boost" / "1.92"
+    include_dir = staging / "include"
+    lib_dir = staging / "lib"
+    include_dir.mkdir( parents=True )
+    lib_dir.mkdir( parents=True )
+    ( include_dir / "boost.hpp" ).write_text( "header\n", encoding="utf-8" )
+    ( lib_dir / "libboost.a" ).write_text( "lib\n", encoding="utf-8" )
+
+    archive = tmp_path / "boost_debian_gcc15_rel.tar.gz"
+    archive.write_bytes( b"old" )
+    stamp = tmp_path / "boost.packaged"
+    publisher = _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive )
+    publisher._package = "boost"
+    publisher._version = "1.92"
+    publisher._seed_version = "latest"
+    publisher._preserves_floating_seed = True
+    publisher._package_source_dir = "boost"
+
+    env = _publisher_env( tmp_path, sconstruct_dir=publisher_root )
+    assert publisher.build_package( [ str( stamp ) ], [], env ) is None
+
+    from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
+    staged = read_publish_manifest( str( staging ) )
+    seed = read_publish_manifest( str( publisher_root ) )
+    assert staged["version"] == "1.92"
+    assert seed["version"] == "latest"

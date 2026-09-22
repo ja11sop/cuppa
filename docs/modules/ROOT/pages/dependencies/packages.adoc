@@ -34,6 +34,11 @@ Offline reuse of that pin is documented under
 xref:dependencies/gitlab.adoc#version-latest[Registry latest].
 A missing package or an unresolved `latest` fails during configure, before compile.
 
+On the publish side, the same floating tokens may appear on
+``GitlabPackagePublisher``: the publisher-tree seed can keep ``"latest"`` while
+the staged archive and registry upload always record a concrete pin — see
+xref:packages.adoc#publish-version-latest[Publisher version latest].
+
 == Develop vs package downloads
 
 `--develop` affects *location* develop paths and package develop flags where defined.
