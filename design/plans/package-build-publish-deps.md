@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-21
+- **Updated:** 2026-09-22
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -441,6 +441,16 @@ extract is payload-identical aside from traveling JSON is open question 11.
     Goal: avoid hand-editing `cuppa-publish.json` on every Boost release while
     keeping publish identity honest. Not started; do not put literal `"latest"`
     in a published package version today.
+
+    **Related (do not conflate):** floating / non-exact package pins more
+    generally — e.g. consume or traveling-manifest language for a **minimum**
+    (`>=1.28.0`) versus an **exact** pin (`1.28.0` / `==1.28.0`). That sits with
+    [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP is
+    concrete versions only; ranges / backtracking refused). Boost publish-seed
+    ``latest`` is a **named floating token** that resolves once to a concrete
+    archive identity; it is a stepping stone toward richer constraint spelling,
+    not a constraint solver. Keep this slice narrow: seed/tip may say `latest`;
+    published `version` stays concrete.
 11. **Tip no-op after metadata-only dependency refresh** — when cascade (or a
     same-version leaf amend) re-fetches a dependency whose ``include/`` / ``lib/``
     are unchanged and only traveling JSON differs, avoid dirtying tip CMake /
@@ -485,5 +495,5 @@ extract is payload-identical aside from traveling JSON is open question 11.
 | Phase 2d settled decisions (single `cuppa-publish.json`) | **Settled** (2026-09-21) — neither file in a named release yet |
 | Phase 2d implementation | **Done** in [#324](https://github.com/ja11sop/cuppa/pull/324) — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
-| Follow-on: resolve `latest` in publish manifests (Boost) | Open — see open questions |
+| Follow-on: resolve `latest` in publish manifests (Boost) | Open — question 10; on branch `feature/boost-publish-latest` (not ranges / `>=`) |
 | Follow-on: tip no-op after metadata-only dependency refresh | Open — question 11; project D soak after #324 |
