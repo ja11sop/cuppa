@@ -135,3 +135,62 @@ def test_b2_command_keeps_cxxflags_and_defines_as_single_argv_elements( monkeypa
     assert "define=BOOST_BIND_GLOBAL_PLACEHOLDERS" in defines
     assert not any( '"' in a for a in args )
     assert "-d+2" in args
+
+
+@pytest.mark.unit
+def test_b2_command_passes_user_config_on_linux( monkeypatch ):
+    _patch_b2_helpers( monkeypatch, "clang" )
+    monkeypatch.setattr(
+        "cuppa.dependencies.boost.b2.cuppa.build_platform.name",
+        lambda: "Linux",
+    )
+
+    toolchain = _Toolchain( "clang" )
+    args = b2_command(
+        {},
+        1.91,
+        "/tmp/boost",
+        toolchain,
+        [ "regex" ],
+        "release",
+        "x86_64",
+        "static",
+        "stage",
+        False,
+        False,
+        1,
+        False,
+        [],
+    )
+
+    assert "--ignore-site-config" in args
+    assert "--user-config=/tmp/boost/clang221._jam" in args
+
+
+@pytest.mark.unit
+def test_b2_command_omits_user_config_off_linux( monkeypatch ):
+    _patch_b2_helpers( monkeypatch, "clang" )
+    monkeypatch.setattr(
+        "cuppa.dependencies.boost.b2.cuppa.build_platform.name",
+        lambda: "Windows",
+    )
+
+    args = b2_command(
+        {},
+        1.91,
+        "/tmp/boost",
+        _Toolchain( "clang" ),
+        [ "regex" ],
+        "release",
+        "x86_64",
+        "static",
+        "stage",
+        False,
+        False,
+        1,
+        False,
+        [],
+    )
+
+    assert "--ignore-site-config" in args
+    assert not any( a.startswith( "--user-config=" ) for a in args )
