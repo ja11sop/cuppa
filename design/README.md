@@ -21,6 +21,7 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
+| [`plans/deep-clean.md`](plans/deep-clean.md) | proposal | `--deep-clean` modifier on `-c`; naming + gap assessment; Boost cooperative `b2 --clean`; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | [`plans/gitlab-package-transitive.md`](plans/gitlab-package-transitive.md) | in progress | GitLab package A can carry deps on package B (manifest + BuildWith); consumer declares A only |
 | [`plans/run-default-dependency-objects.md`](plans/run-default-dependency-objects.md) | in progress | `cuppa.run` `default_dependencies` accepts objects; register vs auto-apply semantics / naming |
 | [`archive/gitlab-package-latest.md`](archive/gitlab-package-latest.md) | shipped | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs — [#271](https://github.com/ja11sop/cuppa/issues/271) / [#272](https://github.com/ja11sop/cuppa/pull/272) |
