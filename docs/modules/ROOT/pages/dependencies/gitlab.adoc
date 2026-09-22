@@ -80,6 +80,14 @@ downloads with the usual stem / override / identity-fallback rules. Auth uses th
 token that can call the Packages API (a deploy-token that only fetches generic files may be
 insufficient).
 
+The same floating tokens appear on the **publish** side
+(``GitlabPackagePublisher(version="latest")``): the publisher-tree seed may keep
+``"latest"`` while the staged archive and registry upload always record a concrete
+pin. Resolve order prefers an active ``BuildWith``, then (for package ``boost``)
+upstream Boost latest, then this same registry-latest helper. That is a general
+facility for any GitLab package publisher — see
+xref:packages.adoc#publish-version-latest[Publisher version latest].
+
 [source,python]
 ----
 Widget = cuppa.package_dependency(
@@ -186,6 +194,7 @@ env.BuildWith('boost_package').use_libs([
 exists) to the construction environment so shared libraries resolve for host
 tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
 
+[#publishing-boost-from-source]
 === Publishing Boost from source
 
 To populate the registry, build static libraries from the built-in **source** ``boost``
@@ -193,6 +202,13 @@ dependency (unpinned — latest is implied when online; see
 xref:dependencies/builtins/boost.adoc#latest-version-and-offline-ci[Latest version and offline CI]),
 then publish headers and libs with ``GitlabPackagePublisher``. Run with ``--publish-package`` to
 upload.
+
+This example uses the general publisher floating-version facility
+(xref:packages.adoc#publish-version-latest[Publisher version latest]):
+``version = 'latest'`` on the publisher keeps the seed floating while the staged
+archive and upload use the concrete pin from ``BuildWith('boost')``. Any other
+GitLab package publisher can pass the same token; Boost only adds the upstream
+Boost resolve step when no BuildWith pin is available.
 
 **``sconstruct``** — register source Boost (no ``--boost-version=`` pin; no ``--boost-latest``
 required):
@@ -253,13 +269,18 @@ Publisher = GitlabPackagePublisher(
     source_lib_dir     = BoostLibPath,
     registry           = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
     package            = 'boost',
-    version            = BoostVersion,
+    version            = 'latest',  # seed keeps latest; stage/upload use Boost.version()
 )
 
 Published = env.PublishPackage(Libraries, publisher=Publisher)
 
 env.Clean(Published, Libraries)
 ----
+
+Keep a concrete ``BoostVersion`` (or equivalent) for install paths under
+``boost/<ver>/lib``; only the publisher ``version=`` argument participates in the
+seed-vs-staged split. Pass an explicit concrete ``version=`` on the publisher when
+you want the seed pinned too.
 
 ``Boost.version()`` reflects the resolved release (for example after boost.org is checked on an
 online unpinned build). After download, Cuppa may upsert ``boost_latest_version`` in project

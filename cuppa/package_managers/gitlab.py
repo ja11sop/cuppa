@@ -572,10 +572,27 @@ class GitlabPackagePublisher:
         link=None,
     ):
         from SCons.Script import Flatten
+        from cuppa.package_managers.publish_version import (
+                is_floating_publish_version,
+                resolve_publisher_version,
+        )
+
+        seed_version, concrete_version = resolve_publisher_version(
+                env,
+                package,
+                version,
+                registry=registry,
+                custom_token=custom_token,
+        )
+        # Seed may keep latest/current; stage path, archive identity, and upload
+        # URL always use the concrete pin (package-build-publish-deps Q10).
+        self._seed_version = seed_version
+        self._preserves_floating_seed = is_floating_publish_version( version )
+        self._version = concrete_version
 
         self._source_include_dir = env.Dir( str(source_include_dir) )
         self._source_lib_dir     = env.Dir( str(source_lib_dir) )
-        self._package_folder     = os.path.join( package, str(version) )
+        self._package_folder     = os.path.join( package, str(concrete_version) )
         self._package_base_dir   = env.Dir( os.path.join( env['final_dir'], self._package_folder ) )
         self._target_include_dir = env.Dir( os.path.join( str(self._package_base_dir), "include" ) )
         self._dependencies = list( dependencies ) if dependencies else []
@@ -583,7 +600,6 @@ class GitlabPackagePublisher:
         self._link = link
         self._registry = registry
         self._package = package
-        self._version = version
         self._custom_token = custom_token
         self._variant = variant
 
@@ -613,7 +629,7 @@ class GitlabPackagePublisher:
                 env,
                 registry=registry,
                 package=package,
-                version=version,
+                version=concrete_version,
                 omit_os=omit_os,
         )
         self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
@@ -703,10 +719,13 @@ class GitlabPackagePublisher:
             if callable( getter ):
                 sconstruct_dir = getter( 'sconstruct_dir' )
         if sconstruct_dir:
+            seed_version = getattr( self, '_version', None )
+            if getattr( self, '_preserves_floating_seed', False ):
+                seed_version = getattr( self, '_seed_version', seed_version )
             seed_path = write_publish_manifest(
                     str( sconstruct_dir ),
                     getattr( self, '_package', None ),
-                    getattr( self, '_version', None ),
+                    seed_version,
                     dependencies=getattr( self, '_dependencies', None ),
                     env=env,
                     default_use_libs=getattr( self, '_default_use_libs', None ),

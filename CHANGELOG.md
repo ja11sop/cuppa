@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``GitlabPackagePublisher`` accepts ``version="latest"`` (or ``"current"`` /
+  ``None``): the publisher-tree ``cuppa-publish.json`` seed may keep that
+  floating token while the staged archive and registry upload always record
+  the resolved concrete pin (from ``BuildWith``, Boost latest for package
+  ``boost``, or registry latest). General facility for any GitLab package
+  publisher; Boost is the common workflow that needs the floating seed today
+  (see Publishing packages — Publisher ``version="latest"``). Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 10 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - Cascade Phase **2c**: ``--force`` with ``--build-and-publish-dependencies``
   rebuilds and uploads every resolved dependency even when the tip's consume
   archive already matches the registry. Nested sessions that are current are

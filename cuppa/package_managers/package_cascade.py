@@ -580,7 +580,12 @@ def looks_like_package_stage( path: str ) -> bool:
 
 
 def location_stage_version( develop_root: str ) -> str:
-    """Version folder under ``final/<name>/`` for a location develop stage."""
+    """Version folder under ``final/<name>/`` for a location develop stage.
+
+    Floating seed tokens (``latest`` / ``current``) are not folder names — fall
+    through to ``develop`` so ``resolve_develop_package_stage`` can scan for the
+    concrete staged tree.
+    """
     try:
         from cuppa.package_managers.cuppa_publish_manifest import read_publish_manifest
         manifest = read_publish_manifest( develop_root )
@@ -589,7 +594,9 @@ def location_stage_version( develop_root: str ) -> str:
     if manifest:
         version = manifest.get( "version" )
         if version:
-            return str( version )
+            from cuppa.package_managers.publish_version import is_floating_publish_version
+            if not is_floating_publish_version( version ):
+                return str( version )
     return "develop"
 
 

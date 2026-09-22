@@ -26,6 +26,18 @@ def test_location_stage_version_reads_publish_manifest( tmp_path ):
     assert cascade.location_stage_version( str( tmp_path ) ) == "2.1.0"
 
 
+def test_location_stage_version_ignores_floating_seed_token( tmp_path ):
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+
+    write_publish_manifest(
+            str( tmp_path ),
+            package="boost",
+            version="latest",
+            dependencies=[],
+    )
+    assert cascade.location_stage_version( str( tmp_path ) ) == "develop"
+
+
 def test_resolve_develop_location_stage_finds_usable_prefix( tmp_path ):
     stage = (
             tmp_path / "_build" / "gcc_dbg_x86_64_cxx2c" / "final" / "widget" / "develop"
