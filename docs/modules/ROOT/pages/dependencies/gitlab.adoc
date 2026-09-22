@@ -162,6 +162,7 @@ BoostPackage = cuppa.packages.boost_package.define(
     registry = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
     # version omitted → registry latest; or version = '1.91'
     # or version = cuppa.packages.boost_package.latest_release()  # upstream then registry
+    # package_source = 'git@gitlab.example:packages/boost@develop',  # optional; clone-develop / cascade
 )
 
 cuppa.run(

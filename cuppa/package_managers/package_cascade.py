@@ -117,8 +117,10 @@ def deferred_cascade_fetches() -> dict[tuple[str, str], str]:
 def tip_package_is_cascade_eligible( env, name, package, version=None ) -> bool:
     """True when this tip pin is one cascade can publish (Slice F eligibility).
 
-    Eligible when the tip declares a ``package_source``, a develop path, or the tip
-    ``cuppa-publish.json`` lists the pin with a ``package_source``.
+    Eligible when consume-site ``package_source`` resolves (CLI, declaration, or tip
+    ``cuppa-publish.json`` — same precedence as ``--clone-develop``), a develop path
+    is configured, or the tip seed lists the pin with a ``package_source`` even when
+    the dependency factory is not registered on the tip env.
     """
     if not cascade_enabled( env ) or _is_nested():
         return False
@@ -127,7 +129,7 @@ def tip_package_is_cascade_eligible( env, name, package, version=None ) -> bool:
             "package": package,
             "version": version,
     }
-    if declared_package_source( env, entry ):
+    if effective_package_source( env, entry ):
         return True
     if develop_publisher_dir( env, entry ):
         return True
@@ -436,12 +438,37 @@ def declared_package_source( env, entry: dict ) -> str | None:
     A publisher's ``dependencies=`` list is the usual home for this, but a consumer that
     declares ``package_dependency( …, package_source=… )`` — so ``--clone-develop`` can fill
     its develop tree — should not have to say it twice for cascade.
+
+    For CLI override and tip-seed fill (same precedence as ``--clone-develop``), use
+    :func:`effective_package_source`.
     """
     factory = _tip_dependency_factory( env, entry )
     if factory is None:
         return None
     source = getattr( _factory_owner( factory ), "_package_source", None )
     return str( source ) if source else None
+
+
+def effective_package_source( env, entry: dict ) -> str | None:
+    """Publisher-edge field, else consume-site source with develop precedence.
+
+    Order: ``entry["package_source"]`` (traveling / publisher edge) → CLI
+    ``--<name>-<manager>-package-source=`` → factory declaration → tip
+    ``cuppa-publish.json`` dependency edge. Matches
+    :func:`cuppa.develop.package_source_for_dependency`.
+    """
+    edged = entry.get( "package_source" )
+    if edged:
+        return str( edged )
+    factory = _tip_dependency_factory( env, entry )
+    if factory is None:
+        return None
+    owner = _factory_owner( factory )
+    from cuppa.develop import package_source_for_dependency
+    name = entry.get( "name" ) or getattr( owner, "_name", None )
+    if not name:
+        return None
+    return package_source_for_dependency( name, owner, env )
 
 
 def develop_publisher_dir( env, entry: dict ) -> str | None:
@@ -834,7 +861,9 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
     that claimed it, so two dependencies wanting one directory from different
     repositories is refused rather than silently resolved.
     """
-    package_source = entry.get( "package_source" ) or declared_package_source( env, entry )
+    package_source = effective_package_source( env, entry )
+    if package_source and not entry.get( "package_source" ):
+        entry["package_source"] = package_source
     name = entry["name"]
     package = entry["package"]
     _remember_plan_lookup( entry, env )
@@ -1079,6 +1108,11 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
                 nodes[key]["package_source"] = entry["package_source"]
             continue
         nodes[key] = dict( entry )
+        # Stamp consume-site source (CLI / declare / tip seed) before resolve so
+        # plan labels and clone notes show the effective package_source.
+        stamped = effective_package_source( env, nodes[key] )
+        if stamped and not nodes[key].get( "package_source" ):
+            nodes[key]["package_source"] = stamped
         try:
             publisher_dir = resolve_publisher_dir(
                     env, nodes[key], allow_clone=allow_clone, claims=claims

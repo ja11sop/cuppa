@@ -49,7 +49,7 @@ def latest_release( offline=False ):
     return ".".join( [ versions[0], versions[1] ] )
 
 
-def define( registry=None, version=None, variant=None, patched=True ):
+def define( registry=None, version=None, variant=None, patched=True, package_source=None ):
 
     class boost( package_dependency(
             'boost_package',
@@ -57,7 +57,8 @@ def define( registry=None, version=None, variant=None, patched=True ):
             package  = 'boost',
             version  = version,
             variant  = variant,
-            patched  = patched
+            patched  = patched,
+            package_source = package_source,
     ) ):
 
         def __call__( self, env, toolchain, variant ):
