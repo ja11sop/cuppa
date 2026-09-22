@@ -130,8 +130,10 @@ cuppa-scoped **stage** directory under the extract
 (`build.<abi>/<toolchain>/<variant>/<arch>/`). It does **not** remove Boost.Build's
 `bin.<abi>/…` object trees, the headers, or the `b2` binary — those stay in the shared
 cache. Use `--remove-dependencies=boost` for a selection-scoped wipe of stage **and**
-matching `bin.<abi>` toolset products (still leaving the extract). A future agnostic
-`--deep-clean` for out-of-tree product trees is tracked separately.
+matching `bin.<abi>` toolset products (still leaving the extract). A future
+`--deep-clean` modifier on `-c` (Boost.Build `bin.<abi>` and similar coarse
+out-of-tree products) is proposed in the Cuppa design plan `deep-clean`
+(ROADMAP id `deep-clean`).
 
 `--remove-dependencies=boost` uses `storage_clean` to delete only the selected b2 **stage** and
 matching Boost.Build toolset directories — not the whole extract. Details and sample output:
