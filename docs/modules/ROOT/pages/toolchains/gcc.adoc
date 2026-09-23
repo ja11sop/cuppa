@@ -226,6 +226,7 @@ It is not enabled for `--dbg` or `--cov`: LTO raises peak link memory and slows 
 |===
 
 When LTO is enabled, cuppa also prefers a version-matched `gcc-ar` / `gcc-ranlib` (for example `gcc-ar-16`) so static archives keep GCC LTO objects correctly.
+If that tool is not on the PATH (or beside the compiler), cuppa leaves SCons `ar` — it does **not** substitute the `gcc` driver.
 
 `-ffat-lto-objects` keeps archives usable even if the system archiver falls back to binutils `ar`.
 

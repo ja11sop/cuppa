@@ -337,12 +337,15 @@ class Gcc(object):
             candidate = os.path.join( self._cxx_path, name )
             if os.path.exists( candidate ):
                 return candidate
-            # Unversioned g++ / gcc in a snapshot bin dir.
-            bare = 'g++' if name.startswith( 'g++' ) else 'gcc'
-            if bare != name:
-                candidate = os.path.join( self._cxx_path, bare )
-                if os.path.exists( candidate ):
-                    return candidate
+            # Unversioned g++ / gcc in a snapshot bin dir — compilers only.
+            # Do not map gcc-ar / gcc-ranlib / gcc-nm onto gcc (1.10 regression:
+            # StaticLibrary then ran ``gcc rc lib.a …`` and ld looked for ``rc``).
+            if re.fullmatch( r'g\+\+(-\d+)?', name ) or re.fullmatch( r'gcc(-\d+)?', name ):
+                bare = 'g++' if name.startswith( 'g++' ) else 'gcc'
+                if bare != name:
+                    candidate = os.path.join( self._cxx_path, bare )
+                    if os.path.exists( candidate ):
+                        return candidate
         return name
 
 
