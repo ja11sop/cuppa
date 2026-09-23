@@ -118,13 +118,19 @@ xref:dependencies/gitlab.adoc#publishing-boost-from-source[Publishing Boost from
 === Cascading dependency publishes
 
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
-parents, then the tip). Pass ``--build-and-publish-dependencies`` together with
-``--publish-package``:
+parents, then the tip). Pass ``--build-and-publish-dependencies`` with a companion
+action — ``--publish-package`` (nested publish + tip upload) or
+``--publish-cascade-dependencies`` (nested publish, tip build only):
 
 [source,shell]
 ----
 cuppa -D --rel --toolchains=gcc15 \
   --publish-package --build-and-publish-dependencies \
+  --publisher-root=~/coding/packages
+
+# Or: nest-publish deps, tip build only (consume-only or publisher tip)
+cuppa -D --rel --toolchains=gcc15 \
+  --publish-cascade-dependencies --build-and-publish-dependencies \
   --publisher-root=~/coding/packages
 ----
 
@@ -144,9 +150,14 @@ Cuppa then:
 * Invalidates that package’s download/extract caches under the tip’s storage
   roots and re-fetches from the registry so the tip build sees the new
   artefacts
-* Continues with this project’s normal build and publish
+* Continues with this project’s normal build and publish when ``--publish-package``
+  is set (publisher tip), or **build only** when ``--publish-cascade-dependencies``
+  is set (consume-only or publisher tip)
 
-Pre-sconscript ``BuildWith`` still runs before cascade. When a tip dependency is
+Pre-sconscript ``BuildWith`` still runs before cascade on publisher tips.
+Consume-only tips run cascade **after** the sconscript read (once it is clear no
+tip publisher constructed); Slice F deferral still covers a missing registry pin
+during that earlier ``BuildWith``. When a tip dependency is
 one cascade can publish (``package_source``, a publisher-shaped ``develop=``, or
 a tip ``cuppa-publish.json`` edge with a source) and the registry returns
 ``404``, cuppa **defers** that fetch instead of stopping: nested publish and the
@@ -163,10 +174,61 @@ xref:#publish-version-latest[Publisher version latest]. Consume and
 ``--list-dependencies`` ``requires`` read the traveling file; legacy
 ``cuppa-dependency.json`` remains a **read-only fallback** for older extracts.
 
-Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
-fail before nested uploads. A ``package_source`` URL needs either a tree that
+``--build-and-publish-dependencies`` **enables** the graph; pair it with a
+companion **action**:
+
+* ``--publish-package`` — nested publish, then tip **upload** (publisher tips)
+* ``--publish-cascade-dependencies`` — nested publish, then tip **build only**
+  (consume-only and publisher tips; cannot combine with ``--publish-package``)
+* ``--cascade-plan`` / ``--collect-cascade`` / ``--update-publishers`` — stop modes
+
+Bare cascade alone is refused. Seed each direct package pin with
+``package_source=…`` (or a develop publisher tree under ``--develop``); transitive
+edges come from each resolved tree’s ``cuppa-publish.json``. Missing
+``package_source`` / unresolved trees fail before nested uploads. A
+``package_source`` URL needs either a tree that
 already exists under ``<storage-root>/publishers`` (or ``--publisher-root``), a
 filesystem ``package_source``, or ``--clone-publishers``, described next.
+
+[#cascade-consume-only]
+==== Consume-only tips (app projects)
+
+An application that only **consumes** GitLab packages (no tip
+``PublishPackage``) can still drive cascade from its ``package_dependency`` list.
+Declare ``package_source`` on each direct package edge that should open the DAG
+(for example the root of a stack), then plan or nest-publish under a monorepo forest:
+
+[source,python]
+----
+cloud = cuppa.package_dependency(
+        'google_cloud_cpp',
+        registry       = REGISTRY,
+        package        = 'google-cloud-cpp',
+        version        = '2.28.0',
+        package_source = 'git@gitlab.example:org/packages/google_cloud_cpp.git',
+)
+----
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --cascade-plan \
+  --publisher-root=~/coding/packages
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers \
+  --publisher-root=~/coding/packages
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --publish-cascade-dependencies \
+  --publisher-root=~/coding/packages
+----
+
+The last form nest-publishes the package DAG (nested sessions still pass
+``--publish-package``) and then **builds the tip** — it does not upload the app.
+Use ``--publish-package`` instead of ``--publish-cascade-dependencies`` only when
+the tip itself should upload.
+
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in

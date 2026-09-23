@@ -9,7 +9,9 @@
 
 """Opt-in nested publish of package dependencies before the tip package.
 
-See ``design/plans/package-build-publish-deps.md``.
+Supports publisher tips (``GitlabPackagePublisher``) and consume-only tips that
+seed from tip ``package_dependency`` factories. See
+``design/plans/package-build-publish-deps.md``.
 """
 
 from __future__ import annotations
@@ -52,6 +54,7 @@ CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
+PUBLISH_CASCADE_DEPENDENCIES_OPTION = "publish-cascade-dependencies"
 FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
@@ -77,6 +80,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
+        "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + FORCE_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
@@ -190,6 +194,14 @@ def cascade_update_enabled( env ) -> bool:
     return bool( getter( UPDATE_PUBLISHERS_OPTION ) )
 
 
+def publish_cascade_dependencies_enabled( env ) -> bool:
+    """``--publish-cascade-dependencies``: nest-publish DAG; tip build only."""
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ) )
+
+
 def cascade_force_enabled( env ) -> bool:
     """``--force``: rebuild+upload every resolved node even when registry-current."""
     getter = getattr( env, "get_option", None )
@@ -221,7 +233,9 @@ def cascade_stop_before_build( env ) -> bool:
     if not cascade_update_enabled( env ):
         return False
     getter = getattr( env, "get_option", None )
-    if callable( getter ) and getter( "publish-package" ):
+    if not callable( getter ):
+        return True
+    if getter( "publish-package" ) or getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ):
         return False
     return True
 
@@ -1055,6 +1069,101 @@ def _edges_from_publisher( env, publisher ) -> list[dict]:
         return []
     filled = fill_dependency_versions( env, deps ) or []
     return [ coerce_dependency_entry( item ) for item in filled ]
+
+
+def is_consume_tip( publisher ) -> bool:
+    """True when ``publisher`` is the synthetic tip used for consume-only cascade."""
+    return bool( getattr( publisher, "_consume_tip", False ) )
+
+
+def _edges_from_consume_tip( env ) -> list[dict]:
+    """Root edges from tip ``env['dependencies']`` GitLab package factories.
+
+    Each factory that declares a concrete version becomes a root edge. Effective
+    ``package_source`` (CLI / declaration / tip seed) is stamped when known so
+    resolve and plan labels match publisher tips. Edges without a resolvable
+    source still enter the queue so plan/collect can report the miss.
+    """
+    deps = env.get( "dependencies" ) or {}
+    edges: list[dict] = []
+    for name in sorted( deps ):
+        factory = deps[name]
+        owner = _factory_owner( factory )
+        if getattr( owner, "_package_manager", None ) != "gitlab":
+            continue
+        version = getattr( owner, "_version", None )
+        if version is None:
+            continue
+        package = getattr( owner, "_package", None ) or name
+        entry = {
+                "name": str( name ),
+                "package": str( package ),
+                "version": str( version ),
+        }
+        registry = getattr( owner, "_registry", None )
+        if registry:
+            entry["registry"] = str( registry )
+        stamped = effective_package_source( env, entry )
+        if stamped:
+            entry["package_source"] = stamped
+        edges.append( coerce_dependency_entry( entry ) )
+    return edges
+
+
+def consume_tip_label( env ) -> tuple[str, str]:
+    """``(name, version)`` identity for consume-tip banners and plan reports."""
+    getter = getattr( env, "get", None )
+    sconstruct = ""
+    if callable( getter ):
+        sconstruct = str( getter( "sconstruct_dir" ) or "" )
+    name = os.path.basename( os.path.abspath( sconstruct ) ) if sconstruct else "project"
+    if not name or name in ( ".", "/" ):
+        name = "project"
+    return name, "consume"
+
+
+def make_consume_tip_publisher( env, edges: list[dict] | None = None ):
+    """Duck-typed tip for :func:`maybe_run_cascade` when the project does not publish."""
+    if edges is None:
+        edges = _edges_from_consume_tip( env )
+    tip_package, tip_version = consume_tip_label( env )
+    return type( "ConsumeTipPublisher", (), {
+            "_package": tip_package,
+            "_version": tip_version,
+            "_dependencies": list( edges ),
+            "_registry": None,
+            "_variant": None,
+            "_consume_tip": True,
+    } )()
+
+
+def cascade_ran_for_tip( env ) -> bool:
+    """True when a publisher or consume tip already ran cascade for this sconstruct."""
+    if _plan_reports:
+        return True
+    getter = getattr( env, "get", None )
+    sconstruct = ""
+    if callable( getter ):
+        sconstruct = str( getter( "sconstruct_dir" ) or "" )
+    sconstruct = os.path.abspath( sconstruct )
+    return any( key[0] == sconstruct for key in _cascade_nested_done )
+
+
+def maybe_run_consume_tip_cascade( env ) -> None:
+    """Run cascade from tip package factories when no tip publisher ran it.
+
+    Called after the tip sconscript read (:func:`cuppa.construct.Construct`) so a
+    ``GitlabPackagePublisher`` tip still owns entry via ``maybe_run_cascade`` during
+    construction. Consume-only tips seed from ``_edges_from_consume_tip``.
+    """
+    if not cascade_enabled( env ) or _is_nested():
+        return
+    if cascade_ran_for_tip( env ):
+        return
+    edges = _edges_from_consume_tip( env )
+    if not edges:
+        return
+    maybe_run_cascade( env, make_consume_tip_publisher( env, edges ) )
 
 
 def _edges_from_publish_file( directory: str ) -> list[dict]:
@@ -2060,8 +2169,8 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     toolchains, or sconscripts reports all of them instead of only the first.
 
     ``env`` lets the missing-cascade-flag refusal be reported here too: a project
-    that constructs no publisher never reaches the refusal in
-    :func:`maybe_run_cascade`.
+    that constructs no publisher and has no consume-tip package edges never reaches
+    the refusal in :func:`maybe_run_cascade` / :func:`maybe_run_consume_tip_cascade`.
 
     Exit status follows hard resolve errors only. Opt-in warnings (``--clone-publishers``
     needed, unused develop) leave the run reviewable with exit 0.
@@ -2112,10 +2221,12 @@ def finish_cascade_stop( env=None, out=None ) -> int:
         write_lines( [
                 "",
                 "{}; Run from a project that publishes a GitLab package with "
-                "env.PublishPackage.".format(
+                "env.PublishPackage, or a consume-only tip that declares GitLab "
+                "package_dependency(..., package_source=…) edges cascade can seed."
+                .format(
                         _cascade_stop_summary(
                                 option,
-                                "no GitLab package publisher was constructed, so "
+                                "no cascade tip was resolved, so "
                                 "there is no cascade to {}".format( verb ),
                         )
                 ),
@@ -2174,10 +2285,11 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             )
             remediation = (
                     "Plant the missing trees, pass {} to fetch the ones with "
-                    "a URL package_source, or set {}. Then re-run with {} to "
-                    "execute.".format(
+                    "a URL package_source, or set {}. Then re-run with {} or {} "
+                    "to execute.".format(
                             _footer_flag( CLONE_OPTION ),
                             _footer_flag( PUBLISHER_ROOT_OPTION ),
+                            _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION ),
                             _footer_flag( "publish-package" ),
                     )
             )
@@ -2241,22 +2353,25 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                         )
                 )
         else:
-            # Plan reviews a publish run: opt-ins are useless without --publish-package.
+            # Plan reviews a publish run: opt-ins need a publish action.
             publish = _footer_flag( "publish-package" )
+            nest_only = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+            publish_or = "{} or {}".format( nest_only, publish )
             if needs_clone:
                 actions.append(
                         "pass {} along with {} to clone missing publisher trees"
-                        .format( _footer_flag( CLONE_OPTION ), publish )
+                        .format( _footer_flag( CLONE_OPTION ), publish_or )
                 )
             if unused_develop:
                 actions.append(
                         "pass {} along with {} to publish from a configured develop tree"
-                        .format( _footer_flag( "develop" ), publish )
+                        .format( _footer_flag( "develop" ), publish_or )
                 )
         detail = "{}; {}".format( ", or ".join( actions ), detail )
     elif not collect and not update and clones:
-        detail = "pass {} along with {} to execute; {}".format(
+        detail = "pass {} along with {} or {} to execute; {}".format(
                 _footer_flag( CLONE_OPTION ),
+                _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION ),
                 _footer_flag( "publish-package" ),
                 detail,
         )
@@ -2273,6 +2388,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
+        "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_DEVELOP_OPTION,
@@ -3892,15 +4008,19 @@ def maybe_run_cascade( env, publisher ) -> None:
     missing trees when ``--clone-publishers`` is set, reports, and returns without
     nested publish. Under ``--update-publishers`` it fast-forwards existing
     publisher trees (and may stop, or continue into nested publish when
-    ``--publish-package`` is set). ``construct.py`` exits after the sconscript
-    read for stop-before-build modes.
+    ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
+    ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
+    (no tip upload). ``construct.py`` exits after the sconscript read for
+    stop-before-build modes.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
     update_publishers = cascade_update_enabled( env )
     publish = bool( env.get_option( "publish-package" ) )
-    # Stop before nested build when plan/collect, or update without publish.
-    stop_only = plan_only or collect_only or ( update_publishers and not publish )
+    publish_cascade_deps = publish_cascade_dependencies_enabled( env )
+    publish_action = publish or publish_cascade_deps
+    # Stop before nested build when plan/collect, or update without a publish action.
+    stop_only = plan_only or collect_only or ( update_publishers and not publish_action )
 
     if plan_only and collect_only:
         raise SCons.Errors.StopError(
@@ -3927,6 +4047,17 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( UPDATE_PUBLISHERS_OPTION, CASCADE_OPTION )
         )
+    if publish_cascade_deps and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
+        )
+    if publish and publish_cascade_deps:
+        raise SCons.Errors.StopError(
+                "--{} and --publish-package cannot be combined; choose tip "
+                "build-only or tip upload"
+                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+        )
     if not cascade_enabled( env ):
         return
     if _is_nested():
@@ -3940,12 +4071,15 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_version = str( getattr( publisher, "_version", "" ) )
     nested_key = _cascade_nested_key( env, publisher )
 
-    # Plan, collect, and update-without-publish do not need --publish-package.
-    if not stop_only and not publish:
+    # Plan, collect, and update-without-publish do not need a publish action.
+    # Real nest-publish needs --publish-package (tip upload) or
+    # --publish-cascade-dependencies (tip build only).
+    if not stop_only and not publish_action:
         raise SCons.Errors.StopError(
-                "--{} requires --publish-package, --{}, --{}, or --{}"
+                "--{} requires --publish-package, --{}, --{}, --{}, or --{}"
                 .format(
                         CASCADE_OPTION,
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
                         CASCADE_PLAN_OPTION,
                         COLLECT_CASCADE_OPTION,
                         UPDATE_PUBLISHERS_OPTION,

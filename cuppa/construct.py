@@ -1049,8 +1049,10 @@ class Construct(object):
                 SCons.Script.Exit()
 
             # Cascade plan/collect resolve as each tip publisher is constructed, so
-            # the exit waits for the read to finish and report every tip.
+            # the exit waits for the read to finish and report every tip. Consume-only
+            # tips (no GitlabPackagePublisher) seed from package factories here.
             from cuppa.package_managers import package_cascade
+            package_cascade.maybe_run_consume_tip_cascade( cuppa_env )
             if package_cascade.cascade_stop_before_build( cuppa_env ):
                 SCons.Script.Exit( package_cascade.finish_cascade_stop( cuppa_env ) )
 

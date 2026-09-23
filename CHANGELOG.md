@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Pure-consume cascade (**Phase 4**): a tip with no ``GitlabPackagePublisher`` can
+  seed ``--build-and-publish-dependencies`` from tip ``package_dependency`` /
+  ``boost_package.define`` edges that carry ``package_source``, expand the DAG from
+  each tree’s ``cuppa-publish.json``, and nest-publish then tip-build. Real
+  nest-publish uses ``--publish-cascade-dependencies`` (tip build only; both
+  consume-only and publisher tips) or ``--publish-package`` (nested publish + tip
+  upload). Bare cascade alone is refused; the two publish actions cannot be
+  combined. Stop modes still work without a tip publisher. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Phase 4 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - ``boost_package.define(..., package_source=…)`` forwards the same consume-site
   publisher URL metadata as ``package_dependency`` (for ``--clone-develop`` /
   cascade). Design:

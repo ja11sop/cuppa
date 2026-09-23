@@ -223,6 +223,165 @@ def test_maybe_run_cascade_requires_publish_package():
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
+def test_maybe_run_cascade_accepts_publish_cascade_dependencies():
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-cascade-dependencies",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    cascade.maybe_run_cascade( _Env(), tip )  # must not raise
+
+
+def test_maybe_run_cascade_refuses_publish_cascade_deps_with_publish_package():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-cascade-dependencies",
+                    "publish-package",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
+    """Consume tips use the same enable+action gate as publisher tips."""
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "build-and-publish-dependencies"
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    with pytest.raises( SCons.Errors.StopError, match="publish-cascade-dependencies" ):
+        cascade.maybe_run_cascade( _Env(), tip )
+
+
+def test_edges_from_consume_tip_reads_package_factories():
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.2.3"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = "https://gitlab.example/org/packages/widget.git"
+
+    class _Env:
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            return default
+
+        def get_option( self, name, default=None ):
+            return default
+
+    edges = cascade._edges_from_consume_tip( _Env() )
+    assert len( edges ) == 1
+    assert edges[0]["name"] == "widget"
+    assert edges[0]["version"] == "1.2.3"
+    assert edges[0]["package_source"] == (
+            "https://gitlab.example/org/packages/widget.git"
+    )
+
+
+def test_maybe_run_consume_tip_cascade_plans_from_factories( tmp_path ):
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    publisher = tmp_path / "widget"
+    publisher.mkdir()
+    write_publish_manifest( str( publisher ), "widget", "1.0.0", dependencies=[] )
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.0.0"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = str( publisher )
+
+    class _Env:
+        def __init__( self ):
+            self._opts = {
+                    "build-and-publish-dependencies": True,
+                    "cascade-plan": True,
+            }
+
+        def get_option( self, name, default=None ):
+            return self._opts.get( name, default )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            if name == "sconstruct_dir":
+                return str( tmp_path / "app" )
+            return default
+
+    cascade.maybe_run_consume_tip_cascade( _Env() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "app"
+    assert reports[0]["version"] == "consume"
+    assert reports[0]["errors"] == 0
+
+
+def test_maybe_run_consume_tip_cascade_skips_when_publisher_already_ran():
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.record_plan_report( "widget", "1", 0 )
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "other": object() }
+            return default
+
+    cascade.maybe_run_consume_tip_cascade( _Env() )
+    assert len( cascade.plan_reports() ) == 1
+    assert cascade.plan_reports()[0]["package"] == "widget"
+
+
+def test_tip_forward_args_drops_publish_cascade_dependencies():
+    argv = [
+            "cuppa", "-D", "--rel",
+            "--build-and-publish-dependencies",
+            "--publish-cascade-dependencies",
+            "--publisher-root=/tmp/packages",
+    ]
+    forwarded = cascade.tip_forward_args( argv )
+    assert "--publish-cascade-dependencies" not in forwarded
+    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--publish-package" in forwarded
+
+
 def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     """Soak: -n forwards into nested configure, which cannot create .sconf_temp."""
     import re
@@ -657,7 +816,9 @@ def test_finish_plan_only_reports_no_publisher_as_a_failure():
     cascade.reset_plan_reports()
     out = io.StringIO()
     assert cascade.finish_plan_only( out=out ) == 1
-    assert "no GitLab package publisher was constructed" in out.getvalue()
+    text = out.getvalue()
+    assert "no cascade tip was resolved" in text
+    assert "package_dependency" in text
 
 
 def test_finish_plan_only_names_the_missing_cascade_flag():
@@ -1065,6 +1226,10 @@ def test_cascade_stop_before_build_update_without_publish():
     } ) )
     assert not cascade.cascade_stop_before_build( _Env( {
             "build-and-publish-dependencies", "update-publishers", "publish-package",
+    } ) )
+    assert not cascade.cascade_stop_before_build( _Env( {
+            "build-and-publish-dependencies", "update-publishers",
+            "publish-cascade-dependencies",
     } ) )
 
 
@@ -1829,7 +1994,7 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
     assert status == 0
     assert "2 publisher trees to clone first" in report
-    assert "pass --clone-publishers along with --publish-package to execute" in report
+    assert "pass --clone-publishers along with --publish-cascade-dependencies or --publish-package to execute" in report
     assert "nothing was built, published, uploaded, or cloned" in report
 
 
@@ -1842,7 +2007,7 @@ def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
 
     assert status == 1
     assert "--clone-publishers" in report
-    assert "Then re-run with --publish-package to execute" in report
+    assert "Then re-run with --publish-cascade-dependencies or --publish-package to execute" in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -2358,8 +2523,8 @@ def test_finish_plan_only_names_opt_in_flags_when_the_plan_is_only_blocked_by_wa
 
     assert status == 0
     assert "1 package planned" in visible
-    assert "pass --clone-publishers along with --publish-package" in visible
-    assert "pass --develop along with --publish-package" in visible
+    assert "pass --clone-publishers along with --publish-cascade-dependencies or --publish-package" in visible
+    assert "pass --develop along with --publish-cascade-dependencies or --publish-package" in visible
     assert "nothing was built, published, uploaded, or cloned" in visible
     assert "without a publisher tree" not in visible
     assert "filesystem package_source" not in visible
@@ -2374,7 +2539,7 @@ def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
 
     assert status == 0
     assert "1 publisher tree to clone first" in visible
-    assert "pass --clone-publishers along with --publish-package to execute" in visible
+    assert "pass --clone-publishers along with --publish-cascade-dependencies or --publish-package to execute" in visible
 
 
 def test_finish_collect_opt_in_advice_does_not_require_publish_package():

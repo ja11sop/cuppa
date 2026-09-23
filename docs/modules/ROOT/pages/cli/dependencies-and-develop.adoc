@@ -169,11 +169,19 @@ retars from an existing stage or registry archive, and skips DownloadExtract / C
 rebuild. Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
-`--build-and-publish-dependencies` builds and publishes GitLab package dependencies
-(leaf-first) before the tip; requires `--publish-package`, or pair with
-`--cascade-plan` / `--collect-cascade`. Optional `--publisher-root=` resolves trees
-when `package_source` is omitted. See
-xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+`--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
+Pair with a companion action: `--publish-package` (nested publish + tip upload),
+`--publish-cascade-dependencies` (nested publish, tip build only — consume-only
+and publisher tips), or a stop mode (`--cascade-plan` / `--collect-cascade` /
+`--update-publishers`). Optional `--publisher-root=` resolves trees when
+`package_source` is omitted. See
+xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+and xref:packages.adoc#cascade-consume-only[Consume-only tips].
+
+`--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
+continues with the tip **build** (no tip upload). Requires
+`--build-and-publish-dependencies`. Cannot be combined with `--publish-package`.
+See xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
 tree, then stops without cloning, building, or uploading. It requires

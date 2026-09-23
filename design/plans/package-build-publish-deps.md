@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-22
+- **Updated:** 2026-09-23
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -172,19 +172,22 @@ cuppa --rel --parallel --jobs=12 --toolchains=… \
 
 | Flag | Role |
 |------|------|
-| `--publish-package` | Still required to upload on a full cascade; see companion flags below |
+| `--publish-package` | Tip upload (and, with cascade, also implies nested dep publish today — see Phase 4 nest-only action) |
 | `--build-and-publish-dependencies` | Enable cascade for declared GitLab package deps (and their transitive closure) |
 | `--cascade-plan` | Review only: resolve and report; no clone, no build, no upload |
 | `--collect-cascade` | Stage 1 only: resolve + clone missing publisher trees (reuse existing); stop before nested builds/upload. Not `--publish-package -n`. |
+| Nest-deps-only action | ``--publish-cascade-dependencies`` — nested publish of the package DAG; tip **build only** |
 | Existing variant / toolchain / identity / parallel flags | Forwarded into each nested publisher invocation |
 
 **Companion flags for cascade** (exactly one intent for a given run):
 
 ```text
 --build-and-publish-dependencies + one of:
-  --cascade-plan      # review (no side effects)
-  --collect-cascade   # resolve + clone/reuse trees; stop
-  --publish-package   # full cascade (build + upload)
+  --cascade-plan                      # review (no side effects)
+  --collect-cascade                   # resolve + clone/reuse trees; stop
+  --update-publishers                 # FF forest trees; stop unless also publishing
+  --publish-cascade-dependencies      # nested publish; tip build only
+  --publish-package                   # nested publish + tip upload (publisher tips)
 ```
 
 **Naming:** keep the user’s long form for clarity; shorter aliases
@@ -192,7 +195,9 @@ cuppa --rel --parallel --jobs=12 --toolchains=… \
 primary name before implementation.
 
 **Refuse:** implying cascade from bare `--publish-package` (too surprising; long
-builds; registry writes).
+builds; registry writes). **Refuse:** bare `--build-and-publish-dependencies`
+with no companion action. **Refuse:** combining `--publish-cascade-dependencies`
+with `--publish-package`.
 
 ## Algorithm (MVP sketch)
 
@@ -267,8 +272,9 @@ design.
 | **2b — Clone on demand** | Clone from `package_source` URL (`url@rev`) when the working tree is missing, so a fresh host needs no hand-planted forest |
 | **2c — Skip and force** | Skip-if-registry-current + `--force`; multi-toolchain once; sibling-stem-safe refresh; manifest seed key-order fix — **done** ([#323](https://github.com/ja11sop/cuppa/pull/323); not yet in a named release) |
 | **2d — Converge** | Single traveling **`cuppa-publish.json`** (stop writing `cuppa-dependency.json`; read fallback for old extracts); amend coupled — **done** (not yet in a named release) |
-| **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata — **done** (feature with develop/cascade; polish aligns cascade resolve with `--clone-develop` precedence + `boost_package.define`) |
-| **Later** | **Plan** pure-consume cascade (want / refuse / semantics); parallel independent leaves; Conan parity if needed |
+| **3 — Consume-site parity** | `package_dependency(…, package_source=…)` mirrors publisher-edge metadata — **done** ([#329](https://github.com/ja11sop/cuppa/pull/329)) |
+| **4 — Pure-consume cascade** | App tip without `GitlabPackagePublisher`: seed from tip `package_dependency` + `package_source` (**1a**), plant under `--publisher-root` (**2a**), nest-publish then tip **build only** — **in progress** |
+| **Later** | Extract-seed without tip `package_source` (**1b**); package `develop=` forest ergonomics (**2b**); parallel independent leaves; Conan parity if needed |
 
 ## Phase 1 settled decisions
 
@@ -278,7 +284,7 @@ design.
 | Field name | **`package_source`** |
 | File layout | **Phase 1 bridge (superseded by 2d):** dual file. **Phase 2d:** single traveling ``cuppa-publish.json``. |
 | Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
-| Flag without `--publish-package` | **Refuse** — require `--publish-package` |
+| Flag without `--publish-package` | **Refuse** bare cascade for real nest-publish (Phase 1). Stop modes may omit it. **Phase 4:** nest-deps-only is a **separate companion action** (name TBD) — not tip-type inference |
 | Flag name | **`--build-and-publish-dependencies`** (aliases later) |
 | `--publisher-root` | Optional; resolve missing/`package_source` URL by trying `{root}/{name}`, `{root}/{package}`, then one-level `{root}/*/{name\|package}` |
 | Nested recurse | Children run **without** the cascade flag (`CUPPA_CASCADE_NESTED=1`); fail-stop |
@@ -433,16 +439,81 @@ share one precedence, plan labels stamp the effective source, and
 | Source precedence (cascade) | Match develop: **CLI → factory declaration → tip ``cuppa-publish.json`` edge**; publisher-edge field on the node still wins when set |
 | Plan / node display | Stamp the effective source onto the cascade node so ``--cascade-plan`` shows it |
 | ``boost_package.define`` | Optional ``package_source=`` forwarded like other ``package_dependency`` kwargs |
-| Tip without publisher | Unchanged — cascade still requires tip ``GitlabPackagePublisher`` |
-| Next after Phase 3 | **Plan** pure-consume cascade (decide want / refuse / exact meaning); then question 11 or ``--deep-clean`` |
+| Tip without publisher | Unchanged in Phase 3 — cascade still required tip ``GitlabPackagePublisher``; **Phase 4** lifts that |
+| Next after Phase 3 | Phase 4 pure-consume cascade; then question 11 or ``--deep-clean`` |
+
+## Phase 4 settled decisions (pure-consume cascade)
+
+App tip like project **A** (consume-only, no ``GitlabPackagePublisher``): clone the tip,
+obtain the **package** publisher DAG from a direct pin that carries ``package_source``,
+plan/collect/publish those packages, then **build the tip** — without guessing which
+mid-graph package is the cascade root.
+
+The same **nest-deps then tip-build** end state is also useful on a **publisher tip**
+(refresh the stack without uploading the tip itself). That must not be encoded as
+“omit ``--publish-package`` only when the tip has no publisher” — bare cascade must
+mean the same thing for every tip type.
+
+### Flag model (revised 2026-09-23)
+
+Pattern (unchanged spirit): **enable** + **action**.
+
+| Layer | Flags |
+|-------|--------|
+| Enable | ``--build-and-publish-dependencies`` |
+| Stop actions | ``--cascade-plan`` / ``--collect-cascade`` / ``--update-publishers`` |
+| Nest-publish deps; tip **build only** | ``--publish-cascade-dependencies`` — both consume-only and publisher tips |
+| Nest-publish deps; tip **upload** | ``--publish-package`` (publisher tips; unused on consume-only tips that have nothing to upload) |
+
+| Question | Decision |
+|----------|----------|
+| Want / refuse | **Want** A+B for consume-only tips; **want** nest-without-tip-upload for publisher tips too |
+| End state after nest-publish | Refresh tip consume → tip **build only** when ``--publish-cascade-dependencies`` is used (no tip ``PublishPackage`` / no tip registry upload). With ``--publish-package``, publisher tips still upload the tip after the nested graph |
+| Bare cascade alone | **Refuse** for all tip types — restores Phase 1 accidental-publish hardness. Do **not** treat consume-only as a special case that may omit an action |
+| Tip-type inference | **Refuse** — same argv, same meaning; tip type only affects whether ``--publish-package`` has a tip target |
+| Nest-deps-only spelling | **``--publish-cascade-dependencies``** (settled 2026-09-23) — publish intent + dependencies noun (enable-flag symmetry) + cascade scope. Rejected tip-type bare cascade; ``--publish-cascade-packages`` wrong symmetry axis; ``--publish-dependencies-only`` kept as possible later alias only |
+| Root seed (**1a**) | Tip ``package_dependency`` / ``boost_package.define`` list with ``package_source`` on each direct package edge cascade must reach; expand transitive edges from each resolved publisher tree’s ``cuppa-publish.json`` (same as publisher tips). Tip checked-in seed may help fill ``package_source`` (Phase 3) but is not a substitute for declaring direct package deps |
+| Forest plant (**2a**) | Reuse cascade collect: ``--collect-cascade --clone-publishers`` with ``--publisher-root=<monorepo/packages>`` (default ``{storage_root}/publishers`` unchanged) |
+| Nested sessions | Always pass ``--publish-package`` into nested publisher trees; drop tip ``--publish-cascade-dependencies`` (unchanged cascade drop set) |
+| Combining ``--publish-cascade-dependencies`` + ``--publish-package`` | **Refuse** the combination (pick one end state) — avoids “which wins?” |
+| Stop modes from app tip | ``--cascade-plan`` / ``--collect-cascade`` / ``--update-publishers`` work **without** tip publisher once the entry hook exists |
+| Dual graph | Consume tip SoT = registered package factories (+ versions). Publisher tip SoT remains ``publisher._dependencies``. No merge invents edges the tip did not declare as direct package deps |
+| Entry timing | After the tip sconscript read, when cascade is on and no publisher tip already ran cascade for this ``sconstruct_dir`` (publisher tips still enter from ``GitlabPackagePublisher`` construction). Pre-sconscript ``BuildWith`` continues to rely on Slice F deferral when the registry pin is missing |
+| Tip identity (banners / plan) | Project / ``sconstruct_dir`` basename; version label ``consume`` (not a registry upload identity) |
+| Build-deps-only (no nested **upload**) | **Out of MVP** (open Q3) — distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
+| Extract-seed (**1b**) | **Follow-on**: omit tip ``package_source`` when an extract’s traveling manifest can supply it |
+| Package ``develop=`` (**2b**) | **Follow-on / likely partial today**: with ``--develop``, configured develop publisher tree already wins in resolve. Do not require ``develop=`` for packages in MVP |
+| Partial coverage | Resolve: develop tree wins under ``--develop``, else ``package_source`` / publisher-root / clone. Collect: clone missing into ``--publisher-root`` (not into operator-owned ``develop=``). Plan/collect must report reused develop vs cloned vs missing source |
+
+### Nest-deps-only flag — naming (settled)
+
+**Primary:** ``--publish-cascade-dependencies``.
+
+Symmetry direction: align graph actions with ``--build-and-publish-dependencies``
+(**dependencies** noun), not tip ``--publish-package`` (**package** noun). Full candidate
+table and rejected spellings retained in git history / discussion; shortlist was
+``--publish-cascade-dependencies`` vs ``--publish-dependencies-only`` — picked the former.
+
+Example shapes:
+
+```text
+# Consume-only or publisher tip: nest-publish DAG, tip build only
+cuppa -D --rel --build-and-publish-dependencies --publish-cascade-dependencies \
+  --publisher-root=~/coding/packages
+
+# Publisher tip: nest-publish DAG, then tip upload
+cuppa -D --rel --build-and-publish-dependencies --publish-package \
+  --publisher-root=~/coding/packages
+```
 
 ## Open questions (Phase 2+)
 
 1. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
    so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
-3. Flag without `--publish-package` for **build**-deps-only — distinct from
-   `--cascade-plan` (builds nothing) and `--collect-cascade` (clones only)
+3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
+   nested registry upload) — distinct from `--cascade-plan` / `--collect-cascade`
+   and from Phase 4 **nest-deps-only** (which **does** nested upload). Still open.
 4. Richer `--publisher-root` layout rules
 5. ~~Cascade under multiple active toolchains~~ — settled under Phase 2c (one nested graph
    per tip command; preserve sibling stems on refresh)
@@ -514,5 +585,7 @@ share one precedence, plan labels stamp the effective source, and
 | Phase 2d implementation | **Done** in [#324](https://github.com/ja11sop/cuppa/pull/324) — stop writing `cuppa-dependency.json`; consume prefers publish; amend removes twin |
 | Issue filed | [#297](https://github.com/ja11sop/cuppa/issues/297) |
 | Follow-on: resolve `latest` in publish manifests (Boost) | **Done** in [#328](https://github.com/ja11sop/cuppa/pull/328) (question 10; not ranges / `>=`) |
-| Phase 3 consume-site parity | **Done** on `feature/phase3-consume-parity` — inventory + polish (shared resolve precedence, plan stamp, `boost_package.define`); next **plan** pure-consume cascade |
+| Phase 3 consume-site parity | **Done** ([#329](https://github.com/ja11sop/cuppa/pull/329)) |
+| Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
+| Phase 4 implementation | **Done** on `feature/pure-consume-cascade` — consume-tip entry, ``--publish-cascade-dependencies``, docs, unit tests (not yet in a named release / PR) |
 | Follow-on: tip no-op after metadata-only dependency refresh | Open — question 11; project D soak after #324 |
