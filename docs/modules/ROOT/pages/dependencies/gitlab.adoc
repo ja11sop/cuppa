@@ -135,7 +135,10 @@ disk.” Empty registry or API failure also fails at configure time when online.
 
 `cuppa.packages.boost_package.define(...)` builds a `boost_package` dependency backed by the
 registry. It is the worked example of a package **extension** (`use_libs`, Boost.Test runner
-hooks). Consuming and publishing workflows are documented below; see also
+hooks). Aside from Boost-specific `patched` (default `True`), keyword arguments are forwarded
+to `package_dependency` — including `registry`, `version`, `variant`, `develop`, and
+`package_source` — so new common factory options do not require a parallel `define` update.
+`package` is always `boost`. Consuming and publishing workflows are documented below; see also
 xref:dependencies/builtins/boost.adoc[Boost (source)] for version resolution when building from
 source.
 
@@ -163,6 +166,7 @@ BoostPackage = cuppa.packages.boost_package.define(
     # version omitted → registry latest; or version = '1.91'
     # or version = cuppa.packages.boost_package.latest_release()  # upstream then registry
     # package_source = 'git@gitlab.example:packages/boost@develop',  # optional; clone-develop / cascade
+    # develop = '/home/user/coding/boost',  # optional; same as package_dependency
 )
 
 cuppa.run(

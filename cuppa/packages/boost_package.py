@@ -49,17 +49,20 @@ def latest_release( offline=False ):
     return ".".join( [ versions[0], versions[1] ] )
 
 
-def define( registry=None, version=None, variant=None, patched=True, package_source=None ):
+def define( patched=True, **kwargs ):
+    """Return a ``boost_package`` dependency type for ``cuppa.run`` / ``BuildWith``.
 
-    class boost( package_dependency(
-            'boost_package',
-            registry = registry,
-            package  = 'boost',
-            version  = version,
-            variant  = variant,
-            patched  = patched,
-            package_source = package_source,
-    ) ):
+    ``patched`` is Boost-specific (default ``True``: qualified Boost.Test CLI).
+    Every other keyword is forwarded to :func:`~cuppa.build_with_package.package_dependency`
+    — ``registry``, ``version``, ``variant``, ``develop``, ``package_source``, and any
+    future common args — so defined packages stay in sync with the generic factory.
+    ``package`` is always ``boost``.
+    """
+    forwarded = dict( kwargs )
+    forwarded['package'] = 'boost'
+    forwarded['patched'] = patched
+
+    class boost( package_dependency( 'boost_package', **forwarded ) ):
 
         def __call__( self, env, toolchain, variant ):
             env.MergeFlags( '-DBOOST_PARAMETER_MAX_ARITY=20' )

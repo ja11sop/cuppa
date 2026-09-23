@@ -83,6 +83,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drivers in a snapshot ``bin`` dir. Install matching ``gcc-ar`` for LTO archives,
   or Cuppa leaves SCons ``ar``.
 
+- ``boost_package.define`` forwards unknown keywords to ``package_dependency``
+  (notably ``develop=``), instead of raising ``TypeError`` on each new common
+  factory argument. ``patched`` stays Boost-specific (default ``True``);
+  ``package`` remains ``boost``.
+
 - Cascade publisher resolve now uses the same ``package_source`` precedence as
   ``--clone-develop`` (CLI override → declaration → tip ``cuppa-publish.json``)
   and stamps the effective source onto plan nodes so ``--cascade-plan`` labels
