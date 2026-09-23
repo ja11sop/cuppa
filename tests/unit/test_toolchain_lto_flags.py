@@ -113,6 +113,19 @@ def test_gcc_resolve_versioned_tool_joins_where_is_directory(tmp_path):
         assert toolchain._resolve_versioned_tool("gcc-ar") == str(gcc_ar)
 
 
+def test_gcc_resolve_versioned_tool_does_not_fall_back_to_gcc(tmp_path):
+    """Missing gcc-ar must not become /usr/bin/gcc (Manjaro / 1.10 soak)."""
+    gcc = tmp_path / "gcc"
+    gcc.write_text("", encoding="utf-8")
+    gcc.chmod(0o755)
+    toolchain = _gcc(16, cxx_path=str(tmp_path))
+    with patch("cuppa.build_platform.where_is", return_value=None):
+        assert toolchain._resolve_versioned_tool("gcc-ar") is None
+        assert toolchain._resolve_versioned_tool("gcc-ranlib") is None
+    # Versioned compiler drivers may still fall back to bare gcc / g++.
+    assert toolchain._resolve_driver("gcc-16") == str(gcc)
+
+
 def test_gcc_feature_flags_only_when_dialect_lacks_them():
     """Match __default_dialect_flags policy: gate only where -std= is not enough."""
     assert _gcc(9)._Gcc__default_dialect_flags() == [ "-std=c++2a", "-fconcepts" ]

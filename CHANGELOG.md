@@ -65,6 +65,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- GCC ``_resolve_driver`` no longer maps missing ``gcc-ar`` / ``gcc-ranlib`` onto
+  bare ``gcc`` (introduced with 1.10 LTO archiver selection). StaticLibrary then
+  ran ``gcc rc lib.a …`` and the linker failed looking for ``rc``. Versioned
+  compiler names (``gcc-16`` / ``g++-16``) still fall back to unversioned
+  drivers in a snapshot ``bin`` dir. Install matching ``gcc-ar`` for LTO archives,
+  or Cuppa leaves SCons ``ar``.
+
 - Cascade publisher resolve now uses the same ``package_source`` precedence as
   ``--clone-develop`` (CLI override → declaration → tip ``cuppa-publish.json``)
   and stamps the effective source onto plan nodes so ``--cascade-plan`` labels
