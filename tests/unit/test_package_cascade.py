@@ -499,6 +499,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "mode": "cascade-plan",
                     "trees_collected": 0,
                     "trees_updated": 0,
+                    "dependency_count": 1,
             }
     ]
 
@@ -768,6 +769,7 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
 
         assert "Printing Cascade plan for building and publishing package corosio [==0.2.0] given the command:" in visible
         assert "Cascade plan: corosio [==0.2.0] (this package) with" in visible
+        assert "(this project)" not in visible
         assert "2 package dependencies" in visible
         assert "[0 errors][0 warnings][0 notes]" in visible
         assert "1 of 2  capy [==develop]" in visible
@@ -794,6 +796,26 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
         assert any( line.startswith( as_subdued( elbow ) ) for line in lines )
     finally:
         colouriser.use_colour = was
+
+
+def test_cascade_plan_lines_consume_tip_says_this_project():
+    nodes = {
+            ( "capy", "capy", "1.0" ): {
+                    "name": "capy", "package": "capy", "version": "1.0",
+                    "_publisher_dir": "/home/user/.cuppa/publishers/capy",
+            },
+    }
+    lines = cascade.cascade_plan_lines(
+            nodes, [ ( "capy", "capy", "1.0" ) ], "widget", "consume",
+            consume_tip=True,
+    )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", "\n".join( lines ) )
+
+    assert "building this project widget [==consume]" in visible
+    assert "dependencies publish; tip build only" in visible
+    assert "Cascade plan: widget [==consume] (this project) with" in visible
+    assert "(this package)" not in visible
+    assert "building and publishing package" not in visible
 
 
 def test_cascade_plan_lines_count_unresolved_trees_as_errors():
@@ -852,9 +874,11 @@ def test_finish_plan_only_exit_status_follows_resolution():
         visible = plain( text )
         assert visible.strip().startswith( "--cascade-plan:" )
         assert "nothing was built, published, uploaded, or cloned" in visible
-        # Summary through the semicolon is the info-label chip; detail stays plain.
+        # Summary through the semicolon is the info-label chip; remedy tree + detail follow.
         assert as_info_label( "--cascade-plan: 1 package planned" ) in text
-        assert "; nothing was built" in visible
+        assert "to run this plan" in visible
+        assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+        assert "; nothing was built" not in visible
 
         cascade.record_plan_report( "widget", "1.2", 2 )
         out = io.StringIO()
@@ -2866,6 +2890,7 @@ def test_finish_plan_only_names_opt_in_flags_when_the_plan_is_only_blocked_by_wa
     assert "--publish-cascade-dependencies" in visible
     assert "--publish-package" in visible
     assert "to make this plan executable" in visible
+    assert "to run this plan" not in visible
     assert "nothing was built, published, uploaded, or cloned" in visible
     assert "without a publisher tree" not in visible
     assert "filesystem package_source" not in visible
@@ -2902,6 +2927,65 @@ def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
     assert "--publish-cascade-dependencies" in visible
     assert "--publish-package" in visible
     assert "to make this plan executable" in visible
+
+
+def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():
+    """Partial unused develop with publisher paths is optional; plan already executable."""
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0,
+            unused_develop=2, unused_develop_soft=0, consume_tip=True,
+            dependency_count=9,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "1 package planned" in visible
+    assert "pass --publish-cascade-dependencies" in visible
+    assert "optionally also pass --develop" in visible
+    assert "where set" in visible
+    assert "listed publisher paths" in visible
+    assert "to run this plan" in visible
+    assert "to make this plan executable" not in visible
+    assert "--clone-develop" not in visible
+    assert "--clone-publishers" not in visible
+    assert "--publish-package" not in visible
+
+
+def test_finish_plan_only_full_develop_coverage_omits_partial_clause():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0,
+            unused_develop=3, unused_develop_soft=0, consume_tip=True,
+            dependency_count=3,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "optionally also pass --develop to prefer configured develop trees" in visible
+    assert "where set" not in visible
+    assert "listed publisher paths" not in visible
+    assert "to run this plan" in visible
+
+
+def test_finish_plan_only_clean_plan_still_names_how_to_run():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 0 )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "1 package planned" in visible
+    assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+    assert "to run this plan" in visible
+    assert "to make this plan executable" not in visible
+    assert "optionally also pass --develop" not in visible
+    assert "nothing was built, published, uploaded, or cloned" in visible
 
 
 def test_finish_collect_opt_in_advice_does_not_require_publish_package():

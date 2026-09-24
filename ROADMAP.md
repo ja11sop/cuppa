@@ -464,6 +464,9 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `deep-clean` | `--deep-clean` modifier on `-c` / `--clean` (path Clean and/or native tool clean; Boost `b2 --clean` first) | Medium | Does not delete extracts. Distinct from `--remove-dependencies`. Design: [`deep-clean.md`](design/plans/deep-clean.md) (naming, gap assessment, Boost use case). Related [#135](https://github.com/ja11sop/cuppa/issues/135); stage Clean on [#326](https://github.com/ja11sop/cuppa/pull/326). |
 | `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing/report-patterns.adoc`](docs/modules/ROOT/pages/contributing/report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
 | `console-stop-error-reporting` | Normalise Options Error tree + short StopError for surprising refusals | Low | [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md); cascade `-n` first instance |
+| `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as report surface so SCons `-Q` does not hide them | Low | [`console-mode-banners.md`](design/plans/console-mode-banners.md); coordinates with quiet-tty-heartbeat |
+| `quiet-tty-heartbeat` | Quiet+TTY configure liveness; Phase 0 evaluates logger rewrite vs marked-long vs cherry-pick | Low | [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md); project **B** `-Q --cascade-plan` soak |
+| `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 
 ### Out of scope (storage)
 

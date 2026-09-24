@@ -78,10 +78,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ``--cascade-plan`` node judgements keep remedies local (``pass --develop to use
   this existing tree``, ``pass --clone-publishers to fetch it`` / ``to clone into
-  […]``). “Make this plan executable” moves to a finish-line remedy tree that
-  lists ``--develop`` and/or ``--clone-publishers`` with the matching publish
-  action — ``--publish-cascade-dependencies`` alone for consume tips, or either
-  that flag or ``--publish-package`` for publisher tips.
+  […]``). The finish-line remedy tree always names how to proceed: when every
+  dependency already has a publisher tree, it lists the companion publish action
+  (``--publish-cascade-dependencies``, and ``--publish-package`` on a publisher tip)
+  and ends with **to run this plan**; unused develop paths that the forest already
+  covers may add an optional ``--develop`` preference (worded **where set** when
+  only some dependencies have develop configured; others keep the listed publisher
+  paths) without reframing the plan as blocked. When ``--develop`` and/or
+  ``--clone-publishers`` are still required to
+  place a tree, the same shape ends with **to make this plan executable**.
+
+- Consume-only cascade tips label the tip as **(this project)** (and an intro that
+  names tip build only) rather than **(this package)**, which remains for publisher
+  tips.
 
 ### Fixed
 

@@ -1594,45 +1594,101 @@ def _plan_executable_remedy_lines(
         consume_tip: bool = False,
         encoding=None,
 ) -> list[str]:
-    """Tree hanging under ``--cascade-plan: N planned;`` for opt-in remedies.
+    """Tree hanging under ``--cascade-plan: N planned;`` when the plan is blocked.
 
-    Node judgements stay local; only this summary speaks of making the plan
-    executable. ``consume_tip`` drops ``--publish-package`` (tip build only).
+    Prefer :func:`_plan_finish_remedy_lines` for new call sites. Kept for tests that
+    still pass the old blocked-only kwargs.
     """
-    options = []
-    action = _publish_action_phrase( consume_tip )
-    if offer_develop:
-        options.append(
-                "{} along with {}".format( _footer_flag( "develop" ), action )
-        )
-    if offer_clone:
-        options.append(
-                "{} along with {}".format( _footer_flag( CLONE_OPTION ), action )
-        )
-    if not options:
-        return []
+    return _plan_finish_remedy_lines(
+            blocked=True,
+            require_develop=offer_develop,
+            require_clone=offer_clone,
+            consume_tip=consume_tip,
+            encoding=encoding,
+    )
 
+
+def _plan_finish_remedy_lines(
+        *,
+        blocked: bool = False,
+        require_develop: bool = False,
+        require_clone: bool = False,
+        optional_develop: bool = False,
+        optional_develop_partial: bool = False,
+        consume_tip: bool = False,
+        encoding=None,
+) -> list[str]:
+    """Tree hanging under ``--cascade-plan: N planned;`` for how to run or unblock.
+
+    Node judgements stay local. This summary either names the companion publish
+    action to **run** an already-resolved plan (optionally preferring ``--develop``)
+    or, when blocked, the opt-in flags needed to **make** the plan executable.
+    ``consume_tip`` drops ``--publish-package`` (tip build only).
+    ``optional_develop_partial`` means only some dependencies have develop paths
+    configured — the rest keep the listed publisher paths.
+    """
+    action = _publish_action_phrase( consume_tip )
     tee, elbow, pipe, gap = storage.glyphs( encoding )
     stub = pipe.rstrip()
     lines = [ as_subdued( stub ) ]
-    if len( options ) == 1:
-        lines.append(
-                as_subdued( tee ) + "pass {}".format( options[0] )
-        )
-    else:
-        lines.append( as_subdued( tee ) + "pass either:" )
-        under = pipe
-        for index, option in enumerate( options ):
-            last = index == len( options ) - 1
-            branch = elbow if last else tee
-            suffix = "" if last else ", or"
-            lines.append( as_subdued( under + stub ) )
-            lines.append(
-                    as_subdued( under + branch ) + option + suffix
+
+    if blocked:
+        options = []
+        if require_develop:
+            options.append(
+                    "{} along with {}".format( _footer_flag( "develop" ), action )
             )
+        if require_clone:
+            options.append(
+                    "{} along with {}".format( _footer_flag( CLONE_OPTION ), action )
+            )
+        if not options:
+            options.append(
+                    "{} along with {}".format( _footer_flag( CLONE_OPTION ), action )
+            )
+        if len( options ) == 1:
+            lines.append(
+                    as_subdued( tee ) + "pass {}".format( options[0] )
+            )
+        else:
+            lines.append( as_subdued( tee ) + "pass either:" )
+            under = pipe
+            for index, option in enumerate( options ):
+                last = index == len( options ) - 1
+                branch = elbow if last else tee
+                suffix = "" if last else ", or"
+                lines.append( as_subdued( under + stub ) )
+                lines.append(
+                        as_subdued( under + branch ) + option + suffix
+                )
+        lines.append( as_subdued( stub ) )
+        lines.append(
+                as_subdued( elbow ) + "to make this plan executable"
+        )
+        return lines
+
+    lines.append( as_subdued( tee ) + "pass {}".format( action ) )
+    if optional_develop:
+        if optional_develop_partial:
+            prose = (
+                    "optionally also pass {} to prefer configured develop trees "
+                    "where set; other dependencies still use the listed publisher "
+                    "paths".format( _footer_flag( "develop" ) )
+            )
+        else:
+            prose = (
+                    "optionally also pass {} to prefer configured develop trees"
+                    .format( _footer_flag( "develop" ) )
+            )
+        lines.append( as_subdued( stub ) )
+        wrap_width = max( storage.WIDEST_PROSE - len( tee ), storage.NARROWEST_PROSE )
+        branch = tee
+        for piece in storage.wrapped( prose, wrap_width ):
+            lines.append( as_subdued( branch ) + piece )
+            branch = pipe
     lines.append( as_subdued( stub ) )
     lines.append(
-            as_subdued( elbow ) + "to make this plan executable"
+            as_subdued( elbow ) + "to run this plan"
     )
     return lines
 
@@ -1909,7 +1965,7 @@ def _append_severity_groups( lines, judgements, under, prose_width, encoding=Non
 
 def cascade_plan_lines(
         nodes, order, tip_package, tip_version, encoding=None, argv=None, mode=None,
-        clean=False,
+        clean=False, consume_tip=False,
 ) -> list[str]:
     """Publish order, leaf-first: package nodes first, judgements nested beneath.
 
@@ -1924,6 +1980,7 @@ def cascade_plan_lines(
     ``update-publishers`` — collect/update retarget the header and judgement verbs.
     ``clean`` retargets the intro for ``-c`` / ``--clean`` (nested sessions remove
     targets; nothing is published).
+    ``consume_tip`` uses ``(this project)`` and tip-build-only intro copy.
     """
     collect = mode == COLLECT_CASCADE_OPTION
     updating = mode == UPDATE_PUBLISHERS_OPTION
@@ -1946,6 +2003,7 @@ def cascade_plan_lines(
     )
 
     tip = _package_identity( tip_package, tip_version )
+    tip_role = "this project" if consume_tip else "this package"
     if collect:
         intro = (
                 "Printing Cascade plan for collecting packages for {} given the command:"
@@ -1957,8 +2015,20 @@ def cascade_plan_lines(
                 "given the command:".format( tip )
         )
     elif clean:
+        if consume_tip:
+            intro = (
+                    "Printing Cascade plan for cleaning this project {} given the command:"
+                    .format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for cleaning package {} given the command:"
+                    .format( tip )
+            )
+    elif consume_tip:
         intro = (
-                "Printing Cascade plan for cleaning package {} given the command:"
+                "Printing Cascade plan for building this project {} "
+                "(dependencies publish; tip build only) given the command:"
                 .format( tip )
         )
     else:
@@ -1971,8 +2041,9 @@ def cascade_plan_lines(
             intro,
             colour_plan_command_line( argv ),
             "",
-            "Cascade plan: {} (this package) with {}: {}".format(
+            "Cascade plan: {} ({}) with {}: {}".format(
                     tip,
+                    tip_role,
                     storage.emphasised_count_phrase(
                             len( order ), "package dependency", "package dependencies"
                     ),
@@ -2242,6 +2313,7 @@ def record_plan_report(
         mode=None,
         trees_collected=0,
         trees_updated=0,
+        dependency_count=0,
 ) -> None:
     _plan_reports.append( {
             "package": str( tip_package ),
@@ -2255,6 +2327,7 @@ def record_plan_report(
             "mode": mode or CASCADE_PLAN_OPTION,
             "trees_collected": int( trees_collected ),
             "trees_updated": int( trees_updated ),
+            "dependency_count": int( dependency_count ),
     } )
 
 
@@ -2345,6 +2418,9 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     )
     unused_develop_soft = sum(
             report.get( "unused_develop_soft", 0 ) for report in _plan_reports
+    )
+    dependency_count = sum(
+            report.get( "dependency_count", 0 ) for report in _plan_reports
     )
     consume_tip = any(
             report.get( "consume_tip" ) for report in _plan_reports
@@ -2444,20 +2520,30 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             )
         detail = no_side_effects
 
-    # Plan finish: tree-shaped opt-in remedies (develop / clone-publishers).
-    # Soft unused develop (configured develop, no tree resolved) also offers
-    # --clone-publishers — the node notes already name that alternative.
-    offer_develop = bool( unused_develop )
-    offer_clone = bool( needs_clone or unused_develop_soft or clones )
-    if not collect and not update and ( offer_develop or offer_clone ):
+    # Plan finish: how to run an already-resolved plan, or opt-ins that unblock it.
+    # Unused develop with a forest hit is a preference note, not a blocker.
+    # Soft unused develop (no resolved tree) or clone opt-in / planned clones block.
+    if not collect and not update:
+        blocked = bool( needs_clone or unused_develop_soft or clones )
+        require_develop = bool( unused_develop ) if blocked else False
+        require_clone = bool( needs_clone or unused_develop_soft or clones )
+        optional_develop = bool( unused_develop and not blocked )
+        optional_develop_partial = bool(
+                optional_develop
+                and dependency_count > 0
+                and unused_develop < dependency_count
+        )
         write_lines( [
                 "",
                 "{};".format( _cascade_stop_summary( option, summary ) ),
         ], out=stream )
         write_lines(
-                _plan_executable_remedy_lines(
-                        offer_develop=offer_develop,
-                        offer_clone=offer_clone,
+                _plan_finish_remedy_lines(
+                        blocked=blocked,
+                        require_develop=require_develop,
+                        require_clone=require_clone,
+                        optional_develop=optional_develop,
+                        optional_develop_partial=optional_develop_partial,
                         consume_tip=consume_tip,
                 ),
                 out=stream,
@@ -4370,7 +4456,8 @@ def maybe_run_cascade( env, publisher ) -> None:
     )
     write_lines( cascade_plan_lines(
             nodes, order, tip_package, tip_version,
-            mode=plan_report_mode, clean=cleaning
+            mode=plan_report_mode, clean=cleaning,
+            consume_tip=is_consume_tip( publisher ),
     ) )
 
     trees_updated = 0
@@ -4417,6 +4504,7 @@ def maybe_run_cascade( env, publisher ) -> None:
                 mode=report_mode or CASCADE_PLAN_OPTION,
                 trees_collected=trees_collected,
                 trees_updated=trees_updated,
+                dependency_count=len( order ),
         )
         reset_deferred_cascade_fetches()
         return

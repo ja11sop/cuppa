@@ -395,9 +395,10 @@ cuppa -D --rel --toolchains=gcc15 \
 
 The report lists each dependency in publish order — package nodes first, with
 errors, warnings, and notes nested beneath them the way a judgement tree nests
-reasons under a severity heading — and this package last. The invoking command
-line sits above the tree so recommended flags can be compared with flags already
-present (cascade-relevant ones are emphasised):
+reasons under a severity heading — and this package (or **this project** for a
+consume-only tip) last. The invoking command line sits above the tree so
+recommended flags can be compared with flags already present (cascade-relevant
+ones are emphasised):
 
 [source,text]
 ----
@@ -412,7 +413,38 @@ Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 er
 │           └── using publisher at [/home/user/coding/packages/corosio]
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned;
+│
+├── pass either --publish-cascade-dependencies or --publish-package
+│
+└── to run this plan
+
+nothing was built, published, uploaded, or cloned.
+----
+
+A consume-only tip uses ``(this project)`` and an intro that names tip build only
+(dependencies still publish under ``--publish-cascade-dependencies``):
+
+[source,text]
+----
+Printing Cascade plan for building this project widget [==consume] (dependencies publish; tip build only) given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan
+
+Cascade plan: widget [==consume] (this project) with 2 package dependencies: [0 errors][0 warnings][0 notes]
+│
+├── 1 of 2  capy [==develop]
+│           └── using publisher at [~/.cuppa/publishers/capy]
+├── 2 of 2  corosio [==0.3.1]
+│           └── using publisher at [~/.cuppa/publishers/corosio]
+└── then widget [==consume] from this tree
+
+--cascade-plan: 1 package planned;
+│
+├── pass --publish-cascade-dependencies
+│
+└── to run this plan
+
+nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
@@ -429,12 +461,17 @@ plan would use that copy instead (and mention ``--publisher-root``). Construct a
 ``Running in PACKAGE BUILD: CASCADE PLAN mode`` (short info-label chip plus plain
 qualifying text) the same way clone-develop announces itself.
 
-The finish line keeps “make this plan executable” on the **summary** only (not on
-each node). When ``--develop`` and/or ``--clone-publishers`` would unblock the plan,
-it hangs a short remedy tree under ``--cascade-plan: N package planned;`` naming
-those flags together with ``--publish-cascade-dependencies`` (and
-``--publish-package`` when the tip is a publisher). A consume-only tip omits
-``--publish-package``.
+The finish line hangs a short remedy tree under ``--cascade-plan: N package planned;``.
+When every dependency already has a publisher tree, the plan is **executable**: the
+tree names the companion publish action (``--publish-cascade-dependencies``, and
+``--publish-package`` when the tip is a publisher) and ends with **to run this plan**.
+Unused develop paths that the listed publisher paths already cover may add an
+**optionally also pass ``--develop``** preference (with **where set** / **listed
+publisher paths** when only some dependencies have develop configured) — they do
+not reframe the plan as blocked. When
+``--develop`` and/or ``--clone-publishers`` are still required to place a tree, the
+same shape ends with **to make this plan executable** instead. A consume-only tip
+omits ``--publish-package``.
 
 With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
 an error, naming the URL, the pin, and where it would land. The plan stops at such a
@@ -457,17 +494,26 @@ Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 erro
 │                   so nothing is planned beneath it
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned, 1 publisher tree to clone first;
+│
+├── pass --clone-publishers along with either --publish-cascade-dependencies or --publish-package
+│
+└── to make this plan executable
+
+nothing was built, published, uploaded, or cloned.
 ----
 
 [#collect-cascade]
 ==== Collecting publisher trees without building
 
-When the next step is a full ``--publish-package`` cascade, you may want every
-publisher tree on disk first — clone what is missing, reuse what is already
-there — without compiling or uploading. ``--collect-cascade`` does that. It
-needs the cascade flag and typically ``--clone-publishers``; it does **not**
-need ``--publish-package``, and it is not the same as ``--publish-package -n``
+When the next step is a full ``--publish-package`` (or
+``--publish-cascade-dependencies``) cascade, you may want every publisher tree on
+disk first — clone what is missing, reuse what is already there — without
+compiling or uploading. ``--collect-cascade`` does that. It needs the cascade
+flag. Pass ``--clone-publishers`` as well when some ``package_source`` values are
+URLs with nothing under the publishers root yet; if those trees are already
+present, collect alone is enough. It does **not** need ``--publish-package``, and
+it is not the same as ``--publish-package -n``
 (SCons dry-run still configures nested sessions, which cannot create
 ``.sconf_temp`` — a full cascade refuses ``-n`` / ``--no-exec`` up front):
 

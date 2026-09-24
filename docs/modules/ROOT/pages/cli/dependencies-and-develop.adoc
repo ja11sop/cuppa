@@ -187,13 +187,22 @@ See xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publi
 tree, then stops without cloning, building, or uploading. It requires
 `--build-and-publish-dependencies`, but not `--publish-package`. Every unresolved
 publisher tree is reported rather than only the first, and the run exits non-zero
-when any remain. See xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
+when any remain. The finish line always names how to proceed: **to run this plan**
+with the companion publish action when every dependency already has a publisher
+path, or **to make this plan executable** when `--develop` and/or
+`--clone-publishers` are still required. Unused develop paths that listed publisher
+paths already cover may add an optional `--develop` preference (worded **where set**
+when only some dependencies have develop configured). Consume-only tips label the tip
+as **(this project)** and omit `--publish-package` from the remedy. See
+xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
 
-`--collect-cascade` resolves the same graph and, with `--clone-publishers`, clones
-missing publisher trees (reusing ones that already exist), then stops without
-building or publishing. It requires `--build-and-publish-dependencies`, but not
-`--publish-package`. It is not `--publish-package -n` (a full cascade refuses
-`-n` / `--no-exec` because nested sessions still configure). See
+`--collect-cascade` resolves the same graph and stops without building or publishing.
+It requires `--build-and-publish-dependencies`, but not `--publish-package`. It only
+**reuses** publisher trees already on disk unless you also pass `--clone-publishers`
+(permission to clone missing URL `package_source` trees). If the publishers root is
+already populated, collect alone is enough; clone is the cold-start / missing-tree
+opt-in. It is not `--publish-package -n` (a full cascade refuses `-n` / `--no-exec`
+because nested sessions still configure). See
 xref:packages.adoc#collect-cascade[Collecting publisher trees without building].
 
 `--clone-publishers` lets cascade clone a publisher tree it cannot find locally from
@@ -202,7 +211,8 @@ or `url@revision`. Clones land in `PATH/<name>` under `--publisher-root` when it
 set, otherwise in `<storage-root>/publishers/<name>`. Existing trees are always
 preferred and are used as they stand — never switched, reset, or overwritten — and
 cloning is unavailable with `--offline`. It is opt-in because a full cascade runs a
-build in the tree it fetches (`--collect-cascade` clones without building). See
+build in the tree it fetches (`--collect-cascade` clones without building when both
+flags are set). See
 xref:packages.adoc#clone-publishers[Fetching publisher trees on demand].
 
 `--develop` is related but not the same. Outside a cascade, a package dependency's

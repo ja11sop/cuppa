@@ -2,8 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) (Slice F detail + soak, shipped [#316](https://github.com/ja11sop/cuppa/pull/316)); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-23
-- **Impact:** `minor` for the resolution, clone, local-consume (D), and first-publish defer-404 (F) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
+- **Updated:** 2026-09-24
 
 ## Problem
 
@@ -76,7 +75,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | `--clone-develop` for packages | Supported, taking the URL from `package_source` (consumer-declared, else the traveling manifest). This belongs to the develop family, not to cascade. |
 | Missing path under `--clone-develop` | **pending** / note when a cloneable source is known — the mode exists to create that path. **error** only when the clone cannot succeed (no source, wrong repo already there, blocked destination). |
 | Nested cascade argv | Forward the tip's global build flags; **drop** tip dependency-scoped options (`--<name>-…-develop`, `--<name>-…-package-source`, location overrides). Those are registered by the tip's sconstruct and are wrong for the child (unknown flag, and relative paths anchored to the wrong tree). Settings meant for every project travel through `~/.cuppaconfig`, which the child loads itself. |
-| Console noun for the invoking package | **this package** (not "tip") in plan lines, session resume, and finish copy. Keep `tip` only as an internal/code noun where a short label helps. |
+| Console noun for the invoking package | **this package** for publisher tips; **this project** for consume-only tips (not "tip") in plan lines. Session resume / finish copy for publisher tips keep **this package**. Keep `tip` only as an internal/code noun where a short label helps. |
 | Default publisher lookup | `<storage-root>/publishers` is searched for existing trees (same path clones write to); `--publisher-root` overrides. Matches downloads/dependencies falling back to `storage_root`. |
 | Unused develop on the plan | **Notes** (pass `--develop` to use that tree) plus further notes for alternatives; when a publishers-forest tree already exists, notes that the plan would use it (may not be intended) and `--publisher-root`. Not an error that claims no local tree when one was configured. Day-to-day copy does not advise rewriting `package_source`. |
 
