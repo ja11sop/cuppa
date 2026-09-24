@@ -535,3 +535,109 @@ def test_extract_tar(tmp_path):
 
     Location.extract(str(archive), str(target))
     assert (target / "file.txt").read_text(encoding="utf-8") == "payload"
+
+
+def test_update_from_repository_retries_after_tags_fetch_failure(
+        monkeypatch, tmp_path, caplog
+):
+    import logging
+
+    from cuppa.location import Location
+    from cuppa.scms.git import Git
+    from cuppa.utility.pip_imports import pip_exceptions
+
+    location = Location.__new__( Location )
+    location._full_url = urlparse( "git+ssh://git@example.com/org/repo@master" )
+    calls = { "update": 0, "force": 0 }
+
+    def fake_update( backend, dest, rev_options ):
+        calls["update"] += 1
+        if calls["update"] == 1:
+            raise pip_exceptions.InstallationError(
+                    "git fetch --tags -q exited with 1"
+            )
+
+    def fake_force( path, progress=False ):
+        calls["force"] += 1
+        assert path == str( tmp_path )
+        assert progress is False
+
+    monkeypatch.setattr( "cuppa.location.update", fake_update )
+    monkeypatch.setattr( Git, "fetch_tags_force", fake_force )
+    monkeypatch.setattr(
+            Location,
+            "get_info",
+            classmethod( lambda cls, *a, **k: (
+                    None, None, "master", "origin/master", "abc123"
+            ) ),
+    )
+    monkeypatch.setattr(
+            Location, "get_rev_options", lambda self, *a, **k: "rev-opts"
+    )
+    monkeypatch.setattr(
+            Location, "ver_rev_summary", lambda self, *a, **k: ( "1.0", )
+    )
+
+    with caplog.at_level( logging.INFO ):
+        location.update_from_repository(
+                "git+ssh://git@example.com/org/repo@master",
+                location._full_url,
+                str( tmp_path ),
+                "git",
+                object(),
+        )
+
+    assert calls["update"] == 2
+    assert calls["force"] == 1
+    assert "forced tags and updated" in caplog.text
+    assert "Could not update" not in caplog.text
+
+
+def test_update_from_repository_does_not_retry_unrelated_pip_error(
+        monkeypatch, tmp_path, caplog
+):
+    import logging
+
+    from cuppa.location import Location
+    from cuppa.scms.git import Git
+    from cuppa.utility.pip_imports import pip_exceptions
+
+    location = Location.__new__( Location )
+    location._full_url = urlparse( "git+ssh://git@example.com/org/repo@master" )
+    calls = { "update": 0, "force": 0 }
+
+    def fake_update( backend, dest, rev_options ):
+        calls["update"] += 1
+        raise pip_exceptions.InstallationError( "authentication failed" )
+
+    def fake_force( path, progress=False ):
+        calls["force"] += 1
+
+    monkeypatch.setattr( "cuppa.location.update", fake_update )
+    monkeypatch.setattr( Git, "fetch_tags_force", fake_force )
+    monkeypatch.setattr(
+            Location,
+            "get_info",
+            classmethod( lambda cls, *a, **k: (
+                    None, None, "master", "origin/master", "abc123"
+            ) ),
+    )
+    monkeypatch.setattr(
+            Location, "get_rev_options", lambda self, *a, **k: "rev-opts"
+    )
+    monkeypatch.setattr(
+            Location, "ver_rev_summary", lambda self, *a, **k: ( "1.0", )
+    )
+
+    with caplog.at_level( logging.WARNING ):
+        location.update_from_repository(
+                "git+ssh://git@example.com/org/repo@master",
+                location._full_url,
+                str( tmp_path ),
+                "git",
+                object(),
+        )
+
+    assert calls["update"] == 1
+    assert calls["force"] == 0
+    assert "Could not update" in caplog.text

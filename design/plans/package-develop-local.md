@@ -2,8 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) (Slice F detail + soak, shipped [#316](https://github.com/ja11sop/cuppa/pull/316)); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-21
-- **Impact:** `minor` for the resolution, clone, local-consume (D), and first-publish defer-404 (F) slices; a distinct prefix kwarg would be `minor` unless it breaks today’s `develop=` (avoided by inference)
+- **Updated:** 2026-09-24
 
 ## Problem
 
@@ -68,7 +67,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 |----------|----------|
 | What `--develop` + `develop=` mean for a package | **Use that working tree**: discover a local package stage under `final/<package>/<version>/` (publisher-shaped) or swap a prefix-shaped path. Opt-in **`--stage-develop`** nest-builds/cleans publisher trees. Not a second silent meaning for one kwarg — build is explicit. |
 | Relationship to cascade | Complementary, not a replacement. Cascade ranks a develop tree **above** `--publisher-root` lookup and above cloning, and never clones a dependency that has a develop path — `--clone-develop` owns filling those. |
-| Publishing from a develop tree | **Refused** when the copy is dirty, ahead, or diverged, because the result is a registry version nobody can reproduce. `develop.py`'s `inspect()` already computes that state. An explicit override flag, not a warning in a log. |
+| Publishing from a publisher tree | **Refused** when the copy is dirty, ahead, or has no upstream — develop, ``--publisher-root``, and ``--clone-publishers`` clones alike — because the result is a registry version nobody can reproduce. `develop.py`'s `inspect()` already computes that state. Override with ``--publish-modified``, not a soft warning. |
 | A develop path that is a prefix, not a publisher tree | An error naming both meanings, so an operator who set the old-style path learns what changed instead of reading "no sconstruct". |
 | `develop=` set but `--develop` absent | Configuration, not a mode switch — do **not** imply `--develop`. Reported in the cascade plan, not silently skipped in favour of `--publisher-root` or a clone. A **CLI develop override** without `--develop` is an earlier **warn** (path named on the command line that will never be used); a declared path alone stays quiet outside the plan. |
 | Pins against a develop tree | Advisory: reported when the tree is elsewhere, never switched, stashed, or reset. Same rule as a reused clone. |
@@ -76,9 +75,9 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | `--clone-develop` for packages | Supported, taking the URL from `package_source` (consumer-declared, else the traveling manifest). This belongs to the develop family, not to cascade. |
 | Missing path under `--clone-develop` | **pending** / note when a cloneable source is known — the mode exists to create that path. **error** only when the clone cannot succeed (no source, wrong repo already there, blocked destination). |
 | Nested cascade argv | Forward the tip's global build flags; **drop** tip dependency-scoped options (`--<name>-…-develop`, `--<name>-…-package-source`, location overrides). Those are registered by the tip's sconstruct and are wrong for the child (unknown flag, and relative paths anchored to the wrong tree). Settings meant for every project travel through `~/.cuppaconfig`, which the child loads itself. |
-| Console noun for the invoking package | **this package** (not "tip") in plan lines, session resume, and finish copy. Keep `tip` only as an internal/code noun where a short label helps. |
+| Console noun for the invoking package | **this package** for publisher tips; **this project** for consume-only tips (not "tip") in plan lines. Session resume / finish copy for publisher tips keep **this package**. Keep `tip` only as an internal/code noun where a short label helps. |
 | Default publisher lookup | `<storage-root>/publishers` is searched for existing trees (same path clones write to); `--publisher-root` overrides. Matches downloads/dependencies falling back to `storage_root`. |
-| Unused develop on the plan | **Warning** (pass `--develop` to make the plan executable) + **notes** for alternatives; when a publishers-forest tree already exists, a second **warning** that the plan would use it. Not an error that claims no local tree when one was configured. Day-to-day copy does not advise rewriting `package_source`. |
+| Unused develop on the plan | **Notes** (pass `--develop` to use that tree) plus further notes for alternatives; when a publishers-forest tree already exists, notes that the plan would use it (may not be intended) and `--publisher-root`. Not an error that claims no local tree when one was configured. Day-to-day copy does not advise rewriting `package_source`. |
 
 ### Slice D settled decisions
 
@@ -92,7 +91,7 @@ carry a `develop=`, and deep stacks are made of exactly those.
 | Prefix-shaped `develop=` | **Inference**: `sconstruct` → publisher source; `include/`+`lib/` without sconstruct → legacy prefix swap + note. |
 | Cascade + develop | Tip still consumes the local stage when present; cascade upload is independent. |
 | `--list-develop` | Unchanged vocabulary. |
-| Rooted/cloned dirty warn | Stay warn, not refuse. |
+| Rooted/cloned dirty trees | **Refuse** (same as develop); override with ``--publish-modified``. |
 | First-publish registry 404 (§6) | **Slice F** (below) — not D |
 
 ## Slices
@@ -115,7 +114,7 @@ Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop
 | Finding | Decision |
 |---------|----------|
 | Nested publish inherited `--capy-gitlab-develop=../capy` and died (`no such option`) | Drop tip dependency options from nested argv; keep `--develop` and toolchain/variant flags. |
-| Plan said `[1 note]` for unused develop but printed only the resolve error; then graded a present develop tree as "no local working tree" | Unused develop is a **warning** (pass `--develop`) plus **notes** for alternatives; not a false missing-tree error. |
+| Plan said `[1 note]` for unused develop but printed only the resolve error; then graded a present develop tree as "no local working tree" | Unused develop is **notes** (pass `--develop`) plus further notes for alternatives; not a false missing-tree error. |
 | `--…-package-source=…@develop` cloned `master` | Read the CLI override in `package_source_for_dependency` the way `configured_develop` reads develop overrides — declaration/manifest alone missed the pin. |
 | `--clone-develop -n` graded a missing path as *error … cannot succeed* | pending/note when clonable; error only when the clone itself cannot succeed. |
 | Plan paths showed `…/corosio/../capy` | Display through `display_path` (normpath + `~`) at report time; keep lexical paths for resolution. |
@@ -123,8 +122,9 @@ Slices A–C shipped; post-C soak UX landed in [#310](https://github.com/ja11sop
 | Plan graded cloneable URL + no `--clone-publishers` as hard error | Soft-grade: **warning** (pass `--clone-publishers`) + **notes** for alternatives; real cascade still StopErrors. Footer exits 0 and names `--clone-publishers` / `--develop` when those remedies apply. |
 | Plan advised rewriting filesystem `package_source` | Drop from day-to-day warn/note/footer; keep CLI `--*-package-source=` as an escape hatch. Warn primary intent, note alternatives separately. |
 | Plan scrolled away from the argv that produced it | Show the command line above the tree; emphasise cascade-relevant flags. |
-| Unused develop + existing publishers tree looked "green" aside from one warning | Second **warning**: plan will use the forest copy (probably not intended); note for `--publisher-root`. |
+| Unused develop + existing publishers tree looked "green" aside from one warning | **Notes**: plan will use the forest copy (may not be intended); note for `--publisher-root`. |
 | Collect reuses forest trees without fetch | By 2b design. **`--update-publishers`** (shipped) fast-forwards clean/behind forest and `--publisher-root` trees; skips develop (use `--update-develop`). |
+| Dirty rooted/cloned forests only warned while develop refused | Unify: **refuse** any dirty publisher tree; one override ``--publish-modified`` (drop ``--publish-modified-develop`` — never released). |
 | No first-class way to clone/collect trees without `--publish-package` or abusing `-n` | **`--collect-cascade`** (shipped): resolve + clone/reuse publisher trees, stop before nested build/upload. Not `--publish-package -n`. |
 | `--build-and-publish-dependencies --publish-package -n` died in nested configure (`ConfigureDryRunError` / `.sconf_temp`) | Full cascade **refuses** `-n`/`--no-exec` up front with an **Options Error** tree (why / remedy) then a short `StopError`; point at `--cascade-plan` / `--collect-cascade`. SCons dry-run still configures, so nested sessions cannot be a meaningful cascade dry-run. |
 | Cascade `… --publish-package -c` cleaned nested + tip graphs correctly | **Works.** Clean polish **shipped**: skip invalidate/re-fetch after clean sessions; banners say **nested clean(s)** / **resuming clean**; plan intro **cleaning package** plus a note that location CMake `-B` survives unless `CMakeConfigure`/`CMakeBuild` (or an explicit `env.Clean`) registered it. Still deferred (slice 2c): positive tip confirmation when SCons skips an already-current upload. |

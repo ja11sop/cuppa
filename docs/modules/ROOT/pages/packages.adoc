@@ -118,13 +118,19 @@ xref:dependencies/gitlab.adoc#publishing-boost-from-source[Publishing Boost from
 === Cascading dependency publishes
 
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
-parents, then the tip). Pass ``--build-and-publish-dependencies`` together with
-``--publish-package``:
+parents, then the tip). Pass ``--build-and-publish-dependencies`` with a companion
+action — ``--publish-package`` (nested publish + tip upload) or
+``--publish-cascade-dependencies`` (nested publish, tip build only):
 
 [source,shell]
 ----
 cuppa -D --rel --toolchains=gcc15 \
   --publish-package --build-and-publish-dependencies \
+  --publisher-root=~/coding/packages
+
+# Or: nest-publish deps, tip build only (consume-only or publisher tip)
+cuppa -D --rel --toolchains=gcc15 \
+  --publish-cascade-dependencies --build-and-publish-dependencies \
   --publisher-root=~/coding/packages
 ----
 
@@ -144,9 +150,14 @@ Cuppa then:
 * Invalidates that package’s download/extract caches under the tip’s storage
   roots and re-fetches from the registry so the tip build sees the new
   artefacts
-* Continues with this project’s normal build and publish
+* Continues with this project’s normal build and publish when ``--publish-package``
+  is set (publisher tip), or **build only** when ``--publish-cascade-dependencies``
+  is set (consume-only or publisher tip)
 
-Pre-sconscript ``BuildWith`` still runs before cascade. When a tip dependency is
+Pre-sconscript ``BuildWith`` still runs before cascade on publisher tips.
+Consume-only tips run cascade **after** the sconscript read (once it is clear no
+tip publisher constructed); Slice F deferral still covers a missing registry pin
+during that earlier ``BuildWith``. When a tip dependency is
 one cascade can publish (``package_source``, a publisher-shaped ``develop=``, or
 a tip ``cuppa-publish.json`` edge with a source) and the registry returns
 ``404``, cuppa **defers** that fetch instead of stopping: nested publish and the
@@ -163,10 +174,61 @@ xref:#publish-version-latest[Publisher version latest]. Consume and
 ``--list-dependencies`` ``requires`` read the traveling file; legacy
 ``cuppa-dependency.json`` remains a **read-only fallback** for older extracts.
 
-Requires ``--publish-package``. Missing ``package_source`` / unresolved trees
-fail before nested uploads. A ``package_source`` URL needs either a tree that
+``--build-and-publish-dependencies`` **enables** the graph; pair it with a
+companion **action**:
+
+* ``--publish-package`` — nested publish, then tip **upload** (publisher tips)
+* ``--publish-cascade-dependencies`` — nested publish, then tip **build only**
+  (consume-only and publisher tips; cannot combine with ``--publish-package``)
+* ``--cascade-plan`` / ``--collect-cascade`` / ``--update-publishers`` — stop modes
+
+Bare cascade alone is refused. Seed each direct package pin with
+``package_source=…`` (or a develop publisher tree under ``--develop``); transitive
+edges come from each resolved tree’s ``cuppa-publish.json``. Missing
+``package_source`` / unresolved trees fail before nested uploads. A
+``package_source`` URL needs either a tree that
 already exists under ``<storage-root>/publishers`` (or ``--publisher-root``), a
 filesystem ``package_source``, or ``--clone-publishers``, described next.
+
+[#cascade-consume-only]
+==== Consume-only tips (app projects)
+
+An application that only **consumes** GitLab packages (no tip
+``PublishPackage``) can still drive cascade from its ``package_dependency`` list.
+Declare ``package_source`` on each direct package edge that should open the DAG
+(for example the root of a stack), then plan or nest-publish under a monorepo forest:
+
+[source,python]
+----
+cloud = cuppa.package_dependency(
+        'google_cloud_cpp',
+        registry       = REGISTRY,
+        package        = 'google-cloud-cpp',
+        version        = '2.28.0',
+        package_source = 'git@gitlab.example:org/packages/google_cloud_cpp.git',
+)
+----
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --cascade-plan \
+  --publisher-root=~/coding/packages
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers \
+  --publisher-root=~/coding/packages
+
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --publish-cascade-dependencies \
+  --publisher-root=~/coding/packages
+----
+
+The last form nest-publishes the package DAG (nested sessions still pass
+``--publish-package``) and then **builds the tip** — it does not upload the app.
+Use ``--publish-package`` instead of ``--publish-cascade-dependencies`` only when
+the tip itself should upload.
+
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in
@@ -228,36 +290,32 @@ ignored.
 
 ===== Local work is not publishable
 
-Cascade refuses to publish from a develop tree holding work that exists only on
+Cascade refuses to publish from a publisher tree holding work that exists only on
 your machine — uncommitted changes, unpushed commits, or a branch with no
 upstream — because the resulting registry version could not be rebuilt from
-history. Every offending tree is named at once, before the first upload, rather
-than one per failed session:
+history. The same rule applies to a ``--develop`` tree, a tree under
+``--publisher-root``, and a tree cloned by ``--clone-publishers``. Every
+offending tree is named at once, before the first upload, rather than one per
+failed session:
 
 [source,text]
 ----
-cascade will not publish from a develop tree holding work only this machine has,
+cascade will not publish from a publisher tree holding work only this machine has,
 because the registry version could not be rebuilt from history: [capy develop
 (capy)] at [~/coding/packages/capy] has uncommitted changes, 2 commits not
 pushed. Commit and push, drop --develop for the publish run, or pass
---publish-modified-develop to publish anyway.
+--publish-modified to publish anyway.
 ----
 
 A detached head is fine: publishing version X from tag ``vX`` is the normal case,
-and a commit you can name is a commit others can fetch. A tree cuppa cannot read
-as a working copy raises a warning rather than a refusal, since being unable to
-inspect a tree is not evidence of local work.
+and a commit you can name is a commit others can fetch. A develop tree cuppa
+cannot read as a working copy raises a warning rather than a refusal, since being
+unable to inspect a tree is not evidence of local work. A rooted or cloned tree
+that is not a working copy is ordinary and silent.
 
-A tree found under ``--publisher-root``, or cloned by ``--clone-publishers``,
-runs the same hazard and is reported the same way — but as a **warning**, and the
-publish goes ahead. Those trees are how cascade has always worked, and refusing
-them would stop a workflow that predates the question. The plan report grades them
-as warning rows, so you can see what a run is about to put in the registry without
-being stopped by it.
-
-``--publish-modified-develop`` lifts the refusal for a run and says so on every
-tree it allows. ``--cascade-plan`` reports the same judgement without publishing:
-an error row per tree that would be refused, or a note row per tree the override
+``--publish-modified`` lifts the refusal for a run and says so on every tree it
+allows. ``--cascade-plan`` reports the same judgement without publishing: an
+error row per tree that would be refused, or a note row per tree the override
 allows.
 
 [#clone-publishers]
@@ -337,9 +395,10 @@ cuppa -D --rel --toolchains=gcc15 \
 
 The report lists each dependency in publish order — package nodes first, with
 errors, warnings, and notes nested beneath them the way a judgement tree nests
-reasons under a severity heading — and this package last. The invoking command
-line sits above the tree so recommended flags can be compared with flags already
-present (cascade-relevant ones are emphasised):
+reasons under a severity heading — and this package (or **this project** for a
+consume-only tip) last. The invoking command line sits above the tree so
+recommended flags can be compared with flags already present (cascade-relevant
+ones are emphasised):
 
 [source,text]
 ----
@@ -354,21 +413,65 @@ Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 er
 │           └── using publisher at [/home/user/coding/packages/corosio]
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned;
+│
+├── pass either --publish-cascade-dependencies or --publish-package
+│
+└── to run this plan
+
+nothing was built, published, uploaded, or cloned.
+----
+
+A consume-only tip uses ``(this project)`` and an intro that names tip build only
+(dependencies still publish under ``--publish-cascade-dependencies``):
+
+[source,text]
+----
+Printing Cascade plan for building this project widget [==consume] (dependencies publish; tip build only) given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan
+
+Cascade plan: widget [==consume] (this project) with 2 package dependencies: [0 errors][0 warnings][0 notes]
+│
+├── 1 of 2  capy [==develop]
+│           └── using publisher at [~/.cuppa/publishers/capy]
+├── 2 of 2  corosio [==0.3.1]
+│           └── using publisher at [~/.cuppa/publishers/corosio]
+└── then widget [==consume] from this tree
+
+--cascade-plan: 1 package planned;
+│
+├── pass --publish-cascade-dependencies
+│
+└── to run this plan
+
+nothing was built, published, uploaded, or cloned.
 ----
 
 Unlike a real run, which stops at the first dependency it cannot place, the plan
 reports **every** unresolved tree. Hard failures (no URL to clone, bad path) are
 an **error** group and the finish line exits non-zero. A URL ``package_source``
 with nothing local yet and without ``--clone-publishers`` is a **warning**
-(pass ``--clone-publishers`` to make the plan executable) plus **notes** for
+(pass ``--clone-publishers`` to clone into the publishers forest) plus **notes** for
 alternatives (``--publisher-root``, a develop path + ``--develop``) — not advice
 to rewrite the dependency's ``package_source``. A develop path configured without
-``--develop`` is likewise a **warning** (pass ``--develop``) plus **notes**; when
-a tree already exists under the publishers forest, a second **warning** says the
-plan would use that copy instead. Construct announces
+``--develop`` is likewise a **note** (pass ``--develop`` to use that tree) plus
+further **notes** that name ``--clone-publishers`` when nothing is under the publishers
+forest yet; when a tree already exists under the forest, additional **notes** say the
+plan would use that copy instead (and mention ``--publisher-root``). Construct announces
 ``Running in PACKAGE BUILD: CASCADE PLAN mode`` (short info-label chip plus plain
 qualifying text) the same way clone-develop announces itself.
+
+The finish line hangs a short remedy tree under ``--cascade-plan: N package planned;``.
+When every dependency already has a publisher tree, the plan is **executable**: the
+tree names the companion publish action (``--publish-cascade-dependencies``, and
+``--publish-package`` when the tip is a publisher) and ends with **to run this plan**.
+Unused develop paths that the listed publisher paths already cover may add an
+**optionally also pass ``--develop``** preference (with **where set** / **listed
+publisher paths** when only some dependencies have develop configured) — they do
+not reframe the plan as blocked. When
+``--develop`` and/or ``--clone-publishers`` are still required to place a tree, the
+same shape ends with **to make this plan executable** instead. A consume-only tip
+omits ``--publish-package``.
 
 With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
 an error, naming the URL, the pin, and where it would land. The plan stops at such a
@@ -391,17 +494,26 @@ Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 erro
 │                   so nothing is planned beneath it
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned, 1 publisher tree to clone first; nothing was built, published, uploaded, or cloned.
+--cascade-plan: 1 package planned, 1 publisher tree to clone first;
+│
+├── pass --clone-publishers along with either --publish-cascade-dependencies or --publish-package
+│
+└── to make this plan executable
+
+nothing was built, published, uploaded, or cloned.
 ----
 
 [#collect-cascade]
 ==== Collecting publisher trees without building
 
-When the next step is a full ``--publish-package`` cascade, you may want every
-publisher tree on disk first — clone what is missing, reuse what is already
-there — without compiling or uploading. ``--collect-cascade`` does that. It
-needs the cascade flag and typically ``--clone-publishers``; it does **not**
-need ``--publish-package``, and it is not the same as ``--publish-package -n``
+When the next step is a full ``--publish-package`` (or
+``--publish-cascade-dependencies``) cascade, you may want every publisher tree on
+disk first — clone what is missing, reuse what is already there — without
+compiling or uploading. ``--collect-cascade`` does that. It needs the cascade
+flag. Pass ``--clone-publishers`` as well when some ``package_source`` values are
+URLs with nothing under the publishers root yet; if those trees are already
+present, collect alone is enough. It does **not** need ``--publish-package``, and
+it is not the same as ``--publish-package -n``
 (SCons dry-run still configures nested sessions, which cannot create
 ``.sconf_temp`` — a full cascade refuses ``-n`` / ``--no-exec`` up front):
 

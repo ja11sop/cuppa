@@ -894,6 +894,15 @@ class Construct(object):
                     env['raw_abi']         = toolchain.abi( env )
                     env['variant_actions'] = self.get_active_actions( cuppa_env, variant, active_variants, active_actions )
 
+                    # Baseline cuppa_env is not a Construction Environment; cascade
+                    # skip/re-fetch still need the tip's package-identity toolchain /
+                    # arch/abi (same values tip BuildWith used). Record facts, do not invent.
+                    package_name_fn = getattr( toolchain, "package_name", None )
+                    if callable( package_name_fn ):
+                        cuppa_env['tip_package_toolchain'] = package_name_fn()
+                    cuppa_env['tip_package_arch'] = env['target_arch']
+                    cuppa_env['tip_package_abi'] = env['abi']
+
         return build_envs
 
 
@@ -1049,8 +1058,10 @@ class Construct(object):
                 SCons.Script.Exit()
 
             # Cascade plan/collect resolve as each tip publisher is constructed, so
-            # the exit waits for the read to finish and report every tip.
+            # the exit waits for the read to finish and report every tip. Consume-only
+            # tips (no GitlabPackagePublisher) seed from package factories here.
             from cuppa.package_managers import package_cascade
+            package_cascade.maybe_run_consume_tip_cascade( cuppa_env )
             if package_cascade.cascade_stop_before_build( cuppa_env ):
                 SCons.Script.Exit( package_cascade.finish_cascade_stop( cuppa_env ) )
 

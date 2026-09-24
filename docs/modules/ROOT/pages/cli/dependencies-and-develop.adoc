@@ -169,23 +169,40 @@ retars from an existing stage or registry archive, and skips DownloadExtract / C
 rebuild. Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
-`--build-and-publish-dependencies` builds and publishes GitLab package dependencies
-(leaf-first) before the tip; requires `--publish-package`, or pair with
-`--cascade-plan` / `--collect-cascade`. Optional `--publisher-root=` resolves trees
-when `package_source` is omitted. See
-xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+`--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
+Pair with a companion action: `--publish-package` (nested publish + tip upload),
+`--publish-cascade-dependencies` (nested publish, tip build only — consume-only
+and publisher tips), or a stop mode (`--cascade-plan` / `--collect-cascade` /
+`--update-publishers`). Optional `--publisher-root=` resolves trees when
+`package_source` is omitted. See
+xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+and xref:packages.adoc#cascade-consume-only[Consume-only tips].
+
+`--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
+continues with the tip **build** (no tip upload). Requires
+`--build-and-publish-dependencies`. Cannot be combined with `--publish-package`.
+See xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
 tree, then stops without cloning, building, or uploading. It requires
 `--build-and-publish-dependencies`, but not `--publish-package`. Every unresolved
 publisher tree is reported rather than only the first, and the run exits non-zero
-when any remain. See xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
+when any remain. The finish line always names how to proceed: **to run this plan**
+with the companion publish action when every dependency already has a publisher
+path, or **to make this plan executable** when `--develop` and/or
+`--clone-publishers` are still required. Unused develop paths that listed publisher
+paths already cover may add an optional `--develop` preference (worded **where set**
+when only some dependencies have develop configured). Consume-only tips label the tip
+as **(this project)** and omit `--publish-package` from the remedy. See
+xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
 
-`--collect-cascade` resolves the same graph and, with `--clone-publishers`, clones
-missing publisher trees (reusing ones that already exist), then stops without
-building or publishing. It requires `--build-and-publish-dependencies`, but not
-`--publish-package`. It is not `--publish-package -n` (a full cascade refuses
-`-n` / `--no-exec` because nested sessions still configure). See
+`--collect-cascade` resolves the same graph and stops without building or publishing.
+It requires `--build-and-publish-dependencies`, but not `--publish-package`. It only
+**reuses** publisher trees already on disk unless you also pass `--clone-publishers`
+(permission to clone missing URL `package_source` trees). If the publishers root is
+already populated, collect alone is enough; clone is the cold-start / missing-tree
+opt-in. It is not `--publish-package -n` (a full cascade refuses `-n` / `--no-exec`
+because nested sessions still configure). See
 xref:packages.adoc#collect-cascade[Collecting publisher trees without building].
 
 `--clone-publishers` lets cascade clone a publisher tree it cannot find locally from
@@ -194,7 +211,8 @@ or `url@revision`. Clones land in `PATH/<name>` under `--publisher-root` when it
 set, otherwise in `<storage-root>/publishers/<name>`. Existing trees are always
 preferred and are used as they stand — never switched, reset, or overwritten — and
 cloning is unavailable with `--offline`. It is opt-in because a full cascade runs a
-build in the tree it fetches (`--collect-cascade` clones without building). See
+build in the tree it fetches (`--collect-cascade` clones without building when both
+flags are set). See
 xref:packages.adoc#clone-publishers[Fetching publisher trees on demand].
 
 `--develop` is related but not the same. Outside a cascade, a package dependency's
@@ -205,11 +223,11 @@ ranked above `package_source` and `--publisher-root`; the build then consumes th
 package that publish produced rather than swapping the source tree in as a prefix. See
 xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
 
-`--publish-modified-develop` lifts cascade's refusal to publish from a develop tree
+`--publish-modified` lifts cascade's refusal to publish from a publisher tree
 holding work only this machine has: uncommitted changes, unpushed commits, or a branch
-with no upstream. Without it, such a run stops before the first upload and names every
-offending tree. A tree found under `--publisher-root` or cloned by `--clone-publishers`
-is reported the same way but only warns, and the publish goes ahead.
+with no upstream — whether that tree is a `--develop` copy, a `--publisher-root`
+forest entry, or a `--clone-publishers` clone. Without it, such a run stops before the
+first upload and names every offending tree.
 
 == Built-in Boost options
 

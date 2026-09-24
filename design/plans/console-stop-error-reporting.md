@@ -1,8 +1,8 @@
 # Plan: Normalise StopError / options-error reporting
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`)
-- **Updated:** 2026-09-18
+- **Updated:** 2026-09-23
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
 
 ## Problem
@@ -63,12 +63,20 @@ StopError).
 
 ## Non-goals (for now)
 
-- Reworking `log_exception` / global exception formatting
 - A new colour meaning named `critical` (CRITICAL already uses emphasised error label)
-- Converting every existing one-line StopError in one sweep
+- Converting every existing one-line StopError into an Options Error tree in one sweep
+
+## Settled (critical-line colouring)
+
+| Piece | Choice |
+|-------|--------|
+| `StopError` / `UserError` in `log_exception` | Exception **name** in error colour; message via `highlight_values(…, as_error)` so `[values]` and bare `--flags` are error-coloured and prose stays plain |
+| Other exceptions | Unchanged: whole name + message info-coloured |
+| SCons re-raise line | Same highlight applied to `StopError` / `UserError` args after mask, so `scons: *** …` matches the critical line |
+| Options Error trees | Still preferred for surprising flag refusals; critical-line highlighting does not replace them |
 
 ## Next focus
 
-When a second surprising refusal wants the same shape, extract the helper and
-answer open questions 1–4 in the same change. Until then, cascade’s instance is
+When a second surprising refusal wants the Options Error tree shape, extract the helper and
+answer open questions 1–4 in the same change. Until then, cascade’s `-n` instance is
 the reference.

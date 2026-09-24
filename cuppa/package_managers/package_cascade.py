@@ -9,7 +9,9 @@
 
 """Opt-in nested publish of package dependencies before the tip package.
 
-See ``design/plans/package-build-publish-deps.md``.
+Supports publisher tips (``GitlabPackagePublisher``) and consume-only tips that
+seed from tip ``package_dependency`` factories. See
+``design/plans/package-build-publish-deps.md``.
 """
 
 from __future__ import annotations
@@ -52,10 +54,11 @@ CASCADE_OPTION = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
+PUBLISH_CASCADE_DEPENDENCIES_OPTION = "publish-cascade-dependencies"
 FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
-MODIFIED_DEVELOP_OPTION = "publish-modified-develop"
+MODIFIED_PUBLISH_OPTION = "publish-modified"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
 UPLOAD_MARKER_ENV = "CUPPA_CASCADE_UPLOAD_MARKER"
 STAGE_PACKAGE_OPTION = "stage-package"
@@ -77,10 +80,11 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
+        "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + FORCE_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
-        "--" + MODIFIED_DEVELOP_OPTION,
+        "--" + MODIFIED_PUBLISH_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
@@ -190,6 +194,14 @@ def cascade_update_enabled( env ) -> bool:
     return bool( getter( UPDATE_PUBLISHERS_OPTION ) )
 
 
+def publish_cascade_dependencies_enabled( env ) -> bool:
+    """``--publish-cascade-dependencies``: nest-publish DAG; tip build only."""
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ) )
+
+
 def cascade_force_enabled( env ) -> bool:
     """``--force``: rebuild+upload every resolved node even when registry-current."""
     getter = getattr( env, "get_option", None )
@@ -221,7 +233,9 @@ def cascade_stop_before_build( env ) -> bool:
     if not cascade_update_enabled( env ):
         return False
     getter = getattr( env, "get_option", None )
-    if callable( getter ) and getter( "publish-package" ):
+    if not callable( getter ):
+        return True
+    if getter( "publish-package" ) or getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ):
         return False
     return True
 
@@ -268,11 +282,11 @@ def develop_enabled( env ) -> bool:
     return bool( getter( "develop" ) )
 
 
-def modified_develop_publish_allowed( env ) -> bool:
+def modified_publish_allowed( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if not callable( getter ):
         return False
-    return bool( getter( MODIFIED_DEVELOP_OPTION ) )
+    return bool( getter( MODIFIED_PUBLISH_OPTION ) )
 
 
 def publisher_root_option( env ) -> str | None:
@@ -354,11 +368,19 @@ def _node_key( name: str, package: str, version: str ) -> tuple:
 
 
 def looks_like_url( value: str ) -> bool:
-    lower = value.lower()
-    return (
-            lower.startswith( ( "http://", "https://", "git@", "ssh://", "file://" ) )
-            or lower.endswith( ".git" )
-    )
+    """True for remote package_source forms cascade must not treat as paths.
+
+    Covers ``git@host:…``, ``https://…``, ``ssh://…``, and Location-style
+    ``vc+scheme`` URLs (``git+ssh://…``, ``git+https://…``). A bare ``://``
+    scheme is enough — ``os.path.abspath`` would otherwise collapse
+    ``git+ssh://…`` into ``git+ssh:/…`` under the tip tree.
+    """
+    lower = str( value ).lower()
+    if lower.startswith( "git@" ):
+        return True
+    if "://" in lower:
+        return True
+    return lower.endswith( ".git" )
 
 
 def split_source_pin( value: str ) -> tuple[str, str | None]:
@@ -910,8 +932,8 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
             resolved = _resolve_under_publisher_root( lookup_root, name, package )
             if resolved:
                 if entry.get( "_develop_unused" ):
-                    # Plan will execute from the forest copy — warn that this is
-                    # probably not what a configured develop path was meant for.
+                    # Plan will execute from the forest copy — note that this may
+                    # not be what a configured develop path was meant for.
                     entry["_publisher_forest_hit"] = resolved
                 return resolved
             url, revision = split_source_pin( source )
@@ -921,8 +943,8 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                 entry["_clone_revision"] = revision
                 entry["_clone_dir"] = destination
                 if entry.get( "_develop_unused" ):
-                    # Usable develop tree configured; forgetting --develop is the
-                    # primary warning. Soft-graded in plan mode — see _node_judgements.
+                    # Usable develop tree configured; forgetting --develop is
+                    # noted in plan mode — see _node_judgements.
                     raise SCons.Errors.StopError(
                             "cascade will not use the develop tree for [{}] at [{}] "
                             "because --develop was not passed, and no publisher tree "
@@ -1057,6 +1079,101 @@ def _edges_from_publisher( env, publisher ) -> list[dict]:
     return [ coerce_dependency_entry( item ) for item in filled ]
 
 
+def is_consume_tip( publisher ) -> bool:
+    """True when ``publisher`` is the synthetic tip used for consume-only cascade."""
+    return bool( getattr( publisher, "_consume_tip", False ) )
+
+
+def _edges_from_consume_tip( env ) -> list[dict]:
+    """Root edges from tip ``env['dependencies']`` GitLab package factories.
+
+    Each factory that declares a concrete version becomes a root edge. Effective
+    ``package_source`` (CLI / declaration / tip seed) is stamped when known so
+    resolve and plan labels match publisher tips. Edges without a resolvable
+    source still enter the queue so plan/collect can report the miss.
+    """
+    deps = env.get( "dependencies" ) or {}
+    edges: list[dict] = []
+    for name in sorted( deps ):
+        factory = deps[name]
+        owner = _factory_owner( factory )
+        if getattr( owner, "_package_manager", None ) != "gitlab":
+            continue
+        version = getattr( owner, "_version", None )
+        if version is None:
+            continue
+        package = getattr( owner, "_package", None ) or name
+        entry = {
+                "name": str( name ),
+                "package": str( package ),
+                "version": str( version ),
+        }
+        registry = getattr( owner, "_registry", None )
+        if registry:
+            entry["registry"] = str( registry )
+        stamped = effective_package_source( env, entry )
+        if stamped:
+            entry["package_source"] = stamped
+        edges.append( coerce_dependency_entry( entry ) )
+    return edges
+
+
+def consume_tip_label( env ) -> tuple[str, str]:
+    """``(name, version)`` identity for consume-tip banners and plan reports."""
+    getter = getattr( env, "get", None )
+    sconstruct = ""
+    if callable( getter ):
+        sconstruct = str( getter( "sconstruct_dir" ) or "" )
+    name = os.path.basename( os.path.abspath( sconstruct ) ) if sconstruct else "project"
+    if not name or name in ( ".", "/" ):
+        name = "project"
+    return name, "consume"
+
+
+def make_consume_tip_publisher( env, edges: list[dict] | None = None ):
+    """Duck-typed tip for :func:`maybe_run_cascade` when the project does not publish."""
+    if edges is None:
+        edges = _edges_from_consume_tip( env )
+    tip_package, tip_version = consume_tip_label( env )
+    return type( "ConsumeTipPublisher", (), {
+            "_package": tip_package,
+            "_version": tip_version,
+            "_dependencies": list( edges ),
+            "_registry": None,
+            "_variant": None,
+            "_consume_tip": True,
+    } )()
+
+
+def cascade_ran_for_tip( env ) -> bool:
+    """True when a publisher or consume tip already ran cascade for this sconstruct."""
+    if _plan_reports:
+        return True
+    getter = getattr( env, "get", None )
+    sconstruct = ""
+    if callable( getter ):
+        sconstruct = str( getter( "sconstruct_dir" ) or "" )
+    sconstruct = os.path.abspath( sconstruct )
+    return any( key[0] == sconstruct for key in _cascade_nested_done )
+
+
+def maybe_run_consume_tip_cascade( env ) -> None:
+    """Run cascade from tip package factories when no tip publisher ran it.
+
+    Called after the tip sconscript read (:func:`cuppa.construct.Construct`) so a
+    ``GitlabPackagePublisher`` tip still owns entry via ``maybe_run_cascade`` during
+    construction. Consume-only tips seed from ``_edges_from_consume_tip``.
+    """
+    if not cascade_enabled( env ) or _is_nested():
+        return
+    if cascade_ran_for_tip( env ):
+        return
+    edges = _edges_from_consume_tip( env )
+    if not edges:
+        return
+    maybe_run_cascade( env, make_consume_tip_publisher( env, edges ) )
+
+
 def _edges_from_publish_file( directory: str ) -> list[dict]:
     document = read_publish_manifest( directory )
     if not document:
@@ -1088,7 +1205,8 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
     """
     nodes: dict[tuple, dict] = {}
     edges: dict[tuple, set[tuple]] = defaultdict( set )
-    queue: deque[dict] = deque()
+    # (entry, parent concrete registry or None) — ``same`` resolves via parent.
+    queue: deque[tuple[dict, str | None]] = deque()
     claims: dict[str, tuple] = {}
 
     for entry in _edges_from_publisher( env, publisher ):
@@ -1098,16 +1216,21 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
                     "(fill from BuildWith or set it explicitly)"
                     .format( entry.get( "name" ) )
             )
-        queue.append( entry )
+        queue.append( ( entry, None ) )
 
     while queue:
-        entry = queue.popleft()
+        entry, parent_registry = queue.popleft()
         key = _node_key( entry["name"], entry["package"], entry["version"] )
         if key in nodes:
             if entry.get( "package_source" ) and not nodes[key].get( "package_source" ):
                 nodes[key]["package_source"] = entry["package_source"]
             continue
         nodes[key] = dict( entry )
+        resolved = _entry_registry(
+                nodes[key], publisher, env, parent_registry=parent_registry
+        )
+        if resolved:
+            nodes[key]["registry"] = resolved
         # Stamp consume-site source (CLI / declare / tip seed) before resolve so
         # plan labels and clone notes show the effective package_source.
         stamped = effective_package_source( env, nodes[key] )
@@ -1134,10 +1257,11 @@ def build_cascade_graph( env, publisher, tolerant=False, allow_clone=True ):
             # Planned clone: its own dependencies live in a tree that does not
             # exist yet, so there is nothing to walk into.
             continue
+        parent_reg = nodes[key].get( "registry" )
         for child in _edges_from_publish_file( publisher_dir ):
             child_key = _node_key( child["name"], child["package"], child["version"] )
             edges[key].add( child_key )
-            queue.append( child )
+            queue.append( ( child, parent_reg ) )
 
     for parent, children in list( edges.items() ):
         for child in children:
@@ -1182,20 +1306,16 @@ def _work_verdict( entry ):
     """``(severity, colour, what happens)`` for a tree holding work only this machine has.
 
     One place, so the row an operator reads and the counts in the header cannot disagree.
+    Develop, ``--publisher-root``, and cloned forests share the same refuse / allow rule.
     """
-    if not entry.get( "_from_develop" ):
-        return (
-                "warning", as_warning,
-                "published anyway; cascade only refuses a develop tree",
-        )
     if entry.get( "_work_objections_allowed" ):
         return (
                 "note", as_notice,
-                "allowed by --{}".format( MODIFIED_DEVELOP_OPTION ),
+                "allowed by --{}".format( MODIFIED_PUBLISH_OPTION ),
         )
     return (
             "error", as_error,
-            "refused; commit and push, or pass --{}".format( MODIFIED_DEVELOP_OPTION ),
+            "refused; commit and push, or pass --{}".format( MODIFIED_PUBLISH_OPTION ),
     )
 
 
@@ -1206,11 +1326,44 @@ def _package_identity( name, version ) -> str:
     return "{} [=={}]".format( emphasised, pin )
 
 
+def _compact_work_states( objections: list[str] ) -> list[str]:
+    """Short tokens for the plan label (``dirty``, ``2 ahead``, ``no upstream``)."""
+    tokens: list[str] = []
+    for text in objections:
+        if text == "uncommitted changes":
+            tokens.append( "dirty" )
+        elif text.endswith( " not pushed" ):
+            head = text[: -len( " not pushed" )]
+            if head.endswith( " commit" ):
+                tokens.append( head[: -len( " commit" )] + " ahead" )
+            elif head.endswith( " commits" ):
+                tokens.append( head[: -len( " commits" )] + " ahead" )
+            else:
+                tokens.append( head + " ahead" )
+        elif text.startswith( "no upstream" ):
+            tokens.append( "no upstream" )
+        else:
+            tokens.append( text )
+    return tokens
+
+
 def _plan_dependency_label( entry ) -> str:
-    """``name [==version]`` with optional subdued ``(package_source)`` when the edge carries one."""
+    """``name [==version]`` with optional ``(package_source [state…])``.
+
+    Work-tree state from :func:`develop_publish_objections` (dirty / ahead / no
+    upstream) hangs after the source URL in **error** colour when the run would
+    refuse, or **notice** colour when ``--publish-modified`` allows it.
+    """
     label = _package_identity( entry.get( "name" ), entry.get( "version" ) )
     source = entry.get( "package_source" )
-    if source:
+    if not source:
+        return label
+    states = _compact_work_states( entry.get( "_work_objections" ) or [] )
+    if states:
+        paint = as_notice if entry.get( "_work_objections_allowed" ) else as_error
+        state = " ".join( paint( token ) for token in states )
+        label = "{} ({} {})".format( label, as_subdued( str( source ) ), state )
+    else:
         label = "{} ({})".format( label, as_subdued( str( source ) ) )
     return label
 
@@ -1426,6 +1579,120 @@ def _footer_flag( option: str ) -> str:
     return as_emphasised( as_info( name ) )
 
 
+def _publish_action_phrase( consume_tip: bool ) -> str:
+    """How a plan finish line names the companion publish action(s)."""
+    nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+    if consume_tip:
+        return nest
+    return "either {} or {}".format( nest, _footer_flag( "publish-package" ) )
+
+
+def _plan_executable_remedy_lines(
+        *,
+        offer_develop: bool,
+        offer_clone: bool,
+        consume_tip: bool = False,
+        encoding=None,
+) -> list[str]:
+    """Tree hanging under ``--cascade-plan: N planned;`` when the plan is blocked.
+
+    Prefer :func:`_plan_finish_remedy_lines` for new call sites. Kept for tests that
+    still pass the old blocked-only kwargs.
+    """
+    return _plan_finish_remedy_lines(
+            blocked=True,
+            require_develop=offer_develop,
+            require_clone=offer_clone,
+            consume_tip=consume_tip,
+            encoding=encoding,
+    )
+
+
+def _plan_finish_remedy_lines(
+        *,
+        blocked: bool = False,
+        require_develop: bool = False,
+        require_clone: bool = False,
+        optional_develop: bool = False,
+        optional_develop_partial: bool = False,
+        consume_tip: bool = False,
+        encoding=None,
+) -> list[str]:
+    """Tree hanging under ``--cascade-plan: N planned;`` for how to run or unblock.
+
+    Node judgements stay local. This summary either names the companion publish
+    action to **run** an already-resolved plan (optionally preferring ``--develop``)
+    or, when blocked, the opt-in flags needed to **make** the plan executable.
+    ``consume_tip`` drops ``--publish-package`` (tip build only).
+    ``optional_develop_partial`` means only some dependencies have develop paths
+    configured — the rest keep the listed publisher paths.
+    """
+    action = _publish_action_phrase( consume_tip )
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    stub = pipe.rstrip()
+    lines = [ as_subdued( stub ) ]
+
+    if blocked:
+        options = []
+        if require_develop:
+            options.append(
+                    "{} along with {}".format( _footer_flag( "develop" ), action )
+            )
+        if require_clone:
+            options.append(
+                    "{} along with {}".format( _footer_flag( CLONE_OPTION ), action )
+            )
+        if not options:
+            options.append(
+                    "{} along with {}".format( _footer_flag( CLONE_OPTION ), action )
+            )
+        if len( options ) == 1:
+            lines.append(
+                    as_subdued( tee ) + "pass {}".format( options[0] )
+            )
+        else:
+            lines.append( as_subdued( tee ) + "pass either:" )
+            under = pipe
+            for index, option in enumerate( options ):
+                last = index == len( options ) - 1
+                branch = elbow if last else tee
+                suffix = "" if last else ", or"
+                lines.append( as_subdued( under + stub ) )
+                lines.append(
+                        as_subdued( under + branch ) + option + suffix
+                )
+        lines.append( as_subdued( stub ) )
+        lines.append(
+                as_subdued( elbow ) + "to make this plan executable"
+        )
+        return lines
+
+    lines.append( as_subdued( tee ) + "pass {}".format( action ) )
+    if optional_develop:
+        if optional_develop_partial:
+            prose = (
+                    "optionally also pass {} to prefer configured develop trees "
+                    "where set; other dependencies still use the listed publisher "
+                    "paths".format( _footer_flag( "develop" ) )
+            )
+        else:
+            prose = (
+                    "optionally also pass {} to prefer configured develop trees"
+                    .format( _footer_flag( "develop" ) )
+            )
+        lines.append( as_subdued( stub ) )
+        wrap_width = max( storage.WIDEST_PROSE - len( tee ), storage.NARROWEST_PROSE )
+        branch = tee
+        for piece in storage.wrapped( prose, wrap_width ):
+            lines.append( as_subdued( branch ) + piece )
+            branch = pipe
+    lines.append( as_subdued( stub ) )
+    lines.append(
+            as_subdued( elbow ) + "to run this plan"
+    )
+    return lines
+
+
 def _cascade_plan_summary( summary ) -> str:
     """Info-label chip for the plan's definitive summary (through the semicolon)."""
     return _cascade_stop_summary( CASCADE_PLAN_OPTION, summary )
@@ -1494,17 +1761,15 @@ def _develop_path_alternative_note( entry, collect=False ) -> str:
     )
 
 
-def _executable_noun( collect=False ) -> str:
-    return "collect" if collect else "plan"
-
-
 def _node_judgements( entry, collect=False ) -> list[tuple[str, str]]:
     """``(severity, prose)`` under one package node, error then warning then note.
 
     Warnings name the primary intent that needs a flag; notes list alternatives
     separately. Prose uses ``[brackets]`` for paths and other values
     ``highlight_values`` should colour, and bare ``--flags`` for CLI options.
-    ``collect`` retargets verbs for ``--collect-cascade`` rather than a publish plan.
+    Node copy stays local to that dependency — “make this plan executable”
+    belongs only on the finish-line summary. ``collect`` retargets verbs for
+    ``--collect-cascade`` rather than a publish plan.
     """
     items: list[tuple[str, str]] = []
     if entry.get( "_resolve_error" ):
@@ -1526,23 +1791,21 @@ def _node_judgements( entry, collect=False ) -> list[tuple[str, str]]:
     clone_dir = entry.get( "_clone_dir" )
     clone_url = entry.get( "_clone_url" )
     clone_pin = entry.get( "_clone_revision" )
-    executable = _executable_noun( collect )
 
     if develop_unused:
         items.append( (
-                "warning",
+                "note",
                 "a develop tree is configured at [{}] but --develop was not passed; "
-                "pass --develop to make this {} executable".format(
+                "pass --develop to use this existing tree".format(
                         storage.display_path( entry["_develop_dir"] ),
-                        executable,
                 ),
         ) )
         if forest_hit:
             leaf = entry.get( "name" ) or entry.get( "package" )
             items.append( (
-                    "warning",
+                    "note",
                     "otherwise, cascade will use the existing publisher tree at [{}]; "
-                    "that is probably not what you intended".format(
+                    "that may not be what you intended".format(
                             _display_path_marking_leaf( forest_hit, leaf ),
                     ),
             ) )
@@ -1553,12 +1816,11 @@ def _node_judgements( entry, collect=False ) -> list[tuple[str, str]]:
         items.append( (
                 "warning",
                 "package_source is a URL [{}] and no local working tree was found under [{}]; "
-                "pass --{} to clone into [{}] and make this {} executable".format(
+                "pass --{} to clone into [{}]".format(
                         source,
                         lookup,
                         CLONE_OPTION,
                         destination,
-                        executable,
                 ),
         ) )
 
@@ -1570,20 +1832,21 @@ def _node_judgements( entry, collect=False ) -> list[tuple[str, str]]:
         if clone_dir and clone_url:
             items.append( (
                     "note",
-                    "alternatively, cascade will look under [{}] for a publisher tree. "
-                    "As none exists there yet, pass --{} to clone into [{}] and make "
-                    "this {} executable".format(
+                    "alternatively, cascade will look under [{}] for a publisher tree "
+                    "(nothing found there yet); pass --{} to clone into [{}]".format(
                             lookup,
                             CLONE_OPTION,
                             storage.display_path( clone_dir ),
-                            executable,
                     ),
             ) )
         else:
             items.append( (
                     "note",
                     "alternatively, cascade will look under [{}] for a publisher tree "
-                    "(nothing found there yet)".format( lookup ),
+                    "(nothing found there yet); pass --{} to fetch it".format(
+                            lookup,
+                            CLONE_OPTION,
+                    ),
             ) )
         items.append( ( "note", _publisher_root_alternative_note( entry, collect ) ) )
 
@@ -1702,7 +1965,7 @@ def _append_severity_groups( lines, judgements, under, prose_width, encoding=Non
 
 def cascade_plan_lines(
         nodes, order, tip_package, tip_version, encoding=None, argv=None, mode=None,
-        clean=False,
+        clean=False, consume_tip=False,
 ) -> list[str]:
     """Publish order, leaf-first: package nodes first, judgements nested beneath.
 
@@ -1717,6 +1980,7 @@ def cascade_plan_lines(
     ``update-publishers`` — collect/update retarget the header and judgement verbs.
     ``clean`` retargets the intro for ``-c`` / ``--clean`` (nested sessions remove
     targets; nothing is published).
+    ``consume_tip`` uses ``(this project)`` and tip-build-only intro copy.
     """
     collect = mode == COLLECT_CASCADE_OPTION
     updating = mode == UPDATE_PUBLISHERS_OPTION
@@ -1739,6 +2003,7 @@ def cascade_plan_lines(
     )
 
     tip = _package_identity( tip_package, tip_version )
+    tip_role = "this project" if consume_tip else "this package"
     if collect:
         intro = (
                 "Printing Cascade plan for collecting packages for {} given the command:"
@@ -1750,8 +2015,20 @@ def cascade_plan_lines(
                 "given the command:".format( tip )
         )
     elif clean:
+        if consume_tip:
+            intro = (
+                    "Printing Cascade plan for cleaning this project {} given the command:"
+                    .format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for cleaning package {} given the command:"
+                    .format( tip )
+            )
+    elif consume_tip:
         intro = (
-                "Printing Cascade plan for cleaning package {} given the command:"
+                "Printing Cascade plan for building this project {} "
+                "(dependencies publish; tip build only) given the command:"
                 .format( tip )
         )
     else:
@@ -1764,8 +2041,9 @@ def cascade_plan_lines(
             intro,
             colour_plan_command_line( argv ),
             "",
-            "Cascade plan: {} (this package) with {}: {}".format(
+            "Cascade plan: {} ({}) with {}: {}".format(
                     tip,
+                    tip_role,
                     storage.emphasised_count_phrase(
                             len( order ), "package dependency", "package dependencies"
                     ),
@@ -2030,9 +2308,12 @@ def record_plan_report(
         clone_count=0,
         needs_clone_opt_in=0,
         unused_develop=0,
+        unused_develop_soft=0,
+        consume_tip=False,
         mode=None,
         trees_collected=0,
         trees_updated=0,
+        dependency_count=0,
 ) -> None:
     _plan_reports.append( {
             "package": str( tip_package ),
@@ -2041,9 +2322,12 @@ def record_plan_report(
             "clones": int( clone_count ),
             "needs_clone_opt_in": int( needs_clone_opt_in ),
             "unused_develop": int( unused_develop ),
+            "unused_develop_soft": int( unused_develop_soft ),
+            "consume_tip": bool( consume_tip ),
             "mode": mode or CASCADE_PLAN_OPTION,
             "trees_collected": int( trees_collected ),
             "trees_updated": int( trees_updated ),
+            "dependency_count": int( dependency_count ),
     } )
 
 
@@ -2060,8 +2344,8 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     toolchains, or sconscripts reports all of them instead of only the first.
 
     ``env`` lets the missing-cascade-flag refusal be reported here too: a project
-    that constructs no publisher never reaches the refusal in
-    :func:`maybe_run_cascade`.
+    that constructs no publisher and has no consume-tip package edges never reaches
+    the refusal in :func:`maybe_run_cascade` / :func:`maybe_run_consume_tip_cascade`.
 
     Exit status follows hard resolve errors only. Opt-in warnings (``--clone-publishers``
     needed, unused develop) leave the run reviewable with exit 0.
@@ -2112,10 +2396,12 @@ def finish_cascade_stop( env=None, out=None ) -> int:
         write_lines( [
                 "",
                 "{}; Run from a project that publishes a GitLab package with "
-                "env.PublishPackage.".format(
+                "env.PublishPackage, or a consume-only tip that declares GitLab "
+                "package_dependency(..., package_source=…) edges cascade can seed."
+                .format(
                         _cascade_stop_summary(
                                 option,
-                                "no GitLab package publisher was constructed, so "
+                                "no cascade tip was resolved, so "
                                 "there is no cascade to {}".format( verb ),
                         )
                 ),
@@ -2129,6 +2415,15 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     )
     unused_develop = sum(
             report.get( "unused_develop", 0 ) for report in _plan_reports
+    )
+    unused_develop_soft = sum(
+            report.get( "unused_develop_soft", 0 ) for report in _plan_reports
+    )
+    dependency_count = sum(
+            report.get( "dependency_count", 0 ) for report in _plan_reports
+    )
+    consume_tip = any(
+            report.get( "consume_tip" ) for report in _plan_reports
     )
     trees_collected = sum(
             report.get( "trees_collected", 0 ) for report in _plan_reports
@@ -2174,11 +2469,11 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             )
             remediation = (
                     "Plant the missing trees, pass {} to fetch the ones with "
-                    "a URL package_source, or set {}. Then re-run with {} to "
-                    "execute.".format(
+                    "a URL package_source, or set {}. Then re-run with {} "
+                    "to execute.".format(
                             _footer_flag( CLONE_OPTION ),
                             _footer_flag( PUBLISHER_ROOT_OPTION ),
-                            _footer_flag( "publish-package" ),
+                            _publish_action_phrase( consume_tip ),
                     )
             )
         write_lines( [
@@ -2225,6 +2520,37 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             )
         detail = no_side_effects
 
+    # Plan finish: how to run an already-resolved plan, or opt-ins that unblock it.
+    # Unused develop with a forest hit is a preference note, not a blocker.
+    # Soft unused develop (no resolved tree) or clone opt-in / planned clones block.
+    if not collect and not update:
+        blocked = bool( needs_clone or unused_develop_soft or clones )
+        require_develop = bool( unused_develop ) if blocked else False
+        require_clone = bool( needs_clone or unused_develop_soft or clones )
+        optional_develop = bool( unused_develop and not blocked )
+        optional_develop_partial = bool(
+                optional_develop
+                and dependency_count > 0
+                and unused_develop < dependency_count
+        )
+        write_lines( [
+                "",
+                "{};".format( _cascade_stop_summary( option, summary ) ),
+        ], out=stream )
+        write_lines(
+                _plan_finish_remedy_lines(
+                        blocked=blocked,
+                        require_develop=require_develop,
+                        require_clone=require_clone,
+                        optional_develop=optional_develop,
+                        optional_develop_partial=optional_develop_partial,
+                        consume_tip=consume_tip,
+                ),
+                out=stream,
+        )
+        write_lines( [ "", detail ], out=stream )
+        return 0
+
     if needs_clone or unused_develop:
         actions = []
         if collect or update:
@@ -2240,26 +2566,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                                 _footer_flag( "develop" )
                         )
                 )
-        else:
-            # Plan reviews a publish run: opt-ins are useless without --publish-package.
-            publish = _footer_flag( "publish-package" )
-            if needs_clone:
-                actions.append(
-                        "pass {} along with {} to clone missing publisher trees"
-                        .format( _footer_flag( CLONE_OPTION ), publish )
-                )
-            if unused_develop:
-                actions.append(
-                        "pass {} along with {} to publish from a configured develop tree"
-                        .format( _footer_flag( "develop" ), publish )
-                )
-        detail = "{}; {}".format( ", or ".join( actions ), detail )
-    elif not collect and not update and clones:
-        detail = "pass {} along with {} to execute; {}".format(
-                _footer_flag( CLONE_OPTION ),
-                _footer_flag( "publish-package" ),
-                detail,
-        )
+            detail = "{}; {}".format( ", or ".join( actions ), detail )
     write_lines( [
             "",
             "{}; {}".format( _cascade_stop_summary( option, summary ), detail ),
@@ -2273,9 +2580,10 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
+        "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
-        "--" + MODIFIED_DEVELOP_OPTION,
+        "--" + MODIFIED_PUBLISH_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
@@ -2504,13 +2812,57 @@ def invalidate_package_consume_cache( env, package: str, version: str ) -> list[
     return removed
 
 
-def _entry_registry( entry: dict, tip_publisher=None ) -> str | None:
+def _tip_consume_registry( env ) -> str | None:
+    """Concrete registry from any tip GitLab package factory.
+
+    Consume tips have no publisher ``_registry``. Nested ``cuppa-publish.json``
+    edges often say ``registry: "same"``, meaning the same registry the tip
+    packages already consume from. SCons ``Clone`` semi-deep-copies
+    ``dependencies``, so transitive factories registered during tip
+    ``BuildWith`` are not on ``cuppa_env`` — only tip-declared factories are.
+    """
+    deps = env.get( "dependencies" ) or {}
+    for factory in deps.values():
+        owner = _factory_owner( factory )
+        if getattr( owner, "_package_manager", None ) != "gitlab":
+            continue
+        registry = getattr( owner, "_registry", None )
+        if registry and registry != "same":
+            return str( registry )
+    return None
+
+
+def _entry_registry(
+        entry: dict,
+        tip_publisher=None,
+        env=None,
+        parent_registry: str | None = None,
+) -> str | None:
+    """Resolve a concrete registry URL for an edge (``same`` is not concrete).
+
+    Order: entry → parent (graph walk) → tip publisher → tip factory for this
+    pin → any tip GitLab package factory (consume-tip ``same``).
+    """
     registry = entry.get( "registry" )
-    if not registry or registry == "same":
-        registry = getattr( tip_publisher, "_registry", None ) if tip_publisher else None
-    if not registry or registry == "same":
-        return None
-    return str( registry )
+    if registry and registry != "same":
+        return str( registry )
+    if parent_registry and parent_registry != "same":
+        return str( parent_registry )
+    if tip_publisher is not None:
+        tip_reg = getattr( tip_publisher, "_registry", None )
+        if tip_reg and tip_reg != "same":
+            return str( tip_reg )
+    if env is not None:
+        factory = _tip_dependency_factory( env, entry )
+        if factory is not None:
+            owner = _factory_owner( factory )
+            factory_reg = getattr( owner, "_registry", None )
+            if factory_reg and factory_reg != "same":
+                return str( factory_reg )
+        tip_reg = _tip_consume_registry( env )
+        if tip_reg:
+            return tip_reg
+    return None
 
 
 def _tip_active_toolchains( env ) -> list:
@@ -2551,6 +2903,16 @@ def _registry_matches_local( url: str, local_path: str, headers: dict ) -> bool:
         return False
 
 
+def _registry_object_exists( url: str, headers: dict ) -> bool:
+    """True when HEAD returns 200 (registry has the object; size not compared)."""
+    from cuppa.utility.download import DownloadError, http_head
+    try:
+        status, _response_headers = http_head( url, headers=headers )
+    except DownloadError:
+        return False
+    return status == 200
+
+
 def package_pin_is_current(
         env,
         entry: dict,
@@ -2559,10 +2921,14 @@ def package_pin_is_current(
 ) -> bool:
     """True when tip consume + registry already match for every tip toolchain.
 
-    Skip only when sure: each active tip toolchain has a local archive whose size
-    matches a successful registry HEAD ``Content-Length``, and a usable extract
-    with ``include/``. Missing length, HEAD failure, or missing extract → not
-    current.
+    Skip when sure enough that nested publish would be a no-op:
+
+    - Preferred: local consume archive size matches registry HEAD
+      ``Content-Length``, and the tip extract has ``include/``.
+    - Extract-only tips (usable ``include/``, no local archive yet): registry
+      HEAD 200 for a candidate stem is enough — tip consume already works;
+      ``--force`` rebuilds. A present archive that fails the size check is
+      never treated as current.
     """
     from cuppa.package_managers.gitlab import (
             consume_archive_candidates,
@@ -2574,7 +2940,7 @@ def package_pin_is_current(
     version = entry.get( "version" )
     if not package or version is None:
         return False
-    registry = _entry_registry( entry, tip_publisher )
+    registry = _entry_registry( entry, tip_publisher, env )
     if not registry:
         return False
 
@@ -2612,23 +2978,34 @@ def package_pin_is_current(
                 variant=variant_name,
                 package_toolchain=token,
         )
-        matched = False
+        archive_matched = False
+        saw_local_archive = False
         for _stem, cand_name, cand_url, _tok in candidates:
             cand_local = os.path.join( cache_dir, cand_name )
             if not os.path.isfile( cand_local ):
                 continue
+            saw_local_archive = True
             if _registry_matches_local( cand_url, cand_local, headers ):
-                matched = True
+                archive_matched = True
                 break
-        if not matched:
-            return False
 
         extract_variant = tool_variant( env, variant=variant_name, toolchain_token=token )
         extract_pkg = os.path.join(
                 str( dependencies_root ), extract_variant, str( package ), str( version )
         )
-        if not os.path.isdir( os.path.join( extract_pkg, "include" ) ):
-            return False
+        extract_ok = os.path.isdir( os.path.join( extract_pkg, "include" ) )
+        if archive_matched and extract_ok:
+            continue
+        if (
+                not saw_local_archive
+                and extract_ok
+                and any(
+                        _registry_object_exists( cand_url, headers )
+                        for _stem, _name, cand_url, _tok in candidates
+                )
+        ):
+            continue
+        return False
     return True
 
 
@@ -2755,10 +3132,8 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
                 else getattr( package_obj, "_package_dir", None )
         )
     else:
-        registry = entry.get( "registry" )
-        if not registry or registry == "same":
-            registry = getattr( tip_publisher, "_registry", None ) if tip_publisher else None
-        if not registry or registry == "same":
+        registry = _entry_registry( entry, tip_publisher, env )
+        if not registry:
             raise SCons.Errors.StopError(
                     "cascade cannot re-fetch [{}]: tip has no BuildWith factory "
                     "and registry is unresolved"
@@ -2819,7 +3194,7 @@ def publisher_work_report( env, nodes: dict, order ) -> list[tuple]:
 
 def _record_publisher_objections( env, nodes: dict, order ) -> None:
     """Put what a real run would say about each tree onto the nodes, so the plan reports it."""
-    allowed = modified_develop_publish_allowed( env )
+    allowed = modified_publish_allowed( env )
     for key, _path, objections, _warning in publisher_work_report( env, nodes, order ):
         if not objections:
             continue
@@ -2828,20 +3203,19 @@ def _record_publisher_objections( env, nodes: dict, order ) -> None:
 
 
 def judge_publisher_trees( env, nodes: dict, order ) -> None:
-    """Stop before the first upload when a develop tree holds work only this machine has.
+    """Stop before the first upload when a publisher tree holds work only this machine has.
 
     Publishing from such a tree puts a version in the registry that nobody can rebuild from
     its history. Every offending tree is named at once, because learning about the second one
     after the first has already uploaded is no use.
 
-    A ``--publisher-root`` or cloned tree runs the same hazard and is reported the same way,
-    but only warns: those trees are how cascade shipped, and refusing them would stop a
-    workflow that predates this question. Promoting that warning is a decision of its own —
-    see ``design/plans/package-develop-local.md``.
+    Develop trees, ``--publisher-root`` forests, and ``--clone-publishers`` clones share the
+    same rule: refuse unless ``--publish-modified`` allows the run.
     """
     observed = publisher_work_report( env, nodes, order )
-    override = modified_develop_publish_allowed( env )
+    override = modified_publish_allowed( env )
     refused = []
+    refused_develop = False
     for key, path, objections, warning in observed:
         label = node_label( nodes[key] )
         shown = storage.display_path( path )
@@ -2851,31 +3225,41 @@ def judge_publisher_trees( env, nodes: dict, order ) -> None:
             ) )
         if not objections:
             continue
-        if nodes[key].get( "_from_develop" ) and not override:
+        if not override:
             refused.append( ( label, shown, objections ) )
+            if nodes[key].get( "_from_develop" ):
+                refused_develop = True
             continue
         logger.warn(
-                "Cascade: publishing [{}] from [{}] with {}{}".format(
+                "Cascade: publishing [{}] from [{}] with {} — allowed by --{}".format(
                         as_info( label ),
                         as_notice( shown ),
                         as_warning( ", ".join( objections ) ),
-                        " — allowed by --{}".format( MODIFIED_DEVELOP_OPTION )
-                                if nodes[key].get( "_from_develop" ) else "",
+                        MODIFIED_PUBLISH_OPTION,
                 )
         )
     if not refused:
         return
+    if refused_develop:
+        remedy = (
+                "Commit and push, drop --develop for the publish run, or pass --{} to "
+                "publish anyway"
+                .format( MODIFIED_PUBLISH_OPTION )
+        )
+    else:
+        remedy = (
+                "Commit and push, or pass --{} to publish anyway"
+                .format( MODIFIED_PUBLISH_OPTION )
+        )
     raise SCons.Errors.StopError(
-            "cascade will not publish from a develop tree holding work only this machine "
-            "has, because the registry version could not be rebuilt from history: {}. "
-            "Commit and push, drop --develop for the publish run, or pass --{} to publish "
-            "anyway."
+            "cascade will not publish from a publisher tree holding work only this machine "
+            "has, because the registry version could not be rebuilt from history: {}. {}."
             .format(
                     "; ".join(
                             "[{}] at [{}] has {}".format( label, shown, ", ".join( objections ) )
                             for label, shown, objections in refused
                     ),
-                    MODIFIED_DEVELOP_OPTION,
+                    remedy,
             )
     )
 
@@ -3892,15 +4276,19 @@ def maybe_run_cascade( env, publisher ) -> None:
     missing trees when ``--clone-publishers`` is set, reports, and returns without
     nested publish. Under ``--update-publishers`` it fast-forwards existing
     publisher trees (and may stop, or continue into nested publish when
-    ``--publish-package`` is set). ``construct.py`` exits after the sconscript
-    read for stop-before-build modes.
+    ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
+    ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
+    (no tip upload). ``construct.py`` exits after the sconscript read for
+    stop-before-build modes.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
     update_publishers = cascade_update_enabled( env )
     publish = bool( env.get_option( "publish-package" ) )
-    # Stop before nested build when plan/collect, or update without publish.
-    stop_only = plan_only or collect_only or ( update_publishers and not publish )
+    publish_cascade_deps = publish_cascade_dependencies_enabled( env )
+    publish_action = publish or publish_cascade_deps
+    # Stop before nested build when plan/collect, or update without a publish action.
+    stop_only = plan_only or collect_only or ( update_publishers and not publish_action )
 
     if plan_only and collect_only:
         raise SCons.Errors.StopError(
@@ -3927,6 +4315,17 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( UPDATE_PUBLISHERS_OPTION, CASCADE_OPTION )
         )
+    if publish_cascade_deps and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
+        )
+    if publish and publish_cascade_deps:
+        raise SCons.Errors.StopError(
+                "--{} and --publish-package cannot be combined; choose tip "
+                "build-only or tip upload"
+                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+        )
     if not cascade_enabled( env ):
         return
     if _is_nested():
@@ -3940,12 +4339,15 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_version = str( getattr( publisher, "_version", "" ) )
     nested_key = _cascade_nested_key( env, publisher )
 
-    # Plan, collect, and update-without-publish do not need --publish-package.
-    if not stop_only and not publish:
+    # Plan, collect, and update-without-publish do not need a publish action.
+    # Real nest-publish needs --publish-package (tip upload) or
+    # --publish-cascade-dependencies (tip build only).
+    if not stop_only and not publish_action:
         raise SCons.Errors.StopError(
-                "--{} requires --publish-package, --{}, --{}, or --{}"
+                "--{} requires --publish-package, --{}, --{}, --{}, or --{}"
                 .format(
                         CASCADE_OPTION,
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
                         CASCADE_PLAN_OPTION,
                         COLLECT_CASCADE_OPTION,
                         UPDATE_PUBLISHERS_OPTION,
@@ -4042,8 +4444,11 @@ def maybe_run_cascade( env, publisher ) -> None:
     )
     cleaning = _clean_enabled( env )
     force = cascade_force_enabled( env )
-    if stop_only:
-        _record_publisher_objections( env, nodes, order )
+    # Always observe publisher work-trees before the plan so real runs and
+    # ``--cascade-plan`` agree: dirty develop / forest / clone trees show as
+    # node errors (or notes when ``--publish-modified`` allows) and label
+    # state, not only as post-plan log lines.
+    _record_publisher_objections( env, nodes, order )
     plan_report_mode = (
             COLLECT_CASCADE_OPTION if collect_only
             else UPDATE_PUBLISHERS_OPTION if ( update_publishers and stop_only )
@@ -4051,7 +4456,8 @@ def maybe_run_cascade( env, publisher ) -> None:
     )
     write_lines( cascade_plan_lines(
             nodes, order, tip_package, tip_version,
-            mode=plan_report_mode, clean=cleaning
+            mode=plan_report_mode, clean=cleaning,
+            consume_tip=is_consume_tip( publisher ),
     ) )
 
     trees_updated = 0
@@ -4089,9 +4495,16 @@ def maybe_run_cascade( env, publisher ) -> None:
                 unused_develop=sum(
                         1 for key in order if nodes[key].get( "_develop_unused" )
                 ),
+                unused_develop_soft=sum(
+                        1 for key in order
+                        if nodes[key].get( "_develop_unused" )
+                        and not nodes[key].get( "_publisher_dir" )
+                ),
+                consume_tip=is_consume_tip( publisher ),
                 mode=report_mode or CASCADE_PLAN_OPTION,
                 trees_collected=trees_collected,
                 trees_updated=trees_updated,
+                dependency_count=len( order ),
         )
         reset_deferred_cascade_fetches()
         return

@@ -20,8 +20,8 @@ Building on branch [feature_orders] with default branch [master]; --develop is n
 ├── 1 warning
 │   │
 │   └── flange
-│       ├── is on [spike_cache], which is neither [feature_orders] nor the default branch
-│       │   [master]
+│       ├── is on [spike_cache], which is neither [feature_orders] nor the default
+│       │   branch [master]
 │       └── is 2 commits behind [origin/spike_cache] as of your last fetch
 │
 └── 1 note
@@ -31,5 +31,5 @@ Building on branch [feature_orders] with default branch [master]; --develop is n
         └── has uncommitted changes on [feature_orders]
 
 Ahead and behind are relative to your last fetch; no remote was contacted
-Of these, --update-develop would fast-forward 1 ([flange]) as of your last fetch; it fetches
-first, so it may find more
+Of these, --update-develop would fast-forward 1 ([flange]) as of your last fetch; it
+fetches first, so it may find more

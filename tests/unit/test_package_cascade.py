@@ -223,6 +223,165 @@ def test_maybe_run_cascade_requires_publish_package():
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
+def test_maybe_run_cascade_accepts_publish_cascade_dependencies():
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-cascade-dependencies",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    cascade.maybe_run_cascade( _Env(), tip )  # must not raise
+
+
+def test_maybe_run_cascade_refuses_publish_cascade_deps_with_publish_package():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "publish-cascade-dependencies",
+                    "publish-package",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
+    """Consume tips use the same enable+action gate as publisher tips."""
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "build-and-publish-dependencies"
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    with pytest.raises( SCons.Errors.StopError, match="publish-cascade-dependencies" ):
+        cascade.maybe_run_cascade( _Env(), tip )
+
+
+def test_edges_from_consume_tip_reads_package_factories():
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.2.3"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = "https://gitlab.example/org/packages/widget.git"
+
+    class _Env:
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            return default
+
+        def get_option( self, name, default=None ):
+            return default
+
+    edges = cascade._edges_from_consume_tip( _Env() )
+    assert len( edges ) == 1
+    assert edges[0]["name"] == "widget"
+    assert edges[0]["version"] == "1.2.3"
+    assert edges[0]["package_source"] == (
+            "https://gitlab.example/org/packages/widget.git"
+    )
+
+
+def test_maybe_run_consume_tip_cascade_plans_from_factories( tmp_path ):
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    publisher = tmp_path / "widget"
+    publisher.mkdir()
+    write_publish_manifest( str( publisher ), "widget", "1.0.0", dependencies=[] )
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.0.0"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = str( publisher )
+
+    class _Env:
+        def __init__( self ):
+            self._opts = {
+                    "build-and-publish-dependencies": True,
+                    "cascade-plan": True,
+            }
+
+        def get_option( self, name, default=None ):
+            return self._opts.get( name, default )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            if name == "sconstruct_dir":
+                return str( tmp_path / "app" )
+            return default
+
+    cascade.maybe_run_consume_tip_cascade( _Env() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "app"
+    assert reports[0]["version"] == "consume"
+    assert reports[0]["errors"] == 0
+
+
+def test_maybe_run_consume_tip_cascade_skips_when_publisher_already_ran():
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.record_plan_report( "widget", "1", 0 )
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "other": object() }
+            return default
+
+    cascade.maybe_run_consume_tip_cascade( _Env() )
+    assert len( cascade.plan_reports() ) == 1
+    assert cascade.plan_reports()[0]["package"] == "widget"
+
+
+def test_tip_forward_args_drops_publish_cascade_dependencies():
+    argv = [
+            "cuppa", "-D", "--rel",
+            "--build-and-publish-dependencies",
+            "--publish-cascade-dependencies",
+            "--publisher-root=/tmp/packages",
+    ]
+    forwarded = cascade.tip_forward_args( argv )
+    assert "--publish-cascade-dependencies" not in forwarded
+    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--publish-package" in forwarded
+
+
 def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     """Soak: -n forwards into nested configure, which cannot create .sconf_temp."""
     import re
@@ -335,9 +494,12 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "clones": 0,
                     "needs_clone_opt_in": 0,
                     "unused_develop": 0,
+                    "unused_develop_soft": 0,
+                    "consume_tip": False,
                     "mode": "cascade-plan",
                     "trees_collected": 0,
                     "trees_updated": 0,
+                    "dependency_count": 1,
             }
     ]
 
@@ -467,11 +629,12 @@ def test_collect_cascade_footer_counts_zero_trees_when_clone_opt_in_is_missing(
             argv=[ "cuppa", "-D", "--collect-cascade", "--cuppa-mode" ],
     ) )
     assert "collecting packages for" in body
-    assert "make this collect executable" in body
+    assert "pass --clone-publishers to clone into" in body
     assert "--cuppa-mode" not in body
     assert "and pass --clone-publishers" in body
-    # Wrap may split the sentence across lines.
-    assert "uses that tree instead of cloning" in re.sub( r"\s+", " ", body )
+    # Wrap may split the sentence across lines (and leave box-drawing between words).
+    assert "instead of cloning" in body
+    assert "uses that tree" in body
 
     out = io.StringIO()
     assert cascade.finish_cascade_stop( env, out=out ) == 0
@@ -606,6 +769,7 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
 
         assert "Printing Cascade plan for building and publishing package corosio [==0.2.0] given the command:" in visible
         assert "Cascade plan: corosio [==0.2.0] (this package) with" in visible
+        assert "(this project)" not in visible
         assert "2 package dependencies" in visible
         assert "[0 errors][0 warnings][0 notes]" in visible
         assert "1 of 2  capy [==develop]" in visible
@@ -634,6 +798,26 @@ def test_cascade_plan_lines_number_the_order_and_name_publisher_trees():
         colouriser.use_colour = was
 
 
+def test_cascade_plan_lines_consume_tip_says_this_project():
+    nodes = {
+            ( "capy", "capy", "1.0" ): {
+                    "name": "capy", "package": "capy", "version": "1.0",
+                    "_publisher_dir": "/home/user/.cuppa/publishers/capy",
+            },
+    }
+    lines = cascade.cascade_plan_lines(
+            nodes, [ ( "capy", "capy", "1.0" ) ], "widget", "consume",
+            consume_tip=True,
+    )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", "\n".join( lines ) )
+
+    assert "building this project widget [==consume]" in visible
+    assert "dependencies publish; tip build only" in visible
+    assert "Cascade plan: widget [==consume] (this project) with" in visible
+    assert "(this package)" not in visible
+    assert "building and publishing package" not in visible
+
+
 def test_cascade_plan_lines_count_unresolved_trees_as_errors():
     nodes = {
             ( "widget", "widget", "1.2" ): {
@@ -657,7 +841,9 @@ def test_finish_plan_only_reports_no_publisher_as_a_failure():
     cascade.reset_plan_reports()
     out = io.StringIO()
     assert cascade.finish_plan_only( out=out ) == 1
-    assert "no GitLab package publisher was constructed" in out.getvalue()
+    text = out.getvalue()
+    assert "no cascade tip was resolved" in text
+    assert "package_dependency" in text
 
 
 def test_finish_plan_only_names_the_missing_cascade_flag():
@@ -688,9 +874,11 @@ def test_finish_plan_only_exit_status_follows_resolution():
         visible = plain( text )
         assert visible.strip().startswith( "--cascade-plan:" )
         assert "nothing was built, published, uploaded, or cloned" in visible
-        # Summary through the semicolon is the info-label chip; detail stays plain.
+        # Summary through the semicolon is the info-label chip; remedy tree + detail follow.
         assert as_info_label( "--cascade-plan: 1 package planned" ) in text
-        assert "; nothing was built" in visible
+        assert "to run this plan" in visible
+        assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+        assert "; nothing was built" not in visible
 
         cascade.record_plan_report( "widget", "1.2", 2 )
         out = io.StringIO()
@@ -1065,6 +1253,10 @@ def test_cascade_stop_before_build_update_without_publish():
     } ) )
     assert not cascade.cascade_stop_before_build( _Env( {
             "build-and-publish-dependencies", "update-publishers", "publish-package",
+    } ) )
+    assert not cascade.cascade_stop_before_build( _Env( {
+            "build-and-publish-dependencies", "update-publishers",
+            "publish-cascade-dependencies",
     } ) )
 
 
@@ -1456,6 +1648,283 @@ def test_refresh_package_consume_cache_refetches_via_tip_factory( tmp_path, monk
     assert _Factory._cached_packages == {}
 
 
+def test_package_pin_is_current_with_extract_only_and_registry_head( tmp_path, monkeypatch ):
+    """Tip extract usable, no local archive: skip when registry HEAD is 200."""
+    from types import SimpleNamespace
+
+    extract = (
+            tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "boost" / "1.92"
+    )
+    ( extract / "include" ).mkdir( parents=True )
+    ( extract / "lib" ).mkdir()
+    ( tmp_path / "downloads" / "packages" / "boost" / "1.92" ).mkdir( parents=True )
+
+    env = {
+            "downloads_root": str( tmp_path / "downloads" ),
+            "dependencies_root": str( tmp_path / "deps" ),
+            "active_toolchains": [
+                    SimpleNamespace( package_name=lambda: "gcc15" ),
+            ],
+            "tip_package_arch": "x86_64",
+            "tip_package_abi": "cxx2c",
+    }
+    monkeypatch.setattr(
+            cascade,
+            "_entry_registry",
+            lambda *a, **k: "https://git.example/api/v4/projects/1",
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.consume_archive_candidates",
+            lambda *a, **k: [
+                    (
+                            "boost_debian_gcc15_rel_x86_64_cxx2c",
+                            "boost_debian_gcc15_rel_x86_64_cxx2c.tar.gz",
+                            "https://git.example/boost.tgz",
+                            "gcc15",
+                    ),
+            ],
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.registry_auth_headers",
+            lambda *a, **k: {},
+    )
+    monkeypatch.setattr( cascade, "_registry_object_exists", lambda *a, **k: True )
+
+    assert cascade.package_pin_is_current(
+            env,
+            { "name": "boost_package", "package": "boost", "version": "1.92" },
+    )
+
+
+def test_package_pin_is_current_rejects_size_mismatched_archive( tmp_path, monkeypatch ):
+    """A present archive that fails the size check is never treated as current."""
+    from types import SimpleNamespace
+
+    extract = (
+            tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "boost" / "1.92"
+    )
+    ( extract / "include" ).mkdir( parents=True )
+    cache = tmp_path / "downloads" / "packages" / "boost" / "1.92"
+    cache.mkdir( parents=True )
+    archive = cache / "boost_debian_gcc15_rel_x86_64_cxx2c.tar.gz"
+    archive.write_bytes( b"stale" )
+
+    env = {
+            "downloads_root": str( tmp_path / "downloads" ),
+            "dependencies_root": str( tmp_path / "deps" ),
+            "active_toolchains": [
+                    SimpleNamespace( package_name=lambda: "gcc15" ),
+            ],
+            "tip_package_arch": "x86_64",
+            "tip_package_abi": "cxx2c",
+    }
+    monkeypatch.setattr(
+            cascade,
+            "_entry_registry",
+            lambda *a, **k: "https://git.example/api/v4/projects/1",
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.consume_archive_candidates",
+            lambda *a, **k: [
+                    (
+                            "boost_debian_gcc15_rel_x86_64_cxx2c",
+                            "boost_debian_gcc15_rel_x86_64_cxx2c.tar.gz",
+                            "https://git.example/boost.tgz",
+                            "gcc15",
+                    ),
+            ],
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.registry_auth_headers",
+            lambda *a, **k: {},
+    )
+    monkeypatch.setattr( cascade, "_registry_matches_local", lambda *a, **k: False )
+    monkeypatch.setattr( cascade, "_registry_object_exists", lambda *a, **k: True )
+
+    assert not cascade.package_pin_is_current(
+            env,
+            { "name": "boost_package", "package": "boost", "version": "1.92" },
+    )
+
+
+def test_entry_registry_resolves_same_via_tip_consume_factory():
+    """Consume tip: nested edges say ``same``; tip has no publisher registry."""
+    class _Owner:
+        _package_manager = "gitlab"
+        _registry = "https://git.example/api/v4/projects/1"
+        _package = "widget"
+        _name = "widget"
+
+    class _Bound:
+        __self__ = _Owner
+
+        def __call__( self, env ):
+            return None
+
+    env = { "dependencies": { "widget": _Bound() } }
+    tip = type( "Tip", (), { "_registry": None, "_consume_tip": True } )()
+    assert cascade._entry_registry(
+            { "name": "abseil_cpp", "package": "abseil-cpp", "registry": "same" },
+            tip,
+            env,
+    ) == "https://git.example/api/v4/projects/1"
+
+
+def test_entry_registry_prefers_parent_over_tip_fallback():
+    tip = type( "Tip", (), { "_registry": "https://tip.example/reg" } )()
+    assert cascade._entry_registry(
+            { "registry": "same" },
+            tip,
+            parent_registry="https://parent.example/reg",
+    ) == "https://parent.example/reg"
+
+
+def test_refresh_package_consume_cache_refetches_via_tip_registry(
+        tmp_path, monkeypatch
+):
+    """Transitive nest node: no tip factory (SCons Clone), registry ``same``."""
+    extract = tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "abseil-cpp" / "1.0"
+    extract.mkdir( parents=True )
+    ( extract / "include" ).mkdir()
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _registry = "https://git.example/api/v4/projects/reg"
+        _package = "widget"
+        _name = "widget"
+        _version = "9.0"
+
+    class _Bound:
+        __self__ = _Owner
+
+        def __call__( self, env ):
+            return None
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    env = _Env(
+            {
+                    "downloads_root": str( tmp_path / "downloads" ),
+                    "dependencies_root": str( tmp_path / "deps" ),
+                    "dependencies": { "widget": _Bound() },
+            }
+    )
+    tip = type( "Tip", (), { "_registry": None, "_consume_tip": True } )()
+
+    class _Pkg:
+        def package_dir( self ):
+            return str( extract )
+
+    monkeypatch.setattr(
+            cascade,
+            "invalidate_package_consume_cache",
+            lambda env, package, version: [str( extract )],
+    )
+
+    def _fake_gitlab( env, registry=None, package=None, version=None, variant=None ):
+        assert registry == "https://git.example/api/v4/projects/reg"
+        assert package == "abseil-cpp"
+        assert version == "1.0"
+        return _Pkg()
+
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.GitlabPackageDependency",
+            _fake_gitlab,
+    )
+
+    removed = cascade.refresh_package_consume_cache(
+            env,
+            {
+                    "name": "abseil_cpp",
+                    "package": "abseil-cpp",
+                    "version": "1.0",
+                    "registry": "same",
+            },
+            tip_publisher=tip,
+    )
+    assert removed == [str( extract )]
+
+
+def test_build_cascade_graph_stamps_same_registry_from_parent( tmp_path ):
+    """Nested ``registry: same`` becomes the tip package's concrete registry."""
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    ( parent / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+    child = tmp_path / "child"
+    child.mkdir()
+    ( child / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+    publish = {
+            "cuppa_publish_format": 1,
+            "package": "widget",
+            "version": "1.0",
+            "dependencies": [
+                    {
+                            "name": "leaf",
+                            "package": "leaf",
+                            "version": "2.0",
+                            "registry": "same",
+                            "package_source": str( child ),
+                    },
+            ],
+    }
+    ( parent / "cuppa-publish.json" ).write_text(
+            __import__( "json" ).dumps( publish ), encoding="utf-8"
+    )
+    ( child / "cuppa-publish.json" ).write_text(
+            __import__( "json" ).dumps( {
+                    "cuppa_publish_format": 1,
+                    "package": "leaf",
+                    "version": "2.0",
+                    "dependencies": [],
+            } ),
+            encoding="utf-8",
+    )
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _registry = "https://git.example/reg"
+        _package = "widget"
+        _name = "widget"
+        _version = "1.0"
+        _package_source = str( parent )
+
+    class _Bound:
+        __self__ = _Owner
+
+        def __call__( self, env ):
+            return None
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    env = _Env(
+            {
+                    "dependencies": { "widget": _Bound() },
+                    "downloads_root": str( tmp_path / "downloads" ),
+                    "dependencies_root": str( tmp_path / "deps" ),
+            }
+    )
+    tip = cascade.make_consume_tip_publisher(
+            env,
+            edges=[
+                    {
+                            "name": "widget",
+                            "package": "widget",
+                            "version": "1.0",
+                            "registry": "https://git.example/reg",
+                            "package_source": str( parent ),
+                    },
+            ],
+    )
+    nodes, _edges = cascade.build_cascade_graph( env, tip )
+    leaf_key = cascade._node_key( "leaf", "leaf", "2.0" )
+    assert leaf_key in nodes
+    assert nodes[leaf_key]["registry"] == "https://git.example/reg"
+
+
 def test_call_tip_dependency_factory_accepts_create_method():
     class _Factory:
         @classmethod
@@ -1519,6 +1988,57 @@ def test_evict_cached_package_matches_pin():
 ] )
 def test_split_source_pin( source, url, revision ):
     assert cascade.split_source_pin( source ) == ( url, revision )
+
+
+@pytest.mark.parametrize( "value, expected", [
+        ( "git@git.example:packages/capy", True ),
+        ( "git@git.example:packages/capy@develop", True ),
+        ( "https://git.example/packages/capy", True ),
+        ( "ssh://git@git.example/packages/capy", True ),
+        ( "git+ssh://git@git.example/packages/capy", True ),
+        ( "git+https://git.example/packages/capy", True ),
+        ( "file:///home/user/packages/capy", True ),
+        ( "https://github.com/org/widget.git", True ),
+        ( "/home/user/coding/packages/capy", False ),
+        ( "../packages/capy", False ),
+        ( "packages/capy", False ),
+] )
+def test_looks_like_url( value, expected ):
+    assert cascade.looks_like_url( value ) is expected
+
+
+def test_git_plus_ssh_package_source_is_cloned_not_joined_to_the_tip( tmp_path, monkeypatch ):
+    """Location-style git+ssh:// must not become tip/git+ssh:/… via abspath."""
+    cloned = []
+
+    def _clone( env, entry, url, revision, destination ):
+        cloned.append( ( url, revision, destination ) )
+        os.makedirs( destination )
+        with open( os.path.join( destination, "sconstruct" ), "w", encoding="utf-8" ) as handle:
+            handle.write( "import cuppa\n" )
+        return destination
+
+    monkeypatch.setattr( cascade, "clone_publisher", _clone )
+    env = _PlanEnv(
+            { "clone-publishers": True },
+            { "storage_root": str( tmp_path / "store" ) },
+    )
+    entry = {
+            "name": "boost_package",
+            "package": "boost",
+            "version": "1.92",
+            "package_source": "git+ssh://git@git.example/packages/boost",
+    }
+
+    path = cascade.resolve_publisher_dir( env, entry )
+
+    assert path == str( tmp_path / "store" / "publishers" / "boost_package" )
+    assert cloned == [ (
+            "git+ssh://git@git.example/packages/boost",
+            None,
+            str( tmp_path / "store" / "publishers" / "boost_package" ),
+    ) ]
+    assert not str( path ).startswith( str( tmp_path / "project" ) )
 
 
 def test_clone_destination_defaults_to_a_cuppa_owned_tree( tmp_path ):
@@ -1829,7 +2349,10 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
     assert status == 0
     assert "2 publisher trees to clone first" in report
-    assert "pass --clone-publishers along with --publish-package to execute" in report
+    assert "pass --clone-publishers along with either" in report
+    assert "--publish-cascade-dependencies" in report
+    assert "--publish-package" in report
+    assert "to make this plan executable" in report
     assert "nothing was built, published, uploaded, or cloned" in report
 
 
@@ -1842,7 +2365,7 @@ def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
 
     assert status == 1
     assert "--clone-publishers" in report
-    assert "Then re-run with --publish-package to execute" in report
+    assert "Then re-run with either --publish-cascade-dependencies or --publish-package to execute" in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -2072,19 +2595,20 @@ def test_publishing_from_a_modified_develop_tree_is_refused( tmp_path, monkeypat
     message = str( failure.value )
 
     assert "uncommitted changes" in message
-    assert "--publish-modified-develop" in message
+    assert "--publish-modified" in message
     assert "Commit and push" in message
+    assert "drop --develop" in message
 
 
 def test_the_override_allows_the_publish_and_says_so( tmp_path, monkeypatch, caplog ):
     _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
     nodes, order, _ = _develop_nodes( tmp_path, None )
-    env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
+    env = _PlanEnv( { "develop": True, "publish-modified": True } )
 
     with caplog.at_level( logging.WARNING ):
         cascade.judge_publisher_trees( env, nodes, order )
 
-    assert "allowed by --publish-modified-develop" in caplog.text
+    assert "allowed by --publish-modified" in caplog.text
 
 
 def test_a_clean_develop_tree_publishes_without_comment( tmp_path, monkeypatch ):
@@ -2113,14 +2637,14 @@ def test_the_plan_reports_what_a_real_run_would_refuse( tmp_path, monkeypatch ):
 def test_the_plan_reports_an_allowed_modified_tree_as_a_note( tmp_path, monkeypatch ):
     _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
     nodes, order, _ = _develop_nodes( tmp_path, None )
-    env = _PlanEnv( { "develop": True, "publish-modified-develop": True } )
+    env = _PlanEnv( { "develop": True, "publish-modified": True } )
 
     cascade._record_publisher_objections( env, nodes, order )
     body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
 
     assert "[0 errors][0 warnings][1 note]" in body
     assert "(allowed by" in body
-    assert "--publish-modified-develop" in body
+    assert "--publish-modified" in body
 
 
 def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
@@ -2141,14 +2665,15 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
 
     assert "given the command:" in body
     assert "--cascade-plan" in body
-    assert "[0 errors][1 warning][0 notes]" in body
-    assert "1 warning" in body
+    assert "[0 errors][0 warnings][1 note]" in body
+    assert "1 note" in body
     assert "a develop tree is configured" in body
-    assert "pass --develop to make this plan executable" in body
+    assert "to use this existing tree" in body
+    assert "--develop" in body
     assert "using publisher at [/authored/capy]" in body
 
 
-def test_unused_develop_with_no_other_tree_is_a_warning_and_notes_not_a_false_error():
+def test_unused_develop_with_no_other_tree_is_notes_not_a_false_error():
     """Soak: develop path exists; forgetting --develop is not 'no local working tree'."""
     key = ( "capy", "capy", "develop" )
     nodes = {
@@ -2169,35 +2694,35 @@ def test_unused_develop_with_no_other_tree_is_a_warning_and_notes_not_a_false_er
     # highlight_values wraps --flags in ANSI, so assert tokens rather than a contiguous phrase.
     visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
 
-    assert "[0 errors][1 warning][2 notes]" in visible
-    assert "1 warning" in visible
-    assert "2 notes" in visible
+    assert "[0 errors][0 warnings][3 notes]" in visible
+    assert "3 notes" in visible
     lines = visible.splitlines()
 
     def _index( needle ):
         return next( i for i, line in enumerate( lines ) if needle in line )
 
     for heading, message in (
-            ( "├── 1 warning", "develop tree is configured" ),
-            ( "└── 2 notes", "alternatively, cascade will look under" ),
+            ( "└── 3 notes", "develop tree is configured" ),
+            ( "└── 3 notes", "alternatively, cascade will look under" ),
     ):
         heading_i = _index( heading )
         message_i = _index( message )
         assert "│" in lines[heading_i - 1] or "|" in lines[heading_i - 1]
         assert "│" in lines[message_i - 1] or "|" in lines[message_i - 1]
 
-    assert "pass --develop to make this plan executable" in visible
+    assert "to use this existing tree" in visible
+    assert "--develop" in visible
     assert "--clone-publishers" in visible
-    assert "to clone into" in visible
-    assert "publishers/capy" in visible
+    assert "to clone into" in visible or "to fetch it" in visible
     assert "use --publisher-root" in visible
     assert "filesystem package_source" not in visible
     assert "error:" not in visible
     assert "no local working tree" not in visible
+    assert "make this plan executable" not in visible
 
 
-def test_unused_develop_with_a_publisher_forest_hit_warns_twice( tmp_path ):
-    """Plan executes from the forest copy — warn that this is probably not intended."""
+def test_unused_develop_with_a_publisher_forest_hit_notes_three_times( tmp_path ):
+    """Plan executes from the forest copy — note that this may not be intended."""
     ( tmp_path / "project" ).mkdir()
     forest = _publisher_tree( tmp_path / "store" / "publishers" / "capy" )
     _publisher_tree( tmp_path / "capy" )
@@ -2223,18 +2748,19 @@ def test_unused_develop_with_a_publisher_forest_hit_warns_twice( tmp_path ):
     ) )
     import re
 
-    from cuppa.colourise import as_warning, colouriser
+    from cuppa.colourise import as_info, colouriser
 
     visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
-    assert "[0 errors][2 warnings][1 note]" in visible
-    assert "pass --develop to make this plan executable" in visible
-    assert "probably not what you intended" in visible
+    assert "[0 errors][0 warnings][3 notes]" in visible
+    assert "to use this existing tree" in visible
+    assert "--develop" in visible
+    assert "may not be what you intended" in visible
     assert "use --publisher-root" in visible
     # Path alone — no redundant "under [forest-root]" after the publisher path
     # (prose may wrap between "at" and the bracketed path).
     assert "existing publisher tree at" in visible
     assert "under [" not in visible.split( "existing publisher tree at", 1 )[1].split(
-            "probably not what you intended", 1
+            "may not be what you intended", 1
     )[0]
     was = colouriser.use_colour
     colouriser.enable()
@@ -2245,7 +2771,7 @@ def test_unused_develop_with_a_publisher_forest_hit_warns_twice( tmp_path ):
                 "corosio", "0.2.0",
         ) )
         # Plain "/" between severity-coloured root and severity-coloured leaf.
-        assert "/" + as_warning( "capy" ) in coloured
+        assert "/" + as_info( "capy" ) in coloured
         assert "{capy}" not in re.sub( r"\x1b\[[0-9;]*m", "", coloured )
     finally:
         colouriser.use_colour = was
@@ -2318,7 +2844,7 @@ def test_a_cloneable_url_without_clone_flag_is_a_plan_warning_not_an_error( tmp_
     assert "[0 errors][1 warning][2 notes]" in body
     assert "1 warning" in body
     assert "pass --clone-publishers to clone into" in body
-    assert "make this plan executable" in body
+    assert "make this plan executable" not in body
     assert "use --publisher-root" in body
     assert "pass --develop" in body
     assert "filesystem package_source" not in body
@@ -2358,11 +2884,34 @@ def test_finish_plan_only_names_opt_in_flags_when_the_plan_is_only_blocked_by_wa
 
     assert status == 0
     assert "1 package planned" in visible
-    assert "pass --clone-publishers along with --publish-package" in visible
-    assert "pass --develop along with --publish-package" in visible
+    assert "pass either:" in visible
+    assert "--clone-publishers along with either" in visible
+    assert "--develop along with either" in visible
+    assert "--publish-cascade-dependencies" in visible
+    assert "--publish-package" in visible
+    assert "to make this plan executable" in visible
+    assert "to run this plan" not in visible
     assert "nothing was built, published, uploaded, or cloned" in visible
     assert "without a publisher tree" not in visible
     assert "filesystem package_source" not in visible
+
+
+def test_finish_plan_only_omits_publish_package_for_a_consume_tip():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0,
+            unused_develop=1, unused_develop_soft=1, consume_tip=True,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "pass either:" in visible
+    assert "--develop along with --publish-cascade-dependencies" in visible
+    assert "--clone-publishers along with --publish-cascade-dependencies" in visible
+    assert "--publish-package" not in visible
+    assert "to make this plan executable" in visible
 
 
 def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
@@ -2374,7 +2923,69 @@ def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
 
     assert status == 0
     assert "1 publisher tree to clone first" in visible
-    assert "pass --clone-publishers along with --publish-package to execute" in visible
+    assert "pass --clone-publishers along with either" in visible
+    assert "--publish-cascade-dependencies" in visible
+    assert "--publish-package" in visible
+    assert "to make this plan executable" in visible
+
+
+def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():
+    """Partial unused develop with publisher paths is optional; plan already executable."""
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0,
+            unused_develop=2, unused_develop_soft=0, consume_tip=True,
+            dependency_count=9,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "1 package planned" in visible
+    assert "pass --publish-cascade-dependencies" in visible
+    assert "optionally also pass --develop" in visible
+    assert "where set" in visible
+    assert "listed publisher paths" in visible
+    assert "to run this plan" in visible
+    assert "to make this plan executable" not in visible
+    assert "--clone-develop" not in visible
+    assert "--clone-publishers" not in visible
+    assert "--publish-package" not in visible
+
+
+def test_finish_plan_only_full_develop_coverage_omits_partial_clause():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0,
+            unused_develop=3, unused_develop_soft=0, consume_tip=True,
+            dependency_count=3,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "optionally also pass --develop to prefer configured develop trees" in visible
+    assert "where set" not in visible
+    assert "listed publisher paths" not in visible
+    assert "to run this plan" in visible
+
+
+def test_finish_plan_only_clean_plan_still_names_how_to_run():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report( "corosio", "0.2.0", 0 )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "1 package planned" in visible
+    assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+    assert "to run this plan" in visible
+    assert "to make this plan executable" not in visible
+    assert "optionally also pass --develop" not in visible
+    assert "nothing was built, published, uploaded, or cloned" in visible
 
 
 def test_finish_collect_opt_in_advice_does_not_require_publish_package():
@@ -2417,11 +3028,11 @@ def test_tip_forward_args_drops_tip_dependency_options():
     assert all( not a.startswith( "--capy-gitlab-" ) for a in argv )
 
 
-def test_tip_forward_args_drops_publish_modified_develop():
+def test_tip_forward_args_drops_publish_modified():
     argv = cascade.tip_forward_args( [
-            "scons", "--dbg", "--publish-modified-develop", "--publish-package",
+            "scons", "--dbg", "--publish-modified", "--publish-package",
     ] )
-    assert "--publish-modified-develop" not in argv
+    assert "--publish-modified" not in argv
     assert "--dbg" in argv
 
 
@@ -3151,32 +3762,43 @@ def _rooted_nodes( path ):
     return nodes, [ key ]
 
 
-def test_local_work_in_a_rooted_tree_warns_rather_than_stopping(
-        tmp_path, monkeypatch, caplog
-):
-    """Refusing here would stop the workflow cascade shipped with; the hazard still shows."""
+def test_local_work_in_a_rooted_tree_is_refused( tmp_path, monkeypatch ):
+    """Same hazard as a dirty develop tree: refuse before any upload."""
     _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
     nodes, order = _rooted_nodes( tmp_path )
 
-    with caplog.at_level( logging.WARNING ):
+    with pytest.raises( SCons.Errors.StopError ) as failure:
         cascade.judge_publisher_trees( _PlanEnv( {} ), nodes, order )
+    message = str( failure.value )
 
-    assert "uncommitted changes" in caplog.text
-    assert "--publish-modified-develop" not in caplog.text
+    assert "uncommitted changes" in message
+    assert "--publish-modified" in message
+    assert "drop --develop" not in message
 
 
-def test_the_plan_grades_a_rooted_tree_as_a_warning( tmp_path, monkeypatch ):
+def test_the_override_allows_a_dirty_rooted_tree( tmp_path, monkeypatch, caplog ):
+    _stub_inspect( monkeypatch, modified=True, branch="develop", upstream="origin/develop" )
+    nodes, order = _rooted_nodes( tmp_path )
+    env = _PlanEnv( { "publish-modified": True } )
+
+    with caplog.at_level( logging.WARNING ):
+        cascade.judge_publisher_trees( env, nodes, order )
+
+    assert "allowed by --publish-modified" in caplog.text
+
+
+def test_the_plan_grades_a_rooted_tree_as_an_error( tmp_path, monkeypatch ):
     _stub_inspect( monkeypatch, ahead=2, branch="develop", upstream="origin/develop" )
     nodes, order = _rooted_nodes( tmp_path )
 
     cascade._record_publisher_objections( _PlanEnv( {} ), nodes, order )
     body = "\n".join( cascade.cascade_plan_lines( nodes, order, "corosio", "0.2.0" ) )
 
-    assert "[0 errors][1 warning][0 notes]" in body
-    assert "1 warning" in body
+    assert "[1 error]" in body
+    assert "1 error" in body
     assert "publishing from this tree has 2 commits not pushed" in body
-    assert "published anyway" in body
-    assert "only refuses a develop tree" in body
+    assert "refused; commit and push" in body
+    assert "--publish-modified" in body
 
 
 def test_an_unreadable_rooted_tree_says_nothing( tmp_path, monkeypatch, caplog ):
@@ -3283,6 +3905,72 @@ def test_plan_dependency_label_shows_stamped_package_source():
     label = cascade._plan_dependency_label( entry )
     assert "capy" in label
     assert "git@gitlab.example:packages/capy" in label
+
+
+def test_plan_dependency_label_shows_dirty_work_state():
+    entry = {
+            "name": "protobuf",
+            "package": "protobuf",
+            "version": "36.1",
+            "package_source": "git@git.example:packages/google/protobuf",
+            "_work_objections": [ "uncommitted changes" ],
+    }
+    label = cascade._plan_dependency_label( entry )
+    assert "git@git.example:packages/google/protobuf" in label
+    assert "dirty" in label
+
+
+def test_plan_dependency_label_colours_dirty_as_error():
+    from cuppa.colourise import as_error, as_notice, colouriser
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        refused = cascade._plan_dependency_label( {
+                "name": "grpc",
+                "package": "grpc",
+                "version": "1.84.0",
+                "package_source": "git@git.example:packages/google/grpc",
+                "_work_objections": [ "uncommitted changes" ],
+        } )
+        assert as_error( "dirty" ) in refused
+
+        allowed = cascade._plan_dependency_label( {
+                "name": "grpc",
+                "package": "grpc",
+                "version": "1.84.0",
+                "package_source": "git@git.example:packages/google/grpc",
+                "_work_objections": [ "uncommitted changes" ],
+                "_work_objections_allowed": True,
+        } )
+        assert as_notice( "dirty" ) in allowed
+    finally:
+        colouriser.use_colour = was
+
+
+def test_plan_reports_cloned_publisher_dirtiness( tmp_path, monkeypatch ):
+    """Cloned forest trees with local edits appear on the node, not only in logs."""
+    _stub_inspect( monkeypatch, modified=True, branch="master", upstream="origin/master" )
+    key = ( "protobuf", "protobuf", "36.1" )
+    nodes = {
+            key: {
+                    "name": "protobuf",
+                    "package": "protobuf",
+                    "version": "36.1",
+                    "package_source": "git@git.example:packages/google/protobuf",
+                    "_publisher_dir": str( tmp_path / "protobuf" ),
+            },
+    }
+    env = _PlanEnv( {} )
+    cascade._record_publisher_objections( env, nodes, [ key ] )
+    body = "\n".join( cascade.cascade_plan_lines(
+            nodes, [ key ], "widget", "consume",
+    ) )
+    assert "dirty" in body
+    assert "publishing from this tree has uncommitted changes" in body
+    assert "[1 error]" in body
+    assert "refused; commit and push" in body
+    assert "--publish-modified" in body
 
 
 # Slice F — tip registry 404 defer under cascade
