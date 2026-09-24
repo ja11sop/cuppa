@@ -69,6 +69,61 @@ def test_tool_variant_and_package_names(monkeypatch):
     assert url.endswith("/packages/generic/widget/1.0.0/" + name)
 
 
+def test_tool_variant_uses_tip_package_arch_abi_on_cuppa_env():
+    """Cascade tip baseline: Construction keys absent; tip facts from construct."""
+    from types import SimpleNamespace
+    from cuppa.package_managers.gitlab import tool_variant
+
+    env = {
+            "toolchain": SimpleNamespace( package_name=lambda: "gcc15" ),
+            "variant": SimpleNamespace( name=lambda: "rel" ),
+            "tip_package_arch": "x86_64",
+            "tip_package_abi": "cxx2c",
+    }
+    assert tool_variant( env, variant="rel", toolchain_token="gcc15" ) == (
+            "gcc15_rel_x86_64_cxx2c"
+    )
+
+
+def test_tool_variant_uses_tip_package_toolchain_on_cuppa_env():
+    """Re-fetch on baseline cuppa_env has no Construction ``toolchain`` key."""
+    from cuppa.package_managers.gitlab import tool_variant
+
+    env = {
+            "tip_package_toolchain": "gcc15",
+            "tip_package_arch": "x86_64",
+            "tip_package_abi": "cxx2c",
+    }
+    assert tool_variant( env, variant="rel" ) == "gcc15_rel_x86_64_cxx2c"
+
+
+def test_tool_variant_falls_back_to_active_toolchains():
+    from types import SimpleNamespace
+    from cuppa.package_managers.gitlab import tool_variant
+
+    env = {
+            "active_toolchains": [
+                    SimpleNamespace( package_name=lambda: "gcc15" ),
+            ],
+            "tip_package_arch": "x86_64",
+            "tip_package_abi": "cxx2c",
+    }
+    assert tool_variant( env, variant="rel" ) == "gcc15_rel_x86_64_cxx2c"
+
+
+def test_tool_variant_requires_arch_abi_without_tip_facts():
+    from types import SimpleNamespace
+    from cuppa.package_managers.gitlab import tool_variant
+    import pytest
+
+    env = {
+            "toolchain": SimpleNamespace( package_name=lambda: "gcc15" ),
+            "variant": SimpleNamespace( name=lambda: "rel" ),
+    }
+    with pytest.raises( KeyError, match="target_arch" ):
+        tool_variant( env, variant="rel", toolchain_token="gcc15" )
+
+
 def test_os_release_id_falls_back_without_freedesktop(monkeypatch):
     def _missing():
         raise AttributeError("freedesktop_os_release")

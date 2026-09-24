@@ -290,36 +290,32 @@ ignored.
 
 ===== Local work is not publishable
 
-Cascade refuses to publish from a develop tree holding work that exists only on
+Cascade refuses to publish from a publisher tree holding work that exists only on
 your machine — uncommitted changes, unpushed commits, or a branch with no
 upstream — because the resulting registry version could not be rebuilt from
-history. Every offending tree is named at once, before the first upload, rather
-than one per failed session:
+history. The same rule applies to a ``--develop`` tree, a tree under
+``--publisher-root``, and a tree cloned by ``--clone-publishers``. Every
+offending tree is named at once, before the first upload, rather than one per
+failed session:
 
 [source,text]
 ----
-cascade will not publish from a develop tree holding work only this machine has,
+cascade will not publish from a publisher tree holding work only this machine has,
 because the registry version could not be rebuilt from history: [capy develop
 (capy)] at [~/coding/packages/capy] has uncommitted changes, 2 commits not
 pushed. Commit and push, drop --develop for the publish run, or pass
---publish-modified-develop to publish anyway.
+--publish-modified to publish anyway.
 ----
 
 A detached head is fine: publishing version X from tag ``vX`` is the normal case,
-and a commit you can name is a commit others can fetch. A tree cuppa cannot read
-as a working copy raises a warning rather than a refusal, since being unable to
-inspect a tree is not evidence of local work.
+and a commit you can name is a commit others can fetch. A develop tree cuppa
+cannot read as a working copy raises a warning rather than a refusal, since being
+unable to inspect a tree is not evidence of local work. A rooted or cloned tree
+that is not a working copy is ordinary and silent.
 
-A tree found under ``--publisher-root``, or cloned by ``--clone-publishers``,
-runs the same hazard and is reported the same way — but as a **warning**, and the
-publish goes ahead. Those trees are how cascade has always worked, and refusing
-them would stop a workflow that predates the question. The plan report grades them
-as warning rows, so you can see what a run is about to put in the registry without
-being stopped by it.
-
-``--publish-modified-develop`` lifts the refusal for a run and says so on every
-tree it allows. ``--cascade-plan`` reports the same judgement without publishing:
-an error row per tree that would be refused, or a note row per tree the override
+``--publish-modified`` lifts the refusal for a run and says so on every tree it
+allows. ``--cascade-plan`` reports the same judgement without publishing: an
+error row per tree that would be refused, or a note row per tree the override
 allows.
 
 [#clone-publishers]
@@ -423,14 +419,22 @@ Unlike a real run, which stops at the first dependency it cannot place, the plan
 reports **every** unresolved tree. Hard failures (no URL to clone, bad path) are
 an **error** group and the finish line exits non-zero. A URL ``package_source``
 with nothing local yet and without ``--clone-publishers`` is a **warning**
-(pass ``--clone-publishers`` to make the plan executable) plus **notes** for
+(pass ``--clone-publishers`` to clone into the publishers forest) plus **notes** for
 alternatives (``--publisher-root``, a develop path + ``--develop``) — not advice
 to rewrite the dependency's ``package_source``. A develop path configured without
-``--develop`` is likewise a **warning** (pass ``--develop``) plus **notes**; when
-a tree already exists under the publishers forest, a second **warning** says the
-plan would use that copy instead. Construct announces
+``--develop`` is likewise a **note** (pass ``--develop`` to use that tree) plus
+further **notes** that name ``--clone-publishers`` when nothing is under the publishers
+forest yet; when a tree already exists under the forest, additional **notes** say the
+plan would use that copy instead (and mention ``--publisher-root``). Construct announces
 ``Running in PACKAGE BUILD: CASCADE PLAN mode`` (short info-label chip plus plain
 qualifying text) the same way clone-develop announces itself.
+
+The finish line keeps “make this plan executable” on the **summary** only (not on
+each node). When ``--develop`` and/or ``--clone-publishers`` would unblock the plan,
+it hangs a short remedy tree under ``--cascade-plan: N package planned;`` naming
+those flags together with ``--publish-cascade-dependencies`` (and
+``--publish-package`` when the tip is a publisher). A consume-only tip omits
+``--publish-package``.
 
 With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
 an error, naming the URL, the pin, and where it would land. The plan stops at such a

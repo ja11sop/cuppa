@@ -239,6 +239,7 @@ def _create_build_envs_fixture(default_variants, option_flags):
         default_variants=lambda: ["dbg", "rel"],
         make_env=make_env,
         abi=lambda env: "abi",
+        package_name=lambda: "gcc15",
     )
     return construct, toolchain, cuppa_env, built
 

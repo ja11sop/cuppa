@@ -254,15 +254,18 @@ class PublishPackageMethod(object):
                 ),
         )
         add_option(
-                '--publish-modified-develop',
-                dest='publish-modified-develop',
+                '--publish-modified',
+                dest='publish-modified',
                 action='store_true',
                 help=(
-                        'Allow a cascade publish from a --develop working copy '
-                        'that holds work only this machine has (uncommitted '
+                        'Allow a cascade publish from a publisher tree that '
+                        'holds work only this machine has (uncommitted '
                         'changes, unpushed commits, or a branch with no '
-                        'upstream). Cascade refuses by default, because the '
-                        'registry version could not be rebuilt from history.'
+                        'upstream) — whether that tree is a --develop copy, '
+                        'a --publisher-root forest entry, or a '
+                        '--clone-publishers clone. Cascade refuses by '
+                        'default, because the registry version could not be '
+                        'rebuilt from history.'
                 ),
         )
         add_option(

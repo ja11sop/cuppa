@@ -55,15 +55,68 @@ def remove_suffix( text, suffix ):
 
 
 def tool_variant( env, variant=None, toolchain_token=None ):
+    """``{toolchain}_{variant}_{arch}_{abi}`` for package extract / archive stems.
+
+    Construction Environments carry ``toolchain`` / ``target_arch`` / ``abi`` from
+    ``make_env``. Tip cascade runs against baseline ``cuppa_env``, which is not a
+    Construction Environment: construct records the tip's package-identity facts
+    on it (``tip_package_toolchain`` / ``tip_package_arch`` / ``tip_package_abi``)
+    when build envs are created. Falls back to the first ``active_toolchains``
+    entry when the tip token was not recorded. Never invents host/dialect guesses.
+    """
     token = toolchain_token
     if token is None:
-        token = env['toolchain'].package_name()
+        toolchain = _env_lookup( env, "toolchain" )
+        if toolchain is not None:
+            token = toolchain.package_name()
+        else:
+            tip_token = _env_lookup( env, "tip_package_toolchain" )
+            if tip_token:
+                token = tip_token
+            else:
+                tools = _env_lookup( env, "active_toolchains" ) or []
+                for tool in tools:
+                    name_fn = getattr( tool, "package_name", None )
+                    if callable( name_fn ):
+                        token = name_fn()
+                        break
+        if not token:
+            raise KeyError( "toolchain" )
+    if variant:
+        variant_name = variant
+    else:
+        variant_obj = _env_lookup( env, "variant" )
+        if variant_obj is None:
+            raise KeyError( "variant" )
+        variant_name = (
+                variant_obj.name() if hasattr( variant_obj, "name" ) else str( variant_obj )
+        )
+    arch = _env_lookup( env, "target_arch" )
+    if not arch:
+        arch = _env_lookup( env, "tip_package_arch" )
+    abi = _env_lookup( env, "abi" )
+    if abi is None or abi == "":
+        abi = _env_lookup( env, "tip_package_abi" )
+    if not arch:
+        raise KeyError( "target_arch" )
+    if abi is None or abi == "":
+        raise KeyError( "abi" )
     return "{toolchain}_{variant}_{arch}_{abi}".format(
             toolchain = token,
-            variant = variant and variant or env['variant'].name(),
-            arch = env['target_arch'],
-            abi = env['abi']
+            variant = variant_name,
+            arch = arch,
+            abi = abi,
     )
+
+
+def _env_lookup( env, key, default=None ):
+    getter = getattr( env, "get", None )
+    if callable( getter ):
+        return getter( key, default )
+    try:
+        return env[key]
+    except ( KeyError, TypeError ):
+        return default
 
 
 def os_release_id():

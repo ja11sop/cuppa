@@ -205,3 +205,48 @@ def test_run_with_progress_pipes_stderr( monkeypatch ):
     assert calls['stdout'] is not None
     assert calls['stderr'] is not None
     assert calls['args'] == [ 'git', 'fetch', '--progress' ]
+
+
+def test_is_tags_fetch_failure_matches_quiet_and_clobber():
+    assert Git.is_tags_fetch_failure( "git fetch --tags -q exited with 1" )
+    assert Git.is_tags_fetch_failure(
+            "git fetch --tags exited with 1: would clobber existing tag"
+    )
+    assert not Git.is_tags_fetch_failure( "git fetch exited with 1" )
+    assert not Git.is_tags_fetch_failure( "network unreachable" )
+
+
+def test_fetch_tags_force_is_quiet_by_default( monkeypatch, tmp_path ):
+    seen = {}
+
+    def fake_execute( command, path=None ):
+        seen['command'] = command
+        seen['path'] = path
+        return ''
+
+    def boom( *args, **kwargs ):
+        raise AssertionError( '_run_with_progress should not run when quiet' )
+
+    monkeypatch.setattr( Git, 'execute_command', fake_execute )
+    monkeypatch.setattr( Git, '_run_with_progress', boom )
+    Git.fetch_tags_force( str( tmp_path ) )
+    assert seen['command'] == 'git fetch --tags --force'
+    assert seen['path'] == str( tmp_path )
+
+
+def test_fetch_tags_force_uses_progress_when_requested( monkeypatch, tmp_path ):
+    seen = {}
+
+    def fake_run( args_list, path=None, **kwargs ):
+        seen['args'] = list( args_list )
+        seen['path'] = path
+        return ''
+
+    def boom( *args, **kwargs ):
+        raise AssertionError( 'quiet execute_command should not run' )
+
+    monkeypatch.setattr( Git, '_run_with_progress', fake_run )
+    monkeypatch.setattr( Git, 'execute_command', boom )
+    Git.fetch_tags_force( str( tmp_path ), progress=True )
+    assert seen['args'] == [ 'git', 'fetch', '--tags', '--force', '--progress' ]
+    assert seen['path'] == str( tmp_path )

@@ -101,7 +101,7 @@ def _ensure_registered( env, entry, parent_registry ):
     Factory.add_options( SCons.Script.AddOption )
     env.setdefault( "dependencies", {} )[name] = Factory.create
     pins[name] = str( version )
-    logger.info(
+    logger.debug(
             "Registered transitive package dependency [{}] (package [{}], version [{}]) "
             "from the traveling package manifest".format(
                     as_info( name ),

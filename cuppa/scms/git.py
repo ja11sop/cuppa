@@ -577,6 +577,34 @@ class Git:
 
 
     @classmethod
+    def is_tags_fetch_failure( cls, error ):
+        """True when pip's ``git fetch --tags`` failed (moved tag or quiet exit 1)."""
+        text = str( error ).lower()
+        if "fetch --tags" not in text:
+            return False
+        return "clobber" in text or "exited with" in text
+
+
+    @classmethod
+    def fetch_tags_force( cls, path, progress=False ):
+        """Force-update tags so the remote wins (Cuppa-owned download caches).
+
+        Quiet by default: stdout/stderr are captured so a preceding cuppa info
+        line is the only operator surface on success. Pass ``progress=True`` for
+        subdued streamed ``--progress``.
+        """
+        if progress:
+            return cls._run_with_progress(
+                    [ cls.binary(), "fetch", "--tags", "--force", "--progress" ],
+                    path,
+            )
+        return cls.execute_command(
+                "{git} fetch --tags --force".format( git=cls.binary() ),
+                path,
+        )
+
+
+    @classmethod
     def fast_forward( cls, path ):
         """Advance the checked-out branch to its upstream, refusing anything that is not a
         fast-forward. Git enforces that, so a copy that has moved on is never rewritten here."""

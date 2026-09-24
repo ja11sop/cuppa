@@ -74,6 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``include/`` + ``lib/``, no ``sconstruct``) still swaps in with a log note.
   ``--stage-package`` cannot be combined with ``--publish-package``.
 
+### Changed
+
+- ``--cascade-plan`` node judgements keep remedies local (``pass --develop to use
+  this existing tree``, ``pass --clone-publishers to fetch it`` / ``to clone into
+  […]``). “Make this plan executable” moves to a finish-line remedy tree that
+  lists ``--develop`` and/or ``--clone-publishers`` with the matching publish
+  action — ``--publish-cascade-dependencies`` alone for consume tips, or either
+  that flag or ``--publish-package`` for publisher tips.
+
 ### Fixed
 
 - GCC ``_resolve_driver`` no longer maps missing ``gcc-ar`` / ``gcc-ranlib`` onto
@@ -82,6 +91,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   compiler names (``gcc-16`` / ``g++-16``) still fall back to unversioned
   drivers in a snapshot ``bin`` dir. Install matching ``gcc-ar`` for LTO archives,
   or Cuppa leaves SCons ``ar``.
+
+- Cascade ``looks_like_url`` recognises Location-style ``git+ssh://`` /
+  ``git+https://`` ``package_source`` values. Those were treated as relative
+  paths, so ``abspath`` collapsed them under the tip tree as
+  ``…/git+ssh:/host/…`` and refused with “is not a directory” even when
+  ``--clone-publishers`` was set.
 
 - ``boost_package.define`` forwards unknown keywords to ``package_dependency``
   (notably ``develop=``), instead of raising ``TypeError`` on each new common
@@ -137,6 +152,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   session also closes with the same subdued rule line as the opening banner.
 
 ### Fixed
+
+- Transitive package registration from a traveling ``cuppa-publish.json``
+  (``Registered transitive package dependency […]``) logs at **debug** instead of
+  info — the cascade plan already presents the graph without repeating each pin
+  once per tip library that applies the stack.
+
+- Cascade plan grades an unused develop path (and an existing publishers-forest
+  fallback when ``--develop`` was not passed) as **notes** rather than warnings,
+  with softer copy (``may not be what you intended``). Missing ``--clone-publishers``
+  for a URL source remains a warning. ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Cascade re-fetch after a nested upload no longer raises ``KeyError: toolchain``
+  on the tip baseline ``cuppa_env``. ``tool_variant`` uses
+  ``tip_package_toolchain`` (recorded by construct alongside arch/abi) or the
+  first ``active_toolchains`` entry when Construction ``toolchain`` is absent —
+  the same hole that blocked ``boost_package`` refresh on a consume tip.
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Cascade skip-if-current treats a tip with a usable extract (``include/``) and
+  no local consume archive as current when registry HEAD returns 200, so
+  extract-only pins (common for long-lived ``boost`` trees) are not rebuilt and
+  re-uploaded without ``--force``. A present archive that fails the size check
+  still forces a nested session. ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Location download updates no longer leave a stale checkout when pip's
+  ``git fetch --tags`` fails because a remote tag was moved (``would clobber
+  existing tag``, often reported quietly as ``git fetch --tags -q exited with
+  1``). Cuppa quietly force-fetches tags once (via ``Git.fetch_tags_force``)
+  and retries the update, then logs a single info line on success so the cache
+  tracks the remote instead of soft-warning and building against old code.
+
+- Cascade plan nodes surface publisher work-tree state on the
+  ``package_source`` label (``dirty``, ``N ahead``, ``no upstream``) in **error**
+  colour when the run would refuse (or **notice** when ``--publish-modified``
+  allows), with matching error/note sub-nodes for develop trees,
+  ``--publisher-root`` forests, and ``--clone-publishers`` clones alike. Real
+  cascade runs record those objections before printing the plan (not only
+  ``--cascade-plan``), so a spuriously dirty ``~/.cuppa/publishers/…`` seed is
+  visible in the tree rather than only as a post-plan log line.
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- ``StopError`` / ``UserError`` critical lines colour the exception name and
+  ``[bracketed]`` values / bare ``--flags`` with error colour, leaving the
+  surrounding prose plain — the same highlight convention as Options Error /
+  plan judgements. Other exception types stay info-coloured.
+
+- ``tool_variant`` on tip cascade no longer raises ``KeyError: target_arch``
+  (or ``abi``). Baseline ``cuppa_env`` is not a Construction Environment and
+  does not invent host/dialect guesses; ``construct.create_build_envs`` records
+  ``tip_package_arch`` / ``tip_package_abi`` from the real tip build envs, and
+  ``tool_variant`` uses those facts when Construction keys are absent — the same
+  identity tip ``BuildWith`` used. ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Consume-tip cascade re-fetch after a nested upload no longer stops with
+  ``tip has no BuildWith factory and registry is unresolved`` for transitive
+  packages whose traveling edges say ``registry: "same"``. SCons ``Clone``
+  keeps tip-declared factories on ``cuppa_env`` only; cascade now resolves
+  ``same`` from the parent edge or any tip GitLab package registry, stamps
+  concrete registries into the DAG, and re-fetches via
+  ``GitlabPackageDependency``. Skip-if-current uses the same resolution.
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Boost library builds under ``--parallel`` with multiple toolchains no longer
   race on a shared ``project-config.jam`` (``No such file or directory`` while
@@ -325,18 +401,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   passed over in silence
   ([#297](https://github.com/ja11sop/cuppa/issues/297);
   [`package-develop-local`](design/plans/package-develop-local.md)).
-- ``--publish-modified-develop`` — publish from a develop tree holding work only
-  this machine has. Cascade refuses such a tree by default, because a registry
-  version built from uncommitted changes, unpushed commits, or a branch with no
-  upstream cannot be rebuilt from history. The refusal names every offending
-  tree at once and happens before the first upload; ``--cascade-plan`` reports
-  the same judgement as an error row, or as a note when this flag allows it. A
-  detached head is not refused — publishing version X from tag ``vX`` is the
-  normal case — and a tree cuppa cannot read as a working copy warns rather than
-  stops. A tree found under ``--publisher-root`` or cloned by
-  ``--clone-publishers`` carries the same hazard and is reported the same way,
-  as a warning rather than a refusal, since refusing would stop the workflow
-  cascade already shipped
+- ``--publish-modified`` — publish from a publisher tree holding work only this
+  machine has. Cascade refuses such a tree by default, because a registry version
+  built from uncommitted changes, unpushed commits, or a branch with no upstream
+  cannot be rebuilt from history. The same rule covers ``--develop`` copies,
+  ``--publisher-root`` forest entries, and ``--clone-publishers`` clones. The
+  refusal names every offending tree at once and happens before the first upload;
+  ``--cascade-plan`` reports the same judgement as an error row, or as a note when
+  this flag allows it. A detached head is not refused — publishing version X from
+  tag ``vX`` is the normal case — and a develop tree cuppa cannot read as a
+  working copy warns rather than stops
   ([`package-develop-local`](design/plans/package-develop-local.md)).
 - ``--clone-publishers`` — let cascade clone a publisher working tree it cannot
   find locally from that dependency's ``package_source`` URL, which may be pinned

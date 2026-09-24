@@ -213,11 +213,11 @@ ranked above `package_source` and `--publisher-root`; the build then consumes th
 package that publish produced rather than swapping the source tree in as a prefix. See
 xref:packages.adoc#cascade-develop[Publishing from a tree you are working in].
 
-`--publish-modified-develop` lifts cascade's refusal to publish from a develop tree
+`--publish-modified` lifts cascade's refusal to publish from a publisher tree
 holding work only this machine has: uncommitted changes, unpushed commits, or a branch
-with no upstream. Without it, such a run stops before the first upload and names every
-offending tree. A tree found under `--publisher-root` or cloned by `--clone-publishers`
-is reported the same way but only warns, and the publish goes ahead.
+with no upstream — whether that tree is a `--develop` copy, a `--publisher-root`
+forest entry, or a `--clone-publishers` clone. Without it, such a run stops before the
+first upload and names every offending tree.
 
 == Built-in Boost options
 

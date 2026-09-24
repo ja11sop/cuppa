@@ -576,7 +576,25 @@ class Location(object):
         try:
             update( vcs_backend, local_dir_with_sub_dir, rev_options )
             logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
+            return
         except pip_exceptions.PipError as error:
+            if (
+                    vc_type == "git"
+                    and git.Git.is_tags_fetch_failure( error )
+            ):
+                try:
+                    git.Git.fetch_tags_force( local_dir_with_sub_dir )
+                    update( vcs_backend, local_dir_with_sub_dir, rev_options )
+                    logger.info(
+                            "Remote tags had moved for [{}] in [{}]; "
+                            "forced tags and updated".format(
+                                    as_info( location ),
+                                    as_notice( local_dir_with_sub_dir ),
+                            )
+                    )
+                    return
+                except Exception as retry_error:
+                    error = retry_error
             logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                     as_warning( location ),
                     as_warning( local_dir_with_sub_dir ),
