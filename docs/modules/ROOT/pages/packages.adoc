@@ -118,9 +118,42 @@ xref:dependencies/gitlab.adoc#publishing-boost-from-source[Publishing Boost from
 === Cascading dependency publishes
 
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
-parents, then the tip). Pass ``--build-and-publish-dependencies`` with a companion
-action — ``--publish-package`` (nested publish + tip upload) or
-``--publish-cascade-dependencies`` (nested publish, tip build only):
+parents, then the tip). Cascade lets one tip command publish nested packages
+from their **publisher working trees**, then continue with the tip.
+Publisher trees may build with Cuppa methods (`BuildStaticLib`, `Install`, …),
+external CMake, Boost.b2, or other `Command()` graphs — cascade only requires
+that nested ``cuppa … --publish-package`` can stage ``include/`` / ``lib/`` (or
+equivalent payload) and upload a GitLab archive.
+
+Pass ``--build-and-publish-dependencies`` with **exactly one** companion action:
+
+[cols="2,3,3"]
+|===
+| Companion | What nested sessions do | What the tip does after
+
+| ``--publish-package``
+| Leaf-first ``--publish-package`` in each publisher tree
+| Tip **upload** (publisher tips only)
+
+| ``--publish-cascade-dependencies``
+| Same nested publish
+| Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package``)
+
+| ``--cascade-plan``
+| Nothing (report only)
+| Exit after the plan
+
+| ``--collect-cascade``
+| Resolve / reuse / optionally clone trees; no build/upload
+| Exit after collect
+
+| ``--update-publishers``
+| Fast-forward clean forest trees (optional; may combine with collect or a publish action)
+| Stop before build/upload unless a publish companion is also set
+|===
+
+Bare ``--build-and-publish-dependencies`` alone is refused. The two tip publish
+actions cannot be combined.
 
 [source,shell]
 ----
@@ -128,16 +161,31 @@ cuppa -D --rel --toolchains=gcc15 \
   --publish-package --build-and-publish-dependencies \
   --publisher-root=~/coding/packages
 
-# Or: nest-publish deps, tip build only (consume-only or publisher tip)
+# Nest-publish deps, tip build only (consume-only or publisher tip)
 cuppa -D --rel --toolchains=gcc15 \
   --publish-cascade-dependencies --build-and-publish-dependencies \
   --publisher-root=~/coding/packages
 ----
 
+[mermaid]
+....
+flowchart TD
+  enable["--build-and-publish-dependencies"]
+  enable --> choose{Companion action?}
+  choose -->|none| refuse[Refuse]
+  choose -->|--cascade-plan| plan[Print plan and exit]
+  choose -->|--collect-cascade| collect[Resolve or clone trees; exit]
+  choose -->|--update-publishers alone| update[Update forest; exit]
+  choose -->|--publish-cascade-dependencies| nestBuild[Nest-publish then tip build]
+  choose -->|--publish-package| nestUpload[Nest-publish then tip upload]
+  choose -->|both publish actions| refuseBoth[Refuse]
+....
+
 Cuppa then:
 
-* Reads this publisher’s ``dependencies=`` (optional ``package_source`` on each
-  edge, else one declared on the dependency itself) and expands the DAG from each
+* Reads tip package edges (``dependencies=`` on a publisher, or tip
+  ``package_dependency`` / ``boost_package.define`` factories on a consume tip)
+  with optional ``package_source`` on each edge, and expands the DAG from each
   resolved tree’s ``cuppa-publish.json``
 * Resolves each node to a publisher working tree: the dependency's
   xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
@@ -147,48 +195,54 @@ Cuppa then:
   a ``package_source`` URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
-* Invalidates that package’s download/extract caches under the tip’s storage
-  roots and re-fetches from the registry so the tip build sees the new
-  artefacts
-* Continues with this project’s normal build and publish when ``--publish-package``
-  is set (publisher tip), or **build only** when ``--publish-cascade-dependencies``
-  is set (consume-only or publisher tip)
+* After nested sessions that **actually upload** (or under ``--force``), refreshes
+  the tip’s consume cache for that pin so the tip build sees the new artefacts —
+  preferring the nested archive on disk when available (works with ``--offline``).
+  See xref:#cascade-run[Real cascade runs]
+* Continues with this project’s normal tip build and, when ``--publish-package``
+  is set, tip upload
+
+[mermaid]
+....
+flowchart LR
+  tipEdges[Tip package edges]
+  dag[Expand cuppa-publish.json DAG]
+  resolve[Resolve publisher trees]
+  nest[Nested publish leaf-first]
+  refresh[Refresh tip consume on upload]
+  tipAction[Tip build or tip upload]
+
+  tipEdges --> dag --> resolve --> nest --> refresh --> tipAction
+....
 
 Pre-sconscript ``BuildWith`` still runs before cascade on publisher tips.
 Consume-only tips run cascade **after** the sconscript read (once it is clear no
-tip publisher constructed); Slice F deferral still covers a missing registry pin
-during that earlier ``BuildWith``. When a tip dependency is
-one cascade can publish (``package_source``, a publisher-shaped ``develop=``, or
-a tip ``cuppa-publish.json`` edge with a source) and the registry returns
-``404``, cuppa **defers** that fetch instead of stopping: nested publish and the
-refresh above fill the consume cache. A registry-only pin that cascade cannot
-publish still fails immediately. If a deferred pin is still missing after
-cascade, cuppa stops and names the package.
+tip publisher constructed). When a tip dependency is one cascade can publish
+(``package_source``, a publisher-shaped ``develop=``, or a tip
+``cuppa-publish.json`` edge with a source) and the registry returns ``404``,
+cuppa **defers** that fetch instead of stopping: nested publish and the tip
+consume refresh fill the cache. A registry-only pin that cascade cannot publish
+still fails immediately. If a deferred pin is still missing after cascade, cuppa
+stops and names the package.
 
 Publisher builds stage a single traveling ``cuppa-publish.json`` (identity, deps
-including ``package_source``, optional ``default_use_libs`` / ``link``) and seed
-a copy beside the tip ``sconstruct`` for local cascade discovery. The publisher
-may use floating ``version="latest"`` on that seed while the staged archive and
-registry upload stay concrete — see
-xref:#publish-version-latest[Publisher version latest]. Consume and
-``--list-dependencies`` ``requires`` read the traveling file; legacy
+including ``package_source``, optional ``default_use_libs`` / ``link``, and
+optional ``payload_sha256`` for tip refresh) and seed a copy beside the tip
+``sconstruct`` for local cascade discovery. The publisher may use floating
+``version="latest"`` on that seed while the staged archive and registry upload
+stay concrete — see xref:#publish-version-latest[Publisher version latest].
+Consume and ``--list-dependencies`` ``requires`` read the traveling file; legacy
 ``cuppa-dependency.json`` remains a **read-only fallback** for older extracts.
 
-``--build-and-publish-dependencies`` **enables** the graph; pair it with a
-companion **action**:
+Cascade is **GitLab package** graphs only; Conan (and other package managers) are
+out of scope for these flags.
 
-* ``--publish-package`` — nested publish, then tip **upload** (publisher tips)
-* ``--publish-cascade-dependencies`` — nested publish, then tip **build only**
-  (consume-only and publisher tips; cannot combine with ``--publish-package``)
-* ``--cascade-plan`` / ``--collect-cascade`` / ``--update-publishers`` — stop modes
-
-Bare cascade alone is refused. Seed each direct package pin with
-``package_source=…`` (or a develop publisher tree under ``--develop``); transitive
-edges come from each resolved tree’s ``cuppa-publish.json``. Missing
-``package_source`` / unresolved trees fail before nested uploads. A
-``package_source`` URL needs either a tree that
-already exists under ``<storage-root>/publishers`` (or ``--publisher-root``), a
-filesystem ``package_source``, or ``--clone-publishers``, described next.
+Seed each direct package pin with ``package_source=…`` (or a develop publisher
+tree under ``--develop``); transitive edges come from each resolved tree’s
+``cuppa-publish.json``. Missing ``package_source`` / unresolved trees fail before
+nested uploads. A ``package_source`` URL needs either a tree that already exists
+under ``<storage-root>/publishers`` (or ``--publisher-root``), a filesystem
+``package_source``, or ``--clone-publishers``, described next.
 
 [#cascade-consume-only]
 ==== Consume-only tips (app projects)
@@ -566,52 +620,71 @@ back to the last observed state. Untracked paths that a fast-forward would
 overwrite are **leave alone** / **left alone** (warn), not a post-merge
 **failed**.
 
+[#cascade-run]
+==== Real cascade runs
+
 A real cascade prints the same plan before its first nested publish, then brackets
 each nested session with a banner naming the session number, the publisher tree,
 the command it ran, and how long it took. Cascade deliberately does not capture or
 re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
-boundaries instead, and a closing banner says this package is resuming.
+boundaries instead, and a closing banner says this package (or project) is
+resuming.
 
 When a dependency's tip consume archive already matches the registry (local file
 size equals a successful ``HEAD`` ``Content-Length``, and the extract has
 ``include/``), cascade **skips** that nested session and reports
 ``skipped (current)``. Pass ``--force`` to rebuild and upload every node anyway
-(nested ``PublishPackage`` targets are ``AlwaysBuild``). Tip consume cache is
-refreshed **only after a nested session that actually uploaded** (or under
-``--force``), and only for the tip's current toolchain stem — sibling stems under
-``downloads/packages/<pkg>/<ver>/`` stay put. Staged packages record a
-``payload_sha256`` in ``cuppa-publish.json`` (digest of ``include/`` / ``lib/``
-and other non-metadata files). When that hash already matches the tip extract,
-cascade **overlays** the new traveling JSON and copies the nested archive into
-the tip downloads cache **without** rewriting ``include/`` / ``lib/``, so tip
-CMake is not dirtied by a metadata-only republish. Otherwise the tip extract is
-invalidated and re-fetched; the nested archive is preferred as the install
-source when available. With multiple tip toolchains
-(``--toolchains=gcc15,gcc16``), the nested publish graph runs **once** per tip
-command (forwarding the full toolchain list), not once per tip variant.
+(nested ``PublishPackage`` targets are ``AlwaysBuild``).
+
+Tip consume cache is refreshed **only after a nested session that actually
+uploaded** (or under ``--force``), and only for the tip's current toolchain stem —
+sibling stems under ``downloads/packages/<pkg>/<ver>/`` stay put. Staged packages
+record a ``payload_sha256`` in ``cuppa-publish.json`` (digest of ``include/`` /
+``lib/`` and other non-metadata payload files). When that hash already matches
+the tip extract, cascade **overlays** the new traveling JSON and copies the
+nested archive into the tip downloads cache **without** rewriting ``include/`` /
+``lib/``. That keeps tip rebuild tools (Cuppa ``Build*``, CMake, b2, Ninja, …)
+from treating an unchanged consume prefix as brand-new after a metadata-only
+republish. Otherwise the tip extract is invalidated and re-populated; the nested
+archive is preferred as the install source when available (so ``--offline`` tip
+refresh still works after an upload on this machine). With multiple tip
+toolchains (``--toolchains=gcc15,gcc16``), the nested publish graph runs **once**
+per tip command (forwarding the full toolchain list), not once per tip variant.
+
+[mermaid]
+....
+flowchart TD
+  nestDone[Nested session finished]
+  nestDone --> uploaded{Registry upload?}
+  uploaded -->|no and not --force| leave[Leave tip consume cache]
+  uploaded -->|yes or --force| hashCmp{payload_sha256 matches tip?}
+  hashCmp -->|yes| overlay[Overlay JSON and tip archive only]
+  hashCmp -->|no or missing| full[Invalidate tip extract; install nested archive; extract]
+....
 
 With ``-c`` / ``--clean``, the plan intro says **cleaning package**, nested
 sessions forward ``-c``, the closing banner counts **nested clean(s)**, and
-cascade does **not** invalidate/re-fetch the tip consume cache afterward (nothing
-was uploaded). The plan also notes that out-of-tree CMake ``-B`` trees under
-location downloads are removed only when the publisher registers ``env.Clean`` on
-them — ``CMakeConfigure`` / ``CMakeBuild`` do; raw ``Command`` wrappers often do
-not. In that case Cuppa still cleans ``working/`` / ``final/`` stamps, but the
-next rebuild can look like an incremental Ninja build while re-packaging and
-re-uploading. See xref:#publishing-from-external-cmake[Publishing from an external
-CMake project].
+cascade does **not** refresh the tip consume cache afterward (nothing was
+uploaded). Whether a publisher's out-of-tree build directory is removed depends
+on that tree's ``env.Clean`` registrations — for example
+``CMakeConfigure`` / ``CMakeBuild`` clean their ``-B`` trees; a raw ``Command()``
+wrapper often does not. Cuppa still cleans ``working/`` / ``final/`` stamps in
+the publisher variant, but the next rebuild can look incremental in the external
+tool while re-packaging and re-uploading. See
+xref:#publishing-from-external-cmake[Publishing from an external build].
 
 Session end banners report ``uploaded`` or ``no registry upload`` when the tip
 can tell (nested upload marker). Skipped-current nodes never start a nested
-``scons``.
+``cuppa`` session.
 
 [#amend-package-manifest]
 === Amending metadata without rebuilding
 
 When only traveling metadata changes (for example adding
 ``default_use_libs: []`` on a fat package, or correcting dependency pins), a full
-DownloadExtract → CMake → install cycle is disproportionate. Pass
+acquire → build → install cycle in the publisher tree is disproportionate —
+whether that graph is Cuppa ``Build*``, CMake, b2, or another tool. Pass
 ``--amend-package-manifest`` together with the usual variant and toolchain flags:
 
 [source,shell]
@@ -621,9 +694,11 @@ cuppa -D --rel --toolchains=gcc15 --amend-package-manifest --publish-package
 
 Cuppa then:
 
-* skips ``DownloadExtract``, ``RemoveEmptyDirs``, and ``CMakeConfigure`` /
-  ``CMakeBuild`` / ``CMakeInstall`` (they register no-op stamps so the graph still
-  links)
+* skips acquire / empty-dir cleanup and the publisher's usual configure/build/
+  install steps when those methods honour the amend flag (Cuppa's
+  ``DownloadExtract``, ``RemoveEmptyDirs``, and ``CMakeConfigure`` /
+  ``CMakeBuild`` / ``CMakeInstall`` register no-op stamps so the graph still
+  links; other ``Command()`` graphs should do the same if they participate)
 * rewrites ``cuppa-publish.json`` from the current ``GitlabPackagePublisher``
   kwargs (``dependencies``, ``default_use_libs``, ``link``) and removes any
   legacy ``cuppa-dependency.json`` twin
@@ -638,7 +713,9 @@ This path does **not** refresh include/lib payloads from ``source_include_dir`` 
 when binaries or headers change. Consumers that already cached the same version
 need a download refresh after a same-version overwrite — see
 xref:dependencies/gitlab.adoc[GitLab packages] and the planned
-``--refresh-downloads`` work.
+``--refresh-downloads`` work. After a same-version leaf amend, tip cascade uses
+``payload_sha256`` (xref:#cascade-run[Real cascade runs]) so an unchanged tip
+consume payload is not rewritten solely to pick up the new traveling JSON.
 
 === Declaring transitive dependencies
 
@@ -691,28 +768,41 @@ Authentication for registry upload uses the same tokens as consume
 See xref:dependencies/gitlab.adoc[GitLab packages].
 
 [#publishing-from-external-cmake]
-=== Publishing from an external CMake build
+=== Publishing from an external build
 
-Some packages are built by **CMake** (or another external tool) and only *packaged* by Cuppa.
-Cuppa still owns the sconscript graph: `Command()` configure/build steps, optional `Install()`,
-then `PublishPackage()`. Map Cuppa's active toolchain and variant into CMake flags so
-`--dbg` / `--rel` / `--cov` and `--toolchains=` produce matching external builds instead of
-always forcing `Release` and a hard-coded compiler path.
+Some packages are **built** outside Cuppa's usual ``BuildStaticLib`` /
+``BuildSharedLib`` path and only *packaged* by Cuppa. Common shapes:
+
+* **Cuppa-native publisher** — ``Build*`` / ``Install`` / ``PublishPackage`` in the
+  same sconscript (no external meta-build)
+* **CMake** — Cuppa owns the sconscript graph; configure/build/install are
+  ``CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` (or raw ``Command()``)
+* **Boost.b2 or another tool** — wrap with ``Command()`` (and register
+  ``env.Clean`` on out-of-tree build dirs when cascade ``-c`` should remove them)
+
+Cascade does not care which of these built the payload; nested sessions always
+run ``cuppa … --publish-package`` in the publisher tree. The rest of this
+section focuses on the **CMake** pattern because it is the most common external
+case and needs toolchain/variant mapping.
+
+For CMake publishers, map Cuppa's active toolchain and variant into CMake flags so
+``--dbg`` / ``--rel`` / ``--cov`` and ``--toolchains=`` produce matching external
+builds instead of always forcing ``Release`` and a hard-coded compiler path.
 
 Use xref:methods/custom-commands.adoc[Custom commands] when you need a raw
-`Command()`, but prefer **`env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`**
+``Command()``, but prefer **``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall``**
 for the usual configure → build → install graph. Those methods wrap
-`cuppa.buildsys.cmake` (Option B argv helpers) and `cuppa.utility.command.run` so
-`CMAKE_BUILD_TYPE` / `CMAKE_CXX_COMPILER` track the active variant and toolchain,
-and `CMakeBuild` passes ``cmake --build --parallel N`` with the **same**
+``cuppa.buildsys.cmake`` (Option B argv helpers) and ``cuppa.utility.command.run`` so
+``CMAKE_BUILD_TYPE`` / ``CMAKE_CXX_COMPILER`` track the active variant and toolchain,
+and ``CMakeBuild`` passes ``cmake --build --parallel N`` with the **same**
 ``N`` as Cuppa ``--parallel`` / ``env['job_count']`` (affinity-sized, never
 bare ``--parallel``), or ``--parallel 1`` when Cuppa ``--parallel`` is off.
 Pass ``jobs=False`` on ``CMakeBuild`` to omit ``--parallel`` and leave the
 generator default. Pair with xref:methods/staging-files.adoc[Staging files]
-when you need `Install()` into a package layout under `final/`.
+when you need ``Install()`` into a package layout under ``final/``.
 
-Lower-level: `cmake_configure_command` / `cmake_build_command` remain available if
-you must hand-wire `env.Command` yourself.
+Lower-level: ``cmake_configure_command`` / ``cmake_build_command`` remain available if
+you must hand-wire ``env.Command`` yourself.
 
 ==== Acquiring upstream source (`DownloadExtract`)
 
