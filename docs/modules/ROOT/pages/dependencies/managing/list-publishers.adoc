@@ -4,15 +4,22 @@
 [#list-publishers]
 == Listing publisher trees
 
-`--list-publishers` walks the **in-force publisher root** and prints a table of
-working copies cascade can reuse: size, branch, cleanliness, and path.
+`--list-publishers` walks the **in-force publisher root** and prints a
+`--list-develop`-shaped report of working copies cascade can reuse: ruled
+STATUS table (with SIZE for reclaim), BRANCH, UPSTREAM, STATE, PATH, a severity
+summary, a judgement tree for non-ok rows, and an `--update-publishers`
+fast-forward hint when any tree is clean and behind.
 
 The root is `--publisher-root` when you set it, otherwise
 `<storage-root>/publishers` (for example `~/.cuppa/publishers`). That matches
 where `--clone-publishers` writes and where `--update-publishers` fast-forwards.
-Configured `develop=` trees stay on `--list-develop`; if a forest path happens
-to be the same real path as a develop working copy, the STATUS column shows
-`develop` and `--remove-publishers` will skip it.
+Configured `develop=` trees stay on `--list-develop`; if a forest path matches a
+develop working copy, the list adds a **note** and `--remove-publishers` will
+skip it.
+
+`--list-format=json` carries the same fields as develop entries where they
+overlap (`status`, `severity`, `notes`, `branch`, `upstream`, …) plus
+`size_bytes` / `develop_linked` / `would_update`.
 
 [source,shell]
 ----
@@ -20,6 +27,10 @@ cuppa -Q -D --list-publishers
 cuppa -Q -D --list-publishers --list-format=json
 cuppa -Q -D --list-publishers --publisher-root=/path/to/forest
 ----
+
+A publishers **section on** `--list-dependencies` (tip-relative referenced vs
+orphan forest trees) is not in this command — see the cascade design plan,
+question 1b.
 
 [#remove-publishers]
 == Removing publisher trees

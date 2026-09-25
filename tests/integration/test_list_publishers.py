@@ -56,9 +56,12 @@ def test_list_and_remove_publishers( tmp_path ):
     assert_success( listed )
     text = strip_ansi( listed.stdout )
     assert 'Publishers in' in text
+    assert 'STATUS' in text
+    assert 'UPSTREAM' in text
     assert 'capy' in text
     assert 'corosio' in text
     assert '2 publisher trees' in text
+    assert 'Ahead and behind are relative to your last fetch' in text
 
     as_json = run_cuppa(
             project,

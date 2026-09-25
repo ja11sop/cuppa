@@ -86,14 +86,21 @@ def test_list_publishers_json_and_text( tmp_path, monkeypatch ):
     payload = json.loads( out.getvalue() )
     assert payload['tree_count'] == 1
     assert payload['entries'][0]['name'] == 'capy'
+    assert payload['entries'][0]['status'] == 'warn'
+    assert 'notes' in payload['entries'][0]
 
     env['list_format'] = 'text'
     out = io.StringIO()
     assert publisher_actions.list_publishers( None, env, out=out ) == 0
     text = out.getvalue()
     assert 'Publishers in' in text
+    assert 'STATUS' in text
+    assert 'SIZE' in text
+    assert 'UPSTREAM' in text
     assert 'capy' in text
     assert '1 publisher tree' in text
+    assert 'not a working copy' in text
+    assert 'Ahead and behind are relative to your last fetch' in text
 
 
 def test_remove_publishers_skips_develop_linked( tmp_path, monkeypatch ):

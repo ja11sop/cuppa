@@ -9,9 +9,9 @@
 
 """Inspect and reclaim git publisher trees under the in-force publisher root.
 
-Sibling surface to ``--list-downloads`` / ``--remove-dependencies``: same storage-action
-family and report conventions, different root (``publisher_lookup_root``), so containment
-never crosses into ``dependencies_root``.
+Sibling storage-action flags to ``--list-downloads`` / ``--remove-dependencies`` (different
+root + containment). The list report matches ``--list-develop`` chrome (ruled STATUS table,
+judgement tree, update hint) with an added SIZE column for reclaim.
 """
 
 from __future__ import annotations
@@ -19,13 +19,29 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections import namedtuple
 
 from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued, as_warning
 from cuppa.utility import storage
+from cuppa.utility.storage import (
+        WIDEST_PROSE,
+        emphasised_count_phrase,
+        format_severity_count_brackets,
+        highlight_values,
+        wrapped,
+)
 
 logger = logging.getLogger( __name__ )
 
 INDENT = "  "
+RULE = "-"
+
+COLUMNS = ( "STATUS", "SIZE", "PUBLISHER", "BRANCH", "UPSTREAM", "STATE", "PATH" )
+
+PublisherEntry = namedtuple(
+        'PublisherEntry',
+        [ 'copy', 'severity', 'notes', 'status', 'size', 'size_bytes', 'develop_linked' ],
+)
 
 
 def add_publisher_action_options( add_option ):
@@ -93,24 +109,52 @@ def _develop_realpaths( cuppa_env ) -> set[str]:
     return paths
 
 
+def _branch_context( cuppa_env ):
+    """Tip branch context for develop-style classify; defaults when unset in unit tests."""
+    from cuppa import develop
+    current = cuppa_env.get( 'current_branch' ) or 'master'
+    default = cuppa_env.get( 'location_default_branch' ) or 'master'
+    try:
+        base = develop.effective_base_branch( cuppa_env )
+    except Exception:
+        base = default
+    if not base:
+        base = default
+    return current, default, base
+
+
 def collect_publisher_rows( cuppa_env ):
-    """Return listing data for ``--list-publishers``."""
+    """Return listing data for ``--list-publishers`` (copies + sizes + develop-linked)."""
     from cuppa.package_managers import package_cascade
-    from cuppa.develop import inspect, state_summary
+    from cuppa.develop import (
+            NOTE,
+            STATUS_FOR,
+            classify,
+            inspect,
+            update_action,
+            worst,
+    )
 
     root = package_cascade.publisher_lookup_root( cuppa_env )
     develop_paths = _develop_realpaths( cuppa_env )
-    rows = []
-    skips = []
+    current_branch, default_branch, base_branch = _branch_context( cuppa_env )
+    entries = []
+    copies = []
     total_bytes = 0
 
     if not os.path.isdir( root ):
         return {
                 'publishers_root': root,
-                'rows': rows,
+                'entries': entries,
+                'copies': copies,
+                'rows': [],  # compat for remove_publishers
                 'total_bytes': 0,
                 'tree_count': 0,
-                'skips': skips,
+                'worst_severity': 'ok',
+                'would_update': [],
+                'current_branch': current_branch,
+                'default_branch': default_branch,
+                'base_branch': base_branch,
         }
 
     try:
@@ -134,122 +178,259 @@ def collect_publisher_rows( cuppa_env ):
         size_bytes = int( storage.directory_size( path ) or 0 )
         total_bytes += size_bytes
         develop_linked = real in develop_paths
-        rows.append( {
-                'name': name,
-                'path': path,
-                'real_path': real,
-                'size_bytes': size_bytes,
-                'size': storage.human_size( size_bytes ),
-                'branch': (
-                        "(detached)" if observed.detached
-                        else ( observed.branch or "-" )
-                ),
-                'upstream': observed.upstream or "-",
-                'state': state_summary( observed ),
-                'scm': observed.scm or "-",
-                'exists': bool( observed.exists ),
-                'modified': bool( observed.modified ),
-                'develop_linked': develop_linked,
-                'status': 'develop' if develop_linked else 'ok',
-        } )
+        classification = classify(
+                observed, current_branch, default_branch, base_branch=base_branch,
+        )
+        notes = list( classification.notes )
+        severity = classification.severity
+        if develop_linked:
+            notes.append(
+                    "matches a configured develop= path; use --list-develop / "
+                    "--update-develop for that working copy, and --remove-publishers "
+                    "will skip it"
+            )
+            severity = worst( [ severity, NOTE ] )
+        entry = PublisherEntry(
+                copy=observed,
+                severity=severity,
+                notes=notes,
+                status=STATUS_FOR[severity],
+                size=storage.human_size( size_bytes ),
+                size_bytes=size_bytes,
+                develop_linked=develop_linked,
+        )
+        entries.append( entry )
+        copies.append( observed )
+
+    would_update = [
+            copy.name for copy in copies if update_action( copy ).act
+    ]
+
+    # Flat rows for remove_publishers / older callers.
+    rows = [
+            {
+                    'name': entry.copy.name,
+                    'path': entry.copy.path,
+                    'real_path': (
+                            storage.real_path( entry.copy.path )
+                            if entry.copy.path and os.path.exists( entry.copy.path )
+                            else entry.copy.path
+                    ),
+                    'size_bytes': entry.size_bytes,
+                    'size': entry.size,
+                    'branch': (
+                            "(detached)" if entry.copy.detached
+                            else ( entry.copy.branch or "-" )
+                    ),
+                    'upstream': entry.copy.upstream or "-",
+                    'state': entry.status,
+                    'status': entry.status,
+                    'develop_linked': entry.develop_linked,
+                    'modified': bool( entry.copy.modified ),
+                    'scm': entry.copy.scm or "-",
+                    'exists': bool( entry.copy.exists ),
+            }
+            for entry in entries
+    ]
 
     return {
             'publishers_root': root,
+            'entries': entries,
+            'copies': copies,
             'rows': rows,
             'total_bytes': total_bytes,
-            'tree_count': len( rows ),
-            'skips': skips,
+            'tree_count': len( entries ),
+            'worst_severity': worst( [ e.severity for e in entries ] ) if entries else 'ok',
+            'would_update': would_update,
+            'current_branch': current_branch,
+            'default_branch': default_branch,
+            'base_branch': base_branch,
     }
 
 
+def _row_cells( entry: PublisherEntry ):
+    from cuppa.develop import state_summary
+    from cuppa.utility.storage import display_path
+    copy = entry.copy
+    return (
+            entry.status,
+            entry.size or "-",
+            copy.name,
+            copy.detached and "(detached)" or ( copy.branch or "-" ),
+            copy.upstream or "-",
+            state_summary( copy ),
+            display_path( copy.path ),
+    )
+
+
+def _plain_table_lines( entries ):
+    rows = [ COLUMNS ] + [ _row_cells( entry ) for entry in entries ]
+    widths = [ max( len( row[column] ) for row in rows ) for column in range( len( COLUMNS ) ) ]
+    return [
+            INDENT + "  ".join(
+                    value.ljust( width ) for value, width in zip( row, widths )
+            ).rstrip()
+            for row in rows
+    ]
+
+
+def _table_width( entries ):
+    return max( len( line ) for line in _plain_table_lines( entries ) )
+
+
+def _emphasis( severity, text ):
+    from cuppa.develop import COLOUR_FOR, NOTE, OK
+    coloured = COLOUR_FOR[severity]( text )
+    return as_subdued( coloured ) if severity in ( OK, NOTE ) else coloured
+
+
+def _render_ruled_table( entries ):
+    rows = _plain_table_lines( entries )
+    rule = as_subdued( INDENT + RULE * ( _table_width( entries ) - len( INDENT ) ) )
+    lines = [ rule, rows[0], rule ]
+    for entry, row in zip( entries, rows[1:] ):
+        lines.append( _emphasis( entry.severity, row ) )
+    lines.append( rule )
+    return lines
+
+
+def _summary_line( entries, total_bytes ):
+    from cuppa.develop import ERROR, NOTE, OK, WARNING, plural
+    counts = { OK: 0, NOTE: 0, WARNING: 0, ERROR: 0 }
+    for entry in entries:
+        counts[entry.severity] += 1
+    head = emphasised_count_phrase( len( entries ), "publisher tree" )
+    brackets = format_severity_count_brackets(
+            errors=counts[ERROR],
+            warnings=counts[WARNING],
+            notes=counts[NOTE],
+    )
+    return "{}: {}; {}; {} total".format(
+            head,
+            brackets,
+            plural( counts[OK], "ok" ),
+            storage.human_size( total_bytes ),
+    )
+
+
+def _update_suggestion( would_update ):
+    if not would_update:
+        return None
+    return (
+            "Of these, --update-publishers would fast-forward {} ({}) as of your last "
+            "fetch; it fetches first, so it may find more".format(
+                    len( would_update ),
+                    ", ".join( "[{}]".format( name ) for name in would_update ),
+            )
+    )
+
+
 def write_list_publishers_report( out, data ):
-    """Human-readable ``--list-publishers`` body."""
+    """Human-readable ``--list-publishers`` body (develop chrome + SIZE)."""
+    from cuppa.develop import render_judgements
+
     root = data.get( 'publishers_root' )
-    rows = data.get( 'rows' ) or []
+    entries = data.get( 'entries' ) or []
     out.write( "\n" )
     out.write( "Publishers in {}\n".format(
             as_info( storage.display_path( root ) ) if root else '-'
     ) )
+    out.write( "\n" )
 
-    if not rows:
+    if not entries:
         out.write( "{}(empty)\n".format( INDENT ) )
         out.write( "{}0 publisher trees, {} total\n".format(
                 INDENT, storage.human_size( 0 ),
         ) )
         return
 
-    columns = (
-            ( 'status', 'STATUS' ),
-            ( 'size', 'SIZE' ),
-            ( 'name', 'PUBLISHER' ),
-            ( 'branch', 'BRANCH' ),
-            ( 'state', 'STATE' ),
-            ( 'path', 'PATH' ),
-    )
-    table_rows = []
-    for row in rows:
-        table_rows.append( {
-                'status': row.get( 'status' ) or 'ok',
-                'size': row.get( 'size' ) or '-',
-                'name': row.get( 'name' ) or '-',
-                'branch': row.get( 'branch' ) or '-',
-                'state': row.get( 'state' ) or '-',
-                'path': storage.display_path( row.get( 'path' ) ),
-        } )
-    for line in storage.render_table( columns, table_rows ):
-        out.write( INDENT + line + "\n" )
+    for line in _render_ruled_table( entries ):
+        out.write( line + "\n" )
 
-    out.write( "{}{} publisher {}, {} total\n".format(
-            INDENT,
-            data.get( 'tree_count' ) or 0,
-            "tree" if ( data.get( 'tree_count' ) or 0 ) == 1 else "trees",
-            storage.human_size( data.get( 'total_bytes' ) or 0 ),
-    ) )
-    if any( row.get( 'develop_linked' ) for row in rows ):
+    out.write( "\n" )
+    out.write( _summary_line( entries, data.get( 'total_bytes' ) or 0 ) + "\n" )
+
+    # Adapt PublisherEntry to the shape render_judgements expects (Entry with .copy.name).
+    judgement_entries = [
+            type( 'E', (), {
+                    'copy': entry.copy,
+                    'severity': entry.severity,
+                    'notes': entry.notes,
+                    'status': entry.status,
+            } )()
+            for entry in entries
+    ]
+    width = min( _table_width( entries ), WIDEST_PROSE )
+    for line in render_judgements( judgement_entries, width ):
+        out.write( line + "\n" )
+
+    out.write( "\n" )
+    out.write( "Ahead and behind are relative to your last fetch; no remote was contacted\n" )
+
+    advice = _update_suggestion( data.get( 'would_update' ) or [] )
+    if advice:
+        for piece in wrapped( advice, width ):
+            out.write( highlight_values( piece, as_info ) + "\n" )
+
+    if any( entry.develop_linked for entry in entries ):
         out.write( "\n" )
         out.write(
-                "STATUS develop means this forest path matches a configured develop= "
-                "working copy — use --list-develop / --update-develop; "
-                "--remove-publishers will skip it.\n"
+                "A note of develop-linked means this forest path matches a configured "
+                "develop= working copy — prefer --list-develop / --update-develop for "
+                "that copy; --remove-publishers will skip it.\n"
         )
 
 
 def list_publishers( construct, cuppa_env, out=None ):
-    """``--list-publishers``. Always exits 0 unless a storage error is raised."""
-    del construct  # resolve is not required; forest is disk-only
+    """``--list-publishers``. Non-zero when any forest tree has error severity."""
+    del construct  # forest is disk-only
+    from cuppa.develop import ERROR
+
     out = out or sys.stdout
     list_format = cuppa_env.get( 'list_format' ) or 'text'
-    if list_format != 'json':
-        out.write( as_subdued( "Collating publishers tree..." ) + "\n" )
     data = collect_publisher_rows( cuppa_env )
 
     if list_format == 'json':
+        from cuppa.develop import state_summary
         payload = {
                 'publishers_root': data.get( 'publishers_root' ),
                 'tree_count': data.get( 'tree_count' ) or 0,
                 'total_bytes': data.get( 'total_bytes' ) or 0,
+                'current_branch': data.get( 'current_branch' ),
+                'default_branch': data.get( 'default_branch' ),
+                'base_branch': data.get( 'base_branch' ),
+                'would_update': list( data.get( 'would_update' ) or [] ),
+                'worst_severity': data.get( 'worst_severity' ) or 'ok',
                 'entries': [
                         {
-                                'name': row.get( 'name' ),
-                                'path': row.get( 'path' ),
-                                'size': row.get( 'size' ),
-                                'size_bytes': row.get( 'size_bytes' ),
-                                'branch': row.get( 'branch' ),
-                                'upstream': row.get( 'upstream' ),
-                                'state': row.get( 'state' ),
-                                'scm': row.get( 'scm' ),
-                                'status': row.get( 'status' ),
-                                'develop_linked': bool( row.get( 'develop_linked' ) ),
-                                'modified': bool( row.get( 'modified' ) ),
+                                'name': entry.copy.name,
+                                'path': entry.copy.path,
+                                'display_path': storage.display_path( entry.copy.path ),
+                                'size': entry.size,
+                                'size_bytes': entry.size_bytes,
+                                'exists': bool( entry.copy.exists ),
+                                'is_working_copy': bool( entry.copy.is_working_copy ),
+                                'scm': entry.copy.scm,
+                                'branch': entry.copy.branch,
+                                'detached': bool( entry.copy.detached ),
+                                'upstream': entry.copy.upstream,
+                                'ahead': entry.copy.ahead,
+                                'behind': entry.copy.behind,
+                                'modified': entry.copy.modified,
+                                'severity': entry.severity,
+                                'status': entry.status,
+                                'state': state_summary( entry.copy ),
+                                'notes': list( entry.notes ),
+                                'develop_linked': bool( entry.develop_linked ),
                         }
-                        for row in ( data.get( 'rows' ) or [] )
+                        for entry in ( data.get( 'entries' ) or [] )
                 ],
         }
         out.write( storage.render_json_payload( payload ) + "\n" )
-        return 0
+        return 1 if data.get( 'worst_severity' ) == ERROR else 0
 
     write_list_publishers_report( out, data )
-    return 0
+    return 1 if data.get( 'worst_severity' ) == ERROR else 0
 
 
 def _parse_names( raw ) -> list[str]:
