@@ -626,7 +626,9 @@ info-label chip, with plain detail that resolve/clone runs without build or
 publish. The plan header says **collecting packages**; warnings say make this
 **collect** executable. The finish line counts publisher trees actually gathered
 (``0 publisher trees collected`` when ``--clone-publishers`` was still needed),
-not tip packages.
+not tip packages. When some trees were already on disk and others were cloned in
+this run, the summary names both — for example
+``2 publisher trees collected, 1 newly cloned, 1 reused``.
 
 [#update-publishers]
 ==== Updating publisher trees

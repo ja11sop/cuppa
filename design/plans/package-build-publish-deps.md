@@ -366,7 +366,7 @@ Currency needs its own verb, parallel to `--update-develop`.
 | `-n` / `--no-exec` | Allowed for update-only / collect+update stop modes. **Online dry-run still fetches quietly** so the ACTION table is honest; only the fast-forward is skipped. Offline dry-run falls back to the last observed ahead/behind (“judged from your last update”). Full cascade with nested sessions still refuses `-n`. |
 | `--offline` | Refuse a live update — needs the network. Offline dry-run is allowed (stale judgment). |
 | Pins (`url@branch`) | Update does not switch to the pin. If the working copy is on another branch, leave alone (or FF that branch’s upstream if clean+behind). Pin mismatch stays a report, not a checkout. |
-| Finish / plan visibility | **ACTION** table shared with `--update-develop` (not `--list-develop`’s STATUS severity): live **updated** / **no change** / **left alone**; dry-run **would update** / **no change** / **leave alone**. Quiet fetch so the table is the only update surface. Finish counts trees updated. Collect finish should eventually distinguish **cloned now** vs **reused** (separate polish). |
+| Finish / plan visibility | **ACTION** table shared with `--update-develop` (not `--list-develop`’s STATUS severity): live **updated** / **no change** / **left alone**; dry-run **would update** / **no change** / **leave alone**. Quiet fetch so the table is the only update surface. Finish counts trees updated. Collect finish distinguishes **newly cloned** vs **reused** (question 7). |
 
 ## Phase 2c settled decisions (skip-if-current)
 
@@ -558,7 +558,8 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 5. ~~Cascade under multiple active toolchains~~ — settled under Phase 2c (one nested graph
    per tip command; preserve sibling stems on refresh)
 6. ~~Implementing `--collect-cascade`~~ — shipped
-7. Collect finish: say **reused** vs **cloned** when a forest tree already existed
+7. ~~Collect finish: say **reused** vs **cloned** when a forest tree already existed~~ —
+   **done** (``N collected, M newly cloned, K reused``)
 8. ~~Publisher forest currency~~ — `--update-publishers` (this section)
 9. Exact registry comparison for skip-if-current — **done for 2c**: prefer
    local archive size vs registry ``HEAD`` ``Content-Length``; skip only when
@@ -625,9 +626,10 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 3 consume-site parity | **Done** ([#329](https://github.com/ja11sop/cuppa/pull/329)) |
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
-| Follow-on: tip no-op after metadata-only dependency refresh | **Settled + implemented** (question 11) — ``payload_sha256``; overlay when match; nested archive preferred over registry re-GET ([#333](https://github.com/ja11sop/cuppa/pull/333); corosio→capy soak) |
+| Follow-on: tip no-op after metadata-only dependency refresh | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) (question 11; corosio→capy soak) — not yet in a named release |
 | Follow-on: publishers visibility + layout | Open — questions 1 and 4 (list as `publishers` node; evaluate `package_source`-stem keying) |
-| Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **In #333** — see [Antora documentation](#antora-documentation-297) |
+| Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) — see [Antora documentation](#antora-documentation-297) |
+| Collect finish: reused vs newly cloned | **Done** (question 7) — finish line names both when a collect run mixes forest reuse and clones |
 
 ## Antora documentation (#297)
 
@@ -640,7 +642,7 @@ here and teach *how to run* there. Prefer build-system-agnostic wording (Cuppa
 ``Build*``, CMake, b2, other ``Command()`` graphs) unless a section is explicitly
 about one tool.
 
-### Landed (with Q11 / #333)
+### Landed (Q11 / [#333](https://github.com/ja11sop/cuppa/pull/333) on master)
 
 | Item | Where |
 |------|--------|
@@ -660,7 +662,7 @@ about one tool.
 
 | Item | Blocked on | Notes |
 |------|------------|--------|
-| Collect finish: **reused** vs **cloned** in plan/collect copy | Open question **7** (operator polish PR) | Document the wording in Antora in the same PR as the behaviour |
+| Collect finish: **reused** vs **cloned** in plan/collect copy | ~~Open question **7**~~ **Done** — Antora `#collect-cascade` + CLI `--collect-cascade` |
 | ``publishers`` node on ``--list-*`` / remove / wipe; inventory orphans | Open question **1** | Antora: Managing / CLI report grammar + cascade cold-start “how to see the forest” |
 | Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Update resolve/clone destination tables and cold-start paths in the same change |
 | Build-deps-only without nested upload | Open question **3** (still open) | Do not document as if shipped |
