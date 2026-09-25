@@ -100,6 +100,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--list-dependencies`` no longer paints every child under a missing package
+  identity as an error. When one toolchain leaf is missing (for example the
+  selected ``gcc16`` extract) while siblings exist on disk, only the identity,
+  the version that contains the gap, and the missing leaf are error-coloured;
+  other toolchains, older versions, and ``requires`` edges keep normal paint.
+  Registry URL LOCATION / identity bracket detail is muted so the missing leaf
+  stays the focus.
+
 - Cascade tip consume refresh no longer dirties tip rebuilds when a nested upload
   only changed traveling metadata. Staged ``cuppa-publish.json`` carries
   ``payload_sha256``; matching tip extracts get a JSON overlay (and nested

@@ -402,6 +402,7 @@ def _gitlab_children( leaves_in ):
         if requires_node is not None:
             tool_children.append( requires_node )
         missing_only = bool( missing ) and used == 0 and missing == len( variants )
+        has_missing_leaf = bool( missing )
         remark = _remark_for_used( used ) if used else ''
         children.append( {
             'kind': 'version',
@@ -412,6 +413,8 @@ def _gitlab_children( leaves_in ):
             # Registry URL is not a downloads-root archive — [D] belongs on toolchain leaves.
             'location': version_location,
             'has_download': version_has_download,
+            'missing': missing_only,
+            'has_missing_leaf': has_missing_leaf,
             'children': tool_children,
         } )
     return children
@@ -860,7 +863,7 @@ def _remove_row_fields( label, size, last_used, remark, location ):
     return label, size, last_used, remark, location
 
 
-def _error_row_fields( label, size, last_used, remark, location ):
+def _error_row_fields( label, size, last_used, remark, location, mute_location=False ):
     if label:
         label = as_error( label )
     if size.strip():
@@ -870,7 +873,7 @@ def _error_row_fields( label, size, last_used, remark, location ):
     if remark:
         remark = as_error( remark )
     if location:
-        location = as_error( location )
+        location = as_subdued( location ) if mute_location else as_error( location )
     return label, size, last_used, remark, location
 
 
@@ -888,12 +891,19 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
     rows = []
     tee, elbow, pipe, gap = storage.glyphs()
 
-    def walk( node, prefix, is_last, is_root=False, section=None, under_missing=False ):
+    def walk( node, prefix, is_last, is_root=False, section=None ):
         kind = node.get( 'kind' )
         if kind == 'section':
             section = node.get( 'label' )
         missing_identity = bool( kind == 'identity' and node.get( 'missing' ) )
-        row_missing = under_missing or missing_identity
+        missing_version = bool(
+                kind == 'version'
+                and ( node.get( 'has_missing_leaf' ) or node.get( 'missing' ) )
+        )
+        leaf_missing = bool(
+                kind == 'leaf'
+                and ( node.get( 'state' ) == 'missing' or node.get( 'remark' ) == 'missing' )
+        )
         state = node.get( 'state' )
         remark = node.get( 'remark' ) or ''
         if kind == 'spacer':
@@ -912,7 +922,8 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 '_label_name': None,
                 '_label_detail': None,
                 '_missing_identity': False,
-                '_under_missing': under_missing,
+                '_missing_version': False,
+                '_leaf_missing': False,
             } )
             return
         if is_root:
@@ -946,16 +957,18 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_label_name': node.get( 'label_name' ),
             '_label_detail': node.get( 'label_detail' ),
             '_missing_identity': missing_identity,
-            '_under_missing': row_missing,
+            '_missing_version': missing_version,
+            '_leaf_missing': leaf_missing,
             '_removal_candidate': node.get( 'removal_candidate' ),
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
-        child_missing = under_missing or missing_identity
+        # Do not cascade missing paint to siblings: only the identity, versions that
+        # contain a missing leaf, and the missing leaf itself are error-coloured.
         for index, child in enumerate( children ):
             walk(
                     child, child_prefix, index == len( children ) - 1,
-                    is_root=False, section=section, under_missing=child_missing,
+                    is_root=False, section=section,
             )
 
     sections = [
@@ -977,7 +990,8 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 '_label_name': None,
                 '_label_detail': None,
                 '_missing_identity': False,
-                '_under_missing': False,
+                '_missing_version': False,
+                '_leaf_missing': False,
             } )
         walk( section, '', True, is_root=True )
 
@@ -1012,10 +1026,11 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             continue
 
         if row.get( '_missing_identity' ):
-            # Missing dependency name: emphasised error; bracket detail error (not emphasised).
+            # Missing dependency name: emphasised error; registry URL detail/LOCATION muted
+            # so the gap (missing leaf) stays the visual focus.
             if label_name:
                 label = _colour_identity_label(
-                        label_name, label_detail, _emphasised_error, detail_accent=as_error
+                        label_name, label_detail, _emphasised_error, detail_accent=as_subdued
                 )
             else:
                 label = _emphasised_error( label ) if label else label
@@ -1024,9 +1039,15 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             if last_used:
                 last_used = as_error( last_used )
             if location:
-                location = as_error( location )
-        elif row.get( '_under_missing' ) or remark == 'missing' or row.get( '_state' ) == 'missing':
-            # Subnodes under a missing dependency: error, not emphasised.
+                location = as_subdued( location )
+        elif row.get( '_missing_version' ):
+            # Version that contains a missing toolchain leaf: error on the version row only;
+            # mute registry LOCATION; sibling toolchains paint normally.
+            label, size, last_used, remark, location = _error_row_fields(
+                    label, size, last_used, remark, location, mute_location=True
+            )
+        elif row.get( '_leaf_missing' ) or remark == 'missing' or row.get( '_state' ) == 'missing':
+            # The missing leaf itself (and any other row that is itself missing).
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location
             )
