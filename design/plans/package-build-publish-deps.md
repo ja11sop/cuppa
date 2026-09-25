@@ -625,5 +625,51 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 3 consume-site parity | **Done** ([#329](https://github.com/ja11sop/cuppa/pull/329)) |
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
-| Follow-on: tip no-op after metadata-only dependency refresh | **Settled + implemented** (question 11) — ``payload_sha256``; overlay when match; nested archive preferred over registry re-GET |
+| Follow-on: tip no-op after metadata-only dependency refresh | **Settled + implemented** (question 11) — ``payload_sha256``; overlay when match; nested archive preferred over registry re-GET ([#333](https://github.com/ja11sop/cuppa/pull/333); corosio→capy soak) |
 | Follow-on: publishers visibility + layout | Open — questions 1 and 4 (list as `publishers` node; evaluate `package_source`-stem keying) |
+| Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **In #333** — see [Antora documentation](#antora-documentation-297) |
+
+## Antora documentation (#297)
+
+Operator docs live primarily under
+[`docs/modules/ROOT/pages/packages.adoc`](../../docs/modules/ROOT/pages/packages.adoc)
+(`#build-and-publish-dependencies` and children) and
+[`cli/dependencies-and-develop.adoc`](../../docs/modules/ROOT/pages/cli/dependencies-and-develop.adoc).
+Do **not** paste Phase tables or open design questions into Antora; keep rationale
+here and teach *how to run* there. Prefer build-system-agnostic wording (Cuppa
+``Build*``, CMake, b2, other ``Command()`` graphs) unless a section is explicitly
+about one tool.
+
+### Landed (with Q11 / #333)
+
+| Item | Where |
+|------|--------|
+| Companion-action table + refuse rules | `packages.adoc` cascade hub |
+| Mermaid: enable→companion; leaf-first algorithm; tip refresh / ``payload_sha256`` | same |
+| **Real cascade runs** section (skip-if-current, ``--force``, overlay, offline nested archive, multi-toolchain, clean) | `#cascade-run` — moved out from under Updating publisher trees |
+| Escape ``\{root}/\{name}`` (AsciiDoc attribute warns) | cascade resolve bullet |
+| Cold-start recipe + mermaid; honest “no ``--list-publishers`` yet” | `#cascade-cold-start` |
+| Example traveling ``cuppa-publish.json`` (incl. ``payload_sha256``) | Declaring transitive dependencies |
+| External **build** framing (Cuppa-native / CMake / b2); CMake remains the deep example | `#publishing-from-external-cmake` |
+| Amend / tip-refresh wording not CMake-only | amend + `#cascade-run` |
+| CLI: ``--force``, ``--update-publishers``, clearer ``--publisher-root`` / amend | `cli/dependencies-and-develop.adoc` |
+| Dependencies hub row → cascade | `dependencies.adoc` |
+| ROADMAP Phase 4 “done on master” + Q11 cite | `ROADMAP.md` |
+
+### Defer until product behaviour lands
+
+| Item | Blocked on | Notes |
+|------|------------|--------|
+| Collect finish: **reused** vs **cloned** in plan/collect copy | Open question **7** (operator polish PR) | Document the wording in Antora in the same PR as the behaviour |
+| ``publishers`` node on ``--list-*`` / remove / wipe; inventory orphans | Open question **1** | Antora: Managing / CLI report grammar + cascade cold-start “how to see the forest” |
+| Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Update resolve/clone destination tables and cold-start paths in the same change |
+| Build-deps-only without nested upload | Open question **3** (still open) | Do not document as if shipped |
+| Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |
+
+### Editorial rules (ongoing)
+
+* No “Slice F” / plan phase names in Antora — say “deferred registry 404” / first-publish deferral.
+* Tip consume refresh dirties **tip rebuild tools**, not “tip CMake” unless the example is CMake.
+* Intro bullets must not claim tip cache is always wiped; only after nested **upload** or ``--force``.
+* GitLab cascade only — Conan out of scope (already stated on the hub).
+

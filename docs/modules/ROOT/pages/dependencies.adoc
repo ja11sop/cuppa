@@ -42,4 +42,9 @@ model, then choose the detailed page for the dependency kind or workflow you nee
 
 | Publish a Cuppa-built library
 | xref:packages.adoc[Publishing packages]
+
+| Cascade nest-publish (GitLab package DAG)
+| xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes] ·
+  xref:packages.adoc#cascade-consume-only[Consume-only tips] ·
+  xref:packages.adoc#cascade-cold-start[Cold start]
 |===

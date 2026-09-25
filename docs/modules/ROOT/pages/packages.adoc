@@ -191,7 +191,7 @@ Cuppa then:
   xref:#cascade-develop[``develop`` tree] when you pass ``--develop``, else
   ``package_source`` (filesystem path), else an existing tree under
   ``--publisher-root`` or the default ``<storage-root>/publishers`` forest
-  (``{root}/{name}``, ``{root}/{package}``, or one nesting level), cloning from
+  (``\{root}/\{name}``, ``\{root}/\{package}``, or one nesting level), cloning from
   a ``package_source`` URL when you pass ``--clone-publishers``
 * Runs a nested ``cuppa -D … --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
@@ -283,6 +283,50 @@ The last form nest-publishes the package DAG (nested sessions still pass
 Use ``--publish-package`` instead of ``--publish-cascade-dependencies`` only when
 the tip itself should upload.
 
+[#cascade-cold-start]
+==== Cold start (empty publishers forest)
+
+On a new machine, OS identity, or empty ``<storage-root>/publishers`` forest,
+review the graph before cloning or uploading:
+
+[mermaid]
+....
+flowchart TD
+  plan["--cascade-plan"]
+  collect["--collect-cascade --clone-publishers"]
+  update["Optional --update-publishers"]
+  publish["Publish companion action"]
+  plan --> collect --> update --> publish
+....
+
+[source,shell]
+----
+# 1. Review URLs and destinations (no clone, no upload)
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --cascade-plan \
+  --publisher-root=~/coding/packages
+
+# 2. Clone missing URL package_source trees into the forest
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --collect-cascade --clone-publishers \
+  --publisher-root=~/coding/packages
+
+# 3. Optional: fast-forward clean forest trees that are behind
+cuppa -D --rel --toolchains=gcc15 \
+  --build-and-publish-dependencies --update-publishers
+
+# 4. Nest-publish (and tip upload or tip build)
+cuppa -D --rel --toolchains=gcc15 \
+  --publish-package --build-and-publish-dependencies \
+  --publisher-root=~/coding/packages
+----
+
+Match ``--toolchain-identity`` / package GitLab OS identity flags to the archives
+you intend to publish when the tip and nested sessions must share one identity.
+``--clone-publishers`` and live ``--update-publishers`` refuse ``--offline``.
+There is not yet a ``--list-publishers`` / ``publishers`` node on the storage
+listing grammar — the forest is visible via plan/collect output and the
+filesystem until that lands (see the cascade design plan, open questions 1 / 4).
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in
@@ -757,6 +801,36 @@ publisher = GitlabPackagePublisher(
 )
 env.PublishPackage(lib, publisher)
 ----
+
+Example traveling ``cuppa-publish.json`` staged beside ``include/`` / ``lib/``
+(and seeded beside the publisher ``sconstruct`` for cascade discovery).
+``payload_sha256`` is written when the stage has payload trees; publisher-tree
+seeds without ``include/`` / ``lib/`` omit it:
+
+[source,json]
+----
+{
+  "cuppa_publish_format": 1,
+  "package": "widget",
+  "version": "1.0.0",
+  "dependencies": [
+    {
+      "name": "fmt",
+      "package": "fmt",
+      "version": "12.2.0",
+      "registry": "same",
+      "package_source": "git@gitlab.example:org/packages/fmt.git"
+    }
+  ],
+  "default_use_libs": [ "widget" ],
+  "payload_sha256": "7c89d70e8676490b63128a68f0c5318c96ae038bc9f54e3162ea97880ccdccde"
+}
+----
+
+The same file drives **consume** transitive ``BuildWith`` closure and **cascade**
+DAG expansion. See
+xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies]
+and xref:#cascade-run[Real cascade runs] (``payload_sha256`` overlay).
 
 Consumers that ``BuildWith`` / link **A** pick up **B** from the manifest — see
 xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
