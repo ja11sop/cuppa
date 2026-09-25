@@ -2489,11 +2489,11 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                         trees_collected, "publisher tree", "publisher trees"
                 )
         )
+        reused = max( 0, trees_collected - clones )
         if clones:
-            summary = "{}, {} newly cloned".format(
-                    summary,
-                    _plain_count_phrase( clones, "publisher tree", "publisher trees" ),
-            )
+            summary = "{}, {} newly cloned".format( summary, clones )
+        if reused:
+            summary = "{}, {} reused".format( summary, reused )
         if trees_updated:
             summary = "{}, {} updated".format(
                     summary,

@@ -76,6 +76,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ``--collect-cascade`` finish lines name **newly cloned** vs **reused** publisher
+  trees when a collect run mixes forest reuse and clones (for example
+  ``2 publisher trees collected, 1 newly cloned, 1 reused``). Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 7 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - ``--cascade-plan`` node judgements keep remedies local (``pass --develop to use
   this existing tree``, ``pass --clone-publishers to fetch it`` / ``to clone into
   […]``). The finish-line remedy tree always names how to proceed: when every

@@ -201,7 +201,8 @@ xref:packages.adoc#cascade-plan[Checking the plan before anything uploads].
 `--collect-cascade` resolves the same graph and stops without building or publishing.
 It requires `--build-and-publish-dependencies`, but not `--publish-package`. It only
 **reuses** publisher trees already on disk unless you also pass `--clone-publishers`
-(permission to clone missing URL `package_source` trees). If the publishers root is
+(permission to clone missing URL `package_source` trees). The finish line reports
+**newly cloned** vs **reused** counts when both happened. If the publishers root is
 already populated, collect alone is enough; clone is the cold-start / missing-tree
 opt-in. It is not `--publish-package -n` (a full cascade refuses `-n` / `--no-exec`
 because nested sessions still configure). See

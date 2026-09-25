@@ -589,7 +589,8 @@ def test_collect_cascade_clones_then_stops_without_nested_publish(
     text = out.getvalue()
     assert "--collect-cascade:" in text
     assert "1 publisher tree collected" in text
-    assert "newly cloned" in text
+    assert "1 newly cloned" in text
+    assert "reused" not in text
     assert "nothing was built, published, or uploaded" in text
     assert "nothing was collected" not in text
 
@@ -684,6 +685,7 @@ def test_collect_cascade_reuses_an_existing_publisher_tree( tmp_path, monkeypatc
     assert cascade.finish_cascade_stop( env, out=out ) == 0
     text = out.getvalue()
     assert "1 publisher tree collected" in text
+    assert "1 reused" in text
     assert "newly cloned" not in text
     assert "nothing was built, published, or uploaded" in text
     assert "nothing was collected" not in text
