@@ -164,17 +164,19 @@ build in that develop tree.
 uploading. Nested `--stage-develop` sessions pass it; you can also pass it on a
 publisher tree yourself. It cannot be combined with `--publish-package`.
 
-`--amend-package-manifest` rewrites `cuppa-publish.json` from the publisher kwargs,
-retars from an existing stage or registry archive, and skips DownloadExtract / CMake
-rebuild. Pair with `--publish-package` to upload. See
+`--amend-package-manifest` rewrites `cuppa-publish.json` from the publisher kwargs
+and retars from an existing stage or registry archive without running the
+publisher's usual acquire/build/install graph (Cuppa's DownloadExtract and
+CMake* methods no-op; other `Command()` graphs should follow the same pattern if
+they participate). Pair with `--publish-package` to upload. See
 xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
 `--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
 Pair with a companion action: `--publish-package` (nested publish + tip upload),
 `--publish-cascade-dependencies` (nested publish, tip build only — consume-only
 and publisher tips), or a stop mode (`--cascade-plan` / `--collect-cascade` /
-`--update-publishers`). Optional `--publisher-root=` resolves trees when
-`package_source` is omitted. See
+`--update-publishers`). Optional `--publisher-root=PATH` overrides the default
+`<storage-root>/publishers` forest when resolving trees. See
 xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
 and xref:packages.adoc#cascade-consume-only[Consume-only tips].
 
@@ -228,6 +230,17 @@ holding work only this machine has: uncommitted changes, unpushed commits, or a 
 with no upstream — whether that tree is a `--develop` copy, a `--publisher-root`
 forest entry, or a `--clone-publishers` clone. Without it, such a run stops before the
 first upload and names every offending tree.
+
+`--force` (with cascade) rebuilds and uploads every nested node even when
+skip-if-current would report `skipped (current)`, and refreshes the tip consume
+cache afterward. It is forwarded into nested sessions. Do not confuse it with
+wipe / purge `--force-*` options. See
+xref:packages.adoc#cascade-run[Real cascade runs].
+
+`--update-publishers` fast-forwards clean publisher-forest trees that are behind
+upstream (same gates as `--update-develop`). Requires the cascade enable flag.
+Refuse with `--cascade-plan` or `--offline` for a live update. See
+xref:packages.adoc#update-publishers[Updating publisher trees].
 
 == Built-in Boost options
 

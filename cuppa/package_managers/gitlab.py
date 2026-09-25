@@ -970,7 +970,10 @@ class GitlabPackagePublisher:
         logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
         try:
             from cuppa.package_managers.package_cascade import record_nested_upload
-            record_nested_upload()
+            record_nested_upload(
+                    package_dir=str( self._package_base_dir ),
+                    archive_path=str( self._package_archive ),
+            )
         except Exception:
             pass
 

@@ -94,6 +94,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cascade tip consume refresh no longer dirties tip rebuilds when a nested upload
+  only changed traveling metadata. Staged ``cuppa-publish.json`` carries
+  ``payload_sha256``; matching tip extracts get a JSON overlay (and nested
+  archive copy) instead of wipe+re-extract. Nested upload markers store
+  **absolute** stage/archive paths so ``--offline`` tip refresh can install from
+  the nested tarball after invalidate (relative ``_build/…`` paths were invisible
+  from the tip cwd). Antora cascade docs add companion-action tables, mermaid
+  diagrams, and build-system-agnostic wording for tip refresh / amend. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 11.
+
 - GCC ``_resolve_driver`` no longer maps missing ``gcc-ar`` / ``gcc-ranlib`` onto
   bare ``gcc`` (introduced with 1.10 LTO archiver selection). StaticLibrary then
   ran ``gcc rc lib.a …`` and the linker failed looking for ``rc``. Versioned
