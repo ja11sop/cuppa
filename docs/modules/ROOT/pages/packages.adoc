@@ -578,9 +578,16 @@ size equals a successful ``HEAD`` ``Content-Length``, and the extract has
 ``include/``), cascade **skips** that nested session and reports
 ``skipped (current)``. Pass ``--force`` to rebuild and upload every node anyway
 (nested ``PublishPackage`` targets are ``AlwaysBuild``). Tip consume cache is
-invalidated and re-fetched **only after a nested session that actually
-uploaded**, and only for the tip's current toolchain stem — sibling stems under
-``downloads/packages/<pkg>/<ver>/`` stay put. With multiple tip toolchains
+refreshed **only after a nested session that actually uploaded** (or under
+``--force``), and only for the tip's current toolchain stem — sibling stems under
+``downloads/packages/<pkg>/<ver>/`` stay put. Staged packages record a
+``payload_sha256`` in ``cuppa-publish.json`` (digest of ``include/`` / ``lib/``
+and other non-metadata files). When that hash already matches the tip extract,
+cascade **overlays** the new traveling JSON and copies the nested archive into
+the tip downloads cache **without** rewriting ``include/`` / ``lib/``, so tip
+CMake is not dirtied by a metadata-only republish. Otherwise the tip extract is
+invalidated and re-fetched; the nested archive is preferred as the install
+source when available. With multiple tip toolchains
 (``--toolchains=gcc15,gcc16``), the nested publish graph runs **once** per tip
 command (forwarding the full toolchain list), not once per tip variant.
 

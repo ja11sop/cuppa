@@ -1591,6 +1591,33 @@ def test_tip_forward_args_adds_publish_package_and_descend_when_missing():
     ]
 
 
+def test_record_nested_upload_stores_absolute_paths( tmp_path, monkeypatch ):
+    """Tip refresh runs in another cwd — relative nested paths must not be stored."""
+    marker = tmp_path / "marker"
+    marker.mkdir()
+    monkeypatch.setenv( cascade.UPLOAD_MARKER_ENV, str( marker ) )
+    nested = tmp_path / "publisher" / "_build" / "final"
+    nested.mkdir( parents=True )
+    archive = nested / "capy.tar.gz"
+    archive.write_bytes( b"pkg" )
+    package_dir = nested / "capy" / "develop"
+    package_dir.mkdir( parents=True )
+
+    # Simulate nested cwd-relative strings (SCons File str()).
+    monkeypatch.chdir( tmp_path / "publisher" )
+    cascade.record_nested_upload(
+            package_dir="_build/final/capy/develop",
+            archive_path="_build/final/capy.tar.gz",
+    )
+    assert ( marker / "uploaded" ).is_file()
+    stored_pkg = ( marker / "package_dir" ).read_text( encoding="utf-8" ).strip()
+    stored_arch = ( marker / "archive_path" ).read_text( encoding="utf-8" ).strip()
+    assert os.path.isabs( stored_pkg )
+    assert os.path.isabs( stored_arch )
+    assert os.path.isdir( stored_pkg )
+    assert os.path.isfile( stored_arch )
+
+
 def test_refresh_package_consume_cache_refetches_via_tip_factory( tmp_path, monkeypatch ):
     downloads = tmp_path / "downloads" / "packages" / "capy" / "develop"
     extract = tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "capy" / "develop"
@@ -1646,6 +1673,150 @@ def test_refresh_package_consume_cache_refetches_via_tip_factory( tmp_path, monk
     )
     assert removed == [str( extract )]
     assert _Factory._cached_packages == {}
+
+
+def test_refresh_overlays_json_when_payload_hashes_match( tmp_path, monkeypatch ):
+    """Q11: same payload_sha256 → overlay JSON only; leave include/lib mtimes."""
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            write_publish_manifest,
+    )
+
+    extract = tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "fmt" / "12.2.0"
+    ( extract / "include" ).mkdir( parents=True )
+    ( extract / "lib" ).mkdir()
+    header = extract / "include" / "fmt.hpp"
+    header.write_text( "payload\n", encoding="utf-8" )
+    ( extract / "lib" / "libfmt.a" ).write_bytes( b"lib" )
+    write_publish_manifest(
+            str( extract ),
+            "fmt",
+            "12.2.0",
+            dependencies=[ { "name": "x", "package": "x", "version": "1" } ],
+    )
+    header_mtime = header.stat().st_mtime_ns
+
+    nested = tmp_path / "nested" / "fmt" / "12.2.0"
+    ( nested / "include" ).mkdir( parents=True )
+    ( nested / "lib" ).mkdir()
+    ( nested / "include" / "fmt.hpp" ).write_text( "payload\n", encoding="utf-8" )
+    ( nested / "lib" / "libfmt.a" ).write_bytes( b"lib" )
+    write_publish_manifest(
+            str( nested ),
+            "fmt",
+            "12.2.0",
+            dependencies=[
+                    {
+                            "name": "x",
+                            "package": "x",
+                            "version": "1",
+                            "package_source": "/pubs/x",
+                    }
+            ],
+    )
+    nested_archive = tmp_path / "fmt_nested.tar.gz"
+    nested_archive.write_bytes( b"tarball-bytes" )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    env = _Env(
+            {
+                    "downloads_root": str( tmp_path / "downloads" ),
+                    "dependencies_root": str( tmp_path / "deps" ),
+            }
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.tool_variant",
+            lambda env, variant=None, toolchain_token=None: "gcc15_rel_x86_64_cxx2c",
+    )
+
+    def _must_not_invalidate( *a, **k ):
+        raise AssertionError( "payload match must not wipe tip extract" )
+
+    monkeypatch.setattr(
+            cascade, "invalidate_package_consume_cache", _must_not_invalidate
+    )
+
+    removed = cascade.refresh_package_consume_cache(
+            env,
+            { "name": "fmt", "package": "fmt", "version": "12.2.0" },
+            nested_package_dir=str( nested ),
+            nested_archive=str( nested_archive ),
+    )
+    assert header.stat().st_mtime_ns == header_mtime
+    tip_doc = ( extract / "cuppa-publish.json" ).read_text( encoding="utf-8" )
+    assert "/pubs/x" in tip_doc
+    assert any( "cuppa-publish.json" in path for path in removed )
+    dest_archive = (
+            tmp_path / "downloads" / "packages" / "fmt" / "12.2.0" / "fmt_nested.tar.gz"
+    )
+    assert dest_archive.is_file()
+    assert dest_archive.read_bytes() == b"tarball-bytes"
+
+
+def test_refresh_full_path_when_payload_hashes_differ( tmp_path, monkeypatch ):
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+
+    extract = tmp_path / "deps" / "gcc15_rel_x86_64_cxx2c" / "fmt" / "12.2.0"
+    ( extract / "include" ).mkdir( parents=True )
+    ( extract / "lib" ).mkdir()
+    ( extract / "include" / "fmt.hpp" ).write_text( "old\n", encoding="utf-8" )
+    write_publish_manifest( str( extract ), "fmt", "12.2.0", dependencies=[] )
+
+    nested = tmp_path / "nested" / "fmt" / "12.2.0"
+    ( nested / "include" ).mkdir( parents=True )
+    ( nested / "lib" ).mkdir()
+    ( nested / "include" / "fmt.hpp" ).write_text( "new\n", encoding="utf-8" )
+    write_publish_manifest( str( nested ), "fmt", "12.2.0", dependencies=[] )
+
+    class _Package:
+        def package_dir( self ):
+            return str( extract )
+
+    class _Built:
+        def package( self ):
+            return _Package()
+
+    class _Factory:
+        _cached_packages = {}
+        _package = "fmt"
+        _name = "fmt"
+
+        @classmethod
+        def create( cls, env ):
+            return _Built()
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return default
+
+    env = _Env(
+            {
+                    "downloads_root": str( tmp_path / "downloads" ),
+                    "dependencies_root": str( tmp_path / "deps" ),
+                    "dependencies": { "fmt": _Factory.create },
+            }
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab.tool_variant",
+            lambda env, variant=None, toolchain_token=None: "gcc15_rel_x86_64_cxx2c",
+    )
+    calls = []
+
+    def _invalidate( env, package, version ):
+        calls.append( ( package, version ) )
+        return [str( extract )]
+
+    monkeypatch.setattr( cascade, "invalidate_package_consume_cache", _invalidate )
+
+    removed = cascade.refresh_package_consume_cache(
+            env,
+            { "name": "fmt", "package": "fmt", "version": "12.2.0" },
+            nested_package_dir=str( nested ),
+    )
+    assert calls == [ ( "fmt", "12.2.0" ) ]
+    assert removed == [str( extract )]
 
 
 def test_package_pin_is_current_with_extract_only_and_registry_head( tmp_path, monkeypatch ):

@@ -10,18 +10,21 @@
 """Read/write ``cuppa-publish.json`` staged beside package include/lib.
 
 See ``design/plans/package-build-publish-deps.md``. This is the single traveling
-package SoT (identity, dependency edges including ``package_source``, and
-optional ``default_use_libs`` / ``link``). Legacy ``cuppa-dependency.json`` is
-read only as a fallback for extracts published before Phase 2d.
+package SoT (identity, dependency edges including ``package_source``,
+optional ``default_use_libs`` / ``link``, and optional ``payload_sha256`` for
+tip consume refresh). Legacy ``cuppa-dependency.json`` is read only as a
+fallback for extracts published before Phase 2d.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from typing import Any
 
 from cuppa.package_managers.cuppa_dependency_manifest import (
+        MANIFEST_FILENAME as LEGACY_DEPENDENCY_FILENAME,
         fill_dependency_versions,
         normalise_dependency_entry,
         read_manifest as read_legacy_dependency_manifest,
@@ -32,10 +35,55 @@ from cuppa.package_managers.cuppa_dependency_manifest import (
 
 PUBLISH_FILENAME = "cuppa-publish.json"
 PUBLISH_FORMAT = 1
+PAYLOAD_SHA256_KEY = "payload_sha256"
+
+# Root-level traveling metadata — excluded from payload digests.
+_TRAVELING_METADATA_NAMES = frozenset( {
+        PUBLISH_FILENAME,
+        LEGACY_DEPENDENCY_FILENAME,
+} )
 
 
 def publish_manifest_path( package_dir: str ) -> str:
     return os.path.join( package_dir, PUBLISH_FILENAME )
+
+
+def compute_payload_sha256( package_dir: str ) -> str | None:
+    """Stable SHA-256 of non-metadata files under ``package_dir``.
+
+    Returns ``None`` when there is no staged payload (no ``include/`` or
+    ``lib/``), so publisher-tree seeds omit the field. Traveling JSON at the
+    package root is excluded so metadata-only amends keep the same digest.
+    """
+    from cuppa.package_managers.package_amend import package_stage_has_payload
+
+    if not package_dir or not package_stage_has_payload( package_dir ):
+        return None
+    digest = hashlib.sha256()
+    file_count = 0
+    for dirpath, dirnames, filenames in os.walk( package_dir ):
+        dirnames.sort()
+        for filename in sorted( filenames ):
+            full = os.path.join( dirpath, filename )
+            rel = os.path.relpath( full, package_dir ).replace( os.sep, "/" )
+            if "/" not in rel and filename in _TRAVELING_METADATA_NAMES:
+                continue
+            if not os.path.isfile( full ):
+                continue
+            digest.update( rel.encode( "utf-8" ) )
+            digest.update( b"\0" )
+            try:
+                with open( full, "rb" ) as handle:
+                    for chunk in iter( lambda: handle.read( 1024 * 1024 ), b"" ):
+                        digest.update( chunk )
+            except OSError:
+                continue
+            digest.update( b"\0" )
+            file_count += 1
+    if file_count == 0:
+        # Empty include/lib trees still count as a known empty payload.
+        digest.update( b"empty-payload\0" )
+    return digest.hexdigest()
 
 
 def build_publish_document(
@@ -44,6 +92,7 @@ def build_publish_document(
         dependencies: list | None = None,
         default_use_libs: Any = None,
         link: Any = None,
+        payload_sha256: str | None = None,
 ) -> dict:
     """Return a publish document (always includes package identity)."""
     entries = []
@@ -64,6 +113,8 @@ def build_publish_document(
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    if payload_sha256:
+        document[PAYLOAD_SHA256_KEY] = str( payload_sha256 )
     return document
 
 
@@ -85,21 +136,29 @@ def write_publish_manifest(
         env=None,
         default_use_libs: Any = None,
         link: Any = None,
+        payload_sha256: str | None = None,
 ) -> str:
     """Write ``cuppa-publish.json`` under ``package_dir``. Returns the path.
 
     Skips rewriting when the on-disk document already matches semantically, so
     archive freshness checks and publisher-tree git status are not spuriously
     invalidated by key-order-only differences.
+
+    When ``payload_sha256`` is omitted, computes it from staged ``include/`` /
+    ``lib/`` under ``package_dir`` (publisher seeds without payload omit the
+    field).
     """
     if env is not None:
         dependencies = fill_dependency_versions( env, dependencies )
+    if payload_sha256 is None:
+        payload_sha256 = compute_payload_sha256( package_dir )
     document = build_publish_document(
             package,
             version,
             dependencies=dependencies,
             default_use_libs=default_use_libs,
             link=link,
+            payload_sha256=payload_sha256,
     )
     path = publish_manifest_path( package_dir )
     os.makedirs( package_dir, exist_ok=True )
@@ -151,6 +210,11 @@ def read_publish_manifest( package_dir: str ) -> dict | None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    payload_hash = document.get( PAYLOAD_SHA256_KEY )
+    if payload_hash:
+        document[PAYLOAD_SHA256_KEY] = str( payload_hash )
+    elif PAYLOAD_SHA256_KEY in document:
+        del document[PAYLOAD_SHA256_KEY]
     return document
 
 

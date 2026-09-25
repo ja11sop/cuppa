@@ -19,6 +19,41 @@ from cuppa.package_managers.cuppa_publish_manifest import (
 pytestmark = pytest.mark.unit
 
 
+def test_compute_payload_sha256_stable_and_ignores_traveling_json( tmp_path: Path ):
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            PAYLOAD_SHA256_KEY,
+            compute_payload_sha256,
+            write_publish_manifest,
+    )
+
+    ( tmp_path / "include" ).mkdir()
+    ( tmp_path / "lib" ).mkdir()
+    header = tmp_path / "include" / "widget.hpp"
+    header.write_text( "int x;\n", encoding="utf-8" )
+    ( tmp_path / "lib" / "libwidget.a" ).write_bytes( b"archive" )
+
+    first = compute_payload_sha256( str( tmp_path ) )
+    assert first
+    write_publish_manifest( str( tmp_path ), "widget", "1.0.0", dependencies=[] )
+    # Traveling JSON must not change the payload digest.
+    assert compute_payload_sha256( str( tmp_path ) ) == first
+
+    loaded = read_publish_manifest( str( tmp_path ) )
+    assert loaded[PAYLOAD_SHA256_KEY] == first
+
+    header.write_text( "int y;\n", encoding="utf-8" )
+    assert compute_payload_sha256( str( tmp_path ) ) != first
+
+
+def test_compute_payload_sha256_none_without_payload( tmp_path: Path ):
+    from cuppa.package_managers.cuppa_publish_manifest import compute_payload_sha256
+
+    assert compute_payload_sha256( str( tmp_path ) ) is None
+    write_publish_manifest( str( tmp_path ), "widget", "1.0.0", dependencies=[] )
+    loaded = read_publish_manifest( str( tmp_path ) )
+    assert "payload_sha256" not in loaded
+
+
 def test_build_publish_document_keeps_package_source():
     document = build_publish_document(
             "widget",

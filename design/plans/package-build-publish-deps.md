@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-24
+- **Updated:** 2026-09-25
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -321,12 +321,12 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | Destination with `--publisher-root` | `{root}/{name}`, the first shape the resolver already searches, so clone and lookup stay symmetric. A flag asking cascade to *read* a forest is taken as permission to *populate* it, which is also where an operator who wants to explore those trees would want them. |
 | `--develop` | **No role in cascade.** It is a switch over per-dependency authored paths, not a location policy, and a package’s `develop=` is a *built prefix* — it replaces `_package_dir`, the directory `include/` and `lib/` hang off — not a publisher source tree, so cloning a repository there would break consume. Document the overlap with the develop family and cross-link it; revisit with `--publisher-clone-root=` only if ergonomics demand it. |
 | Pins on a filesystem `package_source` | Not supported. A local tree is whatever the operator has checked out, and honouring a pin would mean switching their branch, which cascade refuses to do. Pins apply to URLs only. |
-| Collision keying | Key by dependency name, matching the rest of the product — the consume cache is already `downloads_root/packages/{package}/{version}` with no registry in the key. Refuse when two edges want one destination from different URLs. Registry-qualified storage keys is a separate product-wide question, not something this slice solves in one corner. |
+| Collision keying | Key by dependency name, matching the rest of the product — the consume cache is already `downloads_root/packages/{package}/{version}` with no registry in the key. Refuse when two edges want one destination from different URLs. **Revisit** under open question 4 (`package_source`-stem layout like location downloads) before treating name-only as permanent. |
 | Existing destination | Never clobber. A non-empty destination that is not already that repository is a refusal. An existing clone that is dirty or on another branch is **refused** for publish (same as develop) unless ``--publish-modified``; never switched, stashed, or reset. |
 | Updating an existing clone | **Superseded by `--update-publishers`** (below). 2b itself still does not fetch/pull on reuse. |
 | `--offline` | Refuse to clone, as `--clone-develop` already does. |
 | Submodules | Recurse, through the existing `Git.clone( …, recurse_submodules=True )`. |
-| Inventory and listing | **Not in 2b.** A cloned tree is reported by path but not added to the dependency inventory or the `--list-*` reports, since a new inventory type reaches into listing-tree presentation. Tracked as an open item below, because storage-root trees are otherwise invisible disk usage. |
+| Inventory and listing | **Not in 2b.** A cloned tree is reported by path but not added to the dependency inventory or the `--list-*` reports, since a new inventory type reaches into listing-tree presentation. Tracked as open question 1 (prefer a `publishers` node on existing `--list-*` / remove family; root = publisher root in force). |
 | Plan mode and unexpanded edges | `--cascade-plan` reports a node that would be cloned as a **note**, not an error, and says plainly that the node’s own dependencies are unknown until the tree exists: cascade reads `cuppa-publish.json` *from the tree*, so a plan cannot expand beneath a node it has not cloned. |
 
 ## Collect-cascade (shipped)
@@ -417,13 +417,24 @@ traveling file rather than keep a derived twin for a release that never shipped.
 ### Soak note (project D, after #324)
 
 Amending/republishing a **dependency** (same version, new tarball — even when only
-``cuppa-publish.json`` changed) still causes cascade to **invalidate + re-fetch**
-that pin into the tip consume cache. Tip CMake then sees a newer prefix under
-``CMAKE_PREFIX_PATH`` and may **fully rebuild** a fat tip such as google-cloud-cpp.
-That is expected today, not a 2d regression. For a tip-only metadata soak, amend
-the **tip** itself (``--amend-package-manifest``) and avoid leaf cascade /
-``--force`` unless you want that rebuild. Tip no-op when a refreshed dependency
-extract is payload-identical aside from traveling JSON is open question 11.
+``cuppa-publish.json`` changed) used to wipe+re-extract the tip consume cache and
+dirty tip CMake mtimes. **Question 11** addresses that: staged packages carry
+``payload_sha256``; when the tip extract already matches, cascade overlays
+traveling JSON (and refreshes the tip archive file) without rewriting
+``include/`` / ``lib/``. For a tip-only metadata soak, still amend the **tip**
+itself (``--amend-package-manifest``) rather than leaf cascade / ``--force``.
+
+## Question 11 settled decisions (tip refresh / payload hash)
+
+| Question | Decision |
+|----------|----------|
+| Why tip refresh | Tip consume extract ≠ nested publisher ``final/``; tip ``BuildWith`` already bound possibly stale same-version bits; refresh picks up what cascade just published |
+| Preferred install source | After nested upload, tip refresh prefers the **nested archive/stage** recorded on the upload marker (avoids registry re-GET race); registry download only when that local source is missing |
+| Payload identity | Optional ``payload_sha256`` in ``cuppa-publish.json`` — SHA-256 of non-metadata files under the staged package (excludes root ``cuppa-publish.json`` / legacy ``cuppa-dependency.json``). Omitted on publisher-tree seeds without ``include/``/``lib/``. Format stays ``1`` (optional field) |
+| Fast path | Tip extract and nested stage share the same non-empty ``payload_sha256`` → overlay tip JSON + copy nested archive into tip downloads; **do not** wipe ``include/``/``lib/`` |
+| Slow path | Hash missing or mismatch → invalidate + extract as before; legacy tip extracts without a hash may restore payload mtimes after expand when content still matches |
+| Whole-archive hash | Not used for Q11 (metadata-only republish always changes the tarball digest) |
+| Tip-only metadata | Unchanged: ``--amend-package-manifest`` on the tip |
 
 ## Phase 3 settled decisions (consume-site parity)
 
@@ -509,13 +520,41 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 
 ## Open questions (Phase 2+)
 
-1. Making cloned publisher trees visible — inventory entry, a `--list-*` view, and removal,
-   so `{storage_root}/publishers/…` is not invisible disk usage (follow-on to 2b)
+1. **Making cloned publisher trees visible** — inventory / list / removal so
+   `{storage_root}/publishers/…` (and an active `--publisher-root`) is not
+   invisible disk usage (follow-on to 2b).
+
+   **Preferred direction to explore (not settled):** augment the existing
+   dependency ``--list-*`` / ``--remove-*`` / ``--wipe-*`` family with a
+   **``publishers``** node (or equivalent sibling under the same report grammar),
+   rather than inventing a parallel ``--list-publishers`` surface. Scope of what is
+   listed should follow **the publisher root in force for that run** — default
+   ``{storage_root}/publishers`` unless ``--publisher-root=`` is set (same rule
+   cascade resolve already uses). Open when implementing: whether develop-ranked
+   trees appear here or only under develop reports; how multi-root machines
+   discover orphans outside the in-force root; removal safety (never wipe a
+   develop path that happens to sit under a publisher root).
+
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
    nested registry upload) — distinct from `--cascade-plan` / `--collect-cascade`
    and from Phase 4 **nest-deps-only** (which **does** nested upload). Still open.
-4. Richer `--publisher-root` layout rules
+4. **Publisher forest layout / keying** (was “richer `--publisher-root` layout”).
+
+   Today (2b): destination is ``{root}/{name}`` (dependency name), with a refuse
+   when two edges want one folder from different URLs. That matches consume-cache
+   name keying and keeps paths short.
+
+   **Option to evaluate:** also (or instead) park clones under the publisher root
+   keyed by **``package_source``** the way location downloads use a sanitized URL
+   stem — e.g. distinct hosts/paths for the same leaf name do not collide. Upside:
+   fewer refuse-on-collision cases; forks and mirrors can coexist. Downsides to
+   weigh before flipping the default: longer / uglier paths; ``--list-*`` and
+   ``--update-publishers`` must discover by source not only by name; migration for
+   existing ``{root}/{name}`` forests; plan labels and “using publisher at” copy;
+   whether the pin (``@rev``) belongs in the folder key or only in git state inside
+   the clone. Prefer a settled table before changing 2b on-disk layout.
+
 5. ~~Cascade under multiple active toolchains~~ — settled under Phase 2c (one nested graph
    per tip command; preserve sibling stems on refresh)
 6. ~~Implementing `--collect-cascade`~~ — shipped
@@ -541,11 +580,8 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
     ``latest`` is a **named floating token** that resolves once to a concrete
     archive identity; it is a stepping stone toward richer constraint spelling,
     not a constraint solver.
-11. **Tip no-op after metadata-only dependency refresh** — when cascade (or a
-    same-version leaf amend) re-fetches a dependency whose ``include/`` / ``lib/``
-    are unchanged and only traveling JSON differs, avoid dirtying tip CMake /
-    a full tip rebuild. Not started; operators should amend the tip itself for
-    tip-only metadata soaks (see Phase 2d soak note).
+11. ~~**Tip no-op after metadata-only dependency refresh**~~ — settled under
+    Question 11 (``payload_sha256`` + JSON overlay; nested-local archive install)
 
 ## Acceptance (when implemented)
 
@@ -588,5 +624,6 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Follow-on: resolve `latest` in publish manifests (Boost) | **Done** in [#328](https://github.com/ja11sop/cuppa/pull/328) (question 10; not ranges / `>=`) |
 | Phase 3 consume-site parity | **Done** ([#329](https://github.com/ja11sop/cuppa/pull/329)) |
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
-| Phase 4 implementation | **In progress** on `feature/pure-consume-cascade` — consume-tip entry, ``--publish-cascade-dependencies``, docs, unit tests; project **B** soak: ``registry: same`` re-fetch/skip; tip package toolchain/arch/abi on baseline ``cuppa_env``; dirty publishers refuse unless ``--publish-modified``; extract-only skip-if-current; location tag force-fetch retry; finish-line **to run** vs **make executable** + consume **(this project)** wording (not yet in a named release / PR) |
-| Follow-on: tip no-op after metadata-only dependency refresh | Open — question 11; project D soak after #324 |
+| Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
+| Follow-on: tip no-op after metadata-only dependency refresh | **Settled + implemented** (question 11) — ``payload_sha256``; overlay when match; nested archive preferred over registry re-GET |
+| Follow-on: publishers visibility + layout | Open — questions 1 and 4 (list as `publishers` node; evaluate `package_source`-stem keying) |

@@ -16,6 +16,7 @@ seed from tip ``package_dependency`` factories. See
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import shutil
@@ -3020,8 +3021,13 @@ def _nested_session_uploaded( marker_dir: str | None ) -> bool:
     return os.path.isfile( os.path.join( marker_dir, "uploaded" ) )
 
 
-def record_nested_upload() -> None:
-    """Nested publish touches this when a registry upload actually ran."""
+def record_nested_upload( package_dir: str | None = None, archive_path: str | None = None ) -> None:
+    """Nested publish touches this when a registry upload actually ran.
+
+    Optional ``package_dir`` / ``archive_path`` let the tip refresh install from
+    the nested stage (payload-hash overlay) instead of re-downloading. Paths are
+    stored absolute — nested ``str(SCons.File)`` is often cwd-relative.
+    """
     marker = os.environ.get( UPLOAD_MARKER_ENV )
     if not marker:
         return
@@ -3029,8 +3035,58 @@ def record_nested_upload() -> None:
         os.makedirs( marker, exist_ok=True )
         with open( os.path.join( marker, "uploaded" ), "w", encoding="utf-8" ) as handle:
             handle.write( "1\n" )
+        if package_dir:
+            with open(
+                    os.path.join( marker, "package_dir" ), "w", encoding="utf-8"
+            ) as handle:
+                handle.write( os.path.abspath( str( package_dir ) ) + "\n" )
+        if archive_path:
+            with open(
+                    os.path.join( marker, "archive_path" ), "w", encoding="utf-8"
+            ) as handle:
+                handle.write( os.path.abspath( str( archive_path ) ) + "\n" )
     except OSError:
         pass
+
+
+def _read_nested_upload_artefact( marker_dir: str | None, name: str ) -> str | None:
+    if not marker_dir:
+        return None
+    path = os.path.join( marker_dir, name )
+    if not os.path.isfile( path ):
+        return None
+    try:
+        with open( path, encoding="utf-8" ) as handle:
+            value = handle.read().strip()
+        return value or None
+    except OSError:
+        return None
+
+
+class NestedPublishResult:
+    """Outcome of one nested publish session (truthy when a registry upload ran)."""
+
+    __slots__ = ( "uploaded", "package_dir", "archive_path" )
+
+    def __init__(
+            self,
+            uploaded: bool,
+            package_dir: str | None = None,
+            archive_path: str | None = None,
+    ):
+        self.uploaded = bool( uploaded )
+        self.package_dir = package_dir
+        self.archive_path = archive_path
+
+    def __bool__( self ) -> bool:
+        return self.uploaded
+
+
+def _as_nested_publish_result( value ) -> NestedPublishResult:
+    """Normalise mocks that still return a bare bool/None."""
+    if isinstance( value, NestedPublishResult ):
+        return value
+    return NestedPublishResult( uploaded=bool( value ) )
 
 
 def _tip_dependency_factory( env, entry: dict ):
@@ -3092,22 +3148,211 @@ def _call_tip_dependency_factory( factory, env ):
     return None
 
 
-def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> list[str]:
+def _tip_extract_package_dir( env, package: str, version: str ) -> str | None:
+    """Tip consume extract path for ``package``/``version``, if it exists."""
+    dependencies_root = env.get( "dependencies_root" )
+    if not dependencies_root:
+        return None
+    try:
+        from cuppa.package_managers.gitlab import tool_variant
+        variant = tool_variant( env )
+    except Exception:
+        return None
+    if not variant:
+        return None
+    path = os.path.join( str( dependencies_root ), variant, package, str( version ) )
+    if os.path.isdir( path ):
+        return path
+    return None
+
+
+def _snapshot_payload_mtimes( package_dir: str ) -> dict[str, tuple[str, int]]:
+    """Relative path → (sha256 hex, mtime_ns) for non-metadata files."""
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            PUBLISH_FILENAME,
+            LEGACY_DEPENDENCY_FILENAME,
+    )
+    skip = frozenset( { PUBLISH_FILENAME, LEGACY_DEPENDENCY_FILENAME } )
+    snapshot: dict[str, tuple[str, int]] = {}
+    if not package_dir or not os.path.isdir( package_dir ):
+        return snapshot
+    for dirpath, dirnames, filenames in os.walk( package_dir ):
+        dirnames.sort()
+        for filename in sorted( filenames ):
+            full = os.path.join( dirpath, filename )
+            rel = os.path.relpath( full, package_dir ).replace( os.sep, "/" )
+            if "/" not in rel and filename in skip:
+                continue
+            if not os.path.isfile( full ):
+                continue
+            try:
+                digest = hashlib.sha256()
+                with open( full, "rb" ) as handle:
+                    for chunk in iter( lambda: handle.read( 1024 * 1024 ), b"" ):
+                        digest.update( chunk )
+                st = os.stat( full )
+                mtime_ns = getattr( st, "st_mtime_ns", int( st.st_mtime * 1e9 ) )
+                snapshot[rel] = ( digest.hexdigest(), mtime_ns )
+            except OSError:
+                continue
+    return snapshot
+
+
+def _restore_payload_mtimes(
+        package_dir: str,
+        before: dict[str, tuple[str, int]],
+) -> int:
+    """Restore mtimes for files whose content still matches ``before``. Returns count."""
+    if not before or not package_dir or not os.path.isdir( package_dir ):
+        return 0
+    restored = 0
+    after = _snapshot_payload_mtimes( package_dir )
+    for rel, ( digest, mtime_ns ) in before.items():
+        current = after.get( rel )
+        if current is None or current[0] != digest:
+            continue
+        full = os.path.join( package_dir, rel.replace( "/", os.sep ) )
+        try:
+            os.utime( full, ns=( mtime_ns, mtime_ns ) )
+            restored += 1
+        except OSError:
+            continue
+    return restored
+
+
+def _payload_hashes_match( tip_dir: str | None, nested_dir: str | None ) -> bool:
+    """True when both extracts advertise the same non-empty ``payload_sha256``."""
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            PAYLOAD_SHA256_KEY,
+            read_publish_manifest,
+    )
+    if not tip_dir or not nested_dir:
+        return False
+    tip_doc = read_publish_manifest( tip_dir )
+    nested_doc = read_publish_manifest( nested_dir )
+    if not tip_doc or not nested_doc:
+        return False
+    tip_hash = tip_doc.get( PAYLOAD_SHA256_KEY )
+    nested_hash = nested_doc.get( PAYLOAD_SHA256_KEY )
+    return bool( tip_hash and nested_hash and tip_hash == nested_hash )
+
+
+def _overlay_tip_traveling_manifest( tip_dir: str, nested_dir: str ) -> str:
+    """Copy nested ``cuppa-publish.json`` onto the tip extract. Returns tip path."""
+    from cuppa.package_managers.cuppa_publish_manifest import publish_manifest_path
+    src = publish_manifest_path( nested_dir )
+    dst = publish_manifest_path( tip_dir )
+    shutil.copy2( src, dst )
+    return dst
+
+
+def _install_tip_archive_from( env, package: str, version: str, archive_path: str ) -> str | None:
+    """Copy ``archive_path`` into the tip downloads cache. Returns destination."""
+    if not archive_path or not os.path.isfile( archive_path ):
+        return None
+    downloads_root = env.get( "downloads_root" ) or env.get( "cache_root" )
+    if not downloads_root:
+        return None
+    cache_dir = os.path.join( str( downloads_root ), "packages", package, str( version ) )
+    os.makedirs( cache_dir, exist_ok=True )
+    dest = os.path.join( cache_dir, os.path.basename( archive_path ) )
+    shutil.copy2( archive_path, dest )
+    return dest
+
+
+def refresh_package_consume_cache(
+        env,
+        entry: dict,
+        tip_publisher=None,
+        nested_package_dir: str | None = None,
+        nested_archive: str | None = None,
+) -> list[str]:
     """Invalidate then re-fetch/extract so the tip's ``package_dir`` is usable again.
 
     Cascade runs after the tip's ``BuildWith`` has already resolved paths; wiping
     alone leaves CMake pointing at an empty tree. Re-create the tip package
     dependency so download+extract repopulate the same paths.
+
+    When the nested stage we just uploaded advertises the same ``payload_sha256``
+    as the tip extract, only overlay traveling JSON (and refresh the tip archive
+    file) so tip CMake is not dirtied by identical ``include/`` / ``lib/`` mtimes.
     """
     package = entry["package"]
     version = entry["version"]
     label = node_label( entry )
+    tip_dir = _tip_extract_package_dir( env, package, version )
+    if nested_package_dir:
+        nested_package_dir = os.path.abspath( nested_package_dir )
+    if nested_archive:
+        nested_archive = os.path.abspath( nested_archive )
+
+    if nested_package_dir and _payload_hashes_match( tip_dir, nested_package_dir ):
+        overlay = _overlay_tip_traveling_manifest( tip_dir, nested_package_dir )
+        archive_dest = None
+        if nested_archive:
+            archive_dest = _install_tip_archive_from(
+                    env, package, version, nested_archive
+            )
+        logger.info(
+                "Cascade: payload unchanged for [{}]; overlaid traveling "
+                "manifest at [{}]{}"
+                .format(
+                        as_info( label ),
+                        as_notice( overlay ),
+                        (
+                                "; archive [{}]".format( as_notice( archive_dest ) )
+                                if archive_dest else ""
+                        ),
+                )
+        )
+        return [overlay] if not archive_dest else [overlay, archive_dest]
+
+    mtime_snapshot = None
+    if tip_dir and not nested_package_dir:
+        # Legacy path without nested stage: may restore mtimes after expand.
+        try:
+            from cuppa.package_managers.cuppa_publish_manifest import (
+                    PAYLOAD_SHA256_KEY,
+                    read_publish_manifest,
+            )
+            tip_doc = read_publish_manifest( tip_dir )
+            if not tip_doc or not tip_doc.get( PAYLOAD_SHA256_KEY ):
+                mtime_snapshot = _snapshot_payload_mtimes( tip_dir )
+        except Exception:
+            mtime_snapshot = None
+    elif tip_dir and nested_package_dir:
+        # Nested stage present but hashes missing/mismatch — still try mtime
+        # restore after full expand when tip lacked a hash.
+        try:
+            from cuppa.package_managers.cuppa_publish_manifest import (
+                    PAYLOAD_SHA256_KEY,
+                    read_publish_manifest,
+            )
+            tip_doc = read_publish_manifest( tip_dir )
+            if not tip_doc or not tip_doc.get( PAYLOAD_SHA256_KEY ):
+                mtime_snapshot = _snapshot_payload_mtimes( tip_dir )
+        except Exception:
+            mtime_snapshot = None
+
+    # Prefer nested archive as tip download source when available (avoids
+    # registry re-GET race with a concurrent republish of the same pin).
+    # Install *after* invalidate so the wipe does not remove the copy.
     removed = invalidate_package_consume_cache( env, package, version )
     if removed:
         logger.info(
                 "Cascade: invalidated consume cache for [{}]: {}"
                 .format( as_info( label ), as_notice( ", ".join( removed ) ) )
         )
+
+    if nested_archive and os.path.isfile( nested_archive ):
+        installed = _install_tip_archive_from(
+                env, package, version, nested_archive
+        )
+        if installed:
+            logger.info(
+                    "Cascade: installed nested archive for [{}] at [{}]"
+                    .format( as_info( label ), as_notice( installed ) )
+            )
 
     factory = _tip_dependency_factory( env, entry )
     package_dir = None
@@ -3157,6 +3402,14 @@ def refresh_package_consume_cache( env, entry: dict, tip_publisher=None ) -> lis
                     .format( label, error )
             ) from error
         package_dir = package_obj.package_dir()
+
+    if mtime_snapshot and package_dir:
+        restored = _restore_payload_mtimes( package_dir, mtime_snapshot )
+        if restored:
+            logger.info(
+                    "Cascade: restored {} payload mtime(s) for [{}] after refresh"
+                    .format( restored, as_info( label ) )
+            )
 
     logger.info(
             "Cascade: re-fetched [{}] to [{}]"
@@ -3428,8 +3681,8 @@ def _nested_session_env( env ) -> dict:
     return nested_env
 
 
-def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> bool:
-    """Run one nested publish session. Returns True when a registry upload ran."""
+def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 ) -> NestedPublishResult:
+    """Run one nested publish session. Truthy when a registry upload ran."""
     argv = argv_for_nested_publish( env=env )
     nested_env = _nested_session_env( env )
     marker_dir = None
@@ -3450,6 +3703,8 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
         )
     finally:
         uploaded = _nested_session_uploaded( marker_dir )
+        package_dir = _read_nested_upload_artefact( marker_dir, "package_dir" )
+        archive_path = _read_nested_upload_artefact( marker_dir, "archive_path" )
         if marker_dir:
             shutil.rmtree( marker_dir, ignore_errors=True )
         session_timer.stop()
@@ -3468,7 +3723,11 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
             ordinal, total, label, session_timer.elapsed().wall,
             outcome=outcome,
     ) )
-    return uploaded
+    return NestedPublishResult(
+            uploaded=uploaded,
+            package_dir=package_dir,
+            archive_path=archive_path,
+    )
 
 
 def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
@@ -4533,18 +4792,31 @@ def maybe_run_cascade( env, publisher ) -> None:
                 ordinal=ordinal,
                 total=total,
         )
+        result = _as_nested_publish_result( uploaded )
         # Clean sessions remove targets; nothing was published, so do not wipe and
         # re-download the tip's consume cache (that only confuses a following rebuild).
         # Skip-if-current sessions never ran; refresh only after a real upload.
         if cleaning:
             continue
-        if uploaded:
+        if result.uploaded:
             uploaded_count += 1
-            refresh_package_consume_cache( env, entry, tip_publisher=publisher )
+            refresh_package_consume_cache(
+                    env,
+                    entry,
+                    tip_publisher=publisher,
+                    nested_package_dir=result.package_dir,
+                    nested_archive=result.archive_path,
+            )
         elif force:
             # Forced rebuild may have rewritten stamps without a detectable upload
             # marker race; still refresh so tip consume matches nested output.
-            refresh_package_consume_cache( env, entry, tip_publisher=publisher )
+            refresh_package_consume_cache(
+                    env,
+                    entry,
+                    tip_publisher=publisher,
+                    nested_package_dir=result.package_dir,
+                    nested_archive=result.archive_path,
+            )
 
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
