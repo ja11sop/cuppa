@@ -1,0 +1,22 @@
+= `test_list_publishers` — list and remove publisher trees
+:description: Cuppa integration test documentation for test_list_publishers
+
+== What is tested
+
+With planted git-shaped trees under `<storage>/publishers/`, `--list-publishers`
+prints a develop-shaped STATUS / SIZE / PUBLISHER / BRANCH / UPSTREAM / STATE /
+PATH table, a severity summary, and the last-fetch note. `--list-format=json`
+emits `publishers_root`, `tree_count`, and `entries` (including `status` /
+`notes`). `--remove-publishers=NAME` with `-n` leaves the tree; without `-n` it
+deletes the named folder and a follow-up list shows the remaining tree.
+
+== Generated files
+
+A minimal `sconstruct` (`cuppa.run` with no package deps) plus two planted
+publisher folders (`capy`, `corosio`) each with `.git/` and `sconstruct`.
+
+== Related
+
+* xref:dependencies/managing/list-publishers.adoc[Listing publisher trees]
+* Design plan question 1a in
+  https://github.com/ja11sop/cuppa/blob/master/design/plans/package-build-publish-deps.md[`package-build-publish-deps`]

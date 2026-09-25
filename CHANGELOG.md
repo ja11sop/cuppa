@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--list-publishers`` / ``--remove-publishers`` / ``--remove-all-publishers`` —
+  inspect and reclaim the cascade publisher forest under the in-force root
+  (``--publisher-root``, else ``<storage-root>/publishers``). List report matches
+  ``--list-develop`` chrome (STATUS / SIZE / judgement tree / update hint).
+  Sibling storage actions to ``--list-downloads``; never delete a develop-linked
+  path. Design: [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 1a ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - Pure-consume cascade (**Phase 4**): a tip with no ``GitlabPackagePublisher`` can
   seed ``--build-and-publish-dependencies`` from tip ``package_dependency`` /
   ``boost_package.define`` edges that carry ``package_source``, expand the DAG from
@@ -75,6 +83,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--stage-package`` cannot be combined with ``--publish-package``.
 
 ### Changed
+
+- ``--list-publishers`` matches ``--list-develop`` chrome: ruled STATUS table with
+  SIZE, UPSTREAM, severity paint, judgement tree, last-fetch note, and an
+  ``--update-publishers`` fast-forward hint. Question 1a on the cascade plan;
+  a publishers section on ``--list-dependencies`` remains open as question 1b.
+  Design: [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``--collect-cascade`` finish lines name **newly cloned** vs **reused** publisher
   trees when a collect run mixes forest reuse and clones (for example

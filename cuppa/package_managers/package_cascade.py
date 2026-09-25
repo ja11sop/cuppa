@@ -292,9 +292,11 @@ def modified_publish_allowed( env ) -> bool:
 
 def publisher_root_option( env ) -> str | None:
     getter = getattr( env, "get_option", None )
-    if not callable( getter ):
-        return None
-    value = getter( PUBLISHER_ROOT_OPTION )
+    value = None
+    if callable( getter ):
+        value = getter( PUBLISHER_ROOT_OPTION )
+    if not value:
+        value = env.get( PUBLISHER_ROOT_OPTION ) or env.get( "publisher_root" )
     if not value:
         return None
     root = os.path.expanduser( str( value ) )

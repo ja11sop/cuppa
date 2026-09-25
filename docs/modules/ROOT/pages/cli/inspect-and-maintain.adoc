@@ -30,6 +30,10 @@ cuppa -D -Q --list-dependencies
 | Cached archives plus extract/package leaves under the downloads root
 | `--list-format`, `--list-scope`
 
+| `--list-publishers`
+| Publisher working copies under the in-force cascade forest (develop-shaped STATUS report + SIZE)
+| `--list-format`, `--publisher-root`; reclaim with `--remove-publishers` / `--remove-all-publishers`
+
 | `--list-toolchains`
 | Discovered PATH drivers and registered managed toolchains
 | `--list-format`; see xref:toolchains.adoc#list-toolchains[Listing toolchains]
@@ -66,7 +70,7 @@ xref:dependencies/managing.adoc#which-listing[Managing dependencies].
 
 | `json`
 | Structured machine/agent payload
-| Supported by build, dependency, download, toolchain, develop, and available-report listings
+| Supported by build, dependency, download, publisher, toolchain, develop, and available-report listings
 |===
 
 === Dependency list scopes
