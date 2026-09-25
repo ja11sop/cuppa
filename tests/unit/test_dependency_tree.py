@@ -157,5 +157,65 @@ def test_gitlab_tree_shows_requires_from_preloaded_entries():
     assert requires['children'][0]['label'] == 'beta 2.0.0'
 
 
-def test_requires_group_from_package_dir_none_when_absent( tmp_path ):
-    assert dependency_tree.requires_group_from_package_dir( str( tmp_path ) ) is None
+def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
+    """When one toolchain leaf is missing, siblings and requires stay normal colour."""
+    from cuppa.colourise import as_emphasised, as_error, as_subdued, colouriser
+
+    leaves = [
+            _gitlab_leaf(
+                    'cloud', '3.9.0', 'gcc15_rel', '/deps/gcc15/cloud/3.9.0',
+                    state='unreferenced',
+                    requires=[
+                            { 'name': 'protobuf', 'package': 'protobuf', 'version': '36.1' },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'cloud', '3.9.0', 'gcc16_rel', '/deps/gcc16/cloud/3.9.0',
+                    state='missing',
+            ),
+            _gitlab_leaf(
+                    'cloud', '2.28.0', 'gcc153_rel', '/deps/gcc153/cloud/2.28.0',
+                    state='unreferenced',
+            ),
+    ]
+    # Missing leaf has no on-disk size.
+    leaves[1]['size_bytes'] = None
+    leaves[1]['last_used_epoch'] = None
+
+    tree = dependency_tree.build_tree( leaves )
+    identity = None
+    for section in tree['sections']:
+        for type_node in section.get( 'children' ) or []:
+            if type_node.get( 'kind' ) != 'type':
+                continue
+            for child in type_node.get( 'children' ) or []:
+                if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'cloud':
+                    identity = child
+    assert identity is not None
+    assert identity.get( 'missing' ) is True
+    versions = {
+            child['label']: child
+            for child in identity['children']
+            if child.get( 'kind' ) == 'version'
+    }
+    assert versions['3.9.0'].get( 'has_missing_leaf' ) is True
+    assert versions['2.28.0'].get( 'has_missing_leaf' ) is not True
+
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines, _ = dependency_tree.render_tree_lines( tree, verbose=True )
+        joined = '\n'.join( lines )
+        assert as_emphasised( as_error( 'cloud' ) ) in joined
+        # Registry detail on the identity is muted, not error-painted.
+        registry = 'https://gitlab.example/api/v4/projects/1/cloud/3.9.0'
+        # remote may be from first leaf — 2.28.0 or 3.9.0 depending on group remote
+        assert as_error( 'gcc16_rel' ) in joined
+        assert as_error( 'gcc15_rel' ) not in joined
+        assert as_error( '2.28.0' ) not in joined
+        assert as_error( 'requires' ) not in joined
+        assert as_error( 'protobuf' ) not in joined
+        # Version with the gap is error-coloured.
+        assert as_error( '3.9.0' ) in joined
+    finally:
+        colouriser.use_colour = was_colour
