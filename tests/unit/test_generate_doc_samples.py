@@ -158,6 +158,52 @@ def test_list_develop_html_sample_uses_semantic_classes_and_public_paths():
     assert '\x1b[' not in text
 
 
+def test_list_publishers_sample_has_status_table_and_update_hint():
+    text = samples.sample_list_publishers().read_text( encoding='utf-8' )
+
+    assert text.startswith( 'Publishers in ~/.cuppa/publishers' )
+    assert 'STATUS  SIZE  PUBLISHER' in text
+    assert '--update-publishers would fast-forward' in text
+    assert 'develop-linked' in text
+
+
+def test_list_publishers_html_sample_is_semantic_and_path_safe():
+    text = samples.sample_list_publishers_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'STATUS  SIZE  PUBLISHER' in text
+    assert 'cuppa-warning' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_cascade_plan_html_samples_cover_publisher_consume_and_clone():
+    publisher = samples.sample_cascade_plan_html().read_text( encoding='utf-8' )
+    consume = samples.sample_cascade_plan_consume_html().read_text( encoding='utf-8' )
+    clone = samples.sample_cascade_plan_clone_html().read_text( encoding='utf-8' )
+
+    for text in ( publisher, consume, clone ):
+        assert text.startswith( '<pre class="cuppa-output"><code>' )
+        assert 'cuppa-emphasised' in text
+        assert '/tmp/' not in text
+        assert '/home/' not in text
+        assert '\x1b[' not in text
+
+    assert 'this package' in publisher
+    assert '--publish-package' in publisher
+    assert 'this project' in consume
+    assert 'tip build only' in consume
+    assert 'would clone' in clone
+    assert 'to make this plan executable' in clone
+
+
+def test_cascade_plan_text_sample_keeps_blank_line_before_finish():
+    text = samples.sample_cascade_plan().read_text( encoding='utf-8' )
+    assert 'from this tree\n\n--cascade-plan:' in text
+
+
 def test_list_toolchains_sample_has_discovered_and_registered():
     path = samples.sample_list_toolchains()
     text = path.read_text( encoding='utf-8' )
@@ -316,11 +362,16 @@ def test_json_list_samples_use_render_json_payload_shape():
     assert len( requires['entries'] ) == 3
     alpha = next( entry for entry in requires['entries'] if entry['dependency'] == 'alpha' )
     assert alpha['requires'][0]['name'] == 'beta'
+    beta = next( entry for entry in requires['entries'] if entry['dependency'] == 'beta' )
+    assert beta['state'] == 'referenced'
     text = samples.sample_list_dependencies_requires().read_text( encoding='utf-8' )
     assert 'requires' in text
-    assert 'beta 2.0.0' in text
+    assert 'beta' in text
+    assert 'gamma' in text
+    # Nested package under tip requires is a sized identity; deeper edges stay labels.
     assert 'gamma 3.0.0' in text
-    assert 'libs: beta' in text
+    assert 'libs: gamma' in text
+    assert '0B unreferenced' in text
 
     develop = json.loads(
             samples.sample_list_develop_json().read_text( encoding='utf-8' )
@@ -328,6 +379,13 @@ def test_json_list_samples_use_render_json_payload_shape():
     assert develop['would_update'] == [ 'flange' ]
     assert { entry['name'] for entry in develop['entries'] } == { 'flange', 'gizmo' }
     assert develop['entries'][0]['path'].startswith( '/home/user/' )
+
+    publishers = json.loads(
+            samples.sample_list_publishers_json().read_text( encoding='utf-8' )
+    )
+    assert publishers['tree_count'] == 3
+    assert publishers['would_update'] == [ 'capy' ]
+    assert publishers['entries'][0]['path'].startswith( '/home/user/' )
 
     builds = json.loads(
             samples.sample_list_builds_json().read_text(

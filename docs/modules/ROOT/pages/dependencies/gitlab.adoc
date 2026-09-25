@@ -409,13 +409,15 @@ Consumers still only need to import / auto-enable **A**. Transitive names are no
 ``auto_enable_dependencies``. Conflicting concrete versions of the same name raise ``StopError``.
 Cycles in the dependency graph also fail clearly.
 
-``--list-dependencies`` shows declared edges from on-disk ``cuppa-publish.json`` (falling
-back to legacy ``cuppa-dependency.json``) as a
-``requires`` group under each GitLab package version (no live registry required — plant extracts
-under the dependencies root to preview the tree). JSON includes the same edges on the tree and on
-each leaf's ``requires`` array. Doc samples:
+``--list-dependencies`` treats the traveling-manifest **closure** of tip-selected GitLab
+extracts as referenced: under each tip version a ``requires`` group nests on-disk package
+trees (sizes and toolchains). Nested packages keep label-style ``requires`` edges. When nothing
+is tip-selected, edges still appear as labels under each walked version (no live registry
+required — plant extracts under the dependencies root to preview the tree). JSON includes the
+same edges on flat ``entries[].requires``; the nested tree appears under ``tree``. Doc samples:
 xref:dependencies/managing/list-dependencies.adoc#list-dependencies[Listing dependency trees]
-(``list-dependencies-requires`` partials).
+(``list-dependencies-requires`` partials). Design:
+https://github.com/ja11sop/cuppa/blob/master/design/plans/list-deps-requires-closure.md[`list-deps-requires-closure`].
 
 See also xref:packages.adoc[Publishing packages].
 

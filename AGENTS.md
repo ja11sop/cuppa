@@ -668,8 +668,9 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
   `list-dependencies`, `list-dependencies-verbose`, `list-dependencies-requires`,
-  `list-toolchains`,
-  `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
+  `list-publishers`, `list-toolchains`,
+  `list-toolchains-verbose`, `cascade-plan`, `cascade-plan-consume`,
+  `cascade-plan-clone`, and the `--remove-builds` / `--remove-all-builds`
   variants, `remove-gitlab-dry-run`, `remove-boost-product-clean`, and
   `purge-gitlab`. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when

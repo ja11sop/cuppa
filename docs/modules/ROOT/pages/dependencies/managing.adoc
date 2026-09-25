@@ -14,13 +14,29 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 
 [cols="3,3,4"]
 |===
-| You want to know… | Use | Looks at
+| You want to know…
+| Use
+| Looks at
 
-| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
-| What archives sit under the downloads root, and which trees they feed | `--list-downloads` (optional `--list-scope`) | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
-| What publisher working copies sit under the cascade forest (git health + size) | `--list-publishers` | In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`); develop-shaped STATUS report |
-| Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
-| What is under `_build` | `--list-builds` | `--build-root`
+| What is under the shared dependencies root, and which trees this project would use
+| `--list-dependencies` (optional `--list-scope`)
+| `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+
+| What archives sit under the downloads root, and which trees they feed
+| `--list-downloads` (optional `--list-scope`)
+| `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
+
+| What publisher working copies sit under the cascade forest (git health + size)
+| `--list-publishers`
+| In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`); develop-shaped STATUS report
+
+| Branch, cleanliness, and ahead/behind of configured develop working copies
+| `--list-develop`
+| Develop paths from the sconstruct
+
+| What is under ``_build``
+| `--list-builds`
+| `--build-root`
 |===
 
 **Inspecting dependency storage** — omit `--develop`:

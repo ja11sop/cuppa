@@ -157,6 +157,214 @@ def test_gitlab_tree_shows_requires_from_preloaded_entries():
     assert requires['children'][0]['label'] == 'beta 2.0.0'
 
 
+def test_requires_row_is_normal_colour_with_blank_size_when_label_only():
+    """``requires`` is structural: normal paint, blank SIZE/LAST USED without a rollup."""
+    import re
+    from cuppa.colourise import as_subdued, colouriser
+
+    tree = dependency_tree.build_tree( [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', 'gcc15_rel', '/missing/path',
+                    state='referenced',
+                    requires=[
+                            { 'name': 'beta', 'package': 'beta', 'version': '2.0.0' },
+                    ],
+            ),
+    ] )
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines, _ = dependency_tree.render_tree_lines( tree )
+        joined = '\n'.join( lines )
+        assert 'requires' in joined
+        assert as_subdued( 'requires' ) not in joined
+        ansi = re.compile( r'\x1b\[[0-9;]*m' )
+        for line in lines:
+            plain = ansi.sub( '', line )
+            if 'requires' not in plain:
+                continue
+            # Columns before DEPENDENCY must not use dash placeholders for structure rows.
+            before = plain.split( 'requires', 1 )[0]
+            assert '-  -' not in before
+            assert not re.search( r'-\s+-+\s*$', before.rstrip() )
+    finally:
+        colouriser.use_colour = was_colour
+
+
+def test_gitlab_tree_nests_closure_under_requires_with_sizes():
+    """Tip-selected alpha pulls beta/gamma into requires as sized identities."""
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            {
+                                    'name': 'beta',
+                                    'package': 'beta',
+                                    'version': '2.0.0',
+                                    'use_libs': ['beta'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+                    requires=[
+                            {
+                                    'name': 'gamma',
+                                    'package': 'gamma',
+                                    'version': '3.0.0',
+                                    'use_libs': ['gamma'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+            ),
+            _gitlab_leaf(
+                    'gamma', '3.0.0', tool, '/deps/{}/gamma/3.0.0'.format( tool ),
+                    state='unreferenced',
+            ),
+    ]
+    leaves[0]['size_bytes'] = 12000
+    leaves[1]['size_bytes'] = 8000
+    leaves[2]['size_bytes'] = 7000
+    leaves[3]['size_bytes'] = 4000
+
+    tree = dependency_tree.build_tree( leaves )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+
+    top_names = set()
+    for type_node in referenced.get( 'children' ) or []:
+        if type_node.get( 'kind' ) != 'type':
+            continue
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                top_names.add( child.get( 'short_name' ) or child.get( 'label' ) )
+    assert top_names == { 'alpha' }
+
+    requires = _find_kind( referenced, 'requires' )
+    assert requires is not None
+    # Spacer before first nested identity, then beta + spacer + gamma.
+    kinds = [ child.get( 'kind' ) for child in requires.get( 'children' ) or [] ]
+    assert kinds[0] == 'spacer'
+    nested = {
+            child.get( 'short_name' ) or child.get( 'label' ): child
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }
+    assert set( nested ) == { 'beta', 'gamma' }
+    # Dependent-first (reverse leaf-first): beta before gamma because beta requires gamma.
+    identity_order = [
+            child.get( 'short_name' ) or child.get( 'label' )
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    ]
+    assert identity_order == [ 'beta', 'gamma' ]
+    assert nested['beta']['size_bytes'] == 15000
+    assert nested['gamma']['size_bytes'] == 4000
+
+    beta_requires = _find_kind( nested['beta'], 'requires' )
+    assert beta_requires is not None
+    assert beta_requires['children'][0]['kind'] == 'requires_edge'
+    assert beta_requires['children'][0]['label'] == 'gamma 3.0.0'
+
+    # Only the tip-matching toolchain is in use under the nested package.
+    assert leaves[1]['state'] == 'referenced'
+    assert leaves[1].get( 'nest_under_requires' ) is True
+    assert leaves[2]['state'] == 'unreferenced'
+    assert leaves[2].get( 'nest_under_requires' ) is True
+    assert leaves[3]['state'] == 'referenced'
+
+    beta_leaves = [
+            child for child in _find_kind( nested['beta'], 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    remarks = { child['label']: child.get( 'remark' ) for child in beta_leaves }
+    assert remarks[tool] == 'in use'
+    assert remarks[other] == ''
+
+
+def test_order_requires_families_dependent_first_soft_cycle():
+    """Display order reverses leaf-first Kahn; cycles append leftovers without raising."""
+    ordered = dependency_tree._order_requires_families(
+            [ 'grpc', 'protobuf', 'abseil-cpp', 'c-ares' ],
+            {
+                    'grpc': { 'protobuf', 'abseil-cpp', 'c-ares' },
+                    'protobuf': { 'abseil-cpp' },
+                    'abseil-cpp': set(),
+                    'c-ares': set(),
+            },
+            prefer=[ 'protobuf', 'grpc' ],
+    )
+    assert ordered.index( 'grpc' ) < ordered.index( 'protobuf' )
+    assert ordered.index( 'protobuf' ) < ordered.index( 'abseil-cpp' )
+    assert ordered.index( 'grpc' ) < ordered.index( 'c-ares' )
+
+    cyclic = dependency_tree._order_requires_families(
+            [ 'a', 'b' ],
+            { 'a': { 'b' }, 'b': { 'a' } },
+            prefer=[ 'a', 'b' ],
+    )
+    assert set( cyclic ) == { 'a', 'b' }
+    assert len( cyclic ) == 2
+
+
+def test_requires_unions_edges_across_version_variants( tmp_path ):
+    """Union requires from every variant under a version (legacy + publish)."""
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+
+    legacy = tmp_path / 'gcc153_rel_x86_64_cxx2c' / 'grpc' / '1.84.0'
+    modern = tmp_path / 'gcc15_rel_x86_64_cxx2c' / 'grpc' / '1.84.0'
+    legacy.mkdir( parents=True )
+    modern.mkdir( parents=True )
+    ( legacy / 'cuppa-dependency.json' ).write_text(
+            '{"cuppa_dependency_format":1,"dependencies":['
+            '{"name":"protobuf","package":"protobuf","version":"36.1"},'
+            '{"name":"only_legacy","package":"only-legacy","version":"1.0"}]}',
+            encoding='utf-8',
+    )
+    write_publish_manifest(
+            str( modern ), 'grpc', '1.84.0',
+            dependencies=[
+                    { 'name': 'protobuf', 'package': 'protobuf', 'version': '36.1' },
+                    { 'name': 'c_ares', 'package': 'c-ares', 'version': '1.34.5' },
+                    { 'name': 're2', 'package': 're2', 'version': '2025-11-05' },
+                    { 'name': 'abseil_cpp', 'package': 'abseil-cpp', 'version': '20250814.2' },
+            ],
+    )
+    entries = dependency_tree._requires_entries_from_variants( [
+            _gitlab_leaf( 'grpc', '1.84.0', 'gcc153_rel_x86_64_cxx2c', str( legacy ) ),
+            _gitlab_leaf(
+                    'grpc', '1.84.0', 'gcc15_rel_x86_64_cxx2c', str( modern ),
+                    state='referenced',
+            ),
+    ] )
+    names = { entry.get( 'name' ) or entry.get( 'package' ) for entry in entries }
+    assert names == { 'protobuf', 'only_legacy', 'c_ares', 're2', 'abseil_cpp' }
+
+    in_use_only = dependency_tree._requires_entries_from_variants(
+            [
+                    _gitlab_leaf(
+                            'grpc', '1.84.0', 'gcc153_rel_x86_64_cxx2c', str( legacy ),
+                    ),
+                    _gitlab_leaf(
+                            'grpc', '1.84.0', 'gcc15_rel_x86_64_cxx2c', str( modern ),
+                            state='referenced',
+                    ),
+            ],
+            in_use_only=True,
+    )
+    in_use_names = {
+            entry.get( 'name' ) or entry.get( 'package' ) for entry in in_use_only
+    }
+    assert in_use_names == { 'protobuf', 'c_ares', 're2', 'abseil_cpp' }
+    assert 'only_legacy' not in in_use_names
+
+
 def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     """When one toolchain leaf is missing, siblings and requires stay normal colour."""
     from cuppa.colourise import as_emphasised, as_error, as_subdued, colouriser

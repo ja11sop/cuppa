@@ -112,8 +112,8 @@ gitGraph
 
 The release-specific branches and tags are on xref:contributing/release.adoc[Cutting a release].
 
-== Design plans: done vs shipped
 [#design-plans-done-vs-shipped]
+== Design plans: done vs shipped
 
 Repository design plans under `design/` use a status that must not be confused with “merged”:
 

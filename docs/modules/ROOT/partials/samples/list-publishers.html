@@ -1,0 +1,30 @@
+<pre class="cuppa-output"><code>
+Publishers in <span class="cuppa-info">~/.cuppa/publishers</span>
+
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------------------------</span>
+  STATUS  SIZE  PUBLISHER  BRANCH          UPSTREAM               STATE            PATH
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------------------------</span>
+<span class="cuppa-subdued">  ok      42M   capy       develop         origin/develop         clean, 1 behind  ~/.cuppa/publishers/capy</span>
+<span class="cuppa-warning">  warn    18M   corosio    feature_orders  origin/feature_orders  clean            ~/.cuppa/publishers/corosio</span>
+<span class="cuppa-subdued"><span class="cuppa-info">  note    9M    widget     master          origin/master          clean, 2 ahead   ~/.cuppa/publishers/widget</span></span>
+<span class="cuppa-subdued">  ------------------------------------------------------------------------------------------------------------</span>
+
+<span class="cuppa-emphasised">3</span> publisher trees: <span class="cuppa-subdued">[0 errors]</span><span class="cuppa-warning">[1 warning]</span><span class="cuppa-info">[1 note]</span>; 1 ok; 69M total
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span><span class="cuppa-warning">1 warning</span>
+<span class="cuppa-subdued">│   │</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-warning">corosio</span>
+<span class="cuppa-subdued">│       └── </span>on branch [<span class="cuppa-warning">feature_orders</span>]; expected [<span class="cuppa-warning">master</span>] or [<span class="cuppa-warning">develop</span>]
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span><span class="cuppa-info">1 note</span>
+<span class="cuppa-subdued">    │</span>
+<span class="cuppa-subdued">    └── </span><span class="cuppa-info">widget</span>
+<span class="cuppa-subdued">        └── </span>matches a configured develop= path; use <span class="cuppa-info">--list-develop</span> / <span class="cuppa-info">--update-develop</span> for that working copy,
+<span class="cuppa-subdued">            </span>and <span class="cuppa-info">--remove-publishers</span> will skip it
+
+Ahead and behind are relative to your last fetch; no remote was contacted
+Of these, <span class="cuppa-info">--update-publishers</span> would fast-forward 1 ([<span class="cuppa-info">capy</span>]) as of your last fetch; it fetches
+first, so it may find more
+
+A note of develop-linked means this forest path matches a configured develop= working copy — prefer --list-develop / --update-develop for that copy; --remove-publishers will skip it.
+</code></pre>

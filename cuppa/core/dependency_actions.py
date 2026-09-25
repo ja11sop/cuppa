@@ -1178,6 +1178,19 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             row.get( 'path' ) or '',
     ) )
 
+    # Traveling-manifest closure of tip GitLab extracts counts as referenced for
+    # wipe / scope; nest-only packages leave the top-level unreferenced section.
+    dependency_tree.promote_requires_closure( rows )
+    unreferenced_bytes = sum(
+            int( row.get( 'size_bytes' ) or 0 )
+            for row in rows
+            if row.get( 'state' ) == 'unreferenced'
+    )
+    referenced = set()
+    for row in rows:
+        if row.get( 'state' ) in dependency_tree.REFERENCED_STATES and row.get( 'path' ):
+            referenced.add( storage.real_path( row['path'] ) )
+
     tree = dependency_tree.build_tree( rows )
 
     return {

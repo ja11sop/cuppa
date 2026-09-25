@@ -1,0 +1,28 @@
+Publishers in ~/.cuppa/publishers
+
+  ------------------------------------------------------------------------------------------------------------
+  STATUS  SIZE  PUBLISHER  BRANCH          UPSTREAM               STATE            PATH
+  ------------------------------------------------------------------------------------------------------------
+  ok      42M   capy       develop         origin/develop         clean, 1 behind  ~/.cuppa/publishers/capy
+  warn    18M   corosio    feature_orders  origin/feature_orders  clean            ~/.cuppa/publishers/corosio
+  note    9M    widget     master          origin/master          clean, 2 ahead   ~/.cuppa/publishers/widget
+  ------------------------------------------------------------------------------------------------------------
+
+3 publisher trees: [0 errors][1 warning][1 note]; 1 ok; 69M total
+│
+├── 1 warning
+│   │
+│   └── corosio
+│       └── on branch [feature_orders]; expected [master] or [develop]
+│
+└── 1 note
+    │
+    └── widget
+        └── matches a configured develop= path; use --list-develop / --update-develop for that working copy,
+            and --remove-publishers will skip it
+
+Ahead and behind are relative to your last fetch; no remote was contacted
+Of these, --update-publishers would fast-forward 1 ([capy]) as of your last fetch; it fetches
+first, so it may find more
+
+A note of develop-linked means this forest path matches a configured develop= working copy — prefer --list-develop / --update-develop for that copy; --remove-publishers will skip it.

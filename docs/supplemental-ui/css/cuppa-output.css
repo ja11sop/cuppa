@@ -102,10 +102,24 @@
 
 .cuppa-output .cuppa-label {
   background: var(--cuppa-output-meaning, var(--cuppa-console-text, #1b1b1b));
-  border-radius: 0.2em;
+  border-radius: 0.15em;
   box-decoration-break: clone;
+  box-sizing: border-box;
   color: var(--cuppa-console-surface, var(--cuppa-page, #fff));
+  /*
+   * Report trees use line-height: 1. Vertical padding (or a taller font strut)
+   * paints into neighbouring rows and can hide glyphs on the line above. Keep
+   * the chip to one row: horizontal inset only, height capped to the line box.
+   */
+  display: inline-block;
   font-weight: 700;
-  padding: 0.05em 0.25em;
+  line-height: 1;
+  margin: 0;
+  max-height: 1em;
+  max-height: 1lh;
+  overflow: hidden;
+  padding-block: 0;
+  padding-inline: 0.25em;
+  vertical-align: text-bottom;
   -webkit-box-decoration-break: clone;
 }

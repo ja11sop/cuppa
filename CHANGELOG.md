@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
+  GitLab extracts under each tip version’s ``requires`` group as sized package trees
+  (versions → toolchains). Closure-only packages leave the top-level unreferenced list and
+  stay protected from ``--force-wipe-unreferenced-dependencies``. Nested ``requires`` under
+  those packages remain label edges. Design:
+  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md) (pass A).
+
 - ``--list-publishers`` / ``--remove-publishers`` / ``--remove-all-publishers`` —
   inspect and reclaim the cascade publisher forest under the in-force root
   (``--publisher-root``, else ``<storage-root>/publishers``). List report matches
@@ -112,6 +119,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consume-only cascade tips label the tip as **(this project)** (and an intro that
   names tip build only) rather than **(this package)**, which remains for publisher
   tips.
+
+- Doc samples: ``cascade-plan`` / ``cascade-plan-consume`` / ``cascade-plan-clone``
+  and ``list-publishers`` now generate semantic HTML (and text/JSON siblings)
+  via ``python -m scripts.generate_doc_samples``, and Antora includes those
+  fragments on Publishing Packages and Listing publisher trees. Managing-deps
+  comparison tables use cell-per-line layout so underscore paths do not break
+  AsciiDoc cell counts; the versioning ``done`` vs ``shipped`` anchor sits above
+  its heading to avoid a duplicate-id warning.
 
 ### Fixed
 

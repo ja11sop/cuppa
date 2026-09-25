@@ -1618,6 +1618,345 @@ def sample_list_builds_json():
     )
 
 
+def _publisher_entries_for_samples():
+    """Shared publisher rows for text / HTML / JSON ``--list-publishers`` samples."""
+    from cuppa.core.publisher_actions import PublisherEntry
+    from cuppa.develop import NOTE, OK, STATUS_FOR, WARNING
+
+    home = Path.home()
+    forest = home / '.cuppa' / 'publishers'
+    rows = [
+            (
+                    Copy(
+                            name='capy',
+                            path=str( forest / 'capy' ),
+                            exists=True,
+                            is_working_copy=True,
+                            scm='git',
+                            branch='develop',
+                            detached=False,
+                            upstream='origin/develop',
+                            ahead=0,
+                            behind=1,
+                            modified=False,
+                    ),
+                    OK,
+                    [],
+                    False,
+                    42 * 1024 * 1024,
+            ),
+            (
+                    Copy(
+                            name='corosio',
+                            path=str( forest / 'corosio' ),
+                            exists=True,
+                            is_working_copy=True,
+                            scm='git',
+                            branch='feature_orders',
+                            detached=False,
+                            upstream='origin/feature_orders',
+                            ahead=0,
+                            behind=0,
+                            modified=False,
+                    ),
+                    WARNING,
+                    [ 'on branch [feature_orders]; expected [master] or [develop]' ],
+                    False,
+                    18 * 1024 * 1024,
+            ),
+            (
+                    Copy(
+                            name='widget',
+                            path=str( forest / 'widget' ),
+                            exists=True,
+                            is_working_copy=True,
+                            scm='git',
+                            branch='master',
+                            detached=False,
+                            upstream='origin/master',
+                            ahead=2,
+                            behind=0,
+                            modified=False,
+                    ),
+                    NOTE,
+                    [
+                            'matches a configured develop= path; use --list-develop / '
+                            '--update-develop for that working copy, and --remove-publishers '
+                            'will skip it'
+                    ],
+                    True,
+                    9 * 1024 * 1024,
+            ),
+    ]
+    return [
+            PublisherEntry(
+                    copy=copy,
+                    severity=severity,
+                    notes=notes,
+                    status=STATUS_FOR[severity],
+                    size=storage.human_size( size_bytes ),
+                    size_bytes=size_bytes,
+                    develop_linked=develop_linked,
+            )
+            for copy, severity, notes, develop_linked, size_bytes in rows
+    ]
+
+
+def _list_publishers_sample_data():
+    entries = _publisher_entries_for_samples()
+    return {
+            'publishers_root': str( Path.home() / '.cuppa' / 'publishers' ),
+            'entries': entries,
+            'total_bytes': sum( entry.size_bytes for entry in entries ),
+            'would_update': [ 'capy' ],
+            'tree_count': len( entries ),
+    }
+
+
+def sample_list_publishers():
+    """``--list-publishers`` STATUS table + judgement tree."""
+    from cuppa.core.publisher_actions import write_list_publishers_report
+
+    out = io.StringIO()
+    write_list_publishers_report( out, _list_publishers_sample_data() )
+    return _write_sample(
+            'list-publishers.txt', _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_publishers_html():
+    """Semantic HTML form of the ``--list-publishers`` report."""
+    from cuppa.core.publisher_actions import write_list_publishers_report
+
+    def invoke( stream ):
+        write_list_publishers_report( stream, _list_publishers_sample_data() )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'list-publishers.html', text, colouriser )
+
+
+def sample_list_publishers_json():
+    """Short ``--list-publishers --list-format=json``."""
+    from cuppa.develop import state_summary
+
+    data = _list_publishers_sample_data()
+    payload = {
+            'publishers_root': data['publishers_root'],
+            'tree_count': data['tree_count'],
+            'total_bytes': data['total_bytes'],
+            'would_update': data['would_update'],
+            'entries': [
+                    {
+                            'name': entry.copy.name,
+                            'path': entry.copy.path,
+                            'status': entry.status,
+                            'severity': entry.severity,
+                            'notes': list( entry.notes ),
+                            'size': entry.size,
+                            'size_bytes': entry.size_bytes,
+                            'branch': (
+                                    '(detached)' if entry.copy.detached
+                                    else ( entry.copy.branch or '-' )
+                            ),
+                            'upstream': entry.copy.upstream or '-',
+                            'state': state_summary( entry.copy ),
+                            'develop_linked': entry.develop_linked,
+                            'would_update': entry.copy.name in data['would_update'],
+                    }
+                    for entry in data['entries']
+            ],
+    }
+    text = storage.render_json_payload( payload ) + '\n'
+    return _write_sample( 'list-publishers.json', _anonymise_home_paths( text ) )
+
+
+def _cascade_plan_sample_text(
+        nodes,
+        order,
+        tip_package,
+        tip_version,
+        argv,
+        *,
+        consume_tip=False,
+        clone_count=0,
+        dependency_count=None,
+):
+    """Compose ``cascade_plan_lines`` plus the real finish-line remedy."""
+    from cuppa.package_managers import package_cascade as cascade
+
+    cascade.reset_plan_reports()
+    out = io.StringIO()
+    cascade.write_lines(
+            cascade.cascade_plan_lines(
+                    nodes,
+                    order,
+                    tip_package,
+                    tip_version,
+                    argv=argv,
+                    consume_tip=consume_tip,
+            ),
+            out=out,
+    )
+    cascade.record_plan_report(
+            tip_package,
+            tip_version,
+            0,
+            clone_count=clone_count,
+            consume_tip=consume_tip,
+            dependency_count=(
+                    len( order ) if dependency_count is None else dependency_count
+            ),
+    )
+    cascade.finish_plan_only( out=out )
+    cascade.reset_plan_reports()
+    return out.getvalue()
+
+
+def _cascade_plan_publisher_fixture():
+    """Resolved publisher tip matching the Publishing Packages cascade-plan example."""
+    home = Path.home()
+    forest = home / 'coding' / 'packages'
+    nodes = {
+            ( 'capy', 'capy', 'develop' ): {
+                    'name': 'capy',
+                    'package': 'capy',
+                    'version': 'develop',
+                    'package_source': 'git@gitlab.example:packages/capy',
+                    '_publisher_dir': str( forest / 'capy' ),
+            },
+            ( 'corosio', 'corosio', '0.3.1' ): {
+                    'name': 'corosio',
+                    'package': 'corosio',
+                    'version': '0.3.1',
+                    'package_source': 'git@gitlab.example:packages/corosio',
+                    '_publisher_dir': str( forest / 'corosio' ),
+            },
+    }
+    order = [ ( 'capy', 'capy', 'develop' ), ( 'corosio', 'corosio', '0.3.1' ) ]
+    argv = [
+            'cuppa', '-D', '--rel', '--toolchains=gcc15',
+            '--build-and-publish-dependencies', '--cascade-plan',
+            '--publisher-root=~/coding/packages',
+    ]
+    return nodes, order, 'widget', '0.2.0', argv
+
+
+def _cascade_plan_consume_fixture():
+    """Consume-only tip using the default publishers forest."""
+    home = Path.home()
+    forest = home / '.cuppa' / 'publishers'
+    nodes = {
+            ( 'capy', 'capy', 'develop' ): {
+                    'name': 'capy',
+                    'package': 'capy',
+                    'version': 'develop',
+                    '_publisher_dir': str( forest / 'capy' ),
+            },
+            ( 'corosio', 'corosio', '0.3.1' ): {
+                    'name': 'corosio',
+                    'package': 'corosio',
+                    'version': '0.3.1',
+                    '_publisher_dir': str( forest / 'corosio' ),
+            },
+    }
+    order = [ ( 'capy', 'capy', 'develop' ), ( 'corosio', 'corosio', '0.3.1' ) ]
+    argv = [
+            'cuppa', '-D', '--rel', '--toolchains=gcc15',
+            '--build-and-publish-dependencies', '--cascade-plan',
+    ]
+    return nodes, order, 'widget', 'consume', argv
+
+
+def _cascade_plan_clone_fixture():
+    """Plan that would clone the first dependency before expanding its edges."""
+    home = Path.home()
+    nodes = {
+            ( 'capy', 'capy', 'develop' ): {
+                    'name': 'capy',
+                    'package': 'capy',
+                    'version': 'develop',
+                    'package_source': 'git@gitlab.example:packages/capy',
+                    '_publisher_dir': None,
+                    '_clone_url': 'git@gitlab.example:packages/capy',
+                    '_clone_revision': 'develop',
+                    '_clone_dir': str( home / '.cuppa' / 'publishers' / 'capy' ),
+            },
+    }
+    order = [ ( 'capy', 'capy', 'develop' ) ]
+    argv = [
+            'cuppa', '-D', '--rel', '--toolchains=gcc15',
+            '--build-and-publish-dependencies', '--cascade-plan',
+            '--clone-publishers',
+    ]
+    return nodes, order, 'widget', '0.2.0', argv
+
+
+def sample_cascade_plan():
+    """``--cascade-plan`` for a publisher tip with resolved forest trees."""
+    nodes, order, tip, version, argv = _cascade_plan_publisher_fixture()
+    text = _cascade_plan_sample_text( nodes, order, tip, version, argv )
+    return _write_sample( 'cascade-plan.txt', _rewrite_sample_home( text ) )
+
+
+def sample_cascade_plan_html():
+    """Semantic HTML form of the publisher-tip cascade plan."""
+    nodes, order, tip, version, argv = _cascade_plan_publisher_fixture()
+
+    def invoke( stream ):
+        stream.write( _cascade_plan_sample_text( nodes, order, tip, version, argv ) )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'cascade-plan.html', text, colouriser )
+
+
+def sample_cascade_plan_consume():
+    """``--cascade-plan`` for a consume-only tip (tip build only)."""
+    nodes, order, tip, version, argv = _cascade_plan_consume_fixture()
+    text = _cascade_plan_sample_text(
+            nodes, order, tip, version, argv, consume_tip=True,
+    )
+    return _write_sample( 'cascade-plan-consume.txt', _rewrite_sample_home( text ) )
+
+
+def sample_cascade_plan_consume_html():
+    """Semantic HTML form of the consume-only cascade plan."""
+    nodes, order, tip, version, argv = _cascade_plan_consume_fixture()
+
+    def invoke( stream ):
+        stream.write( _cascade_plan_sample_text(
+                nodes, order, tip, version, argv, consume_tip=True,
+        ) )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'cascade-plan-consume.html', text, colouriser )
+
+
+def sample_cascade_plan_clone():
+    """``--cascade-plan`` with ``--clone-publishers`` (notes + blocked finish)."""
+    nodes, order, tip, version, argv = _cascade_plan_clone_fixture()
+    text = _cascade_plan_sample_text(
+            nodes, order, tip, version, argv, clone_count=1,
+    )
+    return _write_sample( 'cascade-plan-clone.txt', _rewrite_sample_home( text ) )
+
+
+def sample_cascade_plan_clone_html():
+    """Semantic HTML form of the clone-opt-in cascade plan."""
+    nodes, order, tip, version, argv = _cascade_plan_clone_fixture()
+
+    def invoke( stream ):
+        stream.write( _cascade_plan_sample_text(
+                nodes, order, tip, version, argv, clone_count=1,
+        ) )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'cascade-plan-clone.html', text, colouriser )
+
+
 GENERATORS = tuple(
         _frozen_now( generator )
         for generator in (
@@ -1635,6 +1974,9 @@ GENERATORS = tuple(
                 sample_list_develop,
                 sample_list_develop_html,
                 sample_list_develop_json,
+                sample_list_publishers,
+                sample_list_publishers_html,
+                sample_list_publishers_json,
                 sample_list_toolchains,
                 sample_list_toolchains_html,
                 sample_list_toolchains_verbose,
@@ -1643,6 +1985,12 @@ GENERATORS = tuple(
                 sample_list_builds,
                 sample_list_builds_html,
                 sample_list_builds_json,
+                sample_cascade_plan,
+                sample_cascade_plan_html,
+                sample_cascade_plan_consume,
+                sample_cascade_plan_consume_html,
+                sample_cascade_plan_clone,
+                sample_cascade_plan_clone_html,
                 sample_remove_builds_dry_run,
                 sample_remove_builds_dry_run_html,
                 sample_remove_builds_error,
@@ -1674,6 +2022,9 @@ GENERATORS = tuple(
         sample_list_develop,
         sample_list_develop_html,
         sample_list_develop_json,
+        sample_list_publishers,
+        sample_list_publishers_html,
+        sample_list_publishers_json,
         sample_list_toolchains,
         sample_list_toolchains_html,
         sample_list_toolchains_verbose,
@@ -1682,6 +2033,12 @@ GENERATORS = tuple(
         sample_list_builds,
         sample_list_builds_html,
         sample_list_builds_json,
+        sample_cascade_plan,
+        sample_cascade_plan_html,
+        sample_cascade_plan_consume,
+        sample_cascade_plan_consume_html,
+        sample_cascade_plan_clone,
+        sample_cascade_plan_clone_html,
         sample_remove_builds_dry_run,
         sample_remove_builds_dry_run_html,
         sample_remove_builds_error,
@@ -1709,8 +2066,12 @@ def main( argv=None ):
                     'list-dependencies',
                     'list-dependencies-verbose',
                     'list-dependencies-requires',
+                    'list-publishers',
                     'list-toolchains',
                     'list-toolchains-verbose',
+                    'cascade-plan',
+                    'cascade-plan-consume',
+                    'cascade-plan-clone',
                     'remove-builds-dry-run',
                     'remove-builds-error',
                     'remove-all-builds-dry-run',
@@ -1734,8 +2095,12 @@ def main( argv=None ):
             'list-dependencies': sample_list_dependencies_html,
             'list-dependencies-verbose': sample_list_dependencies_verbose_html,
             'list-dependencies-requires': sample_list_dependencies_requires_html,
+            'list-publishers': sample_list_publishers_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,
+            'cascade-plan': sample_cascade_plan_html,
+            'cascade-plan-consume': sample_cascade_plan_consume_html,
+            'cascade-plan-clone': sample_cascade_plan_clone_html,
             'remove-builds-dry-run': sample_remove_builds_dry_run_html,
             'remove-builds-error': sample_remove_builds_error_html,
             'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,

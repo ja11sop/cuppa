@@ -62,7 +62,7 @@
             "size": "8K",
             "size_bytes": 8192,
             "source_url": null,
-            "state": "unreferenced",
+            "state": "referenced",
             "stem": "beta",
             "tool_variant": "gcc153_rel_x86_64_cxx2c",
             "toolchain_session_name": null,
@@ -83,7 +83,7 @@
             "size": "4K",
             "size_bytes": 4096,
             "source_url": null,
-            "state": "unreferenced",
+            "state": "referenced",
             "stem": "gamma",
             "tool_variant": "gcc153_rel_x86_64_cxx2c",
             "toolchain_session_name": null,
@@ -106,9 +106,9 @@
                         "label": "dependencies in use",
                         "last_used": "today",
                         "location": "",
-                        "remark": "1 used",
-                        "size": "12K",
-                        "size_bytes": 12288
+                        "remark": "3 used",
+                        "size": "24K",
+                        "size_bytes": 24576
                     },
                     {
                         "children":
@@ -134,30 +134,116 @@
                                                 "children":
                                                 [
                                                     {
-                                                        "kind": "requires_edge",
-                                                        "label": "beta 2.0.0",
-                                                        "label_detail": "2.0.0",
-                                                        "last_used": "",
-                                                        "location": "",
-                                                        "remark": "libs: beta",
-                                                        "requires_name": "beta",
-                                                        "requires_package": "beta",
-                                                        "requires_use_libs":
+                                                        "children":
                                                         [
-                                                            "beta"
+                                                            {
+                                                                "children":
+                                                                [
+                                                                    {
+                                                                        "kind": "leaf",
+                                                                        "label": "gcc153_rel_x86_64_cxx2c",
+                                                                        "last_used": "today",
+                                                                        "location": "beta_debian_gcc153_rel_x86_64_cxx2c.tar.gz",
+                                                                        "path": "/home/user/.cuppa/dependencies/gcc153_rel_x86_64_cxx2c/beta/2.0.0",
+                                                                        "remark": "in use",
+                                                                        "size": "8K",
+                                                                        "size_bytes": 8192,
+                                                                        "state": "referenced"
+                                                                    },
+                                                                    {
+                                                                        "children":
+                                                                        [
+                                                                            {
+                                                                                "kind": "requires_edge",
+                                                                                "label": "gamma 3.0.0",
+                                                                                "label_detail": "3.0.0",
+                                                                                "last_used": "",
+                                                                                "location": "",
+                                                                                "remark": "libs: gamma",
+                                                                                "requires_name": "gamma",
+                                                                                "requires_package": "gamma",
+                                                                                "requires_use_libs":
+                                                                                [
+                                                                                    "gamma"
+                                                                                ],
+                                                                                "requires_version": "3.0.0",
+                                                                                "size": "",
+                                                                                "size_bytes": null
+                                                                            }
+                                                                        ],
+                                                                        "kind": "requires",
+                                                                        "label": "requires",
+                                                                        "last_used": "",
+                                                                        "location": "",
+                                                                        "remark": "",
+                                                                        "size": "",
+                                                                        "size_bytes": null
+                                                                    }
+                                                                ],
+                                                                "kind": "version",
+                                                                "label": "2.0.0",
+                                                                "last_used": "today",
+                                                                "location": "https://gitlab.example/api/v4/projects/1/beta/2.0.0",
+                                                                "remark": "",
+                                                                "size": "8K",
+                                                                "size_bytes": 8192
+                                                            }
                                                         ],
-                                                        "requires_version": "2.0.0",
-                                                        "size": "-",
-                                                        "size_bytes": null
+                                                        "kind": "identity",
+                                                        "label": "beta",
+                                                        "last_used": "today",
+                                                        "location": "",
+                                                        "registry_name": "beta",
+                                                        "remark": "",
+                                                        "short_name": "beta",
+                                                        "size": "8K",
+                                                        "size_bytes": 8192
+                                                    },
+                                                    {
+                                                        "children":
+                                                        [
+                                                            {
+                                                                "children":
+                                                                [
+                                                                    {
+                                                                        "kind": "leaf",
+                                                                        "label": "gcc153_rel_x86_64_cxx2c",
+                                                                        "last_used": "today",
+                                                                        "location": "gamma_debian_gcc153_rel_x86_64_cxx2c.tar.gz",
+                                                                        "path": "/home/user/.cuppa/dependencies/gcc153_rel_x86_64_cxx2c/gamma/3.0.0",
+                                                                        "remark": "in use",
+                                                                        "size": "4K",
+                                                                        "size_bytes": 4096,
+                                                                        "state": "referenced"
+                                                                    }
+                                                                ],
+                                                                "kind": "version",
+                                                                "label": "3.0.0",
+                                                                "last_used": "today",
+                                                                "location": "https://gitlab.example/api/v4/projects/1/gamma/3.0.0",
+                                                                "remark": "",
+                                                                "size": "4K",
+                                                                "size_bytes": 4096
+                                                            }
+                                                        ],
+                                                        "kind": "identity",
+                                                        "label": "gamma",
+                                                        "last_used": "today",
+                                                        "location": "",
+                                                        "registry_name": "gamma",
+                                                        "remark": "",
+                                                        "short_name": "gamma",
+                                                        "size": "4K",
+                                                        "size_bytes": 4096
                                                     }
                                                 ],
                                                 "kind": "requires",
                                                 "label": "requires",
-                                                "last_used": "",
+                                                "last_used": "today",
                                                 "location": "",
                                                 "remark": "",
-                                                "size": "-",
-                                                "size_bytes": null
+                                                "size": "12K",
+                                                "size_bytes": 12288
                                             }
                                         ],
                                         "kind": "version",
@@ -185,145 +271,29 @@
                         "last_used": "today",
                         "location": "",
                         "remark": "1 used",
-                        "size": "12K",
-                        "size_bytes": 12288
+                        "size": "24K",
+                        "size_bytes": 24576
                     }
                 ],
                 "kind": "section",
                 "label": "referenced",
                 "last_used": "today",
                 "location": "",
-                "remark": "1 total",
-                "size": "12K",
-                "size_bytes": 12288
+                "remark": "3 total",
+                "size": "24K",
+                "size_bytes": 24576
             },
             {
-                "children":
-                [
-                    {
-                        "children":
-                        [
-                            {
-                                "children":
-                                [
-                                    {
-                                        "children":
-                                        [
-                                            {
-                                                "kind": "leaf",
-                                                "label": "gcc153_rel_x86_64_cxx2c",
-                                                "last_used": "today",
-                                                "location": "beta_debian_gcc153_rel_x86_64_cxx2c.tar.gz",
-                                                "path": "/home/user/.cuppa/dependencies/gcc153_rel_x86_64_cxx2c/beta/2.0.0",
-                                                "remark": "",
-                                                "size": "8K",
-                                                "size_bytes": 8192,
-                                                "state": "unreferenced"
-                                            },
-                                            {
-                                                "children":
-                                                [
-                                                    {
-                                                        "kind": "requires_edge",
-                                                        "label": "gamma 3.0.0",
-                                                        "label_detail": "3.0.0",
-                                                        "last_used": "",
-                                                        "location": "",
-                                                        "remark": "libs: gamma",
-                                                        "requires_name": "gamma",
-                                                        "requires_package": "gamma",
-                                                        "requires_use_libs":
-                                                        [
-                                                            "gamma"
-                                                        ],
-                                                        "requires_version": "3.0.0",
-                                                        "size": "-",
-                                                        "size_bytes": null
-                                                    }
-                                                ],
-                                                "kind": "requires",
-                                                "label": "requires",
-                                                "last_used": "",
-                                                "location": "",
-                                                "remark": "",
-                                                "size": "-",
-                                                "size_bytes": null
-                                            }
-                                        ],
-                                        "kind": "version",
-                                        "label": "2.0.0",
-                                        "last_used": "today",
-                                        "location": "https://gitlab.example/api/v4/projects/1/beta/2.0.0",
-                                        "remark": "",
-                                        "size": "8K",
-                                        "size_bytes": 8192
-                                    }
-                                ],
-                                "kind": "identity",
-                                "label": "beta",
-                                "last_used": "today",
-                                "location": "",
-                                "remark": "",
-                                "short_name": "beta",
-                                "size": "8K",
-                                "size_bytes": 8192
-                            },
-                            {
-                                "children":
-                                [
-                                    {
-                                        "children":
-                                        [
-                                            {
-                                                "kind": "leaf",
-                                                "label": "gcc153_rel_x86_64_cxx2c",
-                                                "last_used": "today",
-                                                "location": "gamma_debian_gcc153_rel_x86_64_cxx2c.tar.gz",
-                                                "path": "/home/user/.cuppa/dependencies/gcc153_rel_x86_64_cxx2c/gamma/3.0.0",
-                                                "remark": "",
-                                                "size": "4K",
-                                                "size_bytes": 4096,
-                                                "state": "unreferenced"
-                                            }
-                                        ],
-                                        "kind": "version",
-                                        "label": "3.0.0",
-                                        "last_used": "today",
-                                        "location": "https://gitlab.example/api/v4/projects/1/gamma/3.0.0",
-                                        "remark": "",
-                                        "size": "4K",
-                                        "size_bytes": 4096
-                                    }
-                                ],
-                                "kind": "identity",
-                                "label": "gamma",
-                                "last_used": "today",
-                                "location": "",
-                                "remark": "",
-                                "short_name": "gamma",
-                                "size": "4K",
-                                "size_bytes": 4096
-                            }
-                        ],
-                        "kind": "type",
-                        "label": "gitlab packages",
-                        "last_used": "today",
-                        "location": "",
-                        "remark": "",
-                        "size": "12K",
-                        "size_bytes": 12288
-                    }
-                ],
                 "kind": "section",
                 "label": "unreferenced",
-                "last_used": "today",
+                "last_used": "",
                 "location": "",
                 "remark": "",
-                "size": "12K",
-                "size_bytes": 12288
+                "size": "-",
+                "size_bytes": null
             }
         ]
     },
     "unqualified_duplicate_tokens": [],
-    "unreferenced_bytes": 12288
+    "unreferenced_bytes": 0
 }
