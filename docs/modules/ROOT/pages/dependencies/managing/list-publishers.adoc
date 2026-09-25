@@ -1,0 +1,43 @@
+= Listing publisher trees
+:description: --list-publishers and --remove-publishers for the cascade forest
+
+[#list-publishers]
+== Listing publisher trees
+
+`--list-publishers` walks the **in-force publisher root** and prints a table of
+working copies cascade can reuse: size, branch, cleanliness, and path.
+
+The root is `--publisher-root` when you set it, otherwise
+`<storage-root>/publishers` (for example `~/.cuppa/publishers`). That matches
+where `--clone-publishers` writes and where `--update-publishers` fast-forwards.
+Configured `develop=` trees stay on `--list-develop`; if a forest path happens
+to be the same real path as a develop working copy, the STATUS column shows
+`develop` and `--remove-publishers` will skip it.
+
+[source,shell]
+----
+cuppa -Q -D --list-publishers
+cuppa -Q -D --list-publishers --list-format=json
+cuppa -Q -D --list-publishers --publisher-root=/path/to/forest
+----
+
+[#remove-publishers]
+== Removing publisher trees
+
+`--remove-publishers=NAME` deletes named folders under the in-force publisher
+root (comma-separated). `--remove-all-publishers` clears every publisher tree
+there. Both honour `-n` / `--no-exec` for a dry run, refuse suspicious roots,
+contain each path under the publisher root, and never delete a develop-linked
+path.
+
+[source,shell]
+----
+cuppa -Q -D -n --remove-publishers=capy
+cuppa -Q -D --remove-publishers=capy,corosio
+cuppa -Q -D --remove-all-publishers
+----
+
+These flags are siblings of `--list-downloads` / `--remove-dependencies` in the
+storage-action family. They do **not** walk `--dependencies-root` and are not
+wired through `--remove-dependencies` (that family only contains under the
+dependencies root).

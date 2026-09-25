@@ -520,20 +520,24 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 
 ## Open questions (Phase 2+)
 
-1. **Making cloned publisher trees visible** — inventory / list / removal so
-   `{storage_root}/publishers/…` (and an active `--publisher-root`) is not
-   invisible disk usage (follow-on to 2b).
+1. ~~**Making cloned publisher trees visible**~~ — **done**
+   (`--list-publishers` / `--remove-publishers` / `--remove-all-publishers`;
+   settled table above).
 
-   **Preferred direction to explore (not settled):** augment the existing
-   dependency ``--list-*`` / ``--remove-*`` / ``--wipe-*`` family with a
-   **``publishers``** node (or equivalent sibling under the same report grammar),
-   rather than inventing a parallel ``--list-publishers`` surface. Scope of what is
-   listed should follow **the publisher root in force for that run** — default
-   ``{storage_root}/publishers`` unless ``--publisher-root=`` is set (same rule
-   cascade resolve already uses). Open when implementing: whether develop-ranked
-   trees appear here or only under develop reports; how multi-root machines
-   discover orphans outside the in-force root; removal safety (never wipe a
-   develop path that happens to sit under a publisher root).
+   ### Settled decisions (question 1)
+
+   | Topic | Decision |
+   |-------|----------|
+   | Flag family | Sibling flags under the same storage-action family as ``--list-downloads`` / remove: **``--list-publishers``**, **``--remove-publishers=NAME``**, **``--remove-all-publishers``**. Same report grammar conventions (ruled table / JSON / ``-Q``), not a one-off surface and not a section bolted onto ``--list-dependencies`` (different root + containment). |
+   | List scope | Only the **in-force publisher root**: ``publisher_lookup_root(env)`` = ``--publisher-root`` if set, else ``{storage_root}/publishers``. No multi-root orphan discovery in this slice. |
+   | What counts as a tree | Immediate child directories of that root that look like publisher working copies (``.git`` and/or ``sconstruct`` / ``cuppa-publish.json``). |
+   | Develop trees | Stay on **``--list-develop`` / ``--update-develop``**. List may note when a forest entry’s real path matches a configured ``develop=`` (do not treat it as a reclaimable publisher orphan). Remove **never** deletes a develop-matched path. |
+   | Remove safety | Contain under the in-force publisher root (realpath). Never route through ``--remove-dependencies`` (that family ``ensure_contained``s under ``dependencies_root`` only). Dry-run via ``-n`` / ``--no-exec``. |
+   | Inventory file | None for MVP — walk the filesystem; do not write into ``.cuppa-inventory`` under ``dependencies_root``. |
+   | Wipe / purge | Out of scope for this slice (no downloads pairing). Named + all remove are enough to reclaim forest disk. |
+   | Q4 keying | Unchanged: still ``{root}/{name}``. List/remove discover by folder name. |
+
+   Earlier “prefer a ``publishers`` node rather than ``--list-publishers``” meant **same family grammar**, not folding into the dependencies-root walk. Downloads already set the sibling-flag precedent.
 
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
@@ -627,9 +631,9 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
 | Follow-on: tip no-op after metadata-only dependency refresh | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) (question 11; corosio→capy soak) — not yet in a named release |
-| Follow-on: publishers visibility + layout | Open — questions 1 and 4 (list as `publishers` node; evaluate `package_source`-stem keying) |
+| Follow-on: publishers visibility + layout | Question **1 done** (`--list-publishers` / remove); question **4** still open (stem keying) |
 | Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) — see [Antora documentation](#antora-documentation-297) |
-| Collect finish: reused vs newly cloned | **Done** (question 7) — finish line names both when a collect run mixes forest reuse and clones |
+| Collect finish: reused vs newly cloned | **Done** on master via [#334](https://github.com/ja11sop/cuppa/pull/334) (question 7) |
 
 ## Antora documentation (#297)
 
@@ -650,7 +654,7 @@ about one tool.
 | Mermaid: enable→companion; leaf-first algorithm; tip refresh / ``payload_sha256`` | same |
 | **Real cascade runs** section (skip-if-current, ``--force``, overlay, offline nested archive, multi-toolchain, clean) | `#cascade-run` — moved out from under Updating publisher trees |
 | Escape ``\{root}/\{name}`` (AsciiDoc attribute warns) | cascade resolve bullet |
-| Cold-start recipe + mermaid; honest “no ``--list-publishers`` yet” | `#cascade-cold-start` |
+| Cold-start recipe + mermaid; ``--list-publishers`` for the forest | `#cascade-cold-start` |
 | Example traveling ``cuppa-publish.json`` (incl. ``payload_sha256``) | Declaring transitive dependencies |
 | External **build** framing (Cuppa-native / CMake / b2); CMake remains the deep example | `#publishing-from-external-cmake` |
 | Amend / tip-refresh wording not CMake-only | amend + `#cascade-run` |
@@ -662,8 +666,8 @@ about one tool.
 
 | Item | Blocked on | Notes |
 |------|------------|--------|
-| Collect finish: **reused** vs **cloned** in plan/collect copy | ~~Open question **7**~~ **Done** — Antora `#collect-cascade` + CLI `--collect-cascade` |
-| ``publishers`` node on ``--list-*`` / remove / wipe; inventory orphans | Open question **1** | Antora: Managing / CLI report grammar + cascade cold-start “how to see the forest” |
+| Collect finish: **reused** vs **cloned** in plan/collect copy | ~~Open question **7**~~ **Done** — Antora `#collect-cascade` + CLI `--collect-cascade` ([#334](https://github.com/ja11sop/cuppa/pull/334)) |
+| ``publishers`` list/remove for the cascade forest | ~~Open question **1**~~ **Done** | ``--list-publishers`` / ``--remove-publishers``; Managing + cold-start docs |
 | Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Update resolve/clone destination tables and cold-start paths in the same change |
 | Build-deps-only without nested upload | Open question **3** (still open) | Do not document as if shipped |
 | Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |

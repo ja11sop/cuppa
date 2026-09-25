@@ -324,9 +324,10 @@ cuppa -D --rel --toolchains=gcc15 \
 Match ``--toolchain-identity`` / package GitLab OS identity flags to the archives
 you intend to publish when the tip and nested sessions must share one identity.
 ``--clone-publishers`` and live ``--update-publishers`` refuse ``--offline``.
-There is not yet a ``--list-publishers`` / ``publishers`` node on the storage
-listing grammar — the forest is visible via plan/collect output and the
-filesystem until that lands (see the cascade design plan, open questions 1 / 4).
+Inspect the forest with ``--list-publishers`` (same in-force root as clone /
+update). Reclaim disk with ``--remove-publishers`` / ``--remove-all-publishers``.
+Configured ``develop=`` trees stay on ``--list-develop``; see
+xref:dependencies/managing/list-publishers.adoc[Listing publisher trees].
 
 [#cascade-develop]
 ==== Publishing from a tree you are working in

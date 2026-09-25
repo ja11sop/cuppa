@@ -18,6 +18,7 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 
 | What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
 | What archives sit under the downloads root, and which trees they feed | `--list-downloads` (optional `--list-scope`) | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
+| What publisher working copies sit under the cascade forest | `--list-publishers` | In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`)
 | Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
 | What is under `_build` | `--list-builds` | `--build-root`
 |===
@@ -63,6 +64,9 @@ cuppa -Q -D --list-dependencies --develop
 
 | xref:dependencies/managing/list-downloads.adoc[Listing downloads]
 | `--list-downloads` and how archives pair with extracts
+
+| xref:dependencies/managing/list-publishers.adoc[Listing publisher trees]
+| `--list-publishers` / `--remove-publishers` for the cascade forest
 
 | xref:dependencies/managing/removing.adoc[Removing, purging, and wiping]
 | Tokens, remove / purge / wipe / force-wipe, and matching names from the list tree
