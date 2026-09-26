@@ -2,14 +2,17 @@
 :description: --purge-dependencies — remove plus matching downloads
 
 For the flag map, tokens, shared inventory, and glance table, see
-xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage].
+xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
+Purge is the second step on the
+xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
+(remove → purge → wipe).
 
 [#purge-dependencies]
 == Purging dependencies and downloads
 
 `--purge-dependencies=name1,name2` and `--purge-all-dependencies` do everything
 `--remove-dependencies` / `--remove-all-dependencies` do, then delete the matching archives
-under the downloads root for the **same names and selection** (`--toolchains`, variants,
+under the downloads root for the **same names and active context** (`--toolchains`, variants,
 location-match). `--purge-all-dependencies` means every **project-used** name — not every leftover
 toolchain tarball on disk. Unreferenced clang archives stay, just as `--list-downloads` shows them.
 
@@ -25,7 +28,7 @@ re-downloads and re-extracts, use xref:dependencies/managing/wiping.adoc#wipe-de
 
 The report nests download → `[E]` → source assets and products (the same pairing as
 `--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
-the same `[E]` subtree directly under the identity. Leftover other-selection extracts **and**
+the same `[E]` subtree directly under the identity. Leftover other-context extracts **and**
 leftover downloads are called out like today’s leftover trees. Freed space includes download
 bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when archive-clean left
 source assets — `--list-dependencies` is still useful there).
@@ -48,19 +51,30 @@ include::partial$samples/purge-gitlab.html[]
 ++++
 
 See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
-More selection patterns:
-xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples].
+More filter patterns:
+xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples].
 
 
 
 [#worked-purge-examples]
 == Worked examples
 
-[#ex-purge-gitlab]
-== Example 5 — Purge the selected GitLab package + download (project-used)
+These walkthroughs match intents linked from the
+xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glance table.
+Scroll up to the shared inventory when reading Matches.
 
-Purge does everything remove does for the selected leaf, then deletes the matching
-download archive. Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
+[#worked-purge-shared-inventory]
+=== Shared example inventory
+
+++++
+include::partial$samples/selection-example-inventory.html[]
+++++
+
+[#ex-purge-gitlab]
+=== Purge the selected GitLab package + download (project-used)
+
+Purge does everything remove does for the context-matched leaf, then deletes the matching
+download archive.
 
 ++++
 include::partial$cli-examples/purge-gitlab-selected.html[]

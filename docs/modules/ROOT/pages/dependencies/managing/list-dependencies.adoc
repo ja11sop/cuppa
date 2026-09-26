@@ -46,10 +46,12 @@ By default (`--list-scope=all`) the report opens with **used** (selected for thi
 then **unused** (present on disk but not selected). Under each section, trees group by
 **dependency type**:
 
-* **repositories** — location / VCS working copies (branches and stems such as `@master`)
+Type groups always appear in this order (empty groups are omitted):
+
+* **repository dependencies** — location / VCS working copies (branches and stems such as `@master`)
 * **gitlab packages** — registry package extracts (versions → toolchain leaves)
+* **conan packages** — Conan trees Cuppa tracks under the dependencies root (when present)
 * **source archives** — extracted archives such as source Boost (versions → products)
-* **conan** — Conan trees Cuppa tracks under the dependencies root (when present)
 * **toolchains** — fetched compiler installs under the toolchains area (when listed here)
 
 Default dependencies that are expected but absent appear as `missing`. The used section

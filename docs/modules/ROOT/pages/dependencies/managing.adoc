@@ -83,8 +83,8 @@ cuppa -Q -D --list-dependencies --develop
 | xref:dependencies/managing/list-downloads.adoc[Listing downloads]
 | `--list-downloads` and how archives pair with extracts
 
-| xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage]
-| Tokens, remove / purge / wipe / force-wipe, and matching names from the list tree
+| xref:dependencies/managing/reclaiming.adoc[Reclaiming storage]
+| Context-scoped remove→purge→wipe vs list-tree force-wipe; tokens and filter glance
 
 | xref:dependencies/managing/develop.adoc[Checking your develop copies]
 | `--list-develop`, clone, checkout / reset, and `--update-develop`

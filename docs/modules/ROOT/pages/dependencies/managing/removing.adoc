@@ -1,18 +1,23 @@
 = Removing dependencies
-:description: --remove-dependencies and --remove-all-dependencies — selection-scoped reclaim
+:description: --remove-dependencies and --remove-all-dependencies — context-scoped reclaim
 
 For the flag map, tokens, shared inventory, and glance table, see
-xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage].
+xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
+Remove is the first step on the
+xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
+(remove → purge → wipe). For naming leaves from the list tree without matching this
+project's active context, use
+xref:dependencies/managing/force-wiping.adoc[force-wipe] instead.
 
 [#remove-dependencies]
 == Removing dependency trees
 
 `--remove-dependencies=name1,name2` and `--remove-all-dependencies` delete trees under the
 dependencies root for the named registry dependencies (or every default dependency), scoped to
-the current toolchain / variant / location-match selection — the same options that decide where
-cuppa writes. They exit without building. Downloads, develop working copies, and unreferenced
-trees that are not named stay put; siblings for other toolchains or branches are reported as
-left behind. SCons `-n` is a dry run.
+the **active context** — the current toolchain / variant / location-match flags (the same
+options that decide where cuppa writes). They exit without building. Downloads, develop working
+copies, and unreferenced trees that are not named stay put; siblings for other toolchains or
+branches are reported as left behind. SCons `-n` is a dry run.
 
 Names are the keys this project uses: `auto_enable_dependencies` (legacy:
 `default_dependencies`) plus names imported via `import_dependencies` (legacy:
@@ -20,7 +25,7 @@ Names are the keys this project uses: `auto_enable_dependencies` (legacy:
 (`boost`, `qt4`, `<...>`) are **not** removable unless the project names them that way (for example
 in `auto_enable_dependencies`). On-disk folder names and listing short names are rejected. An
 unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
-ruled tree of dependencies that *can* be removed for the current selection (the in-use /
+ruled tree of dependencies that *can* be removed for the active context (the in-use /
 referenced picture from `--list-dependencies`, without unreferenced leftovers), after
 `Collating dependency tree...`. See
 xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
@@ -29,14 +34,14 @@ Tokens may also use the shared `[selector]name[/qualifier]` form described in
 xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] — for example `[source]boost` or
 `[gitlab]boost_package/1.91` — to restrict by dependency type and optional leaf qualifier.
 The glance table of common filters is on
-xref:dependencies/managing/reclaiming.adoc#selection-examples[Reclaiming dependency storage];
+xref:dependencies/managing/reclaiming.adoc#filter-examples[Reclaiming storage];
 remove-specific walkthroughs are in xref:#worked-remove-examples[Worked examples] below.
 
 Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
-variant products inside one extract folder. When that dependency implements selection-scoped
+variant products inside one extract folder. When that dependency implements context-scoped
 `storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
 matching Boost.Build toolset directories under `--build-dir` (`bin.<abi>`) for the current
-toolchain / variant / arch selection — not the whole `bin.<abi>` tree.
+toolchain / variant / arch flags — not the whole `bin.<abi>` tree.
 
 The extract root, headers, and the `b2` binary stay so a later build does not need to
 re-download the tarball. Other stage trees and other toolsets' intermediates under the same
@@ -116,15 +121,17 @@ cuppa -Q -D --list-dependencies --list-scope=unreferenced
   (for example `boost_package`); the on-disk package folder may differ (for example `boost/<version>`).
   Listing short names are **not** remove tokens unless they are also project-used names.
 
-. Map labels to tokens (see <<dependency-tokens>>):
+. Map labels to tokens (see
+  xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens]):
 
-* Untyped project-used name: `boost_package` or `boost` — remove / purge / wipe for the current selection.
-* Typed dependency type: `[gitlab]boost_package` or `[source]boost` (see xref:#dependency-types-and-selectors[Dependency types and selectors]).
+* Untyped project-used name: `boost_package` or `boost` — remove / purge / wipe for the active context.
+* Typed dependency type: `[gitlab]boost_package` or `[source]boost` (see
+  xref:dependencies/managing/reclaiming.adoc#dependency-types-and-selectors[Dependency types and selectors]).
 * Version / leaf qualifier: `[gitlab]boost_package/1.91` or `boost/1.8*` (quote wildcards).
 * Unqualified VCS duplicate shown as `@master (unqualified)`: force-wipe with `name/@`.
 
 . Dry-run first (`-n`), then drop `-n`. Prefer the
-  xref:#selection-examples[selection examples] table when choosing the flag family:
+  xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] table when choosing the flag family:
 
 [source,shell]
 ----
@@ -136,30 +143,42 @@ cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 Expected report shapes match the HTML samples later on this page
 (`remove-gitlab-dry-run`, `remove-boost-product-clean`, and the wipe / purge samples).
 
-. Common mistakes
+. Choosing a flag family
 
-* Using a **listing short name** or on-disk folder when the project key is different (remove prints
-  an error and a ruled tree of names that *can* be removed).
-* Choosing **force-wipe** when **remove** or **wipe** would suffice — force-wipe ignores
-  referenced / `in use` and is for named leaves you intend to clear deliberately.
-* Reclaiming leftovers without `--list-scope=unreferenced` (and
-  xref:dependencies/managing/list-downloads.adoc[`--list-downloads`]) first — know what you are
-  about to delete.
-
+* Use **remove** / **purge** / **wipe** when you are reclaiming *this* project's caches under
+  the **active context** (matching toolchain / variant flags).
+* Use **force-wipe** when you are naming leaves from `--list-dependencies` — old versions,
+  Conan leftovers, caches from another checkout or test run — without reconstructing that
+  context. See xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[Two reclaim paths].
+* List leftovers with `--list-scope=unreferenced` (and
+  xref:dependencies/managing/list-downloads.adoc[`--list-downloads`]) before an orphan wipe.
+* Do not use a **listing short name** or on-disk folder when the project key is different
+  (remove prints an error and a ruled tree of names that *can* be removed).
 
 
 [#worked-remove-examples]
 == Worked examples
 
+These walkthroughs match intents linked from the
+xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glance table.
+Most examples use the shared inventory below — scroll up to it when reading Matches. One
+example uses a different inventory (source `boost` as project-used) and shows that tree
+inline.
+
+[#worked-remove-shared-inventory]
+=== Shared example inventory
+
+++++
+include::partial$samples/selection-example-inventory.html[]
+++++
+
 [#ex-typed-selector]
-== Example 1 — Remove by dependency type (project-used GitLab)
+=== Remove by dependency type (project-used GitLab)
 
 A typed token limits the match to one dependency type. Against the shared inventory,
 `[gitlab]boost_package` is **project-used** under **used** → gitlab packages, so remove
-can target the selected toolchain leaf. It does **not** open source-archive `boost`
+can target the context-matched toolchain leaf. It does **not** open source-archive `boost`
 (unused here) or unused GitLab `boost/1.86.0`.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/remove-typed-gitlab.html[]
@@ -168,7 +187,7 @@ include::partial$cli-examples/remove-typed-gitlab.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[gitlab]boost_package/1.91` — selected toolchain leaf under the current `--dbg` / `gcc` selection
+* `[gitlab]boost_package/1.91` — toolchain leaf under the current `--dbg` / `gcc` active context
 
 Does **not** match source-archive `boost/1.91.0` or unused GitLab `boost/1.86.0`.
 
@@ -179,11 +198,11 @@ include::partial$samples/remove-gitlab-dry-run.html[]
 ++++
 
 [#ex-remove-used-source]
-== Example 2 — Remove used variants for a source-archive dependency (current selection)
+=== Remove used variants for a source-archive dependency (active context)
 
 `--remove-dependencies='[source]boost'` (or untyped `boost` when only the source type is
-in play) cleans **used** selection outputs for that source-archive dependency — for Boost,
-the b2 stage / toolset dirs under the **used** version for the **current selection** — and
+in play) cleans **used** context outputs for that source-archive dependency — for Boost,
+the b2 stage / toolset dirs under the **used** version for the **active context** — and
 leaves the extract (`storage_clean`). It does **not** wipe unused version leaves. That
 requires `boost` to be a **project-used** name.
 
@@ -202,7 +221,7 @@ include::partial$cli-examples/remove-source-boost.html[]
 Matches (this inventory):
 
 [.cuppa-cli-matches]
-* used selection outputs under `[source]boost/1.91.0` (stage + toolset dirs for the current toolchain / variant)
+* used context outputs under `[source]boost/1.91.0` (stage + toolset dirs for the current toolchain / variant)
 
 Does **not** remove unused `1.86.0` / `1.87.0` / `1.88.0` leaves — those stay until a
 force-wipe names them. The extract and source assets remain.

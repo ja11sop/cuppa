@@ -2,7 +2,15 @@
 :description: --force-wipe-dependencies and --force-wipe-unreferenced-dependencies — named leaves and orphans
 
 For the flag map, tokens, shared inventory, and glance table, see
-xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage].
+xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
+
+Force-wipe is the
+xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[list-tree reclaim path]:
+you name leaves from `--list-dependencies` without needing them to be project-used under
+the active toolchain / variant context. Despite the dramatic name, this is often the
+everyday disk reclaim when cleaning Conan leftovers from integration-test runs, old Boost
+versions, or caches produced outside the current checkout — cases where remove / purge /
+wipe would require reconstructing a matching `sconstruct` and flags first.
 
 [#force-wipe-dependencies]
 == Force-wiping named leaves
@@ -23,7 +31,7 @@ cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 
 Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
 tree — see xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
-xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples]. Examples: `boost/1.86.0`,
+xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples]. Examples: `boost/1.86.0`,
 `[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` (unqualified stem — listed as
 `@master (unqualified)`). Bare project-used identity names belong on
 `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
@@ -115,15 +123,24 @@ cuppa -Q -D --list-downloads --list-scope=unreferenced
 [#worked-force-wipe-examples]
 == Worked examples
 
+These walkthroughs match intents linked from the
+xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glance table.
+All of them use the shared inventory below — scroll up to it when reading Matches.
+
+[#worked-force-wipe-shared-inventory]
+=== Shared example inventory
+
+++++
+include::partial$samples/selection-example-inventory.html[]
+++++
+
 [#ex-wildcard-untyped]
-== Example 6 — Force-wipe an unused version series (untyped wildcard)
+=== Force-wipe an unused version series (untyped wildcard)
 
 An untyped qualifier wildcard matches the same version pattern in **every** dependency
-type. Against the shared inventory that is **unused** source `1.86.0`–`1.88.0` and
-**unused** GitLab `boost` `1.86.0` / `1.87.0`. It skips `[source]boost/1.91.0` (outside
+type. Against the shared inventory that is **unused** GitLab `boost` `1.86.0` / `1.87.0`
+and **unused** source `1.86.0`–`1.88.0`. It skips `[source]boost/1.91.0` (outside
 `1.8*`) and project-used GitLab `boost_package/1.91` (different name).
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-boost-wildcard.html[]
@@ -132,11 +149,11 @@ include::partial$cli-examples/force-wipe-boost-wildcard.html[]
 Matches:
 
 [.cuppa-cli-matches]
+* `[gitlab]boost/1.86.0`
+* `[gitlab]boost/1.87.0`
 * `[source]boost/1.86.0`
 * `[source]boost/1.87.0`
 * `[source]boost/1.88.0`
-* `[gitlab]boost/1.86.0`
-* `[gitlab]boost/1.87.0`
 
 Dry-run report:
 
@@ -145,12 +162,10 @@ include::partial$samples/force-wipe-boost-wildcard-dry-run.html[]
 ++++
 
 [#ex-wildcard-typed]
-== Example 7 — Force-wipe unused source versions only (typed wildcard)
+=== Force-wipe unused source versions only (typed wildcard)
 
 Adding `[source]` keeps the same wildcard but only on source archives — **unused**
 GitLab `boost/1.86.0` and `1.87.0` stay.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-source-boost-wildcard.html[]
@@ -170,12 +185,10 @@ include::partial$samples/force-wipe-source-boost-wildcard-dry-run.html[]
 ++++
 
 [#ex-multi-token]
-== Example 8 — Force-wipe several unused version leaves
+=== Force-wipe several unused version leaves
 
 Comma-separated tokens each resolve independently (exact leaves, no wildcard). Untyped
-`boost/1.86.0` hits both source and GitLab types; the same for `1.87.0`.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
+`boost/1.86.0` hits both GitLab and source types; the same for `1.87.0`.
 
 ++++
 include::partial$cli-examples/force-wipe-boost-two.html[]
@@ -184,10 +197,10 @@ include::partial$cli-examples/force-wipe-boost-two.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[source]boost/1.86.0`
-* `[source]boost/1.87.0`
 * `[gitlab]boost/1.86.0`
 * `[gitlab]boost/1.87.0`
+* `[source]boost/1.86.0`
+* `[source]boost/1.87.0`
 
 Dry-run report:
 
@@ -196,12 +209,10 @@ include::partial$samples/force-wipe-boost-two-dry-run.html[]
 ++++
 
 [#ex-location-stem]
-== Example 9 — Force-wipe an unused location branch stem
+=== Force-wipe an unused location branch stem
 
 Repositories list branch stems under the identity. `@11.1.1` is **unused**; **in-use**
 `@master` is not matched.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-fmt-stem.html[]
@@ -219,12 +230,10 @@ include::partial$samples/force-wipe-fmt-stem-dry-run.html[]
 ++++
 
 [#ex-unqualified]
-== Example 10 — Force-wipe an unused unqualified VCS duplicate
+=== Force-wipe an unused unqualified VCS duplicate
 
 The list shows `@master (unqualified)`; the wipe shorthand is `name/@`. That is not the
 same leaf as `widget/@master` or **in-use** `widget/@feature_x`.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-widget-unqualified.html[]
@@ -242,12 +251,10 @@ include::partial$samples/force-wipe-widget-unqualified-dry-run.html[]
 ++++
 
 [#ex-mixed]
-== Example 11 — Force-wipe mixed unused archive + location leaves
+=== Force-wipe mixed unused archive + location leaves
 
 Comma-separated tokens still resolve independently: untyped `boost/1.86.0` hits **unused**
-source and GitLab leaves, and `fmt/@11.1.1` hits the **unused** repository stem.
-
-Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
+GitLab and source leaves, and `fmt/@11.1.1` hits the **unused** repository stem.
 
 ++++
 include::partial$cli-examples/force-wipe-mixed.html[]
@@ -256,9 +263,9 @@ include::partial$cli-examples/force-wipe-mixed.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[source]boost/1.86.0`
-* `[gitlab]boost/1.86.0`
 * `[repository]fmt/@11.1.1`
+* `[gitlab]boost/1.86.0`
+* `[source]boost/1.86.0`
 
 Dry-run report:
 

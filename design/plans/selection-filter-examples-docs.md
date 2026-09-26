@@ -17,11 +17,12 @@ every example still needs a scannable intent + command + confirmation.
 | Piece | Decision |
 |-------|----------|
 | Glance | **Table** Intent \| Example; Example = colourised command + Matches against shared inventory |
-| Worked examples | Numbered `=== Example N — …` peers under Selection; why + Matches + dry-run report in the same section |
+| Worked examples | Descriptive `===` headings under Worked examples (linked from glance; no global Example N); section intro embeds the shared inventory |
 | Alternate inventory | When the shared inventory cannot succeed (e.g. source `boost` unused), the example shows its own inventory first |
-| Naming | Qualify **used** / **unused** / **project-used** in titles; avoid “products only” without “current selection” |
+| Naming | Qualify **used** / **unused** / **project-used**; **active context** = toolchain/variant/location-match flags (not token **selectors**) |
+| Two reclaim paths | remove→purge→wipe = context-scoped ladder; force-wipe = everyday list-tree reclaim outside a matching project build |
 | Wipe samples | Synthetic dry-run HTML for wipe GitLab, wipe source Boost, and force-wipe wildcard / multi / stem / `@` / mixed |
-| Command chrome | `pre.cuppa-output.cuppa-cli-example` in `.cuppa-cli-block` — flag = info, token = notice; copy toolbox |
+| Command chrome | `pre.cuppa-output.cuppa-cli-example` in `.cuppa-cli-block` — flag = info, token = notice; copy toolbox; wrap on whitespace + `<wbr>` after `=`/`,` |
 | Selectors in docs | Prefer **medium** names: `[source]`, `[gitlab]`, `[repository]`, `[conan]`, `[toolchain]` |
 
 ## Progress snapshot
@@ -31,7 +32,8 @@ every example still needs a scannable intent + command + confirmation.
 | Types and selectors table | Done |
 | Synthetic inventory + CLI partials + CSS | Done |
 | Glance + Matches + worked “why” | Done |
-| Numbered examples + alt inventories + wipe samples | Done |
+| Descriptive worked examples + alt inventories + wipe samples | Done |
+| Context vs list-tree reclaim framing; inventory in Worked examples intros | Done |
 | Copy toolbox on CLI blocks | Done |
 | Follow-ons (below) | Open |
 

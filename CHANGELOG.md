@@ -200,10 +200,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Dependencies Antora map uses four job hubs (**Using** / **Managing** / **Publishing** /
   **Authoring**), with a Using-first usability page and Publishing split out of the old
   top-level packages megapage. Managing reclaim docs use a
-  xref-style hub (**Reclaiming dependency storage**) plus remove / purge / wipe /
-  force-wipe children; glance table intents carry Matches; listing docs open with how to
-  read the tree before GitLab ``requires``. Docs placeholders prefer ``<name>`` / ``<…>``
-  over Unicode ellipsis (``scripts.check_docs_placeholders``). Design:
+  xref-style hub (**Reclaiming storage**) plus remove / purge / wipe /
+  force-wipe children; the hub separates **context-scoped** remove→purge→wipe from
+  **list-tree** force-wipe (often the everyday reclaim outside a matching project build);
+  glance table intents carry Matches; worked examples drop global numbering and embed the
+  inventory; listing docs open with how to read the tree before GitLab ``requires``. Docs
+  placeholders prefer ``<name>`` / ``<…>`` over Unicode ellipsis
+  (``scripts.check_docs_placeholders``). Design:
   [`dependencies-docs-four-hubs`](design/plans/dependencies-docs-four-hubs.md),
   [`selection-filter-examples-docs`](design/plans/selection-filter-examples-docs.md).
 

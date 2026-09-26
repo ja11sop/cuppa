@@ -73,7 +73,7 @@ Dependency-related Antora pages are large and hard to navigate:
 ** Managing dependencies
 *** Listing dependency trees            ← Option A scopes + requires all/resolve samples
 *** Listing downloads
-*** Reclaiming dependency storage
+*** Reclaiming storage
 **** Removing / Purging / Wiping / Force-wiping
 *** Develop working copies
 ** Publishing dependencies

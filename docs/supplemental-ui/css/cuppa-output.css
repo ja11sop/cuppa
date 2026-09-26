@@ -152,9 +152,15 @@
   line-height: 1.35;
   margin: 0;
   padding: 0.5rem 0.65rem;
-  white-space: pre-wrap; /* wrap on whitespace only */
+  /*
+   * Prefer wrap on whitespace. Extra soft breaks come from <wbr> after '=' and
+   * ',' in the HTML. Multi-segment flags use .cuppa-cli-flag / .cuppa-cli-nowrap
+   * (white-space: nowrap) so browsers do not break on ASCII '-'.
+   */
+  white-space: pre-wrap;
   overflow-wrap: normal;
   word-break: normal;
+  hyphens: none;
   overflow-x: auto;
 }
 
@@ -186,6 +192,7 @@
   white-space: pre-wrap;
   overflow-wrap: normal;
   word-break: normal;
+  hyphens: none;
   overflow-x: auto;
 }
 
@@ -205,6 +212,13 @@
 .doc .cuppa-cli-flag {
   color: var(--cuppa-console-info, #1d4ed8);
   font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Uncoloured option tokens that must not break on internal '-' (e.g. --list-scope). */
+.cuppa-output .cuppa-cli-nowrap,
+.doc .cuppa-cli-nowrap {
+  white-space: nowrap;
 }
 
 .cuppa-output .cuppa-cli-token,

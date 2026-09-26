@@ -43,7 +43,7 @@
 ** xref:dependencies/managing.adoc[Managing dependencies]
 *** xref:dependencies/managing/list-dependencies.adoc[Listing dependency trees]
 *** xref:dependencies/managing/list-downloads.adoc[Listing downloads]
-*** xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage]
+*** xref:dependencies/managing/reclaiming.adoc[Reclaiming storage]
 **** xref:dependencies/managing/removing.adoc[Removing dependencies]
 **** xref:dependencies/managing/purging.adoc[Purging dependencies]
 **** xref:dependencies/managing/wiping.adoc[Wiping dependencies]

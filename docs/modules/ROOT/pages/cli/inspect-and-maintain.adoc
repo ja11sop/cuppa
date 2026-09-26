@@ -96,8 +96,9 @@ build and develop listings. `--list-dependencies-scope` is a deprecated compatib
 == Clean, remove, purge, and wipe
 
 These verbs intentionally have different ownership and re-fetch consequences.
-For worked selection and token examples, see
-xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples].
+Start with the two reclaim paths on
+xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[Reclaiming storage], then the
+xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glance table.
 
 [cols="2,3,5"]
 |===
@@ -116,7 +117,7 @@ xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filt
 | Artefacts, dependencies, and downloads
 
 | `--remove-dependencies`
-| Selection-scoped products for named project-used dependencies
+| Active-context products for named project-used dependencies
 | Matching downloads; source/archive extracts when `storage_clean` can retain them
 
 | `--purge-dependencies`
@@ -124,11 +125,11 @@ xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filt
 | Source/archive extracts that dependency `storage_clean` deliberately preserves
 
 | `--wipe-dependencies`
-| Named project-used extracts and matching downloads for the current selection
-| Other selections; the next build must re-fetch wiped material
+| Named project-used extracts and matching downloads for the active context
+| Other contexts; the next build must re-fetch wiped material
 
 | `--force-wipe-dependencies`
-| Explicit list-tree leaves, including unreferenced versions/branches
+| Explicit list-tree leaves, including unreferenced versions/branches (context-agnostic)
 | Leaves that do not match the supplied tokens
 |===
 
@@ -144,7 +145,7 @@ The dependency actions are:
 | `--purge-all-dependencies` | Every project-used dependency plus matching downloads
 | `--wipe-dependencies=LIST` | Named project-used extracts and matching downloads
 | `--force-wipe-dependencies=TOKEN,...` | Explicit list-tree leaf tokens, regardless of current use
-| `--force-wipe-all-dependencies` | Every project-used dependency extract/download for the selection
+| `--force-wipe-all-dependencies` | Every project-used dependency extract/download for the active context
 | `--force-wipe-unreferenced-dependencies` | Every dependency tree/download marked unreferenced
 |===
 
@@ -178,7 +179,7 @@ patterns where the detailed workflow permits them.
 |===
 
 See xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
-xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples]
+xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples]
 before using force-wipe; those pages define every selector, show how tokens map to the
 inventory tree, and give a full remove / purge / wipe example table.
 
