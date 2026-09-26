@@ -3,7 +3,7 @@ Default dependencies: boost_package
   ---------------------------------------------------------------------
       SIZE  LAST USED  REMARK   DEPENDENCY
   ---------------------------------------------------------------------
-    299.3M  today      1 total  referenced
+    299.3M  today      1 total  used
                                 │
     299.3M  today      1 used   ├── dependencies in use
                                 │
@@ -13,7 +13,7 @@ Default dependencies: boost_package
     299.3M  today                       └── 1.91
     299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
   ---------------------------------------------------------------------
-      5.8M  today               unreferenced
+      5.8M  today               unused
                                 │
       5.8M  today               └── source archives
                                     │

@@ -32,7 +32,7 @@ into a real `sconscript`.
 
 | `MergeFlags()`
 | Add GCC-style flag strings (or a flag dict) and let SCons sort them into `CCFLAGS` /
-  `CXXFLAGS` / `CPPPATH` / … Cuppa projects often pass a single define string after `BuildWith()`.
+  `CXXFLAGS` / `CPPPATH` / <...> Cuppa projects often pass a single define string after `BuildWith()`.
 
 | `AppendUnique()`
 | Append to a *named* construction variable without duplicating entries — `LIBPATH`, `LIBS`,
@@ -104,7 +104,7 @@ Prefer zero-arg accessors for the toolchain and variant bound on this sconscript
 Import('env')
 
 cxx = env.Toolchain().binary()
-build_type = env.Variant().name()   # dbg, rel, cov, …
+build_type = env.Variant().name()   # dbg, rel, cov, <...>
 ----
 
 To check that a toolchain was registered (registry key or `name()`), use `HasToolchain`:

@@ -1,0 +1,29 @@
+= Publishing packages overview
+:description: Choose a Publishing guide — GitLab, cascade, amend/external, Conan, publishers
+
+Consuming prebuilt archives belongs under
+xref:dependencies/using.adoc[Using dependencies].
+This overview is the entry to **shipping** Cuppa-built libraries.
+
+[cols="1,2"]
+|===
+| Goal | Page
+
+| ``PublishPackage`` / GitLab generic / ``version="latest"`` / Boost from source
+| xref:dependencies/publishing/gitlab.adoc[GitLab package publish]
+
+| Nest-publish a package DAG (plan, collect, clone, update, run)
+| xref:dependencies/publishing/cascade.adoc[Cascading dependency publishes]
+
+| Amend traveling metadata or publish from CMake / external graphs
+| xref:dependencies/publishing/amend-and-external.adoc[Amending metadata and external builds]
+
+| Conan 2 ``export-pkg`` / upload
+| xref:dependencies/publishing/conan.adoc[Conan 2 publishing]
+
+| List / remove / update publisher working copies
+| xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees]
+|===
+
+Legacy bookmarks to this path without a fragment still land here. Fragment links
+from older docs are redirected in the xref sweep to the child pages above.

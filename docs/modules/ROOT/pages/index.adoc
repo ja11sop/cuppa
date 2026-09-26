@@ -56,7 +56,7 @@ Cuppa solves a different design problem: keep the *project description* short an
 | Evolving `FILE_SET CXX_MODULES` support; compiler/scanner gaps (for example Apple Clang)
 
 | Extensibility
-| Python classes, setuptools plugins (`cuppa.method.plugins`, …)
+| Python classes, setuptools plugins (`cuppa.method.plugins`, <...>)
 | CMake modules and toolchain files in the CMake language
 |===
 

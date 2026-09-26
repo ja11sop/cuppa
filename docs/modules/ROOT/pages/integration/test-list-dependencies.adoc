@@ -5,16 +5,15 @@
 == What is tested
 
 With planted trees under a private `--storage-root`, `--list-dependencies` reports them as a
-hierarchical table (including an `unreferenced` section) without removing anything, and
+hierarchical table (including an `unused` section by default) without removing anything, and
 `--list-format=json` emits parseable objects with a `tree` and flat `entries`. The first listing
 upgrades missing inventory sizes to exact (with a notice that measuring may take a while); a
 second listing reuses the cache. A default location dependency whose tree is absent appears
 as `missing` (including in JSON `missing_count` / entries) without aborting the listing.
-`--list-scope=referenced`, `compact`, and `unreferenced` filter which part of the listing
-appears (including in JSON `scope` / `entries` / `tree`). `referenced` keeps unused siblings
-under resolved identities (including GitLab `boost/<other-version>` next to a selected
-`boost_package`); `compact` is a refinement of `referenced` (resolve-selected leaves only —
-`compact` implies the referenced side of the partition). The deprecated
+`--list-scope=all` (usage), `resolve`, `referenced`, `compact`, and `unreferenced` filter which
+part of the listing appears (including in JSON `scope` / `entries` / `tree`). `referenced`
+keeps unused siblings under resolved identities (including GitLab `boost/<other-version>` next
+to a selected `boost_package`); `compact` is **used-only** (resolve-bound leaves). The deprecated
 `--list-dependencies-scope` alias still works.
 
 A local location tree under `--storage-root` is listed without stamping `used_by`. A subsequent
@@ -23,7 +22,7 @@ A local location tree under `--storage-root` is listed without stamping `used_by
 Planted unqualified and `stem@master` copies of the same VCS identity list as one family: the
 unqualified row is labelled `@master (unqualified)` (remove-coloured when unused beside an
 `in use` peer). The listing footer recommends a dry-run
-`--force-wipe-dependencies=…/@` command (including under `--list-scope=compact`).
+`--force-wipe-dependencies=<...>/@` command (including under `--list-scope=compact`).
 
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
@@ -103,7 +102,7 @@ cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 == Expectations
 
 Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
-`unreferenced`. The first listing may print `Measuring exact sizes…` when inventory sizes are
+`unreferenced`. The first listing may print `Measuring exact sizes...` when inventory sizes are
 missing; a second listing reuses the cache. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
 `dependencies_root`. The planted tree remains on disk after listing.
 

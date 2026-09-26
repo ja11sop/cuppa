@@ -43,7 +43,7 @@ error: constructor does not initialize base class 'base' under profile 'std::ini
 * Provide **default member initializers** on members that always start with a known value.
 * Mark rarely-used members `{cxx-a-uninit}` when indeterminate startup is intentional, and
   ensure no read precedes your first write.
-* Initialize bases in the mem-initializer list: `with_base() : base{ … } {}`.
+* Initialize bases in the mem-initializer list: `with_base() : base{ <...> } {}`.
 * **Suppress** for legacy types under incremental adoption (prefer fixing constructors).
 
 == Related rules

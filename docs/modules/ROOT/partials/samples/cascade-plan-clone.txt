@@ -1,0 +1,24 @@
+Printing Cascade plan for building and publishing package widget [==0.2.0] given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan --clone-publishers
+
+Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
+│
+├── 1 of 1  capy [==develop] (git@gitlab.example:packages/capy)
+│           │
+│           └── 2 notes
+│               │
+│               ├── would clone [git@gitlab.example:packages/capy] at [develop] into
+│               │   [~/.cuppa/publishers/capy]
+│               │
+│               └── its own package dependencies are not known until that tree exists, so nothing
+│                   is planned beneath it
+│
+└── then widget [==0.2.0] from this tree
+
+--cascade-plan: 1 package planned, 1 publisher tree to clone first;
+│
+├── pass --clone-publishers along with either --publish-cascade-dependencies or --publish-package
+│
+└── to make this plan executable
+
+nothing was built, published, uploaded, or cloned.

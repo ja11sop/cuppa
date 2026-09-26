@@ -24,13 +24,13 @@ xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 |===
 | Method | Role
 
-| `env.Coverage(program, sources, …)`
+| `env.Coverage(program, sources, <...>)`
 | Run coverage tooling for a binary (active with `--cov` / related actions)
 
-| `env.CollateCoverageFiles(sources, destination=…)`
+| `env.CollateCoverageFiles(sources, destination=<...>)`
 | Collate coverage HTML/JSON for one test (or node list)
 
-| `env.CollateCoverageIndex(…)`
+| `env.CollateCoverageIndex(<...>)`
 | Master coverage index across tests (and, in the site layout, toolchains)
 |===
 
@@ -77,7 +77,7 @@ After `BuildTest()`, projects commonly append:
 [source,python]
 ----
 coverage_files.append(env.CollateCoverageFiles(test, destination=coverage_dir))
-# …
+# <...>
 env.CollateCoverageIndex(coverage_files, destination=coverage_dir)
 ----
 

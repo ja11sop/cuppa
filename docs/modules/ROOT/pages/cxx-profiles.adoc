@@ -7,12 +7,12 @@ In this guide you will learn what ISO {cpp} **Profiles** are aiming at, what cup
 supports today, how to enable them with a Profiles-capable Clang, and where the
 feature may go next.
 
-Cuppa's **BuildProfile** (`env.BuildProfile(…)`) is a different concept: named
+Cuppa's **BuildProfile** (`env.BuildProfile(<...>)`) is a different concept: named
 build-time env tweaks. This page is only about the **language** Profiles
 framework (`{cxx-a-profiles-ellipsis}`, experimental `-fprofiles`).
 
 Profiles are **opt-in** (`--cxx-profiles` / `--cxx-profiles-enforce=` or
-`env.CxxProfiles()` / `env.CxxProfilesEnforce(…)`). Builds that do not pass those
+`env.CxxProfiles()` / `env.CxxProfilesEnforce(<...>)`). Builds that do not pass those
 flags are unchanged.
 
 == State of play (today)
@@ -212,9 +212,9 @@ another host (GitHub project + GitLab dependency, or mixed GitHub orgs).
 
 To avoid repeating link-style and host-list flags in CI, persist them in project
 xref:configuration.adoc#html-report-source-links-without-ci-flags[`configure.conf`] or
-``cuppa.run(default_options=…)`` (keys such as ``reports_link_style`` and
+``cuppa.run(default_options=<...>)`` (keys such as ``reports_link_style`` and
 ``reports_gitlab_hosts``). Self-hosted git hostnames are mapped there; the dependency still
-declares its git URL in ``location_dependency(..., location=…)``.
+declares its git URL in ``location_dependency(..., location=<...>)``.
 
 When both are present, `--cxx-profiles-report-link-style=` overrides `--reports-link-style=` for
 Profiles output only (and for `.cuppa-reports` manifest matching on clean).

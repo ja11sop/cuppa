@@ -44,7 +44,7 @@ Line length, whitespace, and other style rules are intentionally off.
 
 | `cuppa/__init__.py`
 | `F401`
-| Public package API re-exports (`location_dependency`, `package_dependency`, `profile`, …). Imports look “unused” to the linter but are part of the import surface.
+| Public package API re-exports (`location_dependency`, `package_dependency`, `profile`, <...>). Imports look “unused” to the linter but are part of the import surface.
 
 | `cuppa/construct.py`
 | `F401`, `F403`

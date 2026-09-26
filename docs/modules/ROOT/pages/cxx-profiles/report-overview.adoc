@@ -99,7 +99,7 @@ deduplicated codebase picture (matching the <<violation-totals>> card and index 
 | Column | Meaning
 
 | **ID**
-| Stable build id (`dbg1`, `rel1`, …) assigned in catalog order. Empty on aggregate and union rows.
+| Stable build id (`dbg1`, `rel1`, <...>) assigned in catalog order. Empty on aggregate and union rows.
 
 | **Build**
 | `variant/arch/abi — toolchain` — one row per variant and toolchain, not per sconscript.

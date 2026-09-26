@@ -117,7 +117,7 @@ def test_archive_tree_groups_github_versions():
     ]
     tree = dependency_tree.build_tree( leaves )
     unreferenced = next(
-            section for section in tree['sections'] if section['label'] == 'unreferenced'
+            section for section in tree['sections'] if section['label'] == 'unused'
     )
     archive_type = next(
             child for child in unreferenced['children']
@@ -228,7 +228,7 @@ def test_archive_tree_marks_download_on_location():
     ]
     tree = dependency_tree.build_tree( leaves )
     unreferenced = next(
-            section for section in tree['sections'] if section['label'] == 'unreferenced'
+            section for section in tree['sections'] if section['label'] == 'unused'
     )
     archive_type = next(
             child for child in unreferenced['children']
@@ -282,7 +282,7 @@ def test_unqualified_default_branch_label():
     ) is None
 
 
-def test_tree_groups_referenced_siblings():
+def test_tree_splits_unused_siblings_into_unreferenced():
     leaves = [
         {
             'type': 'repository',
@@ -315,23 +315,18 @@ def test_tree_groups_referenced_siblings():
     ]
     tree = dependency_tree.build_tree( leaves )
     sections = { section['label']: section for section in tree['sections'] }
-    assert sections['referenced']['children']
-    assert not sections['unreferenced']['children']
-    assert sections['referenced']['remark'] == '2 total'
+    assert sections['used']['children']
+    assert sections['unused']['children']
+    assert sections['used']['remark'] == '1 total'
     summaries = [
-            child for child in sections['referenced']['children']
+            child for child in sections['used']['children']
             if child.get( 'kind' ) == 'summary'
     ]
-    assert [ child['label'] for child in summaries ] == [
-            'dependencies in use',
-            'potentially stale dependencies',
-    ]
+    assert [ child['label'] for child in summaries ] == [ 'dependencies in use' ]
     assert summaries[0]['remark'] == '1 used'
     assert summaries[0]['size_bytes'] == 100
-    assert summaries[1]['remark'] == '1 unused'
-    assert summaries[1]['size_bytes'] == 50
     location_type = next(
-            child for child in sections['referenced']['children']
+            child for child in sections['used']['children']
             if child.get( 'kind' ) == 'type'
     )
     identity = next(
@@ -339,15 +334,29 @@ def test_tree_groups_referenced_siblings():
             if child.get( 'kind' ) == 'identity'
     )
     assert 'widget' in identity['label']
-    assert identity['size_bytes'] == 150
+    assert identity['size_bytes'] == 100
     labels = [
             child['label'] for child in identity['children']
             if child.get( 'kind' ) == 'leaf'
     ]
-    assert '@master' in labels
-    assert '@feature' in labels
+    assert labels == [ '@master' ]
     # Single in-use leaf: no noisy "1 used" on the identity row.
     assert identity.get( 'remark' ) in ( '', None )
+
+    unref_type = next(
+            child for child in sections['unused']['children']
+            if child.get( 'kind' ) == 'type'
+    )
+    unref_identity = next(
+            child for child in unref_type['children']
+            if child.get( 'kind' ) == 'identity'
+    )
+    unref_labels = [
+            child['label'] for child in unref_identity['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    assert '@feature' in unref_labels
+    assert unref_identity['size_bytes'] == 50
     assert location_type.get( 'remark' ) == '1 used'
 
 
@@ -575,10 +584,11 @@ def test_render_referenced_colours_identity_and_mutes_sibling_leaves():
     assert as_emphasised( as_info( 'widget' ) ) in joined or as_info( 'widget' ) in joined
     assert as_subdued( ' [gitlab.example/org/widget]' ) in joined
     assert as_info( '@master' ) in joined or 'in use' in joined
-    # Sibling leaf is muted (not info).
-    assert as_subdued( '@feature' ) in joined
+    # Sibling leaf lives under unused (usage grouping; muted there).
+    assert as_subdued( '@feature' ) in joined or '@feature' in joined
     assert 'dependencies in use' in joined
-    assert 'potentially stale dependencies' in joined
+    assert 'unused' in joined
+    assert 'potentially stale dependencies' not in joined
 
 
 def test_render_unqualified_duplicate_uses_remove_notice():
@@ -653,13 +663,13 @@ def test_render_partitions_sections_and_keeps_unreferenced_names_normal():
     for line in lines:
         plain_lines.append( re.sub( r'\x1b\[[0-9;]*m', '', line ) )
     plain = '\n'.join( plain_lines )
-    assert 'referenced' in plain
-    assert 'unreferenced' in plain
+    assert 'used' in plain
+    assert 'unused' in plain
     # Horizontal rule between the two sections.
     assert any( set( line.strip() ) <= set( '-' ) and len( line.strip() ) > 8 for line in plain_lines )
     # Unreferenced dependency name remains visible and is emphasised.
     unref_identity = next(
-            child for section in tree['sections'] if section['label'] == 'unreferenced'
+            child for section in tree['sections'] if section['label'] == 'unused'
             for type_node in section['children'] if type_node.get( 'kind' ) == 'type'
             for child in type_node['children'] if child.get( 'kind' ) == 'identity'
     )
@@ -920,8 +930,9 @@ def test_location_leaf_location_includes_branch():
         },
     ]
     tree = dependency_tree.build_tree( leaves )
+    sections = { section['label']: section for section in tree['sections'] }
     location_type = next(
-            child for child in tree['sections'][0]['children']
+            child for child in sections['used']['children']
             if child.get( 'kind' ) == 'type'
     )
     identity = next(
@@ -937,4 +948,16 @@ def test_location_leaf_location_includes_branch():
             for child in identity['children'] if child.get( 'kind' ) == 'leaf'
     }
     assert by_label['@master'].endswith( '@master' )
-    assert by_label['@feature'].endswith( '@feature' )
+
+    unref_type = next(
+            child for child in sections['unused']['children']
+            if child.get( 'kind' ) == 'type'
+    )
+    unref_identity = next(
+            child for child in unref_type['children'] if child.get( 'kind' ) == 'identity'
+    )
+    unref_by_label = {
+            child['label']: child['location']
+            for child in unref_identity['children'] if child.get( 'kind' ) == 'leaf'
+    }
+    assert unref_by_label['@feature'].endswith( '@feature' )

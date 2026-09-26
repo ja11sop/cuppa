@@ -1,0 +1,26 @@
+<pre class="cuppa-output"><code>
+Printing Cascade plan for building and publishing package <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">0.2.0</span></span>] given the command:
+cuppa -D --rel --toolchains=gcc15 <span class="cuppa-emphasised"><span class="cuppa-info">--build-and-publish-dependencies</span></span> <span class="cuppa-emphasised"><span class="cuppa-info">--cascade-plan</span></span> <span class="cuppa-emphasised"><span class="cuppa-info">--clone-publishers</span></span>
+
+Cascade plan: <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">0.2.0</span></span>] (this package) with <span class="cuppa-emphasised">1</span> package dependency: <span class="cuppa-subdued">[0 errors]</span><span class="cuppa-subdued">[0 warnings]</span><span class="cuppa-info">[2 notes]</span>
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span>1 of 1  <span class="cuppa-emphasised"><span class="cuppa-info">capy</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">develop</span></span>] (<span class="cuppa-subdued">git@gitlab.example:packages/capy</span>)
+<span class="cuppa-subdued">│           │</span>
+<span class="cuppa-subdued">│           └── </span><span class="cuppa-info">2 notes</span>
+<span class="cuppa-subdued">│               │</span>
+<span class="cuppa-subdued">│               ├── </span>would clone [<span class="cuppa-info">git@gitlab.example:packages/capy</span>] at [<span class="cuppa-info">develop</span>] into
+<span class="cuppa-subdued">│               │   </span>[<span class="cuppa-info">~/.cuppa/publishers/capy</span>]
+<span class="cuppa-subdued">│               │</span>
+<span class="cuppa-subdued">│               └── </span>its own package dependencies are not known until that tree exists, so nothing
+<span class="cuppa-subdued">│                   </span>is planned beneath it
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span>then <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">0.2.0</span></span>] from this tree
+
+<span class="cuppa-info cuppa-label">--cascade-plan: 1 package planned, 1 publisher tree to clone first</span>;
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span>pass <span class="cuppa-emphasised"><span class="cuppa-info">--clone-publishers</span></span> along with either <span class="cuppa-emphasised"><span class="cuppa-info">--publish-cascade-dependencies</span></span> or <span class="cuppa-emphasised"><span class="cuppa-info">--publish-package</span></span>
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span>to make this plan executable
+
+nothing was built, published, uploaded, or cloned.
+</code></pre>

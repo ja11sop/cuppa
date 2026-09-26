@@ -196,7 +196,7 @@ int main()
 ----
 
 `export module math;` declares the primary module interface.
-`export int add…` makes `add` visible to importers.
+`export int add(<...>)` makes `add` visible to importers.
 `import math;` brings that interface into `main.cpp` without `#include`.
 
 === Step 3 — Declaring the build
@@ -335,7 +335,7 @@ env.Build('app', ['main.cpp'], LIBS=['mathlib'])
 `package_dependency` / GitLab `BuildWith` automatically calls `ImportModules` when
 `package_dir/modules/module-map.json` is present.
 Conan consumers via `cuppa.conan_deps` do the same when a Conan package ships
-`modules/module-map.json` (see xref:packages.adoc#conan-package-publishing[Conan 2 publishing]).
+`modules/module-map.json` (see xref:dependencies/publishing/conan.adoc#conan-package-publishing[Conan 2 publishing]).
 BMI extensions must match the consumer
 toolchain (`.gcm` vs `.pcm` vs `.ifc`) — cross-toolchain BMI reuse is not supported.
 `PublishPackage` (GitLab or Conan) copies `modules/` into the package alongside `include/` and `lib/`.
@@ -482,7 +482,7 @@ env.Build('span_tool', ['span_tool.cpp'])  # import <span>;
 
 Named modules and header units can be mixed in one binary — declare the header unit
 first, then `Build` sources that `import` both.
-Angle-bracket units are **explicit** (`HeaderUnit('<…>')`); cuppa does not auto-build a
+Angle-bracket units are **explicit** (`HeaderUnit('`<...>`')`); cuppa does not auto-build a
 BMI for every `import <std_header>`.
 
 Header units are supported for GCC, Clang, and MSVC in this release.
@@ -539,9 +539,9 @@ xref:toolchains/msvc.adoc[MSVC].
 == Limits
 
 * Linux / macOS: GCC 14+ / LLVM Clang 16+ (`import std`: GCC 15+ / Clang 18+ with `libc{plus}{plus}`; Apple Clang unsupported — see <<macos-apple-clang>>)
-* Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / …) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
+* Windows: MSVC toolset 14.2+ (`vc142` / `vc143` / `vc145` / <...>) for named modules, partitions, header units, and shared libraries (export module symbols with `__declspec(dllexport)` when building DLLs); `import std` / `std.compat` require toolset 14.3+ with STL `modules/std.ixx` (VS 2022 17.5+)
 * Lightweight line-oriented import scanner (macros / `#if` that invent imports are unsupported; optional `clang-scan-deps` integration is not shipped yet)
-* Header-unit spelling in `import "..."` / `import <…>` must match `HeaderUnit` (GCC/Clang/MSVC)
+* Header-unit spelling in `import "..."` / `import `<...>`` must match `HeaderUnit` (GCC/Clang/MSVC)
 * Private module fragments: Clang only (GCC unimplemented)
 * Packaged BMIs are toolchain-family specific (`.gcm` / `.pcm` / `.ifc`)
 * Toolchain quirks remain — prefer the floors above and fail clearly rather than guess
@@ -590,4 +590,4 @@ Pass `--propagate-path` (or `--merge-path`) so build and test subprocesses inher
 
 Cuppa’s macOS CI modules slice installs Homebrew `llvm`, puts it on `PATH`, and passes `--propagate-path`.
 
-If a Homebrew Clang build cannot find macOS SDK headers, point it at the system SDK (for example `xcrun --show-sdk-path` / `SDKROOT`, or `--sysroot=…`). That is a general LLVM-on-macOS concern, not cuppa-specific.
+If a Homebrew Clang build cannot find macOS SDK headers, point it at the system SDK (for example `xcrun --show-sdk-path` / `SDKROOT`, or `--sysroot=<...>`). That is a general LLVM-on-macOS concern, not cuppa-specific.

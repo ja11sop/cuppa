@@ -1,0 +1,60 @@
+{
+    "entries":
+    [
+        {
+            "branch": "develop",
+            "develop_linked": false,
+            "name": "capy",
+            "notes": [],
+            "path": "/home/user/.cuppa/publishers/capy",
+            "severity": "ok",
+            "size": "42M",
+            "size_bytes": 44040192,
+            "state": "clean, 1 behind",
+            "status": "ok",
+            "upstream": "origin/develop",
+            "would_update": true
+        },
+        {
+            "branch": "feature_orders",
+            "develop_linked": false,
+            "name": "corosio",
+            "notes":
+            [
+                "on branch [feature_orders]; expected [master] or [develop]"
+            ],
+            "path": "/home/user/.cuppa/publishers/corosio",
+            "severity": "warning",
+            "size": "18M",
+            "size_bytes": 18874368,
+            "state": "clean",
+            "status": "warn",
+            "upstream": "origin/feature_orders",
+            "would_update": false
+        },
+        {
+            "branch": "master",
+            "develop_linked": true,
+            "name": "widget",
+            "notes":
+            [
+                "matches a configured develop= path; use --list-develop / --update-develop for that working copy, and --remove-publishers will skip it"
+            ],
+            "path": "/home/user/.cuppa/publishers/widget",
+            "severity": "note",
+            "size": "9M",
+            "size_bytes": 9437184,
+            "state": "clean, 2 ahead",
+            "status": "note",
+            "upstream": "origin/master",
+            "would_update": false
+        }
+    ],
+    "publishers_root": "/home/user/.cuppa/publishers",
+    "total_bytes": 72351744,
+    "tree_count": 3,
+    "would_update":
+    [
+        "capy"
+    ]
+}

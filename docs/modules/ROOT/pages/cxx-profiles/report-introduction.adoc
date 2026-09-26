@@ -186,7 +186,7 @@ the stable contract for automation:
 Top-level fields (non-exhaustive):
 
 * `schema_version` — report JSON version
-* `summary` — session union totals (`unique_violation_count`, `total_references`, …)
+* `summary` — session union totals (`unique_violation_count`, `total_references`, <...>)
 * `report` — serialised scopes, roll-up rules/files, `build_catalog`
 * `locations[]` — flat diagnostic inventory when captured (enables full source regen)
 * `context` — Overview metrics when context mode is not `off`
@@ -255,8 +255,8 @@ When `metadata.anonymised` is set, output defaults to the
 | `true` (plus `anonymisation_version`)
 
 | Paths in `report`, `locations[]`, scope fields
-| Project sources under `project/<thematic-stems>/…`; package dependencies collapse to
-  `deps/lib-<slug>/include/…` (encoded `_cuppa/_download/git_ssh_…` folders are replaced entirely);
+| Project sources under `project/<thematic-stems>/<paths>`; package dependencies collapse to
+  `deps/lib-<slug>/include/<...>` (encoded `_cuppa/_download/git_ssh_<...>` folders are replaced entirely);
   variant tails such as `dbg/x86_64/cxx2c` are preserved
 
 | `locations[].message`
@@ -268,7 +268,7 @@ When `metadata.anonymised` is set, output defaults to the
 
 Path segments stay **semi-readable** — plausible software tree names chosen deterministically from
 built-in thematic pools (`thematic_names.json`): single-word stems, snake_case compounds such as
-`core_types` / `order_book`, and deterministic `slot-…` fallbacks when a pool is exhausted. Forbidden
+`core_types` / `order_book`, and deterministic `slot-<...>` fallbacks when a pool is exhausted. Forbidden
 tokens are derived from the input JSON (hosts, repo paths, project names, download folder names) and
 verified before write — nothing is hardcoded to your organisation.
 
@@ -325,7 +325,7 @@ suppresses file hrefs. You can also pass `--anonymised` explicitly (implies
 NOTE: US spellings (`--anonymized`, `metadata.anonymized`, `python -m scripts.anonymize_profiles_report`) remain accepted for compatibility; they are not listed in CLI help.
 
 Rule documentation links (`doc_href` to published cuppa Profiles pages) are kept — they point at
-public rule reference under ``/cuppa/latest/…``, not your project.
+public rule reference under ``/cuppa/latest/<...>``, not your project.
 
 === Limits (honest)
 
@@ -505,7 +505,7 @@ equivalent) to decode those lists — not the **Union Refs** column.
 [#multi-build-notation]
 == Multi-build roll-up notation (index tabs)
 
-When the session catalog lists more than one build (`dbg1`, `rel1`, …), metric cells on the
+When the session catalog lists more than one build (`dbg1`, `rel1`, <...>), metric cells on the
 index **Violations By-Rule** and **By-File** tabs show:
 
 [source]

@@ -15,17 +15,17 @@ flag explanations live on the child pages:
 | Family | Cuppa names | Platforms | Page
 
 | GCC
-| `gcc`, `gcc15`, …
+| `gcc`, `gcc15`, `<...>`
 | Linux, macOS
 | xref:toolchains/gcc.adoc[GCC]
 
 | Clang (LLVM)
-| `clang`, `clang21`, …
+| `clang`, `clang21`, `<...>`
 | Linux, macOS
 | xref:toolchains/clang.adoc[Clang]
 
 | MSVC
-| `vc`, `vc145`, …
+| `vc`, `vc145`, `<...>`
 | Windows
 | xref:toolchains/msvc.adoc[MSVC]
 |===
@@ -56,14 +56,14 @@ When debugging detection, use `--verbosity=debug` and `--dump`.
 `--list-toolchains` prints an inventory of compilers Cuppa can offer on this machine, then exits
 (no build). Output is a ruled tree with two sections (normal typeface labels):
 
-* **discovered** — PATH / distro probes (`gcc15`, `clang18`, …).
+* **discovered** — PATH / distro probes (`gcc15`, `clang18`, `<...>`).
 * **registered** — managed installs from `--toolchain-archive=` / `--clang-root=` / `--gcc-root=`
   (and cached rediscovery under `dependencies_root/toolchains/{clang,gcc}/`), with non-colliding
-  session names such as `gcc17_gcc_snapshot_…` or `clang24_profiles_…`.
+  session names such as `gcc17_gcc_snapshot_<...>` or `clang24_profiles_<...>`.
 
 Within each section the hierarchy is **family → version → driver → name(s)**. Several Cuppa names
 can share one driver (for example `gcc153`, `gcc15`, and `gcc`). The platform default name is marked
-`(default)`. Driver paths use `~/…` when under the home directory.
+`(default)`. Driver paths use `~/<...>` when under the home directory.
 
 `SIZE` / `LAST USED` show `--` for **discovered** compilers in this release (PATH installs are not
 inventoried yet). Registered rows use on-disk size / newest mtime under the extract when available.
@@ -86,7 +86,7 @@ still-gated extras like `coroutines`, plus opt-in `modules (experimental)` when 
 enable modules for that tool), Clang `stdlib choices:` when applicable, and
 `default invocations:` for `dbg` / `cov` / `rel` (`c{plus}{plus}`, `c`, `link` templates with
 `<sources>` / `<objects>` / `<static_libs>` / `<dynamic_libs>` placeholders). Each template is
-shown as a quoted string (`c{plus}{plus}: "-Wall … <sources>"`); the surrounding quotes are
+shown as a quoted string (`c{plus}{plus}: "-Wall <...> <sources>"`); the surrounding quotes are
 subdued like placeholders. Cuppa default link libraries (for example `-lpthread -lrt`, and Clang
 `libc{plus}{plus}` extras) appear as normal `-l` tokens before the matching placeholder — see
 xref:toolchains/gcc.adoc#gcc-default-linux-libraries[GCC] and
@@ -100,7 +100,7 @@ invocation rows included).
 `names`, plus `wipe_applies_to`). Verbose fields appear under each driver’s `describe` object.
 
 `--list-dependencies` toolchain leaves show the same Cuppa session name you pass to `--toolchains=`
-(for example `clang24_profiles_…`), while the on-disk folder remains
+(for example `clang24_profiles_<...>`), while the on-disk folder remains
 `toolchains/<family>/<qualifier>/`.
 
 Example output (sizes, versions, and which family is `(default)` vary by machine):
@@ -109,7 +109,7 @@ Example output (sizes, versions, and which family is `(default)` vary by machine
 include::partial$samples/list-toolchains.html[]
 ++++
 
-The footer’s `(none discovered, … registered)` refers to **sized** inventory: discovered PATH
+The footer’s `(none discovered, <...> registered)` refers to **sized** inventory: discovered PATH
 rows still list compilers, but their `SIZE` is `--` until PATH installs are inventoried.
 
 Example `--list-format=verbose` output with a single discovered toolchain (rules widen to the
@@ -191,7 +191,7 @@ cuppa -D --dbg --clang-root=/path/to/clang/install
 cuppa -D --dbg --gcc-root=/path/to/gcc/prefix
 ----
 
-Cuppa probes `bin/clang{plus}{plus}` or `bin/g{plus}{plus}`, registers `clang\{major}_local_\{hash}` or `gcc\{major}_local_\{hash}`, and **persists a small registration** under `dependencies_root/toolchains/{clang,gcc}/local_…/` (`cuppa-toolchain.json` pointing at the external prefix). Later sessions discover that registration and reuse the short name without re-passing `--*-root=`.
+Cuppa probes `bin/clang{plus}{plus}` or `bin/g{plus}{plus}`, registers `clang\{major}_local_\{hash}` or `gcc\{major}_local_\{hash}`, and **persists a small registration** under `dependencies_root/toolchains/{clang,gcc}/local_<...>/` (`cuppa-toolchain.json` pointing at the external prefix). Later sessions discover that registration and reuse the short name without re-passing `--*-root=`.
 
 Force-wipe of an external registration removes the **link under cuppa storage**, not the external prefix itself.
 Owned archive extracts (downloaded by cuppa) are removed fully on force-wipe.
@@ -204,16 +204,16 @@ After a successful session that prepared an archive or root, cuppa logs the shor
 === Listing and clearing toolchain archives
 
 Toolchain installs appear under `--list-dependencies` / `--list-downloads` as storage type **toolchain** (`toolchains/<family>/<qualifier>/`), not as a mistaken top-level source archive named `toolchains`.
-The list-dependencies **leaf label** is the Cuppa session name (`gcc17_gcc_snapshot_…`), aligned with
+The list-dependencies **leaf label** is the Cuppa session name (`gcc17_gcc_snapshot_<...>`), aligned with
 `--toolchains=` / `--list-toolchains`. For a compiler-oriented inventory (including PATH drivers),
 prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
 
 Which management flags apply:
 
-* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=…` (or auto-select via archive/root flags), that extract or registration is marked **referenced** / `in use`. Other cached installs stay unreferenced. Verbose LOCATION shows `[D]` when the matching archive still exists under `downloads_root/toolchains/…`.
+* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=<...>` (or auto-select via archive/root flags), that extract or registration is marked **referenced** / `in use`. Other cached installs stay unreferenced. Verbose LOCATION shows `[D]` when the matching archive still exists under `downloads_root/toolchains/<...>`.
 * `--force-wipe-dependencies=[toolchain]clang/profiles_*`,
   `--force-wipe-dependencies=[toolchain]gcc/gcc_snapshot_*`, or the session name
-  (`[toolchain]clang24_profiles_…` / `[toolchain]gcc16_…`) — yes.
+  (`[toolchain]clang24_profiles_<...>` / `[toolchain]gcc16_<...>`) — yes.
 * `--force-wipe-unreferenced-dependencies` — yes for installs that are not the active selection.
 * `--remove-dependencies` / `--purge-dependencies` / `--wipe-dependencies` (and the `*-all-*` forms) — no; those only target **project-used** dependency names from the current selection (`auto_enable_dependencies` / `BuildWith`), not compiler installs.
 
@@ -240,7 +240,7 @@ Verbose listing summarises that policy under `usable features:`:
 * When Cuppa can enable modules for the tool, append `modules (experimental)`
   (still requires `--modules` to turn on).
 
-Override globally with `--stdcpp=…` or per env with `env.StdCpp('c{plus}{plus}20')`.
+Override globally with `--stdcpp=<...>` or per env with `env.StdCpp('c{plus}{plus}20')`.
 
 When you omit `--stdcpp` / `StdCpp`, Cuppa’s default is effectively **`c{plus}{plus}latest`**:
 each toolchain selects the newest `-std=` / `-std:` Cuppa supports for that compiler version
@@ -314,12 +314,12 @@ two consistent.
 
 On MSVC, pre-{cpp}14 aliases map to `-std:c{plus}{plus}14` with a warning (MSVC has no matching `-std:` for those dialects).
 `c{plus}{plus}23` / `c{plus}{plus}2b` map to `-std:c{plus}{plus}latest` (many MSVC toolsets ignore unknown `-std:c{plus}{plus}23`, which breaks `import std`).
-Cuppa passes MSVC standard flags in *hyphen* form (`-std:c{plus}{plus}20`) so SCons on Windows does not treat `/std:…` as a filesystem path.
+Cuppa passes MSVC standard flags in *hyphen* form (`-std:c{plus}{plus}20`) so SCons on Windows does not treat `/std:<...>` as a filesystem path.
 
 == Tips
 
 * Prefer naming a family (`gcc`, `clang`, `vc`) in everyday builds; pin versions in CI for reproducibility.
 * Coverage and test grids should run gcc and clang as separate invocations (or clearly separated report trees), not as one blended instrumentation set.
-* Override defaults with `env.StdCpp`, `env.ReplaceFlags` / `RemoveFlags`, or `env.AppendUnique(CXXFLAGS=…)` after you understand the family baseline pages.
+* Override defaults with `env.StdCpp`, `env.ReplaceFlags` / `RemoveFlags`, or `env.AppendUnique(CXXFLAGS=<...>)` after you understand the family baseline pages.
 * When debugging toolchain detection, use `--verbosity=debug` and `--dump`.
 * For per-flag explanations and upstream option links, open the family page for your compiler.

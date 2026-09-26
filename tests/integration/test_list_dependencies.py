@@ -277,8 +277,8 @@ cuppa.run(
     )
 
 
-def test_list_dependencies_scope_referenced_hides_unreferenced(tmp_path):
-    """--list-scope=referenced omits the unreferenced section but keeps unused siblings."""
+def test_list_dependencies_scope_referenced_keeps_siblings_hides_orphan_section(tmp_path):
+    """--list-scope=referenced keeps unused siblings; omits orphan-only unreferenced."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -323,9 +323,7 @@ cuppa.run(
     assert "1.91" in plain
     assert "1.90" in plain
     assert "referenced" in plain
-    assert "Review unreferenced trees" not in plain
     assert re.search( r"\bentries, .* referenced\b", plain )
-    # Section label absent; unused siblings may still have leaf state unreferenced.
     assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
 
     as_json = run_cuppa(
@@ -352,9 +350,23 @@ cuppa.run(
     assert "unreferenced" not in section_labels
     assert "referenced" in section_labels
 
+    # Default all parks the unused sibling under unused (usage grouping).
+    as_all = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--storage-root={}".format(storage),
+        extra_env=own_home(tmp_path),
+    )
+    assert_success(as_all)
+    all_plain = strip_ansi(as_all.stdout)
+    assert "1.90" in all_plain
+    assert "unused" in all_plain
+    assert "Review unreferenced trees" in all_plain or "force-wipe-unreferenced" in all_plain
 
-def test_list_dependencies_scope_compact_is_referenced_without_siblings(tmp_path):
-    """--list-scope=compact is a refinement of referenced (selected leaves only)."""
+
+def test_list_dependencies_scope_compact_is_used_without_siblings(tmp_path):
+    """--list-scope=compact is used-only (resolve-bound leaves)."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     plant_archives_and_downloads(storage)
@@ -399,6 +411,7 @@ cuppa.run(
     assert re.search( r"\bentries, .* compact\b", plain )
     assert "Review unreferenced trees" not in plain
     assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
+    assert not re.search( r"(?m)^\s*unused\s*$", plain )
 
     as_json = run_cuppa(
         project,
@@ -420,7 +433,7 @@ cuppa.run(
             section.get("label")
             for section in (payload.get("tree") or {}).get("sections") or []
     ]
-    assert section_labels == ["referenced"]
+    assert section_labels == ["used"]
 
 
 def test_list_dependencies_scope_unreferenced_hides_referenced(tmp_path):
@@ -502,8 +515,10 @@ cuppa.run(
     )
     assert_success(listed)
     plain = strip_ansi(listed.stdout)
-    assert "unreferenced" not in plain
     assert "referenced" in plain
+    assert re.search( r"\bentries, .* referenced\b", plain )
+    assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
+    assert not re.search( r"(?m)^\s*unused\s*$", plain )
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):

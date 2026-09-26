@@ -1,0 +1,24 @@
+<pre class="cuppa-output"><code>
+Printing Cascade plan for building this project <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">consume</span></span>] (dependencies publish; tip build only) given the command:
+cuppa -D --rel --toolchains=gcc15 <span class="cuppa-emphasised"><span class="cuppa-info">--build-and-publish-dependencies</span></span> <span class="cuppa-emphasised"><span class="cuppa-info">--cascade-plan</span></span>
+
+Cascade plan: <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">consume</span></span>] (this project) with <span class="cuppa-emphasised">2</span> package dependencies: <span class="cuppa-subdued">[0 errors]</span><span class="cuppa-subdued">[0 warnings]</span><span class="cuppa-subdued">[0 notes]</span>
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span>1 of 2  <span class="cuppa-emphasised"><span class="cuppa-info">capy</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">develop</span></span>]
+<span class="cuppa-subdued">│           │</span>
+<span class="cuppa-subdued">│           └── </span>using publisher at [<span class="cuppa-notice">~/.cuppa/publishers/capy</span>]
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span>2 of 2  <span class="cuppa-emphasised"><span class="cuppa-info">corosio</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">0.3.1</span></span>]
+<span class="cuppa-subdued">│           │</span>
+<span class="cuppa-subdued">│           └── </span>using publisher at [<span class="cuppa-notice">~/.cuppa/publishers/corosio</span>]
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span>then <span class="cuppa-emphasised"><span class="cuppa-info">widget</span></span> [==<span class="cuppa-emphasised"><span class="cuppa-info">consume</span></span>] from this tree
+
+<span class="cuppa-info cuppa-label">--cascade-plan: 1 package planned</span>;
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">├── </span>pass <span class="cuppa-emphasised"><span class="cuppa-info">--publish-cascade-dependencies</span></span>
+<span class="cuppa-subdued">│</span>
+<span class="cuppa-subdued">└── </span>to run this plan
+
+nothing was built, published, uploaded, or cloned.
+</code></pre>

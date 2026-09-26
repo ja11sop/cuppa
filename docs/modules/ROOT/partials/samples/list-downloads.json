@@ -101,9 +101,9 @@
                         "size_bytes": 148897792
                     }
                 ],
-                "display_label": "referenced from downloads",
+                "display_label": "used downloads",
                 "kind": "section",
-                "label": "referenced",
+                "label": "used",
                 "last_used": "today",
                 "location": "",
                 "remark": "1 total",
@@ -111,9 +111,9 @@
                 "size_bytes": 148897792
             },
             {
-                "display_label": "unreferenced downloads",
+                "display_label": "unused downloads",
                 "kind": "section",
-                "label": "unreferenced",
+                "label": "unused",
                 "last_used": "",
                 "location": "",
                 "remark": "",

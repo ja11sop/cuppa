@@ -24,7 +24,7 @@ compile totals are visible before selecting a build sub-tab.
 
 === Build tabs
 
-Each catalogued build gets a sub-tab labelled with its **build id** (`dbg1`, `rel1`, …).
+Each catalogued build gets a sub-tab labelled with its **build id** (`dbg1`, `rel1`, <...>).
 The tab title uses the full build label as a tooltip, for example
 `dbg/x86_64/cxx2c — clang24_profiles`.
 

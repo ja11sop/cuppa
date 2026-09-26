@@ -26,12 +26,15 @@ def _leaf( dependency, state, size_bytes=100, storage_type='repository', qualifi
     }
 
 
-def _referenced_summaries( tree ):
+def _primary_summaries( tree ):
     sections = tree.get( 'sections' ) or []
-    referenced = next( ( s for s in sections if s.get( 'label' ) == 'referenced' ), None )
-    assert referenced is not None
+    primary = next(
+            ( s for s in sections if s.get( 'label' ) in ( 'used', 'referenced' ) ),
+            None,
+    )
+    assert primary is not None
     return [
-            child for child in referenced.get( 'children' ) or []
+            child for child in primary.get( 'children' ) or []
             if child.get( 'kind' ) == 'summary'
     ]
 
@@ -47,7 +50,7 @@ def test_referenced_summary_splits_missing_from_stale():
     leaves[2]['qualifier'] = '@master'
 
     tree = dependency_tree.build_tree( leaves )
-    summaries = { row['label']: row for row in _referenced_summaries( tree ) }
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
 
     assert 'dependencies in use' in summaries
     assert summaries['dependencies in use']['remark'] == '1 used'
@@ -63,7 +66,7 @@ def test_referenced_summary_keeps_stale_for_non_missing_unused():
             _leaf( 'cached_stem', 'cached' ),
     ]
     tree = dependency_tree.build_tree( leaves )
-    summaries = { row['label']: row for row in _referenced_summaries( tree ) }
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
 
     assert summaries['dependencies in use']['remark'] == '1 used'
     assert 'missing dependencies' not in summaries
@@ -126,7 +129,7 @@ def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
                     str( package_dir ), state='referenced',
             ),
     ] )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
     requires = _find_kind( referenced, 'requires' )
     assert requires is not None
     assert requires['label'] == 'requires'
@@ -151,10 +154,370 @@ def test_gitlab_tree_shows_requires_from_preloaded_entries():
                     ],
             ),
     ] )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
     requires = _find_kind( referenced, 'requires' )
     assert requires is not None
     assert requires['children'][0]['label'] == 'beta 2.0.0'
+
+
+def test_requires_row_is_normal_colour_with_blank_size_when_label_only():
+    """``requires`` is structural: normal paint, blank SIZE/LAST USED without a rollup."""
+    import re
+    from cuppa.colourise import as_subdued, colouriser
+
+    tree = dependency_tree.build_tree( [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', 'gcc15_rel', '/missing/path',
+                    state='referenced',
+                    requires=[
+                            { 'name': 'beta', 'package': 'beta', 'version': '2.0.0' },
+                    ],
+            ),
+    ] )
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines, _ = dependency_tree.render_tree_lines( tree )
+        joined = '\n'.join( lines )
+        assert 'requires' in joined
+        assert as_subdued( 'requires' ) not in joined
+        ansi = re.compile( r'\x1b\[[0-9;]*m' )
+        for line in lines:
+            plain = ansi.sub( '', line )
+            if 'requires' not in plain:
+                continue
+            # Columns before DEPENDENCY must not use dash placeholders for structure rows.
+            before = plain.split( 'requires', 1 )[0]
+            assert '-  -' not in before
+            assert not re.search( r'-\s+-+\s*$', before.rstrip() )
+    finally:
+        colouriser.use_colour = was_colour
+
+
+def test_gitlab_tree_nests_closure_under_requires_with_sizes():
+    """Tip-selected alpha pulls beta/gamma into requires as sized identities."""
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            {
+                                    'name': 'beta',
+                                    'package': 'beta',
+                                    'version': '2.0.0',
+                                    'use_libs': ['beta'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+                    requires=[
+                            {
+                                    'name': 'gamma',
+                                    'package': 'gamma',
+                                    'version': '3.0.0',
+                                    'use_libs': ['gamma'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+            ),
+            _gitlab_leaf(
+                    'gamma', '3.0.0', tool, '/deps/{}/gamma/3.0.0'.format( tool ),
+                    state='unreferenced',
+            ),
+    ]
+    leaves[0]['size_bytes'] = 12000
+    leaves[1]['size_bytes'] = 8000
+    leaves[2]['size_bytes'] = 7000
+    leaves[3]['size_bytes'] = 4000
+
+    tree = dependency_tree.build_tree( leaves )
+    used = next( s for s in tree['sections'] if s['label'] == 'used' )
+
+    top_names = set()
+    for type_node in used.get( 'children' ) or []:
+        if type_node.get( 'kind' ) != 'type':
+            continue
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                top_names.add( child.get( 'short_name' ) or child.get( 'label' ) )
+    assert top_names == { 'alpha' }
+
+    requires = _find_kind( used, 'requires' )
+    assert requires is not None
+    # Spacer before first nested identity, then beta + spacer + gamma.
+    kinds = [ child.get( 'kind' ) for child in requires.get( 'children' ) or [] ]
+    assert kinds[0] == 'spacer'
+    nested = {
+            child.get( 'short_name' ) or child.get( 'label' ): child
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }
+    assert set( nested ) == { 'beta', 'gamma' }
+    # Dependent-first (reverse leaf-first): beta before gamma because beta requires gamma.
+    identity_order = [
+            child.get( 'short_name' ) or child.get( 'label' )
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    ]
+    assert identity_order == [ 'beta', 'gamma' ]
+    # Usage split: only tip-matching nest toolchains under used → requires.
+    assert nested['beta']['size_bytes'] == 8000
+    assert nested['gamma']['size_bytes'] == 4000
+
+    beta_requires = _find_kind( nested['beta'], 'requires' )
+    assert beta_requires is not None
+    assert beta_requires['children'][0]['kind'] == 'requires_edge'
+    assert beta_requires['children'][0]['label'] == 'gamma 3.0.0'
+
+    # Only the tip-matching toolchain is in use under the nested package.
+    assert leaves[1]['state'] == 'referenced'
+    assert leaves[1].get( 'nest_under_requires' ) is True
+    assert leaves[2]['state'] == 'unreferenced'
+    assert leaves[2].get( 'nest_under_requires' ) is True
+    assert leaves[3]['state'] == 'referenced'
+
+    beta_leaves = [
+            child for child in _find_kind( nested['beta'], 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    remarks = { child['label']: child.get( 'remark' ) for child in beta_leaves }
+    assert remarks == { tool: 'in use' }
+
+    # Unused nest toolchains appear under unused (not under used → requires).
+    unused = next( s for s in tree['sections'] if s['label'] == 'unused' )
+    unused_names = set()
+    for type_node in unused.get( 'children' ) or []:
+        if type_node.get( 'kind' ) != 'type':
+            continue
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                unused_names.add( child.get( 'short_name' ) or child.get( 'label' ) )
+    assert 'beta' in unused_names
+    unused_beta = None
+    for type_node in unused.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'beta':
+                unused_beta = child
+    assert unused_beta is not None
+    unused_beta_leaves = [
+            child for child in _find_kind( unused_beta, 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    assert [ child['label'] for child in unused_beta_leaves ] == [ other ]
+
+
+def test_unused_nest_requires_edges_come_from_unused_variants_only_and_are_muted():
+    """Unused section label requires union only orphan variants; edges are subdued."""
+    import re
+    from cuppa.colourise import as_subdued, colouriser
+
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            { 'name': 'beta', 'package': 'beta', 'version': '2.0.0' },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+                    requires=[
+                            { 'name': 'gamma', 'package': 'gamma', 'version': '3.0.0' },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+                    requires=[
+                            { 'name': 'delta', 'package': 'delta', 'version': '9.0.0' },
+                    ],
+            ),
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    used = next( s for s in tree['sections'] if s['label'] == 'used' )
+    used_beta = {
+            child.get( 'short_name' ): child
+            for child in _find_kind( used, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }['beta']
+    used_edges = [
+            child['label']
+            for child in _find_kind( used_beta, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'requires_edge'
+    ]
+    assert used_edges == [ 'gamma 3.0.0' ]
+
+    unused = next( s for s in tree['sections'] if s['label'] == 'unused' )
+    unused_beta = None
+    for type_node in unused.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'beta':
+                unused_beta = child
+    assert unused_beta is not None
+    unused_edges = [
+            child['label']
+            for child in _find_kind( unused_beta, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'requires_edge'
+    ]
+    assert unused_edges == [ 'delta 9.0.0' ]
+    assert 'gamma 3.0.0' not in unused_edges
+
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines, _ = dependency_tree.render_tree_lines( tree )
+        joined = '\n'.join( lines )
+        assert as_subdued( 'delta 9.0.0' ) in joined
+        assert as_subdued( 'gamma 3.0.0' ) in joined
+        # ``requires`` heading itself stays unmuted in both sections.
+        assert 'requires' in joined
+        assert as_subdued( 'requires' ) not in joined
+        ansi = re.compile( r'\x1b\[[0-9;]*m' )
+        assert any( 'delta 9.0.0' in ansi.sub( '', line ) for line in lines )
+    finally:
+        colouriser.use_colour = was_colour
+
+
+def test_identity_grouping_keeps_unused_nest_toolchains_under_requires():
+    """``grouping=identity`` keeps Pass A shape: unused nest variants hang under requires."""
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            {
+                                    'name': 'beta',
+                                    'package': 'beta',
+                                    'version': '2.0.0',
+                                    'use_libs': ['beta'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+            ),
+    ]
+    leaves[0]['size_bytes'] = 12000
+    leaves[1]['size_bytes'] = 8000
+    leaves[2]['size_bytes'] = 7000
+
+    tree = dependency_tree.build_tree( leaves, grouping='identity' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    requires = _find_kind( referenced, 'requires' )
+    nested = {
+            child.get( 'short_name' ): child
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }
+    assert set( nested ) == { 'beta' }
+    assert nested['beta']['size_bytes'] == 15000
+    beta_leaves = [
+            child for child in _find_kind( nested['beta'], 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    assert { child['label'] for child in beta_leaves } == { tool, other }
+    unused = next( s for s in tree['sections'] if s['label'] == 'unreferenced' )
+    unused_idents = [
+            child
+            for type_node in unused.get( 'children' ) or []
+            for child in type_node.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    ]
+    assert not any( child.get( 'short_name' ) == 'beta' for child in unused_idents )
+
+
+def test_order_requires_families_dependent_first_soft_cycle():
+    """Display order reverses leaf-first Kahn; cycles append leftovers without raising."""
+    ordered = dependency_tree._order_requires_families(
+            [ 'grpc', 'protobuf', 'abseil-cpp', 'c-ares' ],
+            {
+                    'grpc': { 'protobuf', 'abseil-cpp', 'c-ares' },
+                    'protobuf': { 'abseil-cpp' },
+                    'abseil-cpp': set(),
+                    'c-ares': set(),
+            },
+            prefer=[ 'protobuf', 'grpc' ],
+    )
+    assert ordered.index( 'grpc' ) < ordered.index( 'protobuf' )
+    assert ordered.index( 'protobuf' ) < ordered.index( 'abseil-cpp' )
+    assert ordered.index( 'grpc' ) < ordered.index( 'c-ares' )
+
+    cyclic = dependency_tree._order_requires_families(
+            [ 'a', 'b' ],
+            { 'a': { 'b' }, 'b': { 'a' } },
+            prefer=[ 'a', 'b' ],
+    )
+    assert set( cyclic ) == { 'a', 'b' }
+    assert len( cyclic ) == 2
+
+
+def test_requires_unions_edges_across_version_variants( tmp_path ):
+    """Union requires from every variant under a version (legacy + publish)."""
+    from cuppa.package_managers.cuppa_publish_manifest import write_publish_manifest
+
+    legacy = tmp_path / 'gcc153_rel_x86_64_cxx2c' / 'grpc' / '1.84.0'
+    modern = tmp_path / 'gcc15_rel_x86_64_cxx2c' / 'grpc' / '1.84.0'
+    legacy.mkdir( parents=True )
+    modern.mkdir( parents=True )
+    ( legacy / 'cuppa-dependency.json' ).write_text(
+            '{"cuppa_dependency_format":1,"dependencies":['
+            '{"name":"protobuf","package":"protobuf","version":"36.1"},'
+            '{"name":"only_legacy","package":"only-legacy","version":"1.0"}]}',
+            encoding='utf-8',
+    )
+    write_publish_manifest(
+            str( modern ), 'grpc', '1.84.0',
+            dependencies=[
+                    { 'name': 'protobuf', 'package': 'protobuf', 'version': '36.1' },
+                    { 'name': 'c_ares', 'package': 'c-ares', 'version': '1.34.5' },
+                    { 'name': 're2', 'package': 're2', 'version': '2025-11-05' },
+                    { 'name': 'abseil_cpp', 'package': 'abseil-cpp', 'version': '20250814.2' },
+            ],
+    )
+    entries = dependency_tree._requires_entries_from_variants( [
+            _gitlab_leaf( 'grpc', '1.84.0', 'gcc153_rel_x86_64_cxx2c', str( legacy ) ),
+            _gitlab_leaf(
+                    'grpc', '1.84.0', 'gcc15_rel_x86_64_cxx2c', str( modern ),
+                    state='referenced',
+            ),
+    ] )
+    names = { entry.get( 'name' ) or entry.get( 'package' ) for entry in entries }
+    assert names == { 'protobuf', 'only_legacy', 'c_ares', 're2', 'abseil_cpp' }
+
+    in_use_only = dependency_tree._requires_entries_from_variants(
+            [
+                    _gitlab_leaf(
+                            'grpc', '1.84.0', 'gcc153_rel_x86_64_cxx2c', str( legacy ),
+                    ),
+                    _gitlab_leaf(
+                            'grpc', '1.84.0', 'gcc15_rel_x86_64_cxx2c', str( modern ),
+                            state='referenced',
+                    ),
+            ],
+            in_use_only=True,
+    )
+    in_use_names = {
+            entry.get( 'name' ) or entry.get( 'package' ) for entry in in_use_only
+    }
+    assert in_use_names == { 'protobuf', 'c_ares', 're2', 'abseil_cpp' }
+    assert 'only_legacy' not in in_use_names
 
 
 def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
@@ -185,6 +548,8 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     tree = dependency_tree.build_tree( leaves )
     identity = None
     for section in tree['sections']:
+        if section.get( 'label' ) != 'used':
+            continue
         for type_node in section.get( 'children' ) or []:
             if type_node.get( 'kind' ) != 'type':
                 continue
@@ -198,8 +563,26 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
             for child in identity['children']
             if child.get( 'kind' ) == 'version'
     }
+    assert set( versions ) == { '3.9.0' }
     assert versions['3.9.0'].get( 'has_missing_leaf' ) is True
-    assert versions['2.28.0'].get( 'has_missing_leaf' ) is not True
+
+    # Unused siblings (including older versions) sit under unused (usage grouping).
+    unused_identity = None
+    for section in tree['sections']:
+        if section.get( 'label' ) != 'unused':
+            continue
+        for type_node in section.get( 'children' ) or []:
+            for child in type_node.get( 'children' ) or []:
+                if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'cloud':
+                    unused_identity = child
+    assert unused_identity is not None
+    unused_versions = {
+            child['label']
+            for child in unused_identity['children']
+            if child.get( 'kind' ) == 'version'
+    }
+    assert '2.28.0' in unused_versions
+    assert '3.9.0' in unused_versions
 
     was_colour = colouriser.use_colour
     colouriser.enable()

@@ -131,7 +131,7 @@ drift against `AGENTS.md` / Contributing and bump `Updated:` if you fix anything
 
 This repository is public. Cuppa is developed against private consumer projects, and their
 names must not appear in anything tracked here — no private repository, group, host,
-dependency, or package names, and no personal absolute paths (`/home/<user>/…`).
+dependency, or package names, and no personal absolute paths (`/home/<user>/<...>`).
 
 That applies to code, tests, docs, `CHANGELOG.md`, `ROADMAP.md`, and plan documents, including
 pasted build output. Instead:
@@ -139,7 +139,7 @@ pasted build output. Instead:
 - Refer to a consumer project by a stable label (**project A**, **project B**) plus the part
   that is technically relevant — its shape: file counts, test style, run times.
 - Use the existing generic fixtures for dependency and package names (`widget`,
-  `https://example.com/org/widget.git`, `gitlab.example`) and `/home/user/…` for paths.
+  `https://example.com/org/widget.git`, `gitlab.example`) and `/home/user/<...>` for paths.
 - Public references are fine: OSS libraries, published articles, the company website.
 
 `design/INTERNAL_PROJECTS.local.md` maps those labels back to the real projects. It is gitignored
@@ -274,7 +274,7 @@ a public pull request's title and body.
 process only — never into the environment:
 
 ```sh
-python -m scripts.github_api PATCH /repos/ja11sop/cuppa/pulls/140 --data '{"title":"…"}'
+python -m scripts.github_api PATCH /repos/ja11sop/cuppa/pulls/140 --data '{"title":"<...>"}'
 ```
 
 ```python
@@ -289,17 +289,17 @@ for a one-off. Opening a pull request for the current branch **must** include ex
 
 ```sh
 python -m scripts.github_helpers create-pr \
-  --title "…" --body-file /tmp/pr.md --label impact:minor
+  --title "<...>" --body-file /tmp/pr.md --label impact:minor
 
 python -m scripts.github_helpers create-issue \
-  --title "…" --body-file /tmp/issue.md
+  --title "<...>" --body-file /tmp/issue.md
 
 python -m scripts.github_helpers update-pr \
-  --pr 154 --title "…" --body-file /tmp/pr.md
+  --pr 154 --title "<...>" --body-file /tmp/pr.md
 ```
 
 The **version** job on every pull request reads that label before the rest of the matrix runs.
-Open the PR with `--label impact:…` in the same command as `create-pr` immediately after the
+Open the PR with `--label impact:<...>` in the same command as `create-pr` immediately after the
 first `git push`. Adding the label only after a red version check wastes a full CI cycle.
 `create-pr` applies labels in a second API call after `POST /pulls`, because no GitHub API
 creates a pull request with labels — neither REST nor the GraphQL `createPullRequest` mutation
@@ -310,9 +310,9 @@ payload. The workflow still runs on `labeled` as the recovery path when a human 
 
 ```python
 from scripts.github_helpers import create_issue, create_pull_request, update_pull_request
-create_pull_request( title='…', body='…', labels=['impact:minor'] )
-create_issue( title='…', body='…' )
-update_pull_request( number=154, title='…', body='…' )
+create_pull_request( title='<...>', body='<...>', labels=['impact:minor'] )
+create_issue( title='<...>', body='<...>' )
+update_pull_request( number=154, title='<...>', body='<...>' )
 ```
 
 ### Pull request bodies
@@ -355,7 +355,7 @@ flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration
-python -m scripts.check_docs_urls   # versionless /cuppa/… links (also in check_release)
+python -m scripts.check_docs_urls   # versionless /cuppa/<page> links + placeholder gate (also in check_release)
 ```
 
 If you cannot activate the venv in the current shell, call the venv binaries by path
@@ -368,7 +368,7 @@ flag in any new `--target` test helper rather than unsetting env vars.
 
 Do not skip `pytest -m unit` or `pytest -m integration` because only a helper script or docs
 changed — those suites are fast relative to CI and catch import / CLI regressions. Use
-`CUPPA_TEST_TOOLCHAIN=…` when you need a non-default compiler for integration (see
+`CUPPA_TEST_TOOLCHAIN=<...>` when you need a non-default compiler for integration (see
 [Validating changes to cuppa](#validating-changes-to-cuppa)). Fix failures locally, then push.
 
 **Batch local commits; do not push every small edit.** Each push restarts CI, and a full matrix
@@ -397,7 +397,7 @@ treat merge readiness as “CI green alone”. In the same local batch (see batc
 2. **`CHANGELOG.md`** — open section has accurate Added / Changed / Fixed entries for everything
    that lands in the PR (including late fixes). No sweep of unrelated history.
 3. **`ROADMAP.md`** — Today / Planned rows reflect what this PR lands and what is next; do not
-   leave “on branch `…`” once the PR is the landing vehicle (cite the PR number). Say **done on
+   leave “on branch `<...>`” once the PR is the landing vehicle (cite the PR number). Say **done on
    master** (or link the PR), not **shipped**, until a named release.
 4. **Related design plans** — progress snapshot, phase tables, “next focus”, and `design/README.md`
    index row. Mark finished slices **`done`** on this PR; park deferred work explicitly; update
@@ -479,7 +479,7 @@ python -m scripts.github_helpers fetch-ci-logs --output-dir /tmp/cuppa-ci-logs
 ```
 
 `fetch-ci-logs` defaults to every check that failed on the open PR, downloads that head's workflow
-run log zip, and prints failure excerpts (`FAILED`, `AssertionError`, …). Pass `--job` to narrow
+run log zip, and prints failure excerpts (`FAILED`, `AssertionError`, <...>). Pass `--job` to narrow
 to one check name substring from the `pr-status` listing. Do not use `gh` for this, and do not
 hand-roll log downloads when the helper already encodes the redirect/auth stripping.
 
@@ -523,7 +523,7 @@ cuppa -D -h
 
 `cuppa` wraps `scons`: it appends `--cuppa-mode` as a session marker, intercepts stdout/stderr to mask `*TOKEN*` env values, may inject `-i` for Profiles inventory, and may restrict CPU affinity with `--parallel`. `--cuppa-mode` itself is not the intercept; prefer the `cuppa` entry point in CI. See `docs/modules/ROOT/pages/cli/output-and-environment.adoc`.
 
-Equivalent: `scons -D …` when the project's `sconstruct` already imports cuppa.
+Equivalent: `scons -D <...>` when the project's `sconstruct` already imports cuppa.
 
 **Important:** Cuppa options are SCons `AddOption` flags registered when `cuppa.run()` runs, so
 help is project-specific. `cuppa -h` / `cuppa --help` without a loaded `SConstruct` shows SCons
@@ -583,16 +583,16 @@ fixtures, classifier fixtures, and documentation:
 | Convention | Rule |
 |------------|------|
 | File banner | Short `// ---` header stating purpose and which profile rule is exercised |
-| Section markers | Optional `// I I I …` (includes) and `// n n n …` (namespaces) blocks in larger files |
+| Section markers | Optional `// I I I <...>` (includes) and `// n n n <...>` (namespaces) blocks in larger files |
 | Naming — types, functions | **snake_case** |
 | Naming — variables | **PascalCase** for locals, function parameters, and private data members |
 | Naming — template parameters | **PascalCase** |
 | Public data members | **snake_case** when a struct or class exposes fields that read like properties (same spirit as method names) |
 | Private data members | **PascalCase** with trailing underscore (`Name_`) |
-| Namespaces | Nested `namespace profiles { namespace std_init_violations { … } }` with `// end namespace …` comments |
+| Namespaces | Nested `namespace profiles { namespace std_init_violations { <...> } }` with `// end namespace <...>` comments |
 | Braces | Opening brace on the same line as the declaration |
 | Spacing | Spaces inside call parentheses; **no** space after `if` / `for` / `while` (`if( condition )`) |
-| Attributes | `[[nodiscard]]` before return type; profile markers (`[[uninit]]`, `[[ref_to_uninit]]`, …) on the same declarator |
+| Attributes | `[[nodiscard]]` before return type; profile markers (`[[uninit]]`, `[[ref_to_uninit]]`, <...>) on the same declarator |
 
 PascalCase variables let you reuse the natural name when the type already takes the
 snake_case form:
@@ -668,8 +668,10 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
   `list-dependencies`, `list-dependencies-verbose`, `list-dependencies-requires`,
-  `list-toolchains`,
-  `list-toolchains-verbose`, and the `--remove-builds` / `--remove-all-builds`
+  `list-dependencies-requires-resolve`,
+  `list-publishers`, `list-toolchains`,
+  `list-toolchains-verbose`, `cascade-plan`, `cascade-plan-consume`,
+  `cascade-plan-clone`, and the `--remove-builds` / `--remove-all-builds`
   variants, `remove-gitlab-dry-run`, `remove-boost-product-clean`, and
   `purge-gitlab`. Add `--preview` for `_docs_build/samples/*.preview.html`. Do not
   hand-edit committed fragments; regenerate. Keep the `.txt` sibling even when
@@ -700,17 +702,27 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles/std-init.adoc` and `cxx-profiles/std-init/*.adoc` children |
 | CLI overview, command anatomy, common use cases | `cli-reference.adoc` |
 | CLI flags by task (build, output, storage, maintenance, dependencies, toolchains, reports) | `cli/*.adoc` |
-| Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
-| Location / header libraries | `dependencies/location.adoc` |
-| Package consume overview | `dependencies/packages.adoc` |
-| GitLab packages (consume) | `dependencies/gitlab.adoc` |
-| Conan packages (consume) | `dependencies/conan.adoc` |
-| Built-in deps index | `dependencies/builtins.adoc` |
-| Boost (source / b2; contrast `boost_package`) | `dependencies/builtins/boost.adoc` |
-| Qt / Quince | `dependencies/builtins/qt.adoc` / `dependencies/builtins/quince.adoc` (thin stubs) |
+| Dependencies hub (Using / Managing / Publishing / Authoring) | `dependencies.adoc` |
+| Using dependencies (consume) | `dependencies/using.adoc` |
+| Building tip apps against nested packages (no publish) | `dependencies/using/building-with-packages.adoc` |
+| Location / header libraries | `dependencies/using/location.adoc` |
+| Package consume overview | `dependencies/using/packages.adoc` |
+| GitLab packages (consume) | `dependencies/using/gitlab.adoc` |
+| Conan packages (consume) | `dependencies/using/conan.adoc` |
+| Built-in deps index | `dependencies/using/builtins.adoc` |
+| Boost (source / b2; contrast `boost_package`) | `dependencies/using/builtins/boost.adoc` |
+| Qt / Quince | `dependencies/using/builtins/qt.adoc` / `dependencies/using/builtins/quince.adoc` (thin stubs) |
 | Managing deps (list / update / remove) | `dependencies/managing.adoc` |
-| Writing your own dependencies | `dependencies/extending.adoc` (also `extending.adoc` for plugins) |
-| Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
+| Listing dependency trees (Option A scopes) | `dependencies/managing/list-dependencies.adoc` |
+| Remove / purge / wipe (reclaim storage) | `dependencies/managing/reclaiming.adoc` hub; action pages under `removing` / `purging` / `wiping` / `force-wiping` |
+| Publishing dependencies hub | `dependencies/publishing.adoc` |
+| Publishing packages overview | `dependencies/publishing/packages.adoc` (`packages.adoc` stub redirects) |
+| GitLab package publish | `dependencies/publishing/gitlab.adoc` |
+| Cascading dependency publishes | `dependencies/publishing/cascade.adoc` |
+| Amend / external CMake publish | `dependencies/publishing/amend-and-external.adoc` |
+| Conan 2 publishing | `dependencies/publishing/conan.adoc` |
+| Publisher trees | `dependencies/publishing/list-publishers.adoc` |
+| Authoring / custom factories | `dependencies/authoring.adoc` · `dependencies/authoring/extending.adoc` (also `extending.adoc` for plugins) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |
 | Versioning / changelog / start_release | `contributing/versioning.adoc` |
 | Cutting a release (prepare / publish) | `contributing/release.adoc` |
@@ -722,9 +734,15 @@ Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting 
 
 ### Documentation partitioning (rules of thumb)
 
-Use these when splitting or placing dependency (and similar) docs — same principles as §7.1 of the removal-options plan:
+Use these when splitting or placing dependency (and similar) docs — same principles as
+[`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md) and §7.1 of the
+removal-options plan:
 
-- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and authoring already live in different modules; docs should follow that map rather than one growing page.
+- **Four job hubs under Dependencies.** Using (consume + tip usability), Managing (storage),
+  Publishing (ship / cascade / publishers), Authoring (factories). Using is first in nav.
+- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and
+  authoring already live in different modules; docs should follow that map rather than one
+  growing page.
 - **Hub pages stay short.** Overview + kinds table + `cuppa.run` / `BuildWith` + pointers. No deep tutorials on the hub.
 - **Consume vs publish.** Consuming a registry or Conan package belongs under Dependencies; publishing Cuppa-built libraries belongs under Packages (or a Publishing child). Cross-link the round-trip; do not duplicate the full story on both sides.
 - **Managing is its own page.** List / update / remove / inventory are storage and develop workflows, not a footnote on declaring dependencies.
@@ -805,7 +823,7 @@ Cuppa docs teach a **SCons-based C++ build system**. Prefer this framing:
 - **Visible artefacts** -- talk about `_build/`, variants (`--dbg` / `--rel` / `--cov`), and toolchains by name
 - **Honest comparisons** -- when contrasting CMake (or Make/Ninja wrappers), be specific about DSL complexity, property/generator-expression load, and where cuppa's Python API helps; do not dismiss other tools without nuance
 - **Toolchain truth** -- every toolchain page/section should state default dialect, warning, optimisation, CRT/stdlib, and modules flags so readers know what they are getting
-- **Modules as a product feature** -- for C++20 modules, start with *why* (include model costs), cite relevant WG21 papers (`wg21.link/p…`), then a cuppa tutorial, then reference detail; call out vendor gaps (Apple Clang, GCC private fragments, MSVC DLL export vs module export)
+- **Modules as a product feature** -- for C++20 modules, start with *why* (include model costs), cite relevant WG21 papers (`wg21.link/p<...>`), then a cuppa tutorial, then reference detail; call out vendor gaps (Apple Clang, GCC private fragments, MSVC DLL export vs module export)
 - **Fail clearly** -- document cuppa's preference for StopError / skip-with-reason over silent fallback
 
 ## Technical Depth for Core Topics
@@ -944,13 +962,56 @@ Use for:
 - Files and scripts (`sconstruct` / `sconscript`, C++ sources)
 - Terminal output
 
-Use ellipses (`...`) to indicate excerpts and omissions.
+## Placeholders and omissions
 
-If most of a file can be left with defaults, show just the section that needs changing.
+Treat **ellipsis** and **placeholders** as different tools. Do **not** use the Unicode
+ellipsis character (`…`, U+2026) in authored docs: it is one glyph wide, easy to miss, and
+reads as “I hid filler” when the slot is often what the reader must notice.
 
-## Variables
+| Intent | Write | Example |
+|--------|-------|---------|
+| Editorial cut — excerpted file, truncated status phrase, “rest omitted” | Three ASCII periods `...` | “show only the changed block; `...` for the rest of the file” · `` `Would remove...` `` · `` `wiped...` `` |
+| Named fill-in (prefer whenever a clear name exists) | `` `<name>` `` | `` `<abi>` `` · `` `<storage>` `` · `` `<registry>` `` · `` `<kwargs>` `` |
+| Anonymous fill-in (last resort when no honest name exists) | `` `<...>` `` | “more of the same” lists: `` `gcc`, `gcc15`, `<...>` `` · truly unnamed path segment |
 
-Highlight items the reader must change: example URLs, version numbers, modified lines. Make clear what needs customization.
+**Rules of thumb**
+
+1. `...` means *cut here* (you are not teaching the missing text). `` `<...>` `` / `` `<name>` ``
+   means *a value belongs here*.
+2. Prefer a **named** placeholder over `` `<...>` ``. Prefer a **concrete example** once, then
+   generalise with a placeholder, over leading with an anonymous hole.
+3. Avoid **stacking** anonymous slots (for example repeated `` `<...>` `` path segments in
+   `` `_build/<...>/<...>/final` ``). Name the segments you care about
+   (`` `_build/<toolchain>/<variant>/<sconscript>/final/` ``) or show one real path.
+4. **Colour is optional**, not the primary cue — angle brackets already signal “placeholder”.
+   Use roles in prose/tables when helpful; keep copy-paste `[source]` / shell listings plain.
+5. **Do not rewrite console samples** to invent placeholders. Generated fragments under
+   `partials/samples/` may still show Unicode ellipsis (U+2026) when they mirror CLI
+   truncation; that is product output. Fix truncation visibility in the tool (for example
+   verbose LOCATION) if needed.
+6. Fnmatch / shell **character classes** are neither omissions nor Cuppa placeholders. Prefer
+   prose (“a character class”) or `` `[chars]` ``; if you must show a hole write `` `[<...>]` ``,
+   never a Unicode ellipsis inside the brackets.
+7. For API signatures, name the open tail when you can: `` `env.Build(target, source, <kwargs>)` ``
+   rather than a bare `` `<...>` `` when you mean keyword arguments.
+
+Where colour helps (prose and tables, not raw CLI paste blocks):
+
+- Mute ordinary placeholders with `[.cuppa-ph]`+\`<abi>\`+` (CSS class `cuppa-ph` →
+  `--cuppa-text-muted`).
+- When the **placeholder is the point** of the phrase, use `[.cuppa-ph-focus]`+\`<abi>\`+`
+  and optionally wrap fixed surrounding path text in `[.cuppa-ph-context]#bin.#`.
+- Use focus/context sparingly — over-colouring becomes noise.
+
+Gate: `python -m scripts.check_docs_placeholders` (also run from `check_docs_urls`) fails on
+U+2026 in authored `docs/**/*.adoc` and `AGENTS.md`, excluding `partials/samples/` and lines
+that document the forbidden glyph.
+
+If most of a file can be left with defaults, show just the section that needs changing and mark
+omissions with `...` (three periods), not a placeholder.
+
+Highlight items the reader must change with named placeholders (`` `<registry>` ``,
+`` `<version>` ``) or explicit example values. Make clear what needs customization.
 
 ## Notes and Warnings
 

@@ -1,0 +1,39 @@
+<pre class="cuppa-output"><code>
+Dependencies in <span class="cuppa-info">~/.cuppa/dependencies</span>
+Default dependencies: <span class="cuppa-info">alpha</span>
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+      SIZE  LAST USED   REMARK       DEPENDENCY
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+       31K  today       4 total      referenced
+                                     <span class="cuppa-subdued">│</span>
+  <span class="cuppa-info">     24K</span>  today       <span class="cuppa-info">3 used</span>       <span class="cuppa-subdued">├── </span><span class="cuppa-info">dependencies in use</span>
+  <span class="cuppa-subdued">      7K</span>  <span class="cuppa-subdued">4 days ago</span>  <span class="cuppa-subdued">1 unused</span>     <span class="cuppa-subdued">├── </span><span class="cuppa-subdued">potentially stale dependencies</span>
+                                     <span class="cuppa-subdued">│</span>
+       31K  today       1 used       <span class="cuppa-subdued">└── </span>gitlab packages
+                                     <span class="cuppa-subdued">    │</span>
+  <span class="cuppa-subdued">     12K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">    └── </span><span class="cuppa-emphasised"><span class="cuppa-info">alpha</span></span>
+  <span class="cuppa-subdued">     12K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">        └── </span>1.0.0
+       12K  today       <span class="cuppa-info">in use</span>       <span class="cuppa-subdued">            ├── </span><span class="cuppa-info">gcc153_rel_x86_64_cxx2c</span>
+                                     <span class="cuppa-subdued">            │</span>
+       19K  today                    <span class="cuppa-subdued">            └── </span>requires
+                                     <span class="cuppa-subdued">                │</span>
+  <span class="cuppa-subdued">     15K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                ├── </span><span class="cuppa-emphasised"><span class="cuppa-info">beta</span></span>
+  <span class="cuppa-subdued">     15K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                │   └── </span>2.0.0
+        8K  today       <span class="cuppa-info">in use</span>       <span class="cuppa-subdued">                │       ├── </span><span class="cuppa-info">gcc153_rel_x86_64_cxx2c</span>
+  <span class="cuppa-subdued">      7K</span>  <span class="cuppa-subdued">4 days ago</span>               <span class="cuppa-subdued">                │       ├── </span><span class="cuppa-subdued">gcc16_rel_x86_64_cxx2c</span>
+                                     <span class="cuppa-subdued">                │       │</span>
+                                     <span class="cuppa-subdued">                │       └── </span>requires
+                        <span class="cuppa-subdued">libs: gamma</span>  <span class="cuppa-subdued">                │           └── </span><span class="cuppa-subdued">gamma 3.0.0</span>
+                                     <span class="cuppa-subdued">                │</span>
+  <span class="cuppa-subdued">      4K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                └── </span><span class="cuppa-emphasised"><span class="cuppa-info">gamma</span></span>
+  <span class="cuppa-subdued">      4K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                    └── </span>3.0.0
+        4K  today       <span class="cuppa-info">in use</span>       <span class="cuppa-subdued">                        └── </span><span class="cuppa-info">gcc153_rel_x86_64_cxx2c</span>
+<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+  4 entries, 31K total, 7K unreferenced
+
+Review unreferenced trees, then clear them with:
+
+<span class="cuppa-emphasised">cuppa -Q -D -n --force-wipe-unreferenced-dependencies</span>
+
+Drop -n and re-run after confirming.
+</code></pre>

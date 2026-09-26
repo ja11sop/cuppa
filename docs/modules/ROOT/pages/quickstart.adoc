@@ -74,7 +74,7 @@ Use `--show-test-output` to print stdout/stderr from test processes.
 Built-ins such as source Boost are **already registered** with Cuppa. You do not list them in
 `import_dependencies`. Pass them to `auto_enable_dependencies` so every `sconscript` gets
 `BuildWith('boost')` automatically. Unpinned Boost resolves to the latest release on the download
-path (see xref:dependencies/builtins/boost.adoc[Boost]); optionally pin a local tree with
+path (see xref:dependencies/using/builtins/boost.adoc[Boost]); optionally pin a local tree with
 `boost-location` / `boost-home` in `default_options`.
 
 [source,python]
