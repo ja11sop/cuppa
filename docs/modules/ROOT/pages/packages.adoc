@@ -1,10 +1,11 @@
 = Publishing packages
-:description: Moved under Dependencies → Publishing
+:description: Moved under Dependencies → Publishing (split into topic pages)
 
-This page has moved to
-xref:dependencies/publishing/packages.adoc[Publishing packages]
-under the Dependencies Publishing hub.
+Publishing docs now live under the Dependencies **Publishing** hub:
 
-Cascading dependency publishes, amend/external builds, and Conan publish live on that page.
-Publisher trees are documented at
-xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees].
+* xref:dependencies/publishing/packages.adoc[Publishing packages overview]
+* xref:dependencies/publishing/gitlab.adoc[GitLab package publish]
+* xref:dependencies/publishing/cascade.adoc[Cascading dependency publishes]
+* xref:dependencies/publishing/amend-and-external.adoc[Amending metadata and external builds]
+* xref:dependencies/publishing/conan.adoc[Conan 2 publishing]
+* xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees]

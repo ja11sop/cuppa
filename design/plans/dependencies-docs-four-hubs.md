@@ -1,6 +1,6 @@
 # Plan: Dependencies docs — Using / Managing / Publishing / Authoring
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`list-deps-requires-closure.md`](list-deps-requires-closure.md) (Option A list scopes + requires samples); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade); [`archive/doc-folder-layout.md`](../archive/doc-folder-layout.md); [`removal-options.md`](removal-options.md) §7.1; [`methods-pages-split.md`](methods-pages-split.md); ROADMAP Documentation tooling (`doc-deps-four-hubs`)
 - **Updated:** 2026-09-26
 - **Impact:** none — Antora nav, page moves, and xref updates only; no product behaviour
@@ -153,9 +153,9 @@ P3–P5 can follow on the same PR if scope stays docs-only, or a docs follow-up 
 | P1 nav + hubs | Done — four hubs; Using/Managing/Publishing/Authoring; page moves + xref sweep |
 | P2 Using usability page | Done — `dependencies/using/building-with-packages.adoc` |
 | P3 relocate `packages.adoc` | Done — under `dependencies/publishing/`; top-level stub kept |
-| P4 Publishing megapage / GitLab consume–publish split | Open |
+| P4 Publishing megapage / GitLab consume–publish split | Done — `gitlab` / `cascade` / `amend-and-external` / `conan` children; Boost-from-source under Publishing |
 | P5 Authoring polish + AGENTS topic map | Done (topic map); Authoring still thin by design |
-| Next focus | P4 — split Publishing megapage; GitLab Boost-from-source → Publishing child |
+| Next focus | Soak + optional further Publishing child polish; mark plan `done` when P4 has soaked on the PR |
 
 ## Impact
 

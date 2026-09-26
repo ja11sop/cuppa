@@ -649,7 +649,9 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 ## Antora documentation (#297)
 
 Operator docs live primarily under
-[`docs/modules/ROOT/pages/dependencies/publishing/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/packages.adoc)
+[`docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc)
+(hub overview:
+[`packages.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/packages.adoc))
 (`#build-and-publish-dependencies` and children) and
 [`cli/dependencies-and-develop.adoc`](../../docs/modules/ROOT/pages/cli/dependencies-and-develop.adoc).
 Do **not** paste Phase tables or open design questions into Antora; keep rationale

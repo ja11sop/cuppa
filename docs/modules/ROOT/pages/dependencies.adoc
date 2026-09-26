@@ -64,7 +64,9 @@ know you need storage reclaim, publishing, or a custom factory.
 
 | Publish / cascade / publisher trees
 | xref:dependencies/publishing.adoc[Publishing] ·
-  xref:dependencies/publishing/packages.adoc[packages] ·
+  xref:dependencies/publishing/packages.adoc[overview] ·
+  xref:dependencies/publishing/gitlab.adoc[GitLab] ·
+  xref:dependencies/publishing/cascade.adoc[cascade] ·
   xref:dependencies/publishing/list-publishers.adoc[publishers]
 
 | Author a new dependency

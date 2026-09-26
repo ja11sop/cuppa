@@ -1,0 +1,217 @@
+= GitLab package publish
+:description: Publish Cuppa-built libraries to a GitLab generic package registry
+
+Consuming GitLab packages is documented under
+xref:dependencies/using/gitlab.adoc[GitLab packages].
+This page covers ``env.PublishPackage`` with ``GitlabPackagePublisher``,
+floating publisher ``version="latest"``, and publishing Boost from source.
+
+== Overview
+
+From a sconscript, `env.PublishPackage(...)` with a `GitlabPackagePublisher` builds a toolchain-scoped tarball
+and writes a ``.packaged`` stamp beside it in ``final/``. The toolchain token in the archive stem is
+`toolchain.package_name()`, which follows `--toolchain-identity=` (see
+xref:toolchains/overview.adoc#toolchain-identity[Build and package identity]). Switching identity
+does not rename archives already in a registry; republish or use consume-side lookup
+(`--package-gitlab-toolchain-override-<name>=`,
+`--package-gitlab-identity-fallback`) described in
+xref:dependencies/using/gitlab.adoc#consume-overrides[GitLab lookup overrides].
+`--package-gitlab-os-identity=include|omit` (default `include`) controls whether the
+published basename includes the OS id (`widget_debian_gcc15_…`) or omits it
+(`widget_gcc15_…`). Omit is an ABI bet that the artefact is not OS-scoped; it is not
+the product default. Consume prefers the same encoding when the flag is set, and with
+fallback on also tries the other shape after a `404`. When staged headers and libs are not newer than the
+existing archive, cuppa skips recreating the tarball — so a follow-up ``cuppa --rel --publish-package`` can
+upload without re-tarring multi-gigabyte trees.
+Add `--publish-package` to upload it to the GitLab generic registry.
+`env.InstallPackage(...)` installs a package into the local cuppa dependencies layout.
+The publish step depends on the archive file as well as the empty ``.packaged`` stamp, so
+a retar (for example after updating ``cuppa-publish.json``) invalidates upload under
+SCons ``MD5-timestamp``.
+
+[#publish-version-latest]
+== Publisher ``version="latest"`` (seed vs staged identity)
+
+The same floating tokens used on consume —
+xref:dependencies/using/gitlab.adoc#version-latest[registry ``latest``] —
+are available on ``GitlabPackagePublisher``: ``version="latest"``, ``"current"``,
+or ``None``. This is a **general** publisher facility, not Boost-only. Boost is
+the workflow that needs it most often today; any GitLab package publisher can
+use the same kwargs.
+
+Cuppa splits identity on purpose:
+
+[cols="1,2"]
+|===
+| Where
+| What is written
+
+| Publisher-tree seed ``cuppa-publish.json`` (beside ``sconstruct``)
+| May keep the floating token (``"latest"`` / ``"current"``) so you need not hand-edit the seed on every release
+
+| Staged archive under ``final/<package>/<concrete>/`` and its traveling ``cuppa-publish.json``
+| Always a **concrete** version string
+
+| Registry upload URL
+| Same concrete version
+|===
+
+Nothing in the uploaded tarball claims to be the word ``latest``. Consumers that
+pin ``version="latest"`` still resolve against **registry** contents after you
+upload; they never re-resolve the publisher's floating seed.
+
+=== How Cuppa picks the concrete pin
+
+When the publisher ``version`` is floating, resolve order is:
+
+. **Active ``BuildWith``** for that package name (and, for registry slug
+  ``boost``, source ``BuildWith('boost')`` before ``boost_package``) — the
+  usual case when the sconscript already built or consumed the package this
+  session.
+. **Upstream Boost latest** (package ``boost`` only) — major.minor form, same
+  as ``Boost.version().replace('_', '.')`` / ``boost_package.latest_release()``.
+. **Registry latest** for ``registry`` + ``package`` — the same
+  ``gitlab_latest`` helper as consume ``version="latest"``.
+
+If none of those yield a pin, configure / publisher construction fails with an
+actionable error. Pass an explicit concrete ``version=`` when you want the seed
+and the archive to agree (most libraries that cut named releases in git).
+
+=== When floating helps, and when it does not
+
+*Use* ``version="latest"`` when the publisher tree's authored identity is meant
+to float with the session — for example a leaf that always publishes “whatever
+``BuildWith`` resolved,” or a tip seed you do not want to bump by hand every
+cut. Cascade still discovers the tree from the seed; nested publish uploads
+under the concrete folder and URL.
+
+*Prefer a concrete* ``version=`` when the tracked seed should be a reviewable
+pin (typical for application and library publishers with SemVer tags).
+
+*Do not confuse* registry latest with upstream software latest. For ordinary
+packages, step 3 above means “newest version **already in our registry**,”
+which is a poor pin for a *first* upload of a brand-new upstream release (the
+registry has nothing newer yet). In that case resolve from ``BuildWith`` of the
+tree you just built (step 1), or pass the concrete version explicitly. Source
+Boost is the exception that also understands upstream latest (step 2).
+
+Minimum / range pins (``>=1.28.0``) are a separate story; this token is only
+the named floating ``latest`` / ``current`` spelling.
+
+=== Example (any package)
+
+[source,python]
+----
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# After BuildWith('abseil_cpp') (or equivalent) has a concrete version this session:
+Publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = include_path,
+    source_lib_dir     = lib_path,
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'abseil-cpp',
+    version            = 'latest',  # seed keeps latest; stage/upload use BuildWith pin
+)
+----
+
+For a full Boost sconscript that uses the same facility (plus upstream Boost
+resolve when needed), see
+xref:dependencies/publishing/gitlab.adoc#publishing-boost-from-source[Publishing Boost from source].
+
+
+[#publishing-boost-from-source]
+== Publishing Boost from source
+
+To populate the registry, build static libraries from the built-in **source** ``boost``
+dependency (unpinned — latest is implied when online; see
+xref:dependencies/using/builtins/boost.adoc#latest-version-and-offline-ci[Latest version and offline CI]),
+then publish headers and libs with ``GitlabPackagePublisher``. Run with ``--publish-package`` to
+upload.
+
+This example uses the general publisher floating-version facility
+(xref:dependencies/publishing/gitlab.adoc#publish-version-latest[Publisher version latest]):
+``version = 'latest'`` on the publisher keeps the seed floating while the staged
+archive and upload use the concrete pin from ``BuildWith('boost')``. Any other
+GitLab package publisher can pass the same token; Boost only adds the upstream
+Boost resolve step when no BuildWith pin is available.
+
+**``sconstruct``** — register source Boost (no ``--boost-version=`` pin; no ``--boost-latest``
+required):
+
+[source,python]
+----
+import cuppa
+
+cuppa.run(
+    default_options = {
+        'boost-patch-boost-test': True,
+    },
+    auto_enable_dependencies = [
+        'boost',  # built-in; already imported — unpinned → latest on the download path
+    ],
+    default_runner = 'boost',
+)
+----
+
+**``sconscript``** — build libraries, stage install paths, publish:
+
+[source,python]
+----
+Import('env')
+
+Boost = env.BuildWith('boost')
+
+BoostLibraries = Boost.use_libs([
+    'chrono',
+    'context',
+    'filesystem',
+    'iostreams',
+    'locale',
+    'log',
+    'log_setup',
+    'program_options',
+    'regex',
+    'serialization',
+    'system',
+    'thread',
+    'timer',
+    'unit_test_framework',
+    'wave',
+])
+
+BoostVersion = Boost.version().replace('_', '.')
+BoostIncludePath = Boost.local_sub_path() + '/boost/'
+BoostLibPath = 'boost/{}/lib'.format(BoostVersion)
+
+Libraries = env.Install(BoostLibPath, BoostLibraries)
+
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+Publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = BoostIncludePath,
+    offset_include_dir = 'boost',
+    source_lib_dir     = BoostLibPath,
+    registry           = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
+    package            = 'boost',
+    version            = 'latest',  # seed keeps latest; stage/upload use Boost.version()
+)
+
+Published = env.PublishPackage(Libraries, publisher=Publisher)
+
+env.Clean(Published, Libraries)
+----
+
+Keep a concrete ``BoostVersion`` (or equivalent) for install paths under
+``boost/<ver>/lib``; only the publisher ``version=`` argument participates in the
+seed-vs-staged split. Pass an explicit concrete ``version=`` on the publisher when
+you want the seed pinned too.
+
+``Boost.version()`` reflects the resolved release (for example after boost.org is checked on an
+online unpinned build). After download, Cuppa may upsert ``boost_latest_version`` in project
+``configure.conf`` or ``~/.cuppaconfig`` when the version is higher than any stored value — see
+xref:dependencies/using/builtins/boost.adoc#remembered-latest[Remembered latest].
+
+Upload with ``cuppa --rel --publish-package`` (add ``--parallel`` as needed). Consumers then
+use ``boost_package.define`` as in xref:dependencies/using/gitlab.adoc#boost-package[Consuming Boost package].

@@ -15,15 +15,20 @@ instead.
 |===
 | Goal | Page
 
-| Publish a Cuppa-built library (GitLab / Conan / cascade)
-| xref:dependencies/publishing/packages.adoc[Publishing packages]
+| Publishing overview (chooser)
+| xref:dependencies/publishing/packages.adoc[Publishing packages overview]
+
+| ``PublishPackage`` / GitLab generic / Boost from source
+| xref:dependencies/publishing/gitlab.adoc[GitLab package publish]
 
 | Cascading dependency publishes
-| xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+| xref:dependencies/publishing/cascade.adoc[Cascading dependency publishes]
 
-| Consume-only tips and cold start
-| xref:dependencies/publishing/packages.adoc#cascade-consume-only[Consume-only tips] ·
-  xref:dependencies/publishing/packages.adoc#cascade-cold-start[Cold start]
+| Amend metadata / external CMake builds
+| xref:dependencies/publishing/amend-and-external.adoc[Amending metadata and external builds]
+
+| Conan 2 publish
+| xref:dependencies/publishing/conan.adoc[Conan 2 publishing]
 
 | List, remove, and update publisher trees
 | xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees]

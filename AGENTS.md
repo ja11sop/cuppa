@@ -715,7 +715,11 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Managing deps (list / update / remove) | `dependencies/managing.adoc` |
 | Listing dependency trees (Option A scopes) | `dependencies/managing/list-dependencies.adoc` |
 | Publishing dependencies hub | `dependencies/publishing.adoc` |
-| Publishing packages (GitLab / Conan / cascade) | `dependencies/publishing/packages.adoc` (`packages.adoc` stub redirects) |
+| Publishing packages overview | `dependencies/publishing/packages.adoc` (`packages.adoc` stub redirects) |
+| GitLab package publish | `dependencies/publishing/gitlab.adoc` |
+| Cascading dependency publishes | `dependencies/publishing/cascade.adoc` |
+| Amend / external CMake publish | `dependencies/publishing/amend-and-external.adoc` |
+| Conan 2 publishing | `dependencies/publishing/conan.adoc` |
 | Publisher trees | `dependencies/publishing/list-publishers.adoc` |
 | Authoring / custom factories | `dependencies/authoring.adoc` · `dependencies/authoring/extending.adoc` (also `extending.adoc` for plugins) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |

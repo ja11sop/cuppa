@@ -37,7 +37,7 @@ A missing package or an unresolved `latest` fails during configure, before compi
 On the publish side, the same floating tokens may appear on
 ``GitlabPackagePublisher``: the publisher-tree seed can keep ``"latest"`` while
 the staged archive and registry upload always record a concrete pin — see
-xref:dependencies/publishing/packages.adoc#publish-version-latest[Publisher version latest].
+xref:dependencies/publishing/gitlab.adoc#publish-version-latest[Publisher version latest].
 
 == Develop vs package downloads
 
@@ -83,7 +83,7 @@ widget = cuppa.package_dependency(
 
 It is metadata: nothing about consuming the package reads it. Two workflows do.
 xref:dependencies/managing/develop.adoc#package-dependencies[`--clone-develop`] uses it to create
-the develop working copy above, and xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[cascade]
+the develop working copy above, and xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[cascade]
 uses it to find the project that publishes the package. An optional `@branch` pin may be given,
 and `--<name>-<manager>-package-source=` overrides the declaration for one run.
 

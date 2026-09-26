@@ -86,7 +86,7 @@ The same floating tokens appear on the **publish** side
 pin. Resolve order prefers an active ``BuildWith``, then (for package ``boost``)
 upstream Boost latest, then this same registry-latest helper. That is a general
 facility for any GitLab package publisher — see
-xref:dependencies/publishing/packages.adoc#publish-version-latest[Publisher version latest].
+xref:dependencies/publishing/gitlab.adoc#publish-version-latest[Publisher version latest].
 
 [source,python]
 ----
@@ -199,101 +199,8 @@ env.BuildWith('boost_package').use_libs([
 exists) to the construction environment so shared libraries resolve for host
 tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
 
-[#publishing-boost-from-source]
-=== Publishing Boost from source
-
-To populate the registry, build static libraries from the built-in **source** ``boost``
-dependency (unpinned — latest is implied when online; see
-xref:dependencies/using/builtins/boost.adoc#latest-version-and-offline-ci[Latest version and offline CI]),
-then publish headers and libs with ``GitlabPackagePublisher``. Run with ``--publish-package`` to
-upload.
-
-This example uses the general publisher floating-version facility
-(xref:dependencies/publishing/packages.adoc#publish-version-latest[Publisher version latest]):
-``version = 'latest'`` on the publisher keeps the seed floating while the staged
-archive and upload use the concrete pin from ``BuildWith('boost')``. Any other
-GitLab package publisher can pass the same token; Boost only adds the upstream
-Boost resolve step when no BuildWith pin is available.
-
-**``sconstruct``** — register source Boost (no ``--boost-version=`` pin; no ``--boost-latest``
-required):
-
-[source,python]
-----
-import cuppa
-
-cuppa.run(
-    default_options = {
-        'boost-patch-boost-test': True,
-    },
-    auto_enable_dependencies = [
-        'boost',  # built-in; already imported — unpinned → latest on the download path
-    ],
-    default_runner = 'boost',
-)
-----
-
-**``sconscript``** — build libraries, stage install paths, publish:
-
-[source,python]
-----
-Import('env')
-
-Boost = env.BuildWith('boost')
-
-BoostLibraries = Boost.use_libs([
-    'chrono',
-    'context',
-    'filesystem',
-    'iostreams',
-    'locale',
-    'log',
-    'log_setup',
-    'program_options',
-    'regex',
-    'serialization',
-    'system',
-    'thread',
-    'timer',
-    'unit_test_framework',
-    'wave',
-])
-
-BoostVersion = Boost.version().replace('_', '.')
-BoostIncludePath = Boost.local_sub_path() + '/boost/'
-BoostLibPath = 'boost/{}/lib'.format(BoostVersion)
-
-Libraries = env.Install(BoostLibPath, BoostLibraries)
-
-from cuppa.package_managers.gitlab import GitlabPackagePublisher
-
-Publisher = GitlabPackagePublisher(
-    env,
-    source_include_dir = BoostIncludePath,
-    offset_include_dir = 'boost',
-    source_lib_dir     = BoostLibPath,
-    registry           = 'https://gitlab.example.com/api/v4/projects/dependencies%2Fregistry',
-    package            = 'boost',
-    version            = 'latest',  # seed keeps latest; stage/upload use Boost.version()
-)
-
-Published = env.PublishPackage(Libraries, publisher=Publisher)
-
-env.Clean(Published, Libraries)
-----
-
-Keep a concrete ``BoostVersion`` (or equivalent) for install paths under
-``boost/<ver>/lib``; only the publisher ``version=`` argument participates in the
-seed-vs-staged split. Pass an explicit concrete ``version=`` on the publisher when
-you want the seed pinned too.
-
-``Boost.version()`` reflects the resolved release (for example after boost.org is checked on an
-online unpinned build). After download, Cuppa may upsert ``boost_latest_version`` in project
-``configure.conf`` or ``~/.cuppaconfig`` when the version is higher than any stored value — see
-xref:dependencies/using/builtins/boost.adoc#remembered-latest[Remembered latest].
-
-Upload with ``cuppa --rel --publish-package`` (add ``--parallel`` as needed). Consumers then
-use ``boost_package.define`` as in <<Consuming in a project>>.
+To **publish** Boost into the registry from the source ``boost`` dependency, see
+xref:dependencies/publishing/gitlab.adoc#publishing-boost-from-source[Publishing Boost from source].
 
 === Minimal define (reference)
 

@@ -151,7 +151,7 @@ stage already exists under that tree (`final/<name>/<version>/{include,lib}`) â€
 links that prefix (and optional `modules/` BMIs) the same way. Location projects
 produce the stage with `env.StageLocationDevelop`. After nest-clean, a missing
 location stage falls back to path-swap (packages StopError instead). See
-xref:dependencies/publishing/packages.adoc#cascade-develop[Publishing from a tree you are working in]
+xref:dependencies/publishing/cascade.adoc#cascade-develop[Publishing from a tree you are working in]
 and xref:dependencies/managing/develop.adoc#location-tip-consume-stage-prefix[Working with develop copies].
 
 `--stage-develop-plan` (requires `--develop`) prints every considered location
@@ -169,7 +169,7 @@ and retars from an existing stage or registry archive without running the
 publisher's usual acquire/build/install graph (Cuppa's DownloadExtract and
 CMake* methods no-op; other `Command()` graphs should follow the same pattern if
 they participate). Pair with `--publish-package` to upload. See
-xref:dependencies/publishing/packages.adoc#amend-package-manifest[Amending metadata without rebuilding].
+xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
 `--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
 Pair with a companion action: `--publish-package` (nested publish + tip upload),
@@ -177,13 +177,13 @@ Pair with a companion action: `--publish-package` (nested publish + tip upload),
 and publisher tips), or a stop mode (`--cascade-plan` / `--collect-cascade` /
 `--update-publishers`). Optional `--publisher-root=PATH` overrides the default
 `<storage-root>/publishers` forest when resolving trees. See
-xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
-and xref:dependencies/publishing/packages.adoc#cascade-consume-only[Consume-only tips].
+xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+and xref:dependencies/publishing/cascade.adoc#cascade-consume-only[Consume-only tips].
 
 `--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
 continues with the tip **build** (no tip upload). Requires
 `--build-and-publish-dependencies`. Cannot be combined with `--publish-package`.
-See xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+See xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
 tree, then stops without cloning, building, or uploading. It requires
@@ -196,7 +196,7 @@ path, or **to make this plan executable** when `--develop` and/or
 paths already cover may add an optional `--develop` preference (worded **where set**
 when only some dependencies have develop configured). Consume-only tips label the tip
 as **(this project)** and omit `--publish-package` from the remedy. See
-xref:dependencies/publishing/packages.adoc#cascade-plan[Checking the plan before anything uploads].
+xref:dependencies/publishing/cascade.adoc#cascade-plan[Checking the plan before anything uploads].
 
 `--collect-cascade` resolves the same graph and stops without building or publishing.
 It requires `--build-and-publish-dependencies`, but not `--publish-package`. It only
@@ -206,7 +206,7 @@ It requires `--build-and-publish-dependencies`, but not `--publish-package`. It 
 already populated, collect alone is enough; clone is the cold-start / missing-tree
 opt-in. It is not `--publish-package -n` (a full cascade refuses `-n` / `--no-exec`
 because nested sessions still configure). See
-xref:dependencies/publishing/packages.adoc#collect-cascade[Collecting publisher trees without building].
+xref:dependencies/publishing/cascade.adoc#collect-cascade[Collecting publisher trees without building].
 
 `--clone-publishers` lets cascade clone a publisher tree it cannot find locally from
 that dependency's `package_source` URL, optionally pinned as `url@branch`, `url@tag`,
@@ -216,7 +216,7 @@ preferred and are used as they stand â€” never switched, reset, or overwritten â
 cloning is unavailable with `--offline`. It is opt-in because a full cascade runs a
 build in the tree it fetches (`--collect-cascade` clones without building when both
 flags are set). See
-xref:dependencies/publishing/packages.adoc#clone-publishers[Fetching publisher trees on demand].
+xref:dependencies/publishing/cascade.adoc#clone-publishers[Fetching publisher trees on demand].
 
 `--develop` is related but not the same. Outside a cascade, a package dependency's
 `develop=` names a built package prefix (the directory `include/` and `lib/` hang off),
@@ -224,7 +224,7 @@ and the build links against it directly. During a cascade, a `develop=` naming a
 publisher source tree (a tree with an `sconstruct`) is the tree cascade publishes from,
 ranked above `package_source` and `--publisher-root`; the build then consumes the
 package that publish produced rather than swapping the source tree in as a prefix. See
-xref:dependencies/publishing/packages.adoc#cascade-develop[Publishing from a tree you are working in].
+xref:dependencies/publishing/cascade.adoc#cascade-develop[Publishing from a tree you are working in].
 
 `--publish-modified` lifts cascade's refusal to publish from a publisher tree
 holding work only this machine has: uncommitted changes, unpushed commits, or a branch
@@ -236,12 +236,12 @@ first upload and names every offending tree.
 skip-if-current would report `skipped (current)`, and refreshes the tip consume
 cache afterward. It is forwarded into nested sessions. Do not confuse it with
 wipe / purge `--force-*` options. See
-xref:dependencies/publishing/packages.adoc#cascade-run[Real cascade runs].
+xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs].
 
 `--update-publishers` fast-forwards clean publisher-forest trees that are behind
 upstream (same gates as `--update-develop`). Requires the cascade enable flag.
 Refuse with `--cascade-plan` or `--offline` for a live update. See
-xref:dependencies/publishing/packages.adoc#update-publishers[Updating publisher trees].
+xref:dependencies/publishing/cascade.adoc#update-publishers[Updating publisher trees].
 
 == Built-in Boost options
 

@@ -1,0 +1,439 @@
+= Amending metadata and external builds
+:description: Retar metadata-only publishes and stage packages from CMake or other external graphs
+
+Use these workflows when you are not doing a full Cuppa ``Build*`` cycle inside
+the publisher tree — amend traveling manifests, declare transitive pins for
+publish, or drive an external CMake / Command graph into ``PublishPackage``.
+
+[#amend-package-manifest]
+== Amending metadata without rebuilding
+
+When only traveling metadata changes (for example adding
+``default_use_libs: []`` on a fat package, or correcting dependency pins), a full
+acquire → build → install cycle in the publisher tree is disproportionate —
+whether that graph is Cuppa ``Build*``, CMake, b2, or another tool. Pass
+``--amend-package-manifest`` together with the usual variant and toolchain flags:
+
+[source,shell]
+----
+cuppa -D --rel --toolchains=gcc15 --amend-package-manifest --publish-package
+----
+
+Cuppa then:
+
+* skips acquire / empty-dir cleanup and the publisher's usual configure/build/
+  install steps when those methods honour the amend flag (Cuppa's
+  ``DownloadExtract``, ``RemoveEmptyDirs``, and ``CMakeConfigure`` /
+  ``CMakeBuild`` / ``CMakeInstall`` register no-op stamps so the graph still
+  links; other ``Command()`` graphs should do the same if they participate)
+* rewrites ``cuppa-publish.json`` from the current ``GitlabPackagePublisher``
+  kwargs (``dependencies``, ``default_use_libs``, ``link``) and removes any
+  legacy ``cuppa-dependency.json`` twin
+* retars from an existing ``final/<package>/<version>/`` stage when present;
+  otherwise extracts a local ``.tar.gz`` / ``.zip`` under ``final/``, or downloads
+  that archive from the registry first
+* uploads when ``--publish-package`` is also set (same publish dependency on the
+  archive as a normal retar)
+
+This path does **not** refresh include/lib payloads from ``source_include_dir`` /
+``source_lib_dir``. Use a normal publish (without ``--amend-package-manifest``)
+when binaries or headers change. Consumers that already cached the same version
+need a download refresh after a same-version overwrite — see
+xref:dependencies/using/gitlab.adoc[GitLab packages] and the planned
+``--refresh-downloads`` work. After a same-version leaf amend, tip cascade uses
+``payload_sha256`` (xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs]) so an unchanged tip
+consume payload is not rewritten solely to pick up the new traveling JSON.
+
+== Declaring transitive dependencies
+
+Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab
+packages at include or link time. Cuppa writes ``cuppa-publish.json`` into the staged package
+directory (next to ``include/`` / ``lib/``) before creating the archive. Entries may be bare
+BuildWith **names** (``'protobuf'``), partial dicts, or mixed. When only ``name`` is given,
+``package`` defaults to the hyphenated form (``opentelemetry_cpp`` → ``opentelemetry-cpp``);
+when only ``package`` is given, ``name`` defaults the other way. Pass both when the slug is not
+that transform (for example Boost). You may omit ``version`` when those packages are already on
+the env via ``BuildWith`` / ``auto_enable_dependencies`` — the publisher fills the pin from the
+active package object at package time. An explicit ``version`` still wins. Empty or omitted
+``registry`` means ``same``.
+
+Optional package-level fields on the same publisher (written into the same manifest):
+
+* ``default_use_libs=[...]`` — stems linked when a consumer primary-``BuildWith``s / auto-enables
+  the package (not when it is pulled only as a transitive include). Use ``[]`` for fat packages
+  that must not link by default.
+* ``link=`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``.
+
+Omit ``dependencies`` and those fields when the package is standalone with no defaults — then no
+manifest file is written. Publishing only ``default_use_libs`` still writes the file.
+
+[source,python]
+----
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = '#/include',
+    source_lib_dir     = env['abs_final_dir'],
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '1.0.0',
+    default_use_libs   = [ 'widget' ],
+    dependencies = [
+        'fmt',
+        { 'name': 'boost_package', 'package': 'boost', 'use_libs': ['system'] },
+    ],
+)
+env.PublishPackage(lib, publisher)
+----
+
+Example traveling ``cuppa-publish.json`` staged beside ``include/`` / ``lib/``
+(and seeded beside the publisher ``sconstruct`` for cascade discovery).
+``payload_sha256`` is written when the stage has payload trees; publisher-tree
+seeds without ``include/`` / ``lib/`` omit it:
+
+[source,json]
+----
+{
+  "cuppa_publish_format": 1,
+  "package": "widget",
+  "version": "1.0.0",
+  "dependencies": [
+    {
+      "name": "fmt",
+      "package": "fmt",
+      "version": "12.2.0",
+      "registry": "same",
+      "package_source": "git@gitlab.example:org/packages/fmt.git"
+    }
+  ],
+  "default_use_libs": [ "widget" ],
+  "payload_sha256": "7c89d70e8676490b63128a68f0c5318c96ae038bc9f54e3162ea97880ccdccde"
+}
+----
+
+The same file drives **consume** transitive ``BuildWith`` closure and **cascade**
+DAG expansion. See
+xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies]
+and xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs] (``payload_sha256`` overlay).
+
+Consumers that ``BuildWith`` / link **A** pick up **B** from the manifest — see
+xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
+
+Relative `source_include_dir` / `source_lib_dir` values are SCons nodes under the active variant directory. Cuppa copies from the generated path when it exists, and only falls back to `srcnode()` for a source-tree directory that is present. Always using `srcnode()` would look for a missing project-root copy such as `boost/1.92/lib` and fail the package step, especially under `--parallel`. Use `env['abs_final_dir']` when libraries already land in `final/`. The same resolution is used for Conan publishing (xref:dependencies/publishing/conan.adoc#conan-package-publishing[conan-package-publishing]).
+
+Authentication for registry upload uses the same tokens as consume
+(`GITLAB_REGISTRY_TOKEN`, `CI_JOB_TOKEN`, `--<name>-gitlab-custom-token`).
+See xref:dependencies/using/gitlab.adoc[GitLab packages].
+
+[#publishing-from-external-cmake]
+== Publishing from an external build
+
+Some packages are **built** outside Cuppa's usual ``BuildStaticLib`` /
+``BuildSharedLib`` path and only *packaged* by Cuppa. Common shapes:
+
+* **Cuppa-native publisher** — ``Build*`` / ``Install`` / ``PublishPackage`` in the
+  same sconscript (no external meta-build)
+* **CMake** — Cuppa owns the sconscript graph; configure/build/install are
+  ``CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall`` (or raw ``Command()``)
+* **Boost.b2 or another tool** — wrap with ``Command()`` (and register
+  ``env.Clean`` on out-of-tree build dirs when cascade ``-c`` should remove them)
+
+Cascade does not care which of these built the payload; nested sessions always
+run ``cuppa … --publish-package`` in the publisher tree. The rest of this
+section focuses on the **CMake** pattern because it is the most common external
+case and needs toolchain/variant mapping.
+
+For CMake publishers, map Cuppa's active toolchain and variant into CMake flags so
+``--dbg`` / ``--rel`` / ``--cov`` and ``--toolchains=`` produce matching external
+builds instead of always forcing ``Release`` and a hard-coded compiler path.
+
+Use xref:methods/custom-commands.adoc[Custom commands] when you need a raw
+``Command()``, but prefer **``env.CMakeConfigure`` / ``CMakeBuild`` / ``CMakeInstall``**
+for the usual configure → build → install graph. Those methods wrap
+``cuppa.buildsys.cmake`` (Option B argv helpers) and ``cuppa.utility.command.run`` so
+``CMAKE_BUILD_TYPE`` / ``CMAKE_CXX_COMPILER`` track the active variant and toolchain,
+and ``CMakeBuild`` passes ``cmake --build --parallel N`` with the **same**
+``N`` as Cuppa ``--parallel`` / ``env['job_count']`` (affinity-sized, never
+bare ``--parallel``), or ``--parallel 1`` when Cuppa ``--parallel`` is off.
+Pass ``jobs=False`` on ``CMakeBuild`` to omit ``--parallel`` and leave the
+generator default. Pair with xref:methods/staging-files.adoc[Staging files]
+when you need ``Install()`` into a package layout under ``final/``.
+
+Lower-level: ``cmake_configure_command`` / ``cmake_build_command`` remain available if
+you must hand-wire ``env.Command`` yourself.
+
+=== Acquiring upstream source (`DownloadExtract`)
+
+Publisher sconscripts often start from a GitHub release tarball. Prefer
+**`env.DownloadExtract`** over hand-rolled `wget` / `tar` `Command` strings — Cuppa
+uses the shared download progress reporter and stamps a marker file under the
+extract directory:
+
+[source,python]
+----
+extracted = env.DownloadExtract(
+    'https://github.com/example/widget/archive/v1.0.0.tar.gz',
+    extract_dir = 'widget',
+    marker = 'CMakeLists.txt',   # default
+    strip_components = 1,        # default (GitHub nests sources one level deep)
+)
+----
+
+Feed `extracted` into `RemoveEmptyDirs` and/or `CMakeConfigure`. The method
+registers `Clean` on `extract_dir`.
+
+=== Empty submodule placeholders (`RemoveEmptyDirs`)
+
+GitHub source archives often leave **empty** directories for git submodules under
+`third_party/`. Some upstream trees only fetch those paths when they do **not**
+exist (for example gRPC's `gRPC_DOWNLOAD_ARCHIVES`). An empty directory still
+exists, so configure fails later looking for files under it.
+`cuppa -c` / deleting `_build` does not help: every fresh extract recreates the
+empties.
+
+After extract, call **`env.RemoveEmptyDirs`**, then list the stamp among
+`CMakeConfigure`'s sources. Candidate selection:
+
+* `gitmodules=True` — only empty immediate children of `parent` that appear as
+  submodule paths in `<dirname(parent)>/.gitmodules` (good default when the
+  extract has a root `.gitmodules`)
+* omit `names` and `gitmodules` — every empty immediate child of `parent`
+* `names=(…)` — definitive list (overrides `gitmodules`)
+
+[source,python]
+----
+archives = env.RemoveEmptyDirs(
+    extracted,
+    parent = os.path.join( working_src, 'third_party' ),
+    gitmodules = True,
+    target = 'src/.cuppa_download_archives.stamp',
+)
+configure = env.CMakeConfigure(
+    [ extracted, archives ],
+    working_dir = extraction_folder,
+    # …
+)
+----
+
+Or call `cuppa.buildsys.acquire.remove_empty_dirs(…)` from your own `Action`
+(`cuppa.buildsys.cmake.remove_empty_dirs` still re-exports the same helper).
+Populated trees stay; library submodules you satisfy via `*_PROVIDER=package`
+/ system packages do not need to remain as empty placeholders.
+
+=== Cuppa surface → CMake flag
+
+The active toolchain and variant are bound on each sconscript `env` for the current
+toolchain×variant invoke. Prefer the zero-arg accessors:
+
+[source,python]
+----
+cxx = env.Toolchain().binary()
+name = env.Variant().name()   # dbg, rel, cov, …
+----
+
+`env['toolchain']` / `env['variant']` remain valid. Do not use keyed `env.Toolchain(name)` for
+the active handle (that form is deprecated; use `HasToolchain(name)` for registry checks).
+
+[cols="2,2,3",options="header"]
+|===
+| Cuppa surface | Typical CMake flag / use | Notes
+
+| `env.Toolchain().binary()` or `env['CXX']`
+| `-D CMAKE_CXX_COMPILER=…`
+| Cuppa-resolved absolute driver (including fetched toolchains)
+
+| `env['CC']`
+| `-D CMAKE_C_COMPILER=…`
+| When the project also builds C
+
+| `env.Variant().name() == 'dbg'`
+| `-D CMAKE_BUILD_TYPE=Debug`
+| Mirror `--dbg`
+
+| `'rel'`
+| `-D CMAKE_BUILD_TYPE=Release`
+| Mirror `--rel` — do **not** hard-code Release for every Cuppa variant
+
+| `'cov'`
+| `-D CMAKE_BUILD_TYPE=RelWithDebInfo`
+| Cuppa `--cov` instruments *Cuppa* compiles (gcov/llvm-cov). A pure CMake tree does
+  **not** get that instrumentation unless the project adds its own coverage flags
+
+| `env.StdCpp(...)` / `--stdcpp` / toolchain default
+| `-D CMAKE_CXX_STANDARD=…`
+| Mapped by `cmake_configure_args` when `env['stdcpp']` is a known dialect
+  (`c++20` → `20`, …). Tokens such as `c++latest` are omitted; `c++2c` / `c++26`
+  map to `26` when your CMake is new enough
+
+| `publisher.package_variant()` (or the same token Cuppa uses in package stems)
+| Subdirectory for `-B` (for example `_build/<variant_token>`)
+| Keeps dbg/rel/cov (and toolchain) configure trees from clobbering each other
+
+| `env['abs_build_dir']`
+| Destination for copied libs / completion markers under the sconscript variant
+| Good `Command` targets beside Cuppa's `working/` layout
+
+| `env['abs_final_dir']` and paths under `final/`
+| `CMAKE_INSTALL_PREFIX` and/or `Install()` destinations
+| Large third-party trees often install once under `final/`, then publish from that prefix
+
+| `--parallel` / `env['job_count']`
+| `cmake --build … --parallel N` via `env.CMakeBuild`
+| With Cuppa `--parallel`, `CMakeBuild` passes `--parallel` with
+  `env['job_count']` — the same affinity-aware count as SCons `-j` after the
+  wrapper leaves cores free for the OS (e.g. 14 on a 16-core host). Never bare
+  `--parallel` (that lets Ninja use all logical CPUs and oversubscribe the
+  mask). Without Cuppa `--parallel`, it still passes `--parallel 1`. Override
+  with `jobs=N` or omit with `jobs=False`. Nested oversubscribe is possible if
+  several CMake builds run under SCons `-j` at once; use `jobs=` then.
+
+| Generator (`-G Ninja`, …)
+| Default: `Ninja` when `ninja` is on `PATH`; else omit `-G`. Pass
+  `generator='…'` to force a generator, or `generator=False` to omit `-G`
+| Shared by `cmake_configure_args` and `env.CMakeConfigure`
+
+| `cuppa -c` / SCons clean
+| Removes configure/build/install stamps **and** the CMake `-B` tree
+| `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` register `env.Clean` on the
+  absolute `-B` path (including trees under location-dependency checkouts).
+  Without that, clean only removes Cuppa copies/stamps and the next build
+  looks like a no-op ninja rebuild.
+|===
+
+=== Pattern A — small library: configure, build, install, publish
+
+Sketch: CMake produces a static archive; Cuppa copies or installs headers/libs into a package
+tree under `final/`, then `PublishPackage`.
+
+[source,python]
+----
+Import( 'env' )
+import os
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# Source tree already available (location dependency, extract step, …)
+widget_src = env.BuildWith( 'widget_src' ).local_sub_path()
+
+package_dir = os.path.join( env['abs_final_dir'], 'package' )
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = os.path.join( package_dir, 'include' ),
+    source_lib_dir     = os.path.join( package_dir, 'lib' ),
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '1.0.0',
+)
+
+cmake_build_dir = os.path.join( '_build', publisher.package_variant() )
+configure = env.CMakeConfigure(
+    widget_src,
+    working_dir = widget_src,
+    build_dir = cmake_build_dir,
+    extra_defines = { 'WIDGET_BUILD_TESTS': False },
+)
+built = env.CMakeBuild(
+    configure,
+    build_dir = cmake_build_dir,
+    working_dir = widget_src,
+)
+
+# Install or copy headers/libs into package_dir, then:
+# env.PublishPackage( installed_nodes, publisher )
+----
+
+When `PublishPackage` is sourced from the include `Install` only, order the library
+Install with `Requires(installed_include, installed_lib)` under `--parallel` — do not
+use `Depends` for that edge (headers should not re-copy when only the `.a` changes).
+See xref:methods/staging-files.adoc#package-staging-with-install[Staging files].
+
+=== Pattern B — install prefix: CMake install, then publish
+
+Sketch: CMake installs into a prefix under `final/`; `GitlabPackagePublisher` points
+`source_include_dir` / `source_lib_dir` at that prefix.
+
+[source,python]
+----
+Import( 'env' )
+import os
+from cuppa.package_managers.gitlab import GitlabPackagePublisher
+
+# extraction_folder = … Dir under env['build_dir'] after download/extract …
+install_prefix = env.Dir( os.path.join( env['final_dir'], 'installed' ) )
+publisher = GitlabPackagePublisher(
+    env,
+    source_include_dir = os.path.join( str( install_prefix ), 'include' ),
+    source_lib_dir     = os.path.join( str( install_prefix ), 'lib' ),
+    registry           = 'https://gitlab.example/api/v4/projects/1',
+    package            = 'widget',
+    version            = '2.28.0',
+)
+
+cmake_out = os.path.join( '_build', publisher.package_variant() )
+configure = env.CMakeConfigure(
+    extraction_folder,
+    working_dir = extraction_folder,
+    source_dir = '.',
+    build_dir = cmake_out,
+    install_prefix = install_prefix,
+    extra_defines = { 'BUILD_TESTING': False },
+)
+built = env.CMakeBuild(
+    configure,
+    build_dir = cmake_out,
+    working_dir = extraction_folder,
+)
+installed = env.CMakeInstall(
+    built,
+    build_dir = cmake_out,
+    working_dir = extraction_folder,
+    target = install_prefix,
+)
+# env.PublishPackage( installed, publisher )
+----
+
+Shared libraries that ship host tools (for example a protobuf plugin) should embed
+install RPATH for the packaged `bin/` → `lib/` layout, and a **build-tree** RPATH
+when codegen runs during `CMakeBuild` (tools and `.so` files are often siblings
+under `-B`, not `bin/` / `lib/`):
+
+[source,python]
+----
+from cuppa.buildsys.cmake import cmake_install_rpath_defines
+
+# Prefer env.CMakePrefixPathFor / env.PackageBin / env.PackageLib when prefixes
+# come from BuildWith packages (order matters for find_package — more specific first).
+# CMakeConfigure picks Ninja when ninja is on PATH (generator=False to omit -G).
+protobuf_lib = env.PackageLib( 'protobuf' )
+extra_defines = {
+    'CMAKE_PREFIX_PATH': env.CMakePrefixPathFor( 'protobuf' ),
+    'Protobuf_PROTOC_EXECUTABLE': env.PackageBin( 'protobuf', 'protoc' ),
+    'BUILD_SHARED_LIBS': True,
+}
+extra_defines.update( cmake_install_rpath_defines(
+    extra_install=[ protobuf_lib ],
+    extra_build=[ protobuf_lib ],
+) )
+----
+
+Raw absolute dirs still work with `cmake_prefix_path(dir_a, dir_b)` when you are
+not resolving through `BuildWith`.
+
+Consumers that `BuildWith` a GitLab package get `lib/` (and `bin/` when present)
+prepended to the construction environment automatically (`LD_LIBRARY_PATH` /
+`DYLD_LIBRARY_PATH` / `PATH`), matching Conan. That covers `--test` / `--run`
+and tools invoked from a package prefix; it does **not** replace build-tree
+RPATH inside the publisher's own unfinished CMake tree.
+
+[NOTE]
+=====
+`GitlabPackagePublisher.build_package` stages include/lib (and modules, when
+present) under `final/<package>/<version>/`. Staging is created when missing
+and **refreshed when the source tree is newer** than the staged copy (same-path
+source and stage are left alone). `publisher.sources()` lists include and lib
+when those paths sit **outside** `abs_final_dir`; trees under the final
+directory are omitted to avoid SCons dependency cycles — wire the install or
+library node through `env.PublishPackage(source, publisher)` instead. Packaging
+a large install prefix still **duplicates** disk use on the first package; see
+https://github.com/ja11sop/cuppa/issues/209[#209] for in-place packaging
+follow-on.
+=====
+

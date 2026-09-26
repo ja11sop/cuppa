@@ -143,7 +143,7 @@ Failing that, cuppa reads the `cuppa-publish.json` a publisher build stages besi
 
 A pin is optional and may name a branch, including one containing `/`.
 A tag or revision pin is refused here, as it is for a location: a develop copy is a branch you work on, not a detached head.
-That is the one place `--clone-develop` and xref:dependencies/publishing/packages.adoc#clone-publishers[`--clone-publishers`] differ on purpose — cascade is publishing version X from tag `vX`, where you are sitting down to edit.
+That is the one place `--clone-develop` and xref:dependencies/publishing/cascade.adoc#clone-publishers[`--clone-publishers`] differ on purpose — cascade is publishing version X from tag `vX`, where you are sitting down to edit.
 A filesystem `package_source` is left alone, since it names a tree you already have.
 
 What lands is the **publisher's source tree**, which is the tree cascade publishes from under `--develop`.
@@ -212,7 +212,7 @@ If there is no usable stage, tip keeps classic path-swap (header-only and
 docs-style trees stay safe).
 
 A develop path that is only a built prefix (`include/` and `lib/`, no `sconstruct`) still swaps in as the package directory, with a log note; prefer a publisher source tree for new work.
-See xref:dependencies/publishing/packages.adoc#cascade-develop[Publishing from a tree you are working in].
+See xref:dependencies/publishing/cascade.adoc#cascade-develop[Publishing from a tree you are working in].
 
 == Aligning develop copies onto a feature branch
 

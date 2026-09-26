@@ -17,7 +17,7 @@ Typical jobs:
 * Wrap an external generate/build tool (CMake configure/build in a publisher tree —
   prefer `env.CMakeConfigure` / `CMakeBuild` / `CMakeInstall`, or the lower-level
   `cuppa.buildsys.cmake` helpers; see
-  xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+  xref:dependencies/publishing/amend-and-external.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
   (including `env.RemoveEmptyDirs` for empty submodule placeholders))
 * Emit a marker file after a binary exists (`tool.done`)
 * Run a one-off code generator whose outputs feed `Build()` / `Install()`
@@ -50,7 +50,7 @@ Prefer Cuppa's specialised methods when they fit:
 | External CMake configure / build / install
 | `CMakeConfigure()` / `CMakeBuild()` / `CMakeInstall()` /
   `DownloadExtract()` / `RemoveEmptyDirs()` —
-  xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+  xref:dependencies/publishing/amend-and-external.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 |===
 
 `Run()` versus `Command()` is also summarised on xref:methods/test-run.adoc#generic-runs-with-run[Test and run].
