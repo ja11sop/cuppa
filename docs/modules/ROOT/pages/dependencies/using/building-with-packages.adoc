@@ -1,37 +1,42 @@
 = Building with package dependencies
-:description: Green tip builds against nested GitLab packages without learning how to publish them
+:description: Green builds against nested registry packages without learning how to publish them
 
-A tip application can depend on a deep stack of GitLab registry packages and still build
-without you learning how those packages are published. Cuppa resolves the tip's declared
-packages, fetches or reuses extracts under storage, and follows traveling manifests so the
+Your application can depend on a deep stack of registry packages and still build without
+you learning how those packages are published. Cuppa resolves the packages your project
+declares, fetches or reuses extracts under storage, and follows traveling manifests so the
 **consume** closure is available for compile and link.
 
 This page is the Using story. Cascade plan/clone/nest-publish belongs under
 xref:dependencies/publishing.adoc[Publishing dependencies] when you maintain that stack.
 
-== Declaring tip packages
+NOTE: Examples here use **GitLab generic packages** because that is the common nested
+registry layout in Cuppa today. The same consume-without-publish idea applies when your
+graph is Conan — see xref:dependencies/using/conan.adoc[Conan packages] for declaration
+and install.
 
-In the tip's `sconstruct` (or defaults), declare registry packages the same way as any other
-consumer:
+== Declaring packages in your project
+
+In the project's `sconstruct` (or defaults), declare registry packages the same way as any
+other consumer:
 
 * `cuppa.package_dependency(...)` / project defaults
 * `env.BuildWith(...)` on libraries and tests that need those packages
 
 See xref:dependencies/using/packages.adoc[Package dependencies] and
 xref:dependencies/using/gitlab.adoc[GitLab packages] for authentication, `latest`, and
-lookup overrides.
+lookup overrides. For Conan graphs, see xref:dependencies/using/conan.adoc[Conan packages].
 
-You do **not** need `--publish-package` or `--publish-cascade-dependencies` for a normal tip
+You do **not** need `--publish-package` or `--publish-cascade-dependencies` for a normal
 build against packages that already exist in the registry (or that `--develop` will satisfy
 locally).
 
 == What Cuppa does on build
 
-1. Resolves each tip package identity for the active toolchain and variant.
+1. Resolves each declared package identity for the active toolchain and variant.
 2. Downloads or reuses the archive under `--downloads-root` / extracts under
    `--dependencies-root`.
 3. Reads traveling manifests so nested package requirements are present for **consume** —
-   the tip build does not run a nest publish to obtain them.
+   the application build does not run a nest publish to obtain them.
 
 If a required identity is missing from the registry and you are not using develop copies,
 configure fails with a clear package miss (for example a `404`) before compile starts.
@@ -51,12 +56,11 @@ After builds, `--list-dependencies` shows what is on disk. By default
 (`--list-scope=all`) Cuppa groups **used** (this resolve) separately from **unused**
 (present but not selected). Compare:
 
-* xref:dependencies/managing/list-dependencies.adoc[Listing dependency trees] — Option A
-  scopes (`all`, `resolve`, `referenced`, `unreferenced`, `compact`)
-* Requires samples: tip `requires` forests under used vs unused, and the paired
-  `all` vs `resolve` outputs on that page
+* xref:dependencies/managing/list-dependencies.adoc[Listing dependency trees] — how to
+  read the tree, scopes, and formats
+* Package ``requires`` samples on that page — nested GitLab closure under tip versions
 
-You can read those reports as a tip consumer without opening cascade maintainer docs.
+You can read those reports as a consumer without opening cascade maintainer docs.
 
 == When to open Publishing
 

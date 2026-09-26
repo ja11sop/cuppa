@@ -647,10 +647,18 @@ html.cuppa-doc-full .cuppa-doc-width-toggle__icon {
   margin-top: 1.8rem;
 }
 
+/*
+ * h4 was muted grey and easy to miss as a heading. Use body text colour, a
+ * touch more weight, and a short accent rule so subsection titles scan clearly
+ * without competing with h2/h3 section chrome.
+ */
 .doc h4:not(.discrete) {
-  color: var(--cuppa-text-muted);
-  font-size: 1.05rem;
-  margin-top: 1.5rem;
+  color: var(--cuppa-text);
+  font-size: 1.08rem;
+  font-weight: 600;
+  margin-top: 1.65rem;
+  padding: 0.15rem 0 0.15rem 0.7rem;
+  border-left: 3px solid var(--cuppa-accent, var(--cuppa-brand));
 }
 
 /*

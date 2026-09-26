@@ -126,12 +126,22 @@
 
 /*
  * Colourised CLI teaching examples: flag (info) + token/filter (notice).
- * Used in selection-examples command blocks and Matches list entries.
+ * .cuppa-cli-block hosts the Antora-style copy toolbox (cuppa-cli-copy.js).
  */
+.doc .cuppa-cli-block {
+  position: relative;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.doc .cuppa-cli-block:hover > .source-toolbox {
+  visibility: visible;
+}
+
 .cuppa-output.cuppa-cli-example {
   line-height: 1.35;
-  margin: 0.35rem 0;
+  margin: 0;
   padding: 0.55rem 0.75rem;
+  padding-right: 2.25rem;
   white-space: pre-wrap;
 }
 

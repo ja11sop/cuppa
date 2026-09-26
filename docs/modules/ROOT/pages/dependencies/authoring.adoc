@@ -1,9 +1,9 @@
 = Authoring dependencies
-:description: Write custom dependency factories, storage hooks, and plugins
+:description: Write custom dependency factories, storage hooks, plugins, and pip-installable deps
 
 Use this hub when you **invent** a new dependency kind — factories registered with Cuppa,
-optional storage clean hooks, and setuptools plugins — rather than consuming or publishing
-an existing one.
+optional storage clean hooks, setuptools plugins, and pip-installable dependency packages —
+rather than only consuming or publishing an existing one.
 
 == Where to start
 
@@ -14,6 +14,23 @@ an existing one.
 | Custom dependency factories and storage contracts
 | xref:dependencies/authoring/extending.adoc[Custom dependency factories]
 |===
+
+== What belongs here vs Publishing
+
+**Authoring** is where you define *how Cuppa learns about a dependency*: factories, plugins,
+`storage_paths` / `storage_clean`, and packaging a dependency so others can
+`pip install` it and list it in `auto_enable_dependencies`.
+
+**Publishing** is where you *ship build artefacts* of libraries you already know how to
+build: GitLab uploads, cascade nest publishes, amend/external CMake, Conan `export-pkg`,
+and publisher working copies.
+
+Some Publishing pages also talk about how to *build* a nest before upload (cascade plan,
+external CMake). That overlap is real; a follow-on pass will move “how to construct a
+dependency factory / plugin” examples firmly under Authoring — including anonymised worked
+examples patterned on large package trees (for example a fat registry package with many
+`use_libs`) — and keep Publishing focused on registry / publisher workflows. See the
+Authoring follow-ons in `design/plans/dependencies-docs-four-hubs.md`.
 
 For declaring and consuming existing kinds, see
 xref:dependencies/using.adoc[Using dependencies].

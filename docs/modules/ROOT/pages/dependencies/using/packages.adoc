@@ -4,10 +4,20 @@
 `cuppa.package_dependency()` downloads a prebuilt archive from a package registry and lays it
 out under `--dependencies-root` per toolchain / variant / architecture.
 
-Today the supported `package_manager` is GitLab generic packages — see
-xref:dependencies/using/gitlab.adoc[GitLab packages] for authentication, lookup overrides,
-`version="latest"`, and the Boost package extension. Publishing Cuppa-built libraries is a
-different workflow: xref:dependencies/publishing/packages.adoc[Publishing packages].
+Today the supported `package_manager` for `package_dependency` is GitLab generic packages —
+see xref:dependencies/using/gitlab.adoc[GitLab packages] for authentication, lookup
+overrides, `version="latest"`, and the Boost package extension.
+
+Conan packages use a separate consume path (`cuppa.conan_deps` /
+`cuppa.conan_dependency`) — see xref:dependencies/using/conan.adoc[Conan packages]. Both
+are first-class ways to pull prebuilt libraries into a Cuppa build.
+
+Publishing Cuppa-built libraries is a different workflow:
+xref:dependencies/publishing/packages.adoc[Publishing packages].
+
+For building an application against a nested package stack without learning how to publish
+that nest, see
+xref:dependencies/using/building-with-packages.adoc[Building with package dependencies].
 
 [source,python]
 ----

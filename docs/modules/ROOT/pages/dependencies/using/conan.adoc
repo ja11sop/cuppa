@@ -1,12 +1,16 @@
 = Conan packages
-:description: Optional Conan 2 consumer — SConsDeps, offline, limitations
+:description: Consume Conan 2 packages with cuppa.conan_deps / conan_dependency
 
 [#conan-2-consumer-optional]
-== Conan 2 consumer (optional)
+== Conan 2 consumer
 
 Cuppa can consume Conan 2 packages through `cuppa.conan_deps` / `cuppa.conan_dependency` and apply them with `env.BuildWith`, using Conan's **SConsDeps** generator (`SConscript_conandeps` + `env.MergeFlags`).
 
-Conan is **not** required to use Cuppa. Location dependencies and GitLab `package_dependency` remain separate supply chains. `--develop` does **not** substitute Conan packages with local develop paths.
+Conan is one of Cuppa's package supply chains, alongside
+xref:dependencies/using/gitlab.adoc[GitLab generic packages] and
+xref:dependencies/using/location.adoc[location dependencies].
+You do not need Conan installed to use location or GitLab packages.
+`--develop` does **not** substitute Conan packages with local develop paths.
 
 [WARNING]
 ====

@@ -1,44 +1,15 @@
 = Listing dependency trees
-:description: --list-dependencies scopes, formats, inventory, and GitLab requires edges
+:description: --list-dependencies — how to read the tree, scopes, formats, and package requires
 
 [#list-dependencies]
 == Listing dependency trees
 
-`--list-dependencies` walks the dependencies root and prints a hierarchical table: size,
-last used, remark (`in use` / `N used` when more than one leaf is selected / `missing` /
-`develop`), and dependency identity. Before the walk it prints `Collating dependency tree...`
-(text and verbose only; omitted for JSON). When inventory sizes are missing or only sampled
-estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
-large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
-remeasure of every tree. Rows are grouped **used** first then **unused** by default
-(usage grouping), then by type (repository dependencies, gitlab packages, source
-archives, <...>), then by short name or
-registry name, with branch or version children underneath. For tip-selected GitLab package
-extracts that contain ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``), a
-``requires`` group nests the on-disk **package closure** as sized identity trees (versions →
-toolchains). Nested packages keep label-style ``requires`` edges (name, version, optional
-``libs: <...>``). Closure-only packages leave the top-level unused / unreferenced lists and are
-protected from
-``--force-wipe-unreferenced-dependencies``. See
-xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
-On-disk paths are omitted by
-default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
-machine-readable tree (plus flat `entries`, including a ``requires`` array on GitLab leaves).
-Default dependencies that are expected but absent appear as `missing`. The used / referenced
-section
-roll-ups separate `dependencies in use`, `missing dependencies` (when any expected trees are
-absent), and only then `potentially stale dependencies` for other non-selected bound
-leaves (for example develop-shadowed stems). Unused on-disk siblings of tip identities appear
-under the **unused** section by default (use ``--list-scope=resolve`` to keep them under the
-same **referenced** identity). The same usage split applies inside tip GitLab ``requires``
-forests: only tip-matching / closure-in-use nest toolchains hang under used → requires;
-leftover nest variants appear as top-level unused gitlab identities.
-It exits without building (exit 0 even when some rows are missing). See
-xref:integration/test-list-dependencies.adoc[`test_list_dependencies`] for the integration
-scenario.
+`--list-dependencies` shows what Cuppa has under the dependencies root for this project:
+which trees are in use for the current resolve, which are leftovers, how large they are, and
+how they nest.
 
-For the tip-consumer story (nested packages without publishing), see
-xref:dependencies/using/building-with-packages.adoc[Building with package dependencies].
+It exits without building (exit 0 even when some expected trees are missing). Before the walk
+it prints `Collating dependency tree...` (text and verbose only; omitted for JSON).
 
 [source,shell]
 ----
@@ -51,20 +22,77 @@ cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
-`--list-scope` selects which part of the listing to show. Leaf bind
-(`referenced` / `missing` / `cached` vs `unreferenced`) is unchanged; scope chooses
-**report grouping** and which rows appear:
+For a consume-only story (nested packages without publishing), see
+xref:dependencies/using/building-with-packages.adoc[Building with package dependencies].
+When you are ready to reclaim disk, map labels from this tree to remove / wipe tokens — see
+xref:dependencies/managing/removing.adoc#from-list-to-remove[From list to remove].
 
-* `all` (default) — **usage** grouping: `used` then `unused`. Unused versions /
-  toolchains of tip identities sit under **unused**.
-* `resolve` — **resolve-identity** grouping: `referenced` then `unreferenced`.
-  Unused siblings stay under the same referenced identity (Pass A shape).
-* `referenced` — resolve-identity filter: identities with at least one
-  resolve-bound leaf (siblings included); referenced section only.
-* `unreferenced` — resolve-identity filter: identities with no resolve-bound leaf
-  (orphan leftovers only — not unused siblings of tips).
-* `compact` — **used-only**: resolve-bound leaves (`in use` / `missing` /
-  develop-shadowed); used section only.
+== How to read the listing
+
+Columns are **SIZE**, **LAST USED**, **REMARK**, and **DEPENDENCY**.
+
+* **SIZE** — tree size (right-aligned). Missing or sampled inventory sizes are upgraded to
+  exact on listing (the first run on a large root can take a while; later runs reuse the
+  cache). Pass `--exact-sizes` to force a full remeasure.
+* **LAST USED** — from inventory resolve stamps when present, otherwise the tree's
+  modification time.
+* **REMARK** — `in use` / `N used` when more than one leaf is selected / `missing` /
+  `develop`, and similar roll-up notes.
+* **DEPENDENCY** — the hierarchy: section → type → identity → version or branch → leaf.
+
+=== Sections and types
+
+By default (`--list-scope=all`) the report opens with **used** (selected for this resolve),
+then **unused** (present on disk but not selected). Under each section, trees group by
+**dependency type**:
+
+* **repositories** — location / VCS working copies (branches and stems such as `@master`)
+* **gitlab packages** — registry package extracts (versions → toolchain leaves)
+* **source archives** — extracted archives such as source Boost (versions → products)
+* **conan** — Conan trees Cuppa tracks under the dependencies root (when present)
+* **toolchains** — fetched compiler installs under the toolchains area (when listed here)
+
+Default dependencies that are expected but absent appear as `missing`. The used section
+opens with roll-ups when useful: `dependencies in use`, then `missing dependencies`, then
+`potentially stale dependencies` for other non-selected bound leaves (for example
+develop-shadowed stems).
+
+On-disk paths are omitted by default. Pass `--list-format=verbose` for a LOCATION column, or
+`--list-format=json` for a machine-readable tree.
+
+NOTE: GitLab packages with traveling manifests also nest a ``requires`` group under tip
+versions. That is covered in xref:#list-dependencies-requires[Package ``requires`` graphs]
+after the general shape below — it is one package feature, not the whole listing story.
+
+== Example listing
+
+Sizes and names vary by machine. Glyphs may be ASCII on some consoles. Horizontal rules —
+including the one between `used` and `unused` — span the full table width.
+
+++++
+include::partial$samples/list-dependencies.html[]
+++++
+
+Blank rows that carry only a tree stem (`│`) keep hanging lines continuous between siblings.
+Referenced trees open with a `dependencies in use` roll-up when at least one leaf is
+selected; absent expected trees add a `missing dependencies` / `N missing` summary.
+
+== Choosing a scope
+
+`--list-scope` selects which part of the listing to show. Leaf bind (`referenced` /
+`missing` / `cached` vs `unreferenced`) is unchanged; scope chooses **report grouping** and
+which rows appear:
+
+* `all` (default) — **usage** grouping: `used` then `unused`. Unused versions / toolchains
+  of tip identities sit under **unused**.
+* `resolve` — **resolve-identity** grouping: `referenced` then `unreferenced`. Unused
+  siblings stay under the same referenced identity.
+* `referenced` — resolve-identity filter: identities with at least one resolve-bound leaf
+  (siblings included); referenced section only.
+* `unreferenced` — resolve-identity filter: identities with no resolve-bound leaf (orphan
+  leftovers only — not unused siblings of tips).
+* `compact` — **used-only**: resolve-bound leaves (`in use` / `missing` / develop-shadowed);
+  used section only.
 
 `compact` is the short used-only view; it is not the same as `referenced`.
 You can still combine any scope with `verbose` or `json`. Persist a preference in
@@ -72,34 +100,30 @@ You can still combine any scope with `verbose` or `json`. Persist a preference i
 `list_scope = 'compact'`.
 `--list-dependencies-scope` remains as a deprecated alias.
 
-== Example listing shape
-
-Sizes and names vary; glyphs may be ASCII on some consoles. Every horizontal rule — including
-the one between `used` and `unused` (or `referenced` and `unreferenced` under
-``--list-scope=resolve``) — spans the full table width (the same run of
-hyphen characters as the header and footer rules), not a short separator. Listing samples are
-rendered by `python -m scripts.generate_doc_samples` through the same formatters the CLI uses:
-
-++++
-include::partial$samples/list-dependencies.html[]
-++++
-
-`SIZE` is right-aligned in a fixed eight-character field. Blank rows that carry only a tree
-stem (`│`) keep the hanging lines continuous between siblings. Referenced trees open with a
-`dependencies in use` roll-up when at least one leaf is selected; absent expected trees add a
-`missing dependencies` / `N missing` summary (error-coloured like other missing rows).
-
 [#list-dependencies-requires]
-== GitLab ``requires`` edges
+== Package ``requires`` graphs
 
-GitLab packages that ship ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``) also show a ``requires`` group under each
-version (declared transitive edges). The samples below use the same offline alpha → beta → gamma
-fixture, with an extra unused ``beta`` toolchain (``gcc16``) so the Option A scopes diverge.
+GitLab packages that ship ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``)
+show a ``requires`` group under each tip version: the on-disk **package closure** as sized
+identity trees (versions → toolchains). Nested packages keep label-style ``requires`` edges
+(name, version, optional ``libs: <...>``).
+
+Closure-only packages leave the top-level unused / unreferenced lists and are protected from
+``--force-wipe-unreferenced-dependencies``. See
+xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
+
+The same usage split that applies to tip identities also applies inside tip ``requires``
+forests under ``--list-scope=all``: only tip-matching / closure-in-use nest toolchains hang
+under used → requires; leftover nest variants appear as top-level unused gitlab identities.
+``--list-scope=resolve`` keeps those leftovers under the tip requires group instead.
+
+The samples below use an offline alpha → beta → gamma fixture, with an extra unused
+``beta`` toolchain (``gcc16``) so the scopes diverge.
 
 === Default ``--list-scope=all`` (usage grouping)
 
-Tip-matching nest extracts hang under used → ``requires``. The leftover ``gcc16`` ``beta`` extract
-appears under **unused** as a top-level gitlab identity:
+Tip-matching nest extracts hang under used → ``requires``. The leftover ``gcc16`` ``beta``
+extract appears under **unused** as a top-level gitlab identity:
 
 ++++
 include::partial$samples/list-dependencies-requires.html[]
@@ -107,33 +131,31 @@ include::partial$samples/list-dependencies-requires.html[]
 
 === ``--list-scope=resolve`` (resolve-identity grouping)
 
-The same leftover nest toolchain stays under tip ``requires`` (Pass A shape) — there is no
-separate unused identity for it:
+The same leftover nest toolchain stays under tip ``requires`` — there is no separate unused
+identity for it:
 
 ++++
 include::partial$samples/list-dependencies-requires-resolve.html[]
 ++++
 
-When you are ready to reclaim disk, map labels from this tree to remove / wipe tokens — see
-xref:dependencies/managing/removing.adoc#from-list-to-remove[From list to remove].
-
 == Verbose LOCATION and ``[D]``
 
 Under `--list-format=verbose` a LOCATION column is added. What it shows depends on the type:
 
-* *Location dependencies* — bare repository URL on the identity; `URL@branch` on each branch leaf.
-* *GitLab packages* — empty on the identity; registry `<...>/package/version` on the version row;
-  archive basename on each toolchain leaf.
-* *Source archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
-  `boost` or `github.com/fmtlib/fmt` on the identity; version or tag on each child; download URL
-  on the version leaf.
+* *Repositories (location dependencies)* — bare repository URL on the identity; `URL@branch`
+  on each branch leaf.
+* *GitLab packages* — empty on the identity; registry `<...>/package/version` on the version
+  row; archive basename on each toolchain leaf.
+* *Source archives* (Boost source tarballs, GitHub release zips, and similar) — short name
+  such as `boost` or `github.com/fmtlib/fmt` on the identity; version or tag on each child;
+  download URL on the version leaf.
 
 When a regenerating archive exists under the downloads root (`--downloads-root`, for example
 `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`), LOCATION is prefixed with `[D]` on the
-leaf that names that archive (HTTP/Boost extract rows, and GitLab toolchain archive basenames —
-not the GitLab registry URL on the version row). A footer explains the mark in verbose mode
-whenever such archives are present. If re-extracting a dependency fails, remove the corrupt
-archive under downloads; deleting only the dependency tree is not enough.
+leaf that names that archive (HTTP/Boost extract rows, and GitLab toolchain archive
+basenames — not the GitLab registry URL on the version row). A footer explains the mark in
+verbose mode whenever such archives are present. If re-extracting a dependency fails, remove
+the corrupt archive under downloads; deleting only the dependency tree is not enough.
 
 ++++
 include::partial$samples/list-dependencies-verbose.html[]
@@ -143,8 +165,7 @@ include::partial$samples/list-dependencies-verbose.html[]
 
 Example `--list-format=json` output (shortened fixture: one referenced leaf and one
 unreferenced leftover; `tree` mirrors the text hierarchy and `entries` is a flat list of
-leaves). JSON samples use `storage.render_json_payload` (4-space Allman braces), matching the
-CLI:
+leaves):
 
 .Example `--list-dependencies --list-format=json` (click to expand)
 [%collapsible]
@@ -175,11 +196,12 @@ include::partial$samples/list-dependencies-requires-resolve.json[]
 
 == Inventory
 
-The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after listing
-upgrades missing or sampled entries; resolve/build may still write samples until listing
-upgrades them), optional
-`remote_location` / `source_url` (configured or reconstructed remotes), and paths of known
-download archives so later listings can show LOCATION and `[D]` without re-guessing. Listing
-does not stamp `last_used` or `used_by`; a real `BuildWith` / default-dependency resolve does,
-recording the current sconstruct directory in `used_by`. Unqualified VCS stems that share a
-default-branch family with `stem@<branch>` are labelled `@<default> (unqualified)`.
+The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after
+listing upgrades missing or sampled entries; resolve/build may still write samples until
+listing upgrades them), optional `remote_location` / `source_url`, and paths of known
+download archives so later listings can show LOCATION and `[D]` without re-guessing.
+
+Listing does not stamp `last_used` or `used_by`; a real `BuildWith` / default-dependency
+resolve does, recording the current sconstruct directory in `used_by`. Unqualified VCS stems
+that share a default-branch family with `stem@<branch>` are labelled
+`@<default> (unqualified)`.

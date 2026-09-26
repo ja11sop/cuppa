@@ -24,7 +24,7 @@ xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
 
 Tokens may also use the shared `[selector]name[/qualifier]` form described in
 xref:#dependency-tokens[Dependency tokens] — for example `[source]boost` or
-`[gl]boost_package/1.91` — to restrict by dependency type and optional leaf qualifier.
+`[gitlab]boost_package/1.91` — to restrict by dependency type and optional leaf qualifier.
 Worked examples for every remove / purge / wipe / force-wipe flavour live in
 xref:#selection-examples[Selection and filtering examples].
 
@@ -32,26 +32,29 @@ Source Boost (the `boost` dependency that builds with b2) stores headers and all
 variant products inside one extract folder. When that dependency implements selection-scoped
 `storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
 matching Boost.Build toolset directories under `--build-dir` (`bin.<abi>`) for the current
-toolchain / variant / arch selection — not the whole `bin.<abi>` tree. The extract root,
-headers, and the `b2` binary stay in place so a later build does not need to re-download the
-tarball. Other stage trees and other toolsets' intermediates under the same extract are reported
-as left behind. Removal leaves use honest scopes: cuppa-precise for stage
+toolchain / variant / arch selection — not the whole `bin.<abi>` tree.
+
+The extract root, headers, and the `b2` binary stay so a later build does not need to
+re-download the tarball. Other stage trees and other toolsets' intermediates under the same
+extract are reported as left behind.
+
+Removal leaves use honest scopes: cuppa-precise for stage
 (`clean/build.c{plus}{plus}2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
-(`clean/bin.c{plus}{plus}2c [clang-linux-21*/debug]` — major family ± patch dirs such as `clang-linux-21.1`,
-not a cuppa minor like `clang211`). The identity SIZE is the full extract (same basis as
-`--list-dependencies`). Products and a muted `source assets` leaf hang under an `[E]` extract
-row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty `bin.<abi>`
-husks with no toolset children stay on disk but are omitted from the table. The freed-space
-summary reports the remaining archive size after product removal.
+(`clean/bin.c{plus}{plus}2c [clang-linux-21*/debug]` — major family ± patch dirs such as
+`clang-linux-21.1`, not a cuppa minor like `clang211`). The identity SIZE is the full extract
+(same basis as `--list-dependencies`). Products and a muted `source assets` leaf hang under an
+`[E]` extract row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty
+`bin.<abi>` husks with no toolset children stay on disk but are omitted from the table. The
+freed-space summary reports the remaining archive size after product removal.
+
 `--boost-patched` selects the `patched/` home; without it, `clean/` is active and `patched/`
-products show as leftovers.
-After a live product clean, cuppa refreshes that extract's inventory with an exact size, and the
-verify hint is `cuppa -Q -D --list-dependencies` (listing upgrades any remaining missing or
-estimated inventory sizes to exact on encounter).
-Dependencies without `storage_clean` still remove their
-whole owned tree under the dependencies root (for example GitLab `boost_package` removes the
-selected package variant folder). Dependency authors declare those trees with `storage_paths()`
-and optional `storage_clean()` — see xref:dependencies/authoring/extending.adoc[Writing your own dependencies].
+products show as leftovers. After a live product clean, cuppa refreshes that extract's inventory
+with an exact size; verify with `cuppa -Q -D --list-dependencies`.
+
+Dependencies without `storage_clean` still remove their whole owned tree under the dependencies
+root (for example GitLab `boost_package` removes the selected package variant folder). Authors
+declare those trees with `storage_paths()` and optional `storage_clean()` — see
+xref:dependencies/authoring/extending.adoc[Writing your own dependencies].
 
 [source,shell]
 ----
@@ -62,6 +65,31 @@ cuppa -Q -D --dbg --remove-dependencies='[source]boost'
 cuppa -Q -D -n --remove-dependencies=widget
 cuppa -Q -D --remove-all-dependencies
 ----
+
+
+Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
+The version nests under the identity; `[E]` is partial because source assets stay:
+
+++++
+include::partial$samples/remove-boost-product-clean.html[]
+++++
+
+Example shape after removing the selected GitLab toolchain tree while other toolchains remain
+(sizes and toolchain ids vary; leftover rows are muted in the tree):
+
+++++
+include::partial$samples/remove-gitlab-dry-run.html[]
+++++
+
+The identity row rolls up size (muted) and emphasises the dependency name and package version.
+Selected leaves use a check (or ballot on failure) with the removal-notice colour; leftover
+leaves stay muted with a `-` mark. Tree stems are subdued. `LAST USED` comes from inventory
+resolve stamps when present, otherwise the tree's modification time. Passing multiple
+toolchains (for example `--toolchains=gcc,clang`) removes each matching package variant.
+
+With `--develop`, a develop working copy is never deleted; the report lists it under skipped
+develop paths. Cached stems under the dependencies root may still be removed when selected.
+
 
 
 [#from-list-to-remove]
@@ -87,8 +115,8 @@ cuppa -Q -D --list-dependencies --list-scope=unreferenced
 . Map labels to tokens (see <<dependency-tokens>>):
 
 * Untyped project-used name: `boost_package` or `boost` — remove / purge / wipe for the current selection.
-* Typed dependency type: `[gl]boost_package` or `[source]boost` (see xref:#dependency-types-and-selectors[Dependency types and selectors]).
-* Version / leaf qualifier: `[gl]boost_package/1.91` or `boost/1.8*` (quote wildcards).
+* Typed dependency type: `[gitlab]boost_package` or `[source]boost` (see xref:#dependency-types-and-selectors[Dependency types and selectors]).
+* Version / leaf qualifier: `[gitlab]boost_package/1.91` or `boost/1.8*` (quote wildcards).
 * Unqualified VCS duplicate shown as `@master (unqualified)`: force-wipe with `name/@`.
 
 . Dry-run first (`-n`), then drop `-n`. Prefer the
@@ -96,8 +124,8 @@ cuppa -Q -D --list-dependencies --list-scope=unreferenced
 
 [source,shell]
 ----
-cuppa -Q -D -n --remove-dependencies='[gl]boost_package'
-cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
+cuppa -Q -D -n --remove-dependencies='[gitlab]boost_package'
+cuppa -Q -D -n --wipe-dependencies='[gitlab]boost_package/1.91'
 cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 ----
 
@@ -147,7 +175,7 @@ name/qualifier
 
 [cols="2,3,4"]
 |===
-| Dependency type | What it is | Selector aliases
+| Dependency type | What it is | Selector aliases (docs prefer the first)
 
 | Source archives
 | Extracted source / archive trees (for example Boost built from a tarball)
@@ -155,11 +183,11 @@ name/qualifier
 
 | GitLab packages
 | Registry package extracts under the GitLab generic layout
-| `[gl]`, `[gitlab]`, `[gitlab_package]`, `[gitlab-package]`
+| `[gitlab]`, `[gl]`, `[gitlab_package]`, `[gitlab-package]`
 
 | Repositories
 | VCS / location working copies (including develop-shaped trees under the dependencies root)
-| `[repo]`, `[vcs]`, `[repository]`, `[vcs_dependency]`, `[repository_dependency]`; quiet alias `[location]`
+| `[repository]`, `[repo]`, `[vcs]`, `[vcs_dependency]`, `[repository_dependency]`; quiet alias `[location]`
 
 | Conan
 | Conan package trees Cuppa tracks under the dependencies root
@@ -181,7 +209,7 @@ name/qualifier
 [source,shell]
 ----
 cuppa -Q -D -n --remove-dependencies='[source]boost'
-cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
+cuppa -Q -D -n --wipe-dependencies='[gitlab]boost_package/1.91'
 cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 ----
 
@@ -193,8 +221,9 @@ Dry-run with `-n` first. Full flag semantics are in the sections below; CLI summ
 here from
 xref:cli/inspect-and-maintain.adoc#dependency-storage-actions[Inspect and maintain].
 
-The glance table keeps every common pattern. Intents that need a walkthrough link to
-xref:#worked-selection-examples[worked examples] against the synthetic inventory.
+The examples below keep every common pattern: intent, colourised command, and Matches.
+Intents that need a longer “why” link to
+xref:#worked-selection-examples[worked examples].
 
 === Which flag family
 
@@ -259,101 +288,31 @@ include::partial$samples/selection-example-inventory.html[]
 [#token-filter-glance]
 === Token and filter examples
 
-Tokens share the `[selector]name[/qualifier]` grammar from
-xref:#dependency-tokens[Dependency tokens]. Quote wildcards for the shell.
-Worked examples below colourise the maintenance **flag** and the **filter string**;
-the glance table keeps the full command as plain monospace for scanning.
+Each row below is an intent, a colourised command, and **Matches** against the
+xref:#example-inventory[example inventory]. Quote wildcards for the shell.
 
-[cols="2,5"]
-|===
-| Intent | Example
+Docs prefer the **medium** selector spellings: `[source]`, `[gitlab]`,
+`[repository]`, `[conan]`, `[toolchain]`. Short aliases (`[sa]`, `[gl]`, `[cn]`,
+`[repo]`, `[tc]`, <...>) and longer forms work the same — see
+xref:#dependency-types-and-selectors[Dependency types and selectors].
 
-| Remove selected GitLab package variant (current toolchain)
-|
-`cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package`
+Intents that need a longer “why” link to
+xref:#worked-selection-examples[worked examples].
 
-| xref:#ex-typed-selector[Remove by dependency type using a selector]
-|
-`cuppa -Q -D -n --remove-dependencies='[gl]boost_package'`
+[#ex-glance-remove-gitlab-selected]
+==== Remove selected GitLab package variant (current toolchain)
 
-| Remove source Boost products only (`storage_clean`)
-|
-`cuppa -Q -D --dbg --remove-dependencies='[source]boost'`
+++++
+include::partial$cli-examples/remove-gitlab-selected.html[]
+++++
 
-| Remove every project-used name for this selection
-|
-`cuppa -Q -D --remove-all-dependencies`
+Matches:
 
-| Purge package variant + its download archive
-|
-`cuppa -Q -D --dbg --toolchains=gcc --purge-dependencies=boost_package`
-
-| Purge source Boost products + download (extract may remain)
-|
-`cuppa -Q -D --dbg --purge-dependencies=boost`
-
-| Wipe whole extract + download (re-fetch next build)
-|
-`cuppa -Q -D --wipe-dependencies=boost`
-
-| Wipe a named GitLab package extract for this selection
-|
-`cuppa -Q -D --dbg --wipe-dependencies=boost_package`
-
-| Wipe every project-used extract in the selection
-|
-`cuppa -Q -D --force-wipe-all-dependencies`
-
-| Force-wipe one unused Boost version leaf
-|
-`cuppa -Q -D --force-wipe-dependencies=boost/1.86.0`
-
-| xref:#ex-multi-token[Force-wipe several version leaves]
-|
-`cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0`
-
-| xref:#ex-wildcard-untyped[Force-wipe a version series (fnmatch)]
-|
-`cuppa -Q -D -n --force-wipe-dependencies='boost/1.8*'`
-
-| xref:#ex-wildcard-typed[Force-wipe with explicit source selector + wildcard]
-|
-`cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'`
-
-| xref:#ex-location-stem[Force-wipe an unused location branch stem]
-|
-`cuppa -Q -D --force-wipe-dependencies=fmt/@11.1.1`
-
-| xref:#ex-unqualified[Force-wipe unqualified VCS duplicate]
-|
-`cuppa -Q -D -n --force-wipe-dependencies=widget/@`
-
-| xref:#ex-mixed[Mix archive + location leaves]
-|
-`cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,fmt/@11.1.1`
-
-| Orphan sweep (list first)
-| `cuppa -Q -D --list-dependencies --list-scope=unreferenced` +
-  then +
-  `cuppa -Q -D -n --force-wipe-unreferenced-dependencies`
-|===
-
-After any live run, verify with
-`cuppa -Q -D --list-dependencies` and, when downloads were involved,
-`cuppa -Q -D --list-downloads` (add `--list-scope=unreferenced` after an orphan wipe).
-
-[#worked-selection-examples]
-=== Worked examples
-
-These walk through Matches against the xref:#example-inventory[example inventory].
-The command block is the only console chrome; Matches is ordinary prose.
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` — selected `gcc153_rel_x86_64_cxx2c` leaf under **used**
 
 [#ex-typed-selector]
 ==== Remove by dependency type using a selector
-
-A typed token limits the match to one dependency type. Here only the GitLab
-`boost_package` identity is in scope for remove (project-used), not source-archive
-`boost` leftovers.
 
 ++++
 include::partial$cli-examples/remove-typed-gitlab.html[]
@@ -362,14 +321,140 @@ include::partial$cli-examples/remove-typed-gitlab.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[gl]boost_package/1.91` (selected toolchain leaf under the current `--dbg` / `gcc` selection)
+* `[gitlab]boost_package/1.91` — same selected leaf (typed to GitLab packages only)
 
-Does **not** match source-archive `boost/1.91.0` or unused GitLab `boost/1.86.0`.
+xref:#ex-why-typed-selector[Why this matches]
+
+[#ex-glance-remove-source-boost]
+==== Remove source Boost products only (`storage_clean`)
+
+++++
+include::partial$cli-examples/remove-source-boost.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* _(none in this inventory)_ — source `boost` is **unused** here, so remove refuses a
+  project-used name check. When `boost` is project-used, remove cleans selected
+  products under `[source]boost/<version>` and leaves the extract.
+
+[#ex-glance-remove-all]
+==== Remove every project-used name for this selection
+
+++++
+include::partial$cli-examples/remove-all.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` (selected leaf)
+* `[repository]fmt/@master`
+* `[repository]widget/@feature_x`
+
+[#ex-glance-purge-gitlab]
+==== Purge package variant + its download archive
+
+++++
+include::partial$cli-examples/purge-gitlab-selected.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` — selected leaf, plus the matching download for that
+  selection
+
+[#ex-glance-purge-boost]
+==== Purge source Boost products + download (extract may remain)
+
+++++
+include::partial$cli-examples/purge-boost.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* _(none in this inventory)_ — same project-used rule as remove for source `boost`.
+  When used, purge removes selected products **and** the Boost download; the extract
+  may remain (`storage_clean`).
+
+[#ex-glance-wipe-boost]
+==== Wipe whole extract + download (re-fetch next build)
+
+++++
+include::partial$cli-examples/wipe-boost.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* _(none in this inventory)_ — wipe also requires a project-used name. Prefer
+  force-wipe version leaves below for unused source `boost`.
+
+[#ex-glance-wipe-gitlab]
+==== Wipe a named GitLab package extract for this selection
+
+++++
+include::partial$cli-examples/wipe-gitlab.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` — whole selected extract + matching download
+
+[#ex-glance-force-wipe-all]
+==== Wipe every project-used extract in the selection
+
+++++
+include::partial$cli-examples/force-wipe-all.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91`
+* `[repository]fmt/@master`
+* `[repository]widget/@feature_x`
+
+(Whole extracts + matching downloads for each project-used name.)
+
+[#ex-glance-force-one]
+==== Force-wipe one unused Boost version leaf
+
+++++
+include::partial$cli-examples/force-wipe-boost-one.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[source]boost/1.86.0`
+* `[gitlab]boost/1.86.0`
+
+(Untyped `boost/1.86.0` hits every dependency type.)
+
+[#ex-multi-token]
+==== Force-wipe several version leaves
+
+++++
+include::partial$cli-examples/force-wipe-boost-two.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[source]boost/1.86.0`
+* `[source]boost/1.87.0`
+* `[gitlab]boost/1.86.0`
+* `[gitlab]boost/1.87.0`
+
+xref:#ex-why-multi-token[Why this matches]
 
 [#ex-wildcard-untyped]
 ==== Force-wipe a version series (fnmatch)
-
-An untyped qualifier wildcard matches the same version pattern in **every** dependency type.
 
 ++++
 include::partial$cli-examples/force-wipe-boost-wildcard.html[]
@@ -381,15 +466,13 @@ Matches:
 * `[source]boost/1.86.0`
 * `[source]boost/1.87.0`
 * `[source]boost/1.88.0`
-* `[gl]boost/1.86.0`
-* `[gl]boost/1.87.0`
+* `[gitlab]boost/1.86.0`
+* `[gitlab]boost/1.87.0`
 
-Does **not** match `[source]boost/1.91.0` (outside `1.8*`) or GitLab `boost_package/1.91`.
+xref:#ex-why-wildcard-untyped[Why this matches]
 
 [#ex-wildcard-typed]
 ==== Force-wipe with explicit source selector + wildcard
-
-Adding `[source]` keeps the same wildcard but only on source archives.
 
 ++++
 include::partial$cli-examples/force-wipe-source-boost-wildcard.html[]
@@ -402,26 +485,7 @@ Matches:
 * `[source]boost/1.87.0`
 * `[source]boost/1.88.0`
 
-Does **not** match the unused GitLab `boost/1.86.0` or `boost/1.87.0` leaves.
-
-[#ex-multi-token]
-==== Force-wipe several version leaves
-
-Comma-separated tokens each resolve independently (exact leaves, no wildcard).
-
-++++
-include::partial$cli-examples/force-wipe-boost-two.html[]
-++++
-
-Matches:
-
-[.cuppa-cli-matches]
-* `[source]boost/1.86.0`
-* `[source]boost/1.87.0`
-* `[gl]boost/1.86.0`
-* `[gl]boost/1.87.0`
-
-(Untyped `boost/1.86.0` hits both types; the same for `1.87.0`.)
+xref:#ex-why-wildcard-typed[Why this matches]
 
 [#ex-location-stem]
 ==== Force-wipe an unused location branch stem
@@ -433,14 +497,12 @@ include::partial$cli-examples/force-wipe-fmt-stem.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[repo]fmt/@11.1.1`
+* `[repository]fmt/@11.1.1`
 
-Does **not** match in-use `fmt/@master`.
+xref:#ex-why-location-stem[Why this matches]
 
 [#ex-unqualified]
 ==== Force-wipe unqualified VCS duplicate
-
-The list shows `@master (unqualified)`; the wipe shorthand is `name/@`.
 
 ++++
 include::partial$cli-examples/force-wipe-widget-unqualified.html[]
@@ -449,9 +511,9 @@ include::partial$cli-examples/force-wipe-widget-unqualified.html[]
 Matches:
 
 [.cuppa-cli-matches]
-* `[repo]widget/@` (the `@master (unqualified)` leaf)
+* `[repository]widget/@` — the `@master (unqualified)` leaf
 
-Does **not** match `widget/@master` or in-use `widget/@feature_x`.
+xref:#ex-why-unqualified[Why this matches]
 
 [#ex-mixed]
 ==== Mix archive + location leaves
@@ -464,31 +526,84 @@ Matches:
 
 [.cuppa-cli-matches]
 * `[source]boost/1.86.0`
-* `[gl]boost/1.86.0`
-* `[repo]fmt/@11.1.1`
+* `[gitlab]boost/1.86.0`
+* `[repository]fmt/@11.1.1`
 
-Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
-The version nests under the identity; `[E]` is partial because source assets stay:
+xref:#ex-why-mixed[Why this matches]
 
-++++
-include::partial$samples/remove-boost-product-clean.html[]
-++++
-
-Example shape after removing the selected GitLab toolchain tree while other toolchains remain
-(sizes and toolchain ids vary; leftover rows are muted in the tree):
+[#ex-glance-orphan]
+==== Orphan sweep (list first)
 
 ++++
-include::partial$samples/remove-gitlab-dry-run.html[]
+include::partial$cli-examples/list-unreferenced.html[]
 ++++
 
-The identity row rolls up size (muted) and emphasises the dependency name and package version.
-Selected leaves use a check (or ballot on failure) with the removal-notice colour; leftover
-leaves stay muted with a `-` mark. Tree stems are subdued. `LAST USED` comes from inventory
-resolve stamps when present, otherwise the tree's modification time. Passing multiple
-toolchains (for example `--toolchains=gcc,clang`) removes each matching package variant.
+++++
+include::partial$cli-examples/force-wipe-unreferenced.html[]
+++++
 
-With `--develop`, a develop working copy is never deleted; the report lists it under skipped
-develop paths. Cached stems under the dependencies root may still be removed when selected.
+Matches:
+
+[.cuppa-cli-matches]
+* every leaf this resolve marks `unreferenced` (orphan identities only — not unused
+  siblings of tip names such as `boost/1.86.0` under a used identity)
+
+After any live run, verify with `cuppa -Q -D --list-dependencies` and, when downloads
+were involved, `cuppa -Q -D --list-downloads` (add `--list-scope=unreferenced` after an
+orphan wipe).
+
+[#worked-selection-examples]
+=== Worked examples
+
+The glance section above shows **what** matches. These notes explain **why**, still
+against the xref:#example-inventory[example inventory].
+
+[#ex-why-typed-selector]
+==== Why a typed GitLab selector matches only `boost_package`
+
+A typed token limits the match to one dependency type. `[gitlab]boost_package` is
+project-used under **used** → gitlab packages, so remove can target the selected
+toolchain leaf. It does **not** open source-archive `boost` or unused GitLab
+`boost/1.86.0` leftovers — those are different identities and (for unused leaves)
+outside remove's project-used rule.
+
+[#ex-why-wildcard-untyped]
+==== Why an untyped `boost/1.8*` wildcard spans types
+
+An untyped qualifier wildcard matches the same version pattern in **every**
+dependency type. In the inventory that is source `1.86.0`–`1.88.0` and unused
+GitLab `boost` `1.86.0` / `1.87.0`. It skips `[source]boost/1.91.0` (outside `1.8*`)
+and GitLab `boost_package/1.91` (different name).
+
+[#ex-why-wildcard-typed]
+==== Why `[source]boost/1.8*` stays on source archives
+
+Adding `[source]` keeps the same wildcard but only on source archives — the unused
+GitLab `boost/1.86.0` and `1.87.0` leaves stay.
+
+[#ex-why-multi-token]
+==== Why comma-separated tokens resolve independently
+
+Each token is an exact leaf match (no wildcard). Untyped `boost/1.86.0` hits both
+source and GitLab types; the same for `1.87.0`.
+
+[#ex-why-location-stem]
+==== Why `fmt/@11.1.1` is the unused stem
+
+Repositories list branch stems under the identity. `@11.1.1` is unused;
+`@master` is in use and is not matched.
+
+[#ex-why-unqualified]
+==== Why `widget/@` means the unqualified duplicate
+
+The list shows `@master (unqualified)`; the wipe shorthand is `name/@`. That is
+not the same leaf as `widget/@master` or in-use `widget/@feature_x`.
+
+[#ex-why-mixed]
+==== Why a mixed token list can span types
+
+Comma-separated tokens still resolve independently: untyped `boost/1.86.0` hits
+source and GitLab, and `fmt/@11.1.1` hits the unused repository stem.
 
 [#purge-dependencies]
 == Purging dependencies and downloads

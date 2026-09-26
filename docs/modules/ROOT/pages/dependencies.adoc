@@ -17,7 +17,7 @@ know you need storage reclaim, publishing, or a custom factory.
 | xref:dependencies/using.adoc[Using dependencies]
 | Declare and consume location, package, Conan, and built-in dependencies.
   Includes
-  xref:dependencies/using/building-with-packages.adoc[building a tip against nested packages]
+  xref:dependencies/using/building-with-packages.adoc[building against nested packages]
   without learning how to publish that nest.
 
 | xref:dependencies/managing.adoc[Managing dependencies]
@@ -30,7 +30,8 @@ know you need storage reclaim, publishing, or a custom factory.
   publisher trees.
 
 | xref:dependencies/authoring.adoc[Authoring dependencies]
-| Write custom dependency factories, storage hooks, and plugins.
+| Write custom dependency factories, storage hooks, plugins, and pip-installable
+  dependency packages.
 |===
 
 == Quick map (kinds)

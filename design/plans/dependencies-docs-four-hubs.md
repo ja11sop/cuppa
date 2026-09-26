@@ -156,7 +156,18 @@ P3–P5 can follow on the same PR if scope stays docs-only, or a docs follow-up 
 | P3 relocate `packages.adoc` | Done — under `dependencies/publishing/`; top-level stub kept |
 | P4 Publishing megapage / GitLab consume–publish split | Done — `gitlab` / `cascade` / `amend-and-external` / `conan` children; Boost-from-source under Publishing |
 | P5 Authoring polish + AGENTS topic map | Done — topic map; placeholder strategy; remove/wipe selection examples (see [`selection-filter-examples-docs.md`](selection-filter-examples-docs.md)) |
-| Next focus | None for this plan — selection-example follow-ons live on `selection-filter-examples-docs.md` |
+| Cleanup — selection Matches + Using nav + list-deps IA | Done — glance Matches; medium selectors; CLI copy; list-deps user-first; Using Overview-first; Conan framing |
+| Next focus | Authoring depth + Publishing/Authoring split (follow-ons below) |
+
+## Follow-ons (docs IA)
+
+| ID | Work | Notes |
+|----|------|-------|
+| `authoring-pip-plugins` | Authoring page: ship a dependency as `pip install` + `auto_enable_dependencies` (Conan example exists under Using — lift pattern) | User expectation |
+| `authoring-worked-fat-package` | Anonymised worked Authoring example patterned on a large registry package (project **D** / `google_cloud_cpp`-shaped: many `use_libs`, `package_source`, develop) | Obfuscate registry; never paste private host names |
+| `publishing-vs-authoring-split` | Pass through Publishing children: move “how to construct / build a dependency” that is really Authoring; keep cascade/upload/publisher trees under Publishing | Cascade plan stays Publishing |
+| `deps-prose-length` | Continue breaking long early paragraphs on Using/Managing hubs; prefer short opens + admonitions | Started on list-deps + Using hubs |
+| `list-deps-location-weight` | Add a small location-dependencies listing sample beside the GitLab requires samples | Optional depth |
 
 ## Impact
 

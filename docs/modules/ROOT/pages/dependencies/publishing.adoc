@@ -4,10 +4,13 @@
 Use this hub when you **maintain or ship** package artefacts — GitLab registry uploads,
 cascading nest publishes, amend/external builds, Conan publish, and publisher working copies.
 
-If you only need a tip application to **build against** nested packages already in the
+If you only need your application to **build against** nested packages already in the
 registry (or under `--develop`), start with
 xref:dependencies/using/building-with-packages.adoc[Building with package dependencies]
 instead.
+
+Content that is really about *defining* a new dependency factory or pip plugin belongs under
+xref:dependencies/authoring.adoc[Authoring dependencies] (see that hub for the split).
 
 == Where to start
 
