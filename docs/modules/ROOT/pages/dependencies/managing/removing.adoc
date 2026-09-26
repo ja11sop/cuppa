@@ -278,8 +278,10 @@ copies are never deleted. SCons `-n` / `--no-exec` is a dry run for all of these
 [#example-inventory]
 === Example inventory
 
-Worked Matches lists below refer to this synthetic `--list-dependencies` tree
-(sizes and toolchain ids are illustrative):
+The glance table and most worked examples refer to this synthetic
+`--list-dependencies` tree (sizes and toolchain ids are illustrative).
+When a worked example needs a different layout (for example source `boost` as
+**project-used**), that example shows its own inventory.
 
 ++++
 include::partial$samples/selection-example-inventory.html[]
@@ -297,8 +299,8 @@ Docs prefer the **medium** selector spellings: `[source]`, `[gitlab]`,
 `[repo]`, `[tc]`, <...>) and longer forms work the same — see
 xref:#dependency-types-and-selectors[Dependency types and selectors].
 
-Intents that need a walkthrough (why + sample report output) link to
-xref:#worked-selection-examples[worked examples].
+Intents that need a walkthrough (why + sample report output) link to the numbered
+xref:#worked-selection-examples[worked examples] below.
 
 [cols="2,5"]
 |===
@@ -310,19 +312,19 @@ a|
 include::partial$cli-examples/glance-remove-gitlab-selected.html[]
 ++++
 
-| xref:#ex-typed-selector[Remove by dependency type using a selector]
+| xref:#ex-typed-selector[Remove by dependency type using a selector (project-used)]
 a|
 ++++
 include::partial$cli-examples/glance-remove-typed-gitlab.html[]
 ++++
 
-| Remove source Boost products only (`storage_clean`)
+| xref:#ex-remove-used-source[Remove used variants for a source-archive dependency (current selection)]
 a|
 ++++
 include::partial$cli-examples/glance-remove-source-boost.html[]
 ++++
 
-| Remove every project-used name for this selection
+| Remove every **project-used** name for this selection
 a|
 ++++
 include::partial$cli-examples/glance-remove-all.html[]
@@ -334,67 +336,67 @@ a|
 include::partial$cli-examples/glance-purge-gitlab-selected.html[]
 ++++
 
-| Purge source Boost products + download (extract may remain)
+| xref:#ex-remove-used-source[Purge used source-archive variants + download (extract may remain)]
 a|
 ++++
 include::partial$cli-examples/glance-purge-boost.html[]
 ++++
 
-| Wipe whole extract + download (re-fetch next build)
+| xref:#ex-wipe-used-source[Wipe a used source-archive extract (re-fetch next build)]
 a|
 ++++
 include::partial$cli-examples/glance-wipe-boost.html[]
 ++++
 
-| Wipe a named GitLab package extract for this selection
+| xref:#ex-wipe-gitlab[Wipe the selected GitLab package extract (project-used)]
 a|
 ++++
 include::partial$cli-examples/glance-wipe-gitlab.html[]
 ++++
 
-| Wipe every project-used extract in the selection
+| Wipe every **project-used** extract in the selection
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-all.html[]
 ++++
 
-| Force-wipe one unused Boost version leaf
+| Force-wipe one **unused** Boost version leaf
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-boost-one.html[]
 ++++
 
-| xref:#ex-multi-token[Force-wipe several version leaves]
+| xref:#ex-multi-token[Force-wipe several **unused** version leaves]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-boost-two.html[]
 ++++
 
-| xref:#ex-wildcard-untyped[Force-wipe a version series (fnmatch)]
+| xref:#ex-wildcard-untyped[Force-wipe an **unused** version series (fnmatch)]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-boost-wildcard.html[]
 ++++
 
-| xref:#ex-wildcard-typed[Force-wipe with explicit source selector + wildcard]
+| xref:#ex-wildcard-typed[Force-wipe **unused** source versions only (typed wildcard)]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-source-boost-wildcard.html[]
 ++++
 
-| xref:#ex-location-stem[Force-wipe an unused location branch stem]
+| xref:#ex-location-stem[Force-wipe an **unused** location branch stem]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-fmt-stem.html[]
 ++++
 
-| xref:#ex-unqualified[Force-wipe unqualified VCS duplicate]
+| xref:#ex-unqualified[Force-wipe an **unused** unqualified VCS duplicate]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-widget-unqualified.html[]
 ++++
 
-| xref:#ex-mixed[Mix archive + location leaves]
+| xref:#ex-mixed[Force-wipe mixed **unused** archive + location leaves]
 a|
 ++++
 include::partial$cli-examples/glance-force-wipe-mixed.html[]
@@ -415,16 +417,22 @@ orphan wipe).
 [#worked-selection-examples]
 === Worked examples
 
-These expand the glance rows that need more than a Matches list: **why** the command
-selects those leaves against the xref:#example-inventory[example inventory], and
-(where we have a sample) the **report shape** you see on a dry run.
+Numbered examples below expand glance rows that need more than a Matches list.
+Each shows **why**, and a dry-run **report sample**.
+
+Unless an example shows its own inventory, Matches refer to the
+xref:#example-inventory[shared example inventory] (where source `boost` is **unused**
+and GitLab `boost_package` is **project-used**).
 
 [#ex-typed-selector]
-==== Remove by dependency type using a selector
+=== Example 1 — Remove by dependency type (project-used GitLab)
 
-A typed token limits the match to one dependency type. Here only the GitLab
-`boost_package` identity is in scope for remove (project-used under **used**), not
-source-archive `boost` leftovers or unused GitLab `boost/1.86.0`.
+A typed token limits the match to one dependency type. Against the shared inventory,
+`[gitlab]boost_package` is **project-used** under **used** → gitlab packages, so remove
+can target the selected toolchain leaf. It does **not** open source-archive `boost`
+(unused here) or unused GitLab `boost/1.86.0`.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/remove-typed-gitlab.html[]
@@ -437,39 +445,117 @@ Matches:
 
 Does **not** match source-archive `boost/1.91.0` or unused GitLab `boost/1.86.0`.
 
-Example dry-run report after removing the selected GitLab toolchain tree while other
-toolchains remain (sizes and toolchain ids vary; leftover rows are muted):
+Dry-run report (sizes and toolchain ids vary; leftover rows are muted):
 
 ++++
 include::partial$samples/remove-gitlab-dry-run.html[]
 ++++
 
-[#ex-source-boost-clean]
-==== Remove source Boost products only (`storage_clean`)
+[#ex-remove-used-source]
+=== Example 2 — Remove used variants for a source-archive dependency (current selection)
 
-When `boost` is project-used, remove cleans selected b2 stage / toolset products and
-leaves the extract. In the example inventory source `boost` is **unused**, so this
-command would refuse there — the sample below is the report shape when the clean
-succeeds.
+`--remove-dependencies='[source]boost'` (or untyped `boost` when only the source type is
+in play) cleans **used** selection outputs for that source-archive dependency — for Boost,
+the b2 stage / toolset dirs under the **used** version for the **current selection** — and
+leaves the extract (`storage_clean`). It does **not** wipe unused version leaves. That
+requires `boost` to be a **project-used** name.
+
+The shared inventory has source `boost` only under **unused**, so remove refuses there.
+This example uses a different inventory where `boost` is project-used:
+
+.Inventory for this example (`boost` project-used)
+++++
+include::partial$samples/selection-inventory-source-boost-used.html[]
+++++
 
 ++++
 include::partial$cli-examples/remove-source-boost.html[]
 ++++
 
-Example shape after a source Boost product clean (extract stays; `[E]` is partial
-because source assets remain):
+Matches (this inventory):
+
+[.cuppa-cli-matches]
+* used selection outputs under `[source]boost/1.91.0` (stage + toolset dirs for the current toolchain / variant)
+
+Does **not** remove unused `1.86.0` / `1.87.0` / `1.88.0` leaves — those stay until a
+force-wipe names them. The extract and source assets remain.
+
+Dry-run / live report shape (extract stays; `[E]` is partial because source assets remain):
 
 ++++
 include::partial$samples/remove-boost-product-clean.html[]
 ++++
 
+[#ex-wipe-used-source]
+=== Example 3 — Wipe a used source-archive extract (re-fetch next build)
+
+Unlike Example 2, wipe clears the **whole** used extract (and matching download), so the
+next online build re-fetches. Still requires a **project-used** name — same inventory as
+Example 2:
+
+.Inventory for this example (`boost` project-used)
+++++
+include::partial$samples/selection-inventory-source-boost-used.html[]
+++++
+
+++++
+include::partial$cli-examples/wipe-boost.html[]
+++++
+
+Matches (this inventory):
+
+[.cuppa-cli-matches]
+* `[source]boost/1.91.0` — whole extract + matching download for the current selection
+
+Dry-run report:
+
+++++
+include::partial$samples/wipe-source-boost-dry-run.html[]
+++++
+
+[#ex-wipe-gitlab]
+=== Example 4 — Wipe the selected GitLab package extract (project-used)
+
+Inventory: xref:#example-inventory[shared example inventory].
+
+++++
+include::partial$cli-examples/wipe-gitlab.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` — whole selected extract + matching download
+
+Dry-run report:
+
+++++
+include::partial$samples/wipe-gitlab-dry-run.html[]
+++++
+
+[#ex-purge-gitlab]
+=== Example 5 — Purge the selected GitLab package + download (project-used)
+
+Purge does everything remove does for the selected leaf, then deletes the matching
+download archive. Inventory: xref:#example-inventory[shared example inventory].
+
+++++
+include::partial$cli-examples/purge-gitlab-selected.html[]
+++++
+
+++++
+include::partial$samples/purge-gitlab.html[]
+++++
+
 [#ex-wildcard-untyped]
-==== Force-wipe a version series (fnmatch)
+=== Example 6 — Force-wipe an unused version series (untyped wildcard)
 
 An untyped qualifier wildcard matches the same version pattern in **every** dependency
-type. Against the inventory that is source `1.86.0`–`1.88.0` and unused GitLab `boost`
-`1.86.0` / `1.87.0`. It skips `[source]boost/1.91.0` (outside `1.8*`) and GitLab
-`boost_package/1.91` (different name).
+type. Against the shared inventory that is **unused** source `1.86.0`–`1.88.0` and
+**unused** GitLab `boost` `1.86.0` / `1.87.0`. It skips `[source]boost/1.91.0` (outside
+`1.8*`) and project-used GitLab `boost_package/1.91` (different name).
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-boost-wildcard.html[]
@@ -484,11 +570,19 @@ Matches:
 * `[gitlab]boost/1.86.0`
 * `[gitlab]boost/1.87.0`
 
-[#ex-wildcard-typed]
-==== Force-wipe with explicit source selector + wildcard
+Dry-run report:
 
-Adding `[source]` keeps the same wildcard but only on source archives — the unused
-GitLab `boost/1.86.0` and `1.87.0` leaves stay.
+++++
+include::partial$samples/force-wipe-boost-wildcard-dry-run.html[]
+++++
+
+[#ex-wildcard-typed]
+=== Example 7 — Force-wipe unused source versions only (typed wildcard)
+
+Adding `[source]` keeps the same wildcard but only on source archives — **unused**
+GitLab `boost/1.86.0` and `1.87.0` stay.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-source-boost-wildcard.html[]
@@ -501,11 +595,19 @@ Matches:
 * `[source]boost/1.87.0`
 * `[source]boost/1.88.0`
 
+Dry-run report:
+
+++++
+include::partial$samples/force-wipe-source-boost-wildcard-dry-run.html[]
+++++
+
 [#ex-multi-token]
-==== Force-wipe several version leaves
+=== Example 8 — Force-wipe several unused version leaves
 
 Comma-separated tokens each resolve independently (exact leaves, no wildcard). Untyped
 `boost/1.86.0` hits both source and GitLab types; the same for `1.87.0`.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-boost-two.html[]
@@ -519,11 +621,19 @@ Matches:
 * `[gitlab]boost/1.86.0`
 * `[gitlab]boost/1.87.0`
 
-[#ex-location-stem]
-==== Force-wipe an unused location branch stem
+Dry-run report:
 
-Repositories list branch stems under the identity. `@11.1.1` is unused; in-use
+++++
+include::partial$samples/force-wipe-boost-two-dry-run.html[]
+++++
+
+[#ex-location-stem]
+=== Example 9 — Force-wipe an unused location branch stem
+
+Repositories list branch stems under the identity. `@11.1.1` is **unused**; **in-use**
 `@master` is not matched.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-fmt-stem.html[]
@@ -534,11 +644,19 @@ Matches:
 [.cuppa-cli-matches]
 * `[repository]fmt/@11.1.1`
 
+Dry-run report:
+
+++++
+include::partial$samples/force-wipe-fmt-stem-dry-run.html[]
+++++
+
 [#ex-unqualified]
-==== Force-wipe unqualified VCS duplicate
+=== Example 10 — Force-wipe an unused unqualified VCS duplicate
 
 The list shows `@master (unqualified)`; the wipe shorthand is `name/@`. That is not the
-same leaf as `widget/@master` or in-use `widget/@feature_x`.
+same leaf as `widget/@master` or **in-use** `widget/@feature_x`.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-widget-unqualified.html[]
@@ -549,11 +667,19 @@ Matches:
 [.cuppa-cli-matches]
 * `[repository]widget/@` — the `@master (unqualified)` leaf
 
-[#ex-mixed]
-==== Mix archive + location leaves
+Dry-run report:
 
-Comma-separated tokens still resolve independently: untyped `boost/1.86.0` hits source
-and GitLab, and `fmt/@11.1.1` hits the unused repository stem.
+++++
+include::partial$samples/force-wipe-widget-unqualified-dry-run.html[]
+++++
+
+[#ex-mixed]
+=== Example 11 — Force-wipe mixed unused archive + location leaves
+
+Comma-separated tokens still resolve independently: untyped `boost/1.86.0` hits **unused**
+source and GitLab leaves, and `fmt/@11.1.1` hits the **unused** repository stem.
+
+Inventory: xref:#example-inventory[shared example inventory].
 
 ++++
 include::partial$cli-examples/force-wipe-mixed.html[]
@@ -566,18 +692,10 @@ Matches:
 * `[gitlab]boost/1.86.0`
 * `[repository]fmt/@11.1.1`
 
-[#ex-purge-gitlab]
-==== Purge package variant + download
-
-Purge does everything remove does for the selected leaf, then deletes the matching
-download archive. Sample report (sizes and ids vary):
+Dry-run report:
 
 ++++
-include::partial$cli-examples/purge-gitlab-selected.html[]
-++++
-
-++++
-include::partial$samples/purge-gitlab.html[]
+include::partial$samples/force-wipe-mixed-dry-run.html[]
 ++++
 
 [#purge-dependencies]

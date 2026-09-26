@@ -16,13 +16,13 @@ every example still needs a scannable intent + command + confirmation.
 
 | Piece | Decision |
 |-------|----------|
-| Glance | **Table** Intent \| Example; Example = colourised command + Matches against inventory |
-| Worked subset | Same command + Matches again, plus **why** prose and sample report output where available |
-| Command chrome | `pre.cuppa-output.cuppa-cli-example` in `.cuppa-cli-block` — flag = info, token = notice; Antora-style copy toolbox |
-| Matches | Under the command in the glance table (HTML cell); repeated in worked sections — **not** inside the command `<pre>` |
-| Selectors in docs | Prefer **medium** names: `[source]`, `[gitlab]`, `[repository]`, `[conan]`, `[toolchain]`; mention short aliases once |
-| Inventory | Synthetic list-dependencies HTML sample; SIZE column aligned with real samples |
-| Types table | Dependency type → selector aliases from `SELECTOR_ALIASES` (+ untyped + reserved) |
+| Glance | **Table** Intent \| Example; Example = colourised command + Matches against shared inventory |
+| Worked examples | Numbered `=== Example N — …` peers under Selection; why + Matches + dry-run report in the same section |
+| Alternate inventory | When the shared inventory cannot succeed (e.g. source `boost` unused), the example shows its own inventory first |
+| Naming | Qualify **used** / **unused** / **project-used** in titles; avoid “products only” without “current selection” |
+| Wipe samples | Synthetic dry-run HTML for wipe GitLab, wipe source Boost, and force-wipe wildcard / multi / stem / `@` / mixed |
+| Command chrome | `pre.cuppa-output.cuppa-cli-example` in `.cuppa-cli-block` — flag = info, token = notice; copy toolbox |
+| Selectors in docs | Prefer **medium** names: `[source]`, `[gitlab]`, `[repository]`, `[conan]`, `[toolchain]` |
 
 ## Progress snapshot
 
@@ -30,7 +30,8 @@ every example still needs a scannable intent + command + confirmation.
 |-------|--------|
 | Types and selectors table | Done |
 | Synthetic inventory + CLI partials + CSS | Done |
-| Glance + Matches + worked “why” | Done (cleanup) |
+| Glance + Matches + worked “why” | Done |
+| Numbered examples + alt inventories + wipe samples | Done |
 | Copy toolbox on CLI blocks | Done |
 | Follow-ons (below) | Open |
 

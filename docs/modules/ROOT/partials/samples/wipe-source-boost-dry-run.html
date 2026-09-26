@@ -1,0 +1,26 @@
+<pre class="cuppa-output"><code>Would wipe <span class="cuppa-emphasised">1</span> dependency tree (<span class="cuppa-emphasised">2.1G</span>) under <span class="cuppa-info">~/.cuppa/dependencies</span>
+<span class="cuppa-subdued">(dry run; pass without -n to wipe)</span>
+
+<span class="cuppa-subdued">  -------------------------------------------------------------------------------------------------</span>
+      SIZE  LAST USED      REMARK     DEPENDENCY
+<span class="cuppa-subdued">  -------------------------------------------------------------------------------------------------</span>
+  <span class="cuppa-emphasised">    2.1G</span>  yesterday                 <span class="cuppa-emphasised">related dependencies for boost</span>
+                                      <span class="cuppa-subdued">│   </span>
+  <span class="cuppa-emphasised"><span class="cuppa-remove-notice">    2.1G</span></span>                            <span class="cuppa-subdued">├── </span><span class="cuppa-emphasised"><span class="cuppa-remove-notice">wiping</span></span>
+  <span class="cuppa-subdued">      0B</span>                            <span class="cuppa-subdued">├── </span><span class="cuppa-subdued">remaining</span>
+                                      <span class="cuppa-subdued">│   </span>
+      2.1G  yesterday                 <span class="cuppa-subdued">└── </span>source archives
+                                      <span class="cuppa-subdued">    │</span>
+  <span class="cuppa-subdued">    2.1G</span>  <span class="cuppa-subdued">yesterday    </span>             <span class="cuppa-subdued">    └── </span><span class="cuppa-remove-notice">✔✔✔</span> <span class="cuppa-emphasised"><span class="cuppa-remove-notice">boost</span></span>
+                                      <span class="cuppa-subdued">        │</span>
+  <span class="cuppa-subdued">    2.1G</span>  <span class="cuppa-subdued">yesterday    </span>             <span class="cuppa-subdued">        └── </span><span class="cuppa-remove-notice">✔✔✔</span> <span class="cuppa-emphasised"><span class="cuppa-remove-notice">1.91.0</span></span>
+      2.1G  yesterday      <span class="cuppa-remove-notice">would wipe</span> <span class="cuppa-subdued">            └── </span><span class="cuppa-remove-notice">✔</span> <span class="cuppa-remove-notice">[E] boost_1_91_0 (whole extract + download)</span>
+<span class="cuppa-subdued">  -------------------------------------------------------------------------------------------------</span>
+
+Would wipe <span class="cuppa-emphasised">1</span> tree freeing up <span class="cuppa-emphasised"><span class="cuppa-info">2.1G</span></span> of disk space. The next online build re-fetches and re-extracts.
+
+Verify with:
+
+<span class="cuppa-emphasised">cuppa -Q -D --list-dependencies</span>
+<span class="cuppa-emphasised">cuppa -Q -D --list-downloads</span>
+</code></pre>
