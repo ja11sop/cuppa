@@ -143,6 +143,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ``--list-dependencies`` mutes label-only ``requires`` edges under the **unused**
+  / **unreferenced** sections the same way as under used / referenced (structural
+  ``requires`` headings stay normal).
+
 - ``--list-dependencies`` no longer paints every child under a missing package
   identity as an error. When one toolchain leaf is missing (for example the
   selected ``gcc16`` extract) while siblings exist on disk, only the identity,

@@ -700,9 +700,10 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
 def _requires_entries_from_variants( variants, in_use_only=False ):
     """Union traveling-manifest requires across a version's toolchain variants.
 
-    Pass A (``in_use_only=False``) unions every variant under the version. Pass B
-    (split) will pass ``in_use_only=True`` so only tip-selected / ``closure_in_use``
-    extracts contribute edges.
+    ``variants`` is whatever the caller already scoped (used-only nest leaves,
+    unused nest leftovers, or a full identity). ``in_use_only=True`` further
+    restricts to tip-selected / ``closure_in_use`` extracts; callers fall back to
+    ``False`` when that yields nothing so orphan-only versions still show edges.
     """
     from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
 
@@ -1581,6 +1582,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 else:
                     label = _emphasised_normal( label ) if label else label
             elif kind == 'leaf':
+                label, size, last_used, remark, location = _mute_row_fields(
+                        label, size, last_used, remark, location
+                )
+            elif kind == 'requires':
+                # Structural heading — normal (non-muted) paint, same as used.
+                pass
+            elif kind == 'requires_edge':
+                # Label-only declared edges stay subdued (same as under used → requires).
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )

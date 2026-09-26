@@ -313,6 +313,81 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
     assert [ child['label'] for child in unused_beta_leaves ] == [ other ]
 
 
+def test_unused_nest_requires_edges_come_from_unused_variants_only_and_are_muted():
+    """Unused section label requires union only orphan variants; edges are subdued."""
+    import re
+    from cuppa.colourise import as_subdued, colouriser
+
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            { 'name': 'beta', 'package': 'beta', 'version': '2.0.0' },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+                    requires=[
+                            { 'name': 'gamma', 'package': 'gamma', 'version': '3.0.0' },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+                    requires=[
+                            { 'name': 'delta', 'package': 'delta', 'version': '9.0.0' },
+                    ],
+            ),
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    used = next( s for s in tree['sections'] if s['label'] == 'used' )
+    used_beta = {
+            child.get( 'short_name' ): child
+            for child in _find_kind( used, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }['beta']
+    used_edges = [
+            child['label']
+            for child in _find_kind( used_beta, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'requires_edge'
+    ]
+    assert used_edges == [ 'gamma 3.0.0' ]
+
+    unused = next( s for s in tree['sections'] if s['label'] == 'unused' )
+    unused_beta = None
+    for type_node in unused.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'beta':
+                unused_beta = child
+    assert unused_beta is not None
+    unused_edges = [
+            child['label']
+            for child in _find_kind( unused_beta, 'requires' ).get( 'children' ) or []
+            if child.get( 'kind' ) == 'requires_edge'
+    ]
+    assert unused_edges == [ 'delta 9.0.0' ]
+    assert 'gamma 3.0.0' not in unused_edges
+
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        lines, _ = dependency_tree.render_tree_lines( tree )
+        joined = '\n'.join( lines )
+        assert as_subdued( 'delta 9.0.0' ) in joined
+        assert as_subdued( 'gamma 3.0.0' ) in joined
+        # ``requires`` heading itself stays unmuted in both sections.
+        assert 'requires' in joined
+        assert as_subdued( 'requires' ) not in joined
+        ansi = re.compile( r'\x1b\[[0-9;]*m' )
+        assert any( 'delta 9.0.0' in ansi.sub( '', line ) for line in lines )
+    finally:
+        colouriser.use_colour = was_colour
+
+
 def test_identity_grouping_keeps_unused_nest_toolchains_under_requires():
     """``grouping=identity`` keeps Pass A shape: unused nest variants hang under requires."""
     tool = 'gcc15_rel_x86_64_cxx2c'
