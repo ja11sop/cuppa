@@ -1,50 +1,72 @@
 = Dependencies
-:description: What a dependency is, how to declare one, and which page to read next
+:description: Using, Managing, Publishing, and Authoring — which hub to open next
 
 Dependencies encapsulate include paths, defines, library linkage, and optional download/build
 steps. Trees live under `--dependencies-root` (and archives under `--downloads-root`) — see
 xref:build-layout.adoc[Build layout].
 
-Start with xref:dependencies/overview.adoc[Dependencies overview] for the shared declaration
-model, then choose the detailed page for the dependency kind or workflow you need.
+Cuppa's dependency docs are organised by **job**. Start with **Using** unless you already
+know you need storage reclaim, publishing, or a custom factory.
 
-== Kinds
+== Hubs
+
+[cols="1,2"]
+|===
+| Hub | When to open it
+
+| xref:dependencies/using.adoc[Using dependencies]
+| Declare and consume location, package, Conan, and built-in dependencies.
+  Includes
+  xref:dependencies/using/building-with-packages.adoc[building a tip against nested packages]
+  without learning how to publish that nest.
+
+| xref:dependencies/managing.adoc[Managing dependencies]
+| List, remove, purge, wipe, and check develop copies under storage.
+  Option A `--list-scope` and requires-forest samples live under
+  xref:dependencies/managing/list-dependencies.adoc[Listing dependency trees].
+
+| xref:dependencies/publishing.adoc[Publishing dependencies]
+| Ship Cuppa-built packages, cascade nest publishes, amend/external builds, and
+  publisher trees.
+
+| xref:dependencies/authoring.adoc[Authoring dependencies]
+| Write custom dependency factories, storage hooks, and plugins.
+|===
+
+== Quick map (kinds)
 
 [cols="1,1"]
 |===
 | Kind | Start here
 
 | Vocabulary and declaration
-| xref:dependencies/overview.adoc[Overview]
+| xref:dependencies/using/overview.adoc[Overview]
 
 | Location / header / VCS / archive
-| xref:dependencies/location.adoc[Location dependencies]
+| xref:dependencies/using/location.adoc[Location dependencies]
 
 | Registry package (consume)
-| xref:dependencies/packages.adoc[Package dependencies] ·
-  xref:dependencies/gitlab.adoc[GitLab]
+| xref:dependencies/using/packages.adoc[Package dependencies] ·
+  xref:dependencies/using/gitlab.adoc[GitLab]
 
 | Conan 2 (consume)
-| xref:dependencies/conan.adoc[Conan packages]
+| xref:dependencies/using/conan.adoc[Conan packages]
 
 | Built-ins (`boost`, `qt4`/`qt5`, `quince`, …)
-| xref:dependencies/builtins.adoc[Built-in dependencies] ·
-  xref:dependencies/builtins/boost.adoc[Boost]
+| xref:dependencies/using/builtins.adoc[Built-in dependencies] ·
+  xref:dependencies/using/builtins/boost.adoc[Boost]
 
 | List, remove, purge, develop copies
-| xref:dependencies/managing.adoc[Managing dependencies] ·
+| xref:dependencies/managing.adoc[Managing] ·
   xref:dependencies/managing/list-dependencies.adoc[list] ·
   xref:dependencies/managing/removing.adoc[remove] ·
   xref:dependencies/managing/develop.adoc[develop]
 
+| Publish / cascade / publisher trees
+| xref:dependencies/publishing.adoc[Publishing] ·
+  xref:dependencies/publishing/packages.adoc[packages] ·
+  xref:dependencies/publishing/list-publishers.adoc[publishers]
+
 | Author a new dependency
-| xref:dependencies/extending.adoc[Writing your own]
-
-| Publish a Cuppa-built library
-| xref:packages.adoc[Publishing packages]
-
-| Cascade nest-publish (GitLab package DAG)
-| xref:packages.adoc#build-and-publish-dependencies[Cascading dependency publishes] ·
-  xref:packages.adoc#cascade-consume-only[Consume-only tips] ·
-  xref:packages.adoc#cascade-cold-start[Cold start]
+| xref:dependencies/authoring/extending.adoc[Custom dependency factories]
 |===

@@ -1,0 +1,21 @@
+= Authoring dependencies
+:description: Write custom dependency factories, storage hooks, and plugins
+
+Use this hub when you **invent** a new dependency kind — factories registered with Cuppa,
+optional storage clean hooks, and setuptools plugins — rather than consuming or publishing
+an existing one.
+
+== Where to start
+
+[cols="1,2"]
+|===
+| Goal | Page
+
+| Custom dependency factories and storage contracts
+| xref:dependencies/authoring/extending.adoc[Custom dependency factories]
+|===
+
+For declaring and consuming existing kinds, see
+xref:dependencies/using.adoc[Using dependencies].
+For shipping artefacts, see
+xref:dependencies/publishing.adoc[Publishing dependencies].

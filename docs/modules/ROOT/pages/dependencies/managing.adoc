@@ -4,7 +4,7 @@
 Cuppa stores retrieved dependency trees under `--dependencies-root` and archives under
 `--downloads-root`. This section is about **inspecting and reclaiming** that storage, and about
 checking **develop** working copies — not about declaring dependencies (see
-xref:dependencies/overview.adoc[Overview]).
+xref:dependencies/using.adoc[Using dependencies]).
 
 [#which-listing]
 == Which listing for which question
@@ -27,7 +27,7 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
 
 | What publisher working copies sit under the cascade forest (git health + size)
-| `--list-publishers`
+| `--list-publishers` (see xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees])
 | In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`); develop-shaped STATUS report
 
 | Branch, cleanliness, and ahead/behind of configured develop working copies
@@ -83,12 +83,13 @@ cuppa -Q -D --list-dependencies --develop
 | xref:dependencies/managing/list-downloads.adoc[Listing downloads]
 | `--list-downloads` and how archives pair with extracts
 
-| xref:dependencies/managing/list-publishers.adoc[Listing publisher trees]
-| `--list-publishers` / `--remove-publishers` for the cascade forest
-
 | xref:dependencies/managing/removing.adoc[Removing, purging, and wiping]
 | Tokens, remove / purge / wipe / force-wipe, and matching names from the list tree
 
 | xref:dependencies/managing/develop.adoc[Checking your develop copies]
 | `--list-develop`, clone, checkout / reset, and `--update-develop`
 |===
+
+Publisher working copies (`--list-publishers` / `--remove-publishers`) live under
+xref:dependencies/publishing.adoc[Publishing dependencies] —
+xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees].

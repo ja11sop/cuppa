@@ -7,4 +7,4 @@ Built-in Qt factories are already imported; you do not list them in `import_depe
 
 This page is a stub. The modules live under `cuppa/dependencies/` (`qt4`, `qt5`). Expand it
 when real usage — required packages, typical flags, and failure modes — is documented.
-See xref:dependencies/builtins.adoc[Built-in dependencies].
+See xref:dependencies/using/builtins.adoc[Built-in dependencies].

@@ -20,5 +20,5 @@ xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] and
 `design/plans/dependency-resolve.md`.
 
 This page is otherwise a stub. The modules live under `cuppa/dependencies/`. See
-xref:dependencies/builtins.adoc[Built-in dependencies] and
-xref:dependencies/location.adoc[Location dependencies].
+xref:dependencies/using/builtins.adoc[Built-in dependencies] and
+xref:dependencies/using/location.adoc[Location dependencies].

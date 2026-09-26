@@ -56,11 +56,11 @@ xref:methods.adoc[Methods] for how build methods consume the resulting settings.
 
 == Choosing a dependency kind
 
-* Use xref:dependencies/location.adoc[Location dependencies] for source trees, repositories, archives, and
+* Use xref:dependencies/using/location.adoc[Location dependencies] for source trees, repositories, archives, and
   header-only libraries.
-* Use xref:dependencies/packages.adoc[Package dependencies] for prebuilt registry archives.
-* Use xref:dependencies/conan.adoc[Conan packages] when Conan 2 owns dependency resolution.
-* Use xref:dependencies/builtins.adoc[Built-in dependencies] for integrations registered with Cuppa.
+* Use xref:dependencies/using/packages.adoc[Package dependencies] for prebuilt registry archives.
+* Use xref:dependencies/using/conan.adoc[Conan packages] when Conan 2 owns dependency resolution.
+* Use xref:dependencies/using/builtins.adoc[Built-in dependencies] for integrations registered with Cuppa.
 
 After declaring dependencies, use xref:dependencies/managing.adoc[Managing dependencies] to inspect cached
 trees, downloads, and local develop copies.

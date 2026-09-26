@@ -65,4 +65,4 @@ Relative locations ending in `@` participate in `--location-match-*` branch/tag 
 xref:cli/dependencies-and-develop.adoc[Dependencies and develop]).
 
 Location factories can declare `storage_paths()` so listing and removal see the owned tree without
-retrieving it. See xref:dependencies/extending.adoc[Writing your own dependencies].
+retrieving it. See xref:dependencies/authoring/extending.adoc[Writing your own dependencies].

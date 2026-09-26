@@ -1,4 +1,4 @@
-= Writing your own dependencies
+= Custom dependency factories
 :description: Dependency factories, storage_paths / storage_clean, and pip plugins
 
 Implement a class with:

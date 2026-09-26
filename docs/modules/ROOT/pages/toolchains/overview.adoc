@@ -64,7 +64,7 @@ select the stem to download (`--package-gitlab-os-override[-<name>]=`,
 and the other OS encoding (`--package-gitlab-identity-fallback`, default on).
 `--package-gitlab-os-identity=omit` publishes and prefers `\{package\}_\{tool\}` stems. That is
 lookup or an explicit publish bet, not a claim that two distros are the same ABI. See
-xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
+xref:dependencies/using/gitlab.adoc#consume-overrides[GitLab lookup overrides].
 
 See xref:configuration.adoc#toolchain-identity[Configuration] and
 xref:cli/toolchains-and-features.adoc[Toolchains and features].

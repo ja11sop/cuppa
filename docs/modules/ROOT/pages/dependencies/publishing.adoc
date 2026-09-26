@@ -1,0 +1,33 @@
+= Publishing dependencies
+:description: Ship Cuppa-built packages, cascade nest publishes, and manage publisher trees
+
+Use this hub when you **maintain or ship** package artefacts — GitLab registry uploads,
+cascading nest publishes, amend/external builds, Conan publish, and publisher working copies.
+
+If you only need a tip application to **build against** nested packages already in the
+registry (or under `--develop`), start with
+xref:dependencies/using/building-with-packages.adoc[Building with package dependencies]
+instead.
+
+== Where to start
+
+[cols="1,2"]
+|===
+| Goal | Page
+
+| Publish a Cuppa-built library (GitLab / Conan / cascade)
+| xref:dependencies/publishing/packages.adoc[Publishing packages]
+
+| Cascading dependency publishes
+| xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+
+| Consume-only tips and cold start
+| xref:dependencies/publishing/packages.adoc#cascade-consume-only[Consume-only tips] ·
+  xref:dependencies/publishing/packages.adoc#cascade-cold-start[Cold start]
+
+| List, remove, and update publisher trees
+| xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees]
+|===
+
+Storage reclaim for ordinary dependency extracts stays under
+xref:dependencies/managing.adoc[Managing dependencies].

@@ -702,17 +702,22 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | `std::init` profile rules (examples + Clang diagnostics) | `cxx-profiles/std-init.adoc` and `cxx-profiles/std-init/*.adoc` children |
 | CLI overview, command anatomy, common use cases | `cli-reference.adoc` |
 | CLI flags by task (build, output, storage, maintenance, dependencies, toolchains, reports) | `cli/*.adoc` |
-| Dependencies overview (kinds, declare, `BuildWith`) | `dependencies.adoc` (hub) |
-| Location / header libraries | `dependencies/location.adoc` |
-| Package consume overview | `dependencies/packages.adoc` |
-| GitLab packages (consume) | `dependencies/gitlab.adoc` |
-| Conan packages (consume) | `dependencies/conan.adoc` |
-| Built-in deps index | `dependencies/builtins.adoc` |
-| Boost (source / b2; contrast `boost_package`) | `dependencies/builtins/boost.adoc` |
-| Qt / Quince | `dependencies/builtins/qt.adoc` / `dependencies/builtins/quince.adoc` (thin stubs) |
+| Dependencies hub (Using / Managing / Publishing / Authoring) | `dependencies.adoc` |
+| Using dependencies (consume) | `dependencies/using.adoc` |
+| Building tip apps against nested packages (no publish) | `dependencies/using/building-with-packages.adoc` |
+| Location / header libraries | `dependencies/using/location.adoc` |
+| Package consume overview | `dependencies/using/packages.adoc` |
+| GitLab packages (consume) | `dependencies/using/gitlab.adoc` |
+| Conan packages (consume) | `dependencies/using/conan.adoc` |
+| Built-in deps index | `dependencies/using/builtins.adoc` |
+| Boost (source / b2; contrast `boost_package`) | `dependencies/using/builtins/boost.adoc` |
+| Qt / Quince | `dependencies/using/builtins/qt.adoc` / `dependencies/using/builtins/quince.adoc` (thin stubs) |
 | Managing deps (list / update / remove) | `dependencies/managing.adoc` |
-| Writing your own dependencies | `dependencies/extending.adoc` (also `extending.adoc` for plugins) |
-| Publishing packages (GitLab / Conan) | `packages.adoc` (publish focus; not consume tutorials) |
+| Listing dependency trees (Option A scopes) | `dependencies/managing/list-dependencies.adoc` |
+| Publishing dependencies hub | `dependencies/publishing.adoc` |
+| Publishing packages (GitLab / Conan / cascade) | `dependencies/publishing/packages.adoc` (`packages.adoc` stub redirects) |
+| Publisher trees | `dependencies/publishing/list-publishers.adoc` |
+| Authoring / custom factories | `dependencies/authoring.adoc` · `dependencies/authoring/extending.adoc` (also `extending.adoc` for plugins) |
 | Contributing to cuppa itself (hub) | `contributing.adoc` |
 | Versioning / changelog / start_release | `contributing/versioning.adoc` |
 | Cutting a release (prepare / publish) | `contributing/release.adoc` |
@@ -724,9 +729,15 @@ Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting 
 
 ### Documentation partitioning (rules of thumb)
 
-Use these when splitting or placing dependency (and similar) docs — same principles as §7.1 of the removal-options plan:
+Use these when splitting or placing dependency (and similar) docs — same principles as
+[`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md) and §7.1 of the
+removal-options plan:
 
-- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and authoring already live in different modules; docs should follow that map rather than one growing page.
+- **Four job hubs under Dependencies.** Using (consume + tip usability), Managing (storage),
+  Publishing (ship / cascade / publishers), Authoring (factories). Using is first in nav.
+- **Mirror the code shape.** Location, GitLab package, Conan, built-ins, manage-on-disk, and
+  authoring already live in different modules; docs should follow that map rather than one
+  growing page.
 - **Hub pages stay short.** Overview + kinds table + `cuppa.run` / `BuildWith` + pointers. No deep tutorials on the hub.
 - **Consume vs publish.** Consuming a registry or Conan package belongs under Dependencies; publishing Cuppa-built libraries belongs under Packages (or a Publishing child). Cross-link the round-trip; do not duplicate the full story on both sides.
 - **Managing is its own page.** List / update / remove / inventory are storage and develop workflows, not a footnote on declaring dependencies.

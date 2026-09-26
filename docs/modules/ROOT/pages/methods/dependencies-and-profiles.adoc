@@ -57,7 +57,7 @@ env.AppendUnique(CPPPATH=[headers])
 
 Where the dependency provides libraries, chain `.use_libs([...])` on the returned instance (Boost
 source builds, `boost_package`, and other `package_dependency` flavours). See
-xref:dependencies/builtins/boost.adoc[Boost] and xref:dependencies.adoc[Dependencies].
+xref:dependencies/using/builtins/boost.adoc[Boost] and xref:dependencies.adoc[Dependencies].
 
 === Untyped names and type selectors
 
@@ -82,7 +82,7 @@ Explicit tokens bypass precedence: `[archive]widget_lib` / `[source]widget_lib`,
 for untyped names yet.
 
 `use_libs([...])` is the uniform way to link libraries from whichever flavour was resolved.
-Built-ins such as xref:dependencies/builtins/quince.adoc[Quince] only ask for `boost` and call
+Built-ins such as xref:dependencies/using/builtins/quince.adoc[Quince] only ask for `boost` and call
 `use_libs` — they do not branch on package vs archive.
 
 Passing several names returns a list (order matches the call):
@@ -140,7 +140,7 @@ extras.
 
 == Related methods
 
-* xref:dependencies.adoc[Dependencies] · xref:packages.adoc[Publishing packages]
+* xref:dependencies.adoc[Dependencies] · xref:dependencies/publishing/packages.adoc[Publishing packages]
 * xref:methods/flags-and-toolchain.adoc[Flags and toolchain]
 * xref:methods/build.adoc[Build] · xref:methods/test-run.adoc[Test and run]
 * xref:integration/test-build-with.adoc[Integration: BuildWith] ·

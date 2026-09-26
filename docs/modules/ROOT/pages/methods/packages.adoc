@@ -4,7 +4,7 @@
 Cuppa package methods stage and publish libraries for registry or Conan consumers.
 Publisher trees often combine `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` (or
 raw `Command()`), `Install()`, and `Depends()` / `Requires()` — see
-xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build],
+xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build],
 xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[Depends].
 
 == Behaviour summary
@@ -41,7 +41,7 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 | `cmake --build … --target install` (default omits `--parallel`)
 
 | `env.PublishPackage(…)`
-| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding])
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:dependencies/publishing/packages.adoc#amend-package-manifest[Amending metadata without rebuilding])
 
 | `env.InstallPackage(…)`
 | Install a package locally and extend `SYSINCPATH`
@@ -73,18 +73,18 @@ Run a release build with upload when you intend to push:
 cuppa -D --rel --publish-package
 ----
 
-See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage,
-including xref:packages.adoc#publish-version-latest[floating ``version="latest"``]
+See xref:dependencies/publishing/packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage,
+including xref:dependencies/publishing/packages.adoc#publish-version-latest[floating ``version="latest"``]
 (seed may stay floating; staged archive and upload stay concrete).
 
 Custom `Command()` steps that wrap external CMake generate/build before `Install()` are common in
 publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands] and
-xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build].
+xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build].
 
 == Related methods
 
 * xref:methods/staging-files.adoc[Staging files] · xref:methods/depends.adoc[Depends]
 * xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — consuming packages via `BuildWith()`
-* xref:packages.adoc[Publishing packages] · xref:dependencies/packages.adoc[Package dependencies]
+* xref:dependencies/publishing/packages.adoc[Publishing packages] · xref:dependencies/using/packages.adoc[Package dependencies]
 * xref:integration/test-packages.adoc[Integration: Packages] ·
   xref:integration/test-conan.adoc[Conan]

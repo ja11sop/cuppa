@@ -79,7 +79,7 @@ Conan = cuppa.conan_deps( generators_folder = '_conan' )
 Point `generators_folder` at a directory that already contains `SConscript_conandeps` from a prior `conan install`. Cuppa skips install and only loads flags. This is the preferred pattern when CI (or a wrapper script) already ran Conan.
 
 Integration coverage: xref:integration/test-conan.adoc[].
-For publishing Cuppa-built libraries into Conan, see xref:packages.adoc#conan-package-publishing[Conan 2 publishing].
+For publishing Cuppa-built libraries into Conan, see xref:dependencies/publishing/packages.adoc#conan-package-publishing[Conan 2 publishing].
 
 === Dialect mapping note
 
@@ -95,7 +95,7 @@ Cuppa discovers plugins through the `cuppa.dependency.plugins` entry point.
 
 A Conan example lives at `examples/conan_fmt_plugin/` (registers `fmt` via `cuppa.conan_dependency`).
 For the same `fmt` name built from a GitHub archive with `location_dependency` instead, see `examples/cuppa_fmt_plugin/`.
-Walkthrough for both: xref:dependencies/extending.adoc[Writing your own dependencies] and xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
+Walkthrough for both: xref:dependencies/authoring/extending.adoc[Writing your own dependencies] and xref:extending.adoc#pip-dependency-plugins[Extending cuppa — Pip dependency plugins].
 
 === Offline mode
 

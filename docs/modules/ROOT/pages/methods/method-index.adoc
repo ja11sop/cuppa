@@ -461,7 +461,7 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 
 | xref:methods/packages.adoc[`DownloadExtract()`]
 | Download URL archive, extract, stamp marker (default `CMakeLists.txt`)
-| Acquire helper; see xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+| Acquire helper; see xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 
 | xref:methods/packages.adoc[`RemoveEmptyDirs()`]
 | Remove empty submodule placeholders after archive extract (stamped)
@@ -469,7 +469,7 @@ xref:concepts.adoc#sconscript-discovery[Concepts: sconscript discovery and shari
 
 | xref:methods/packages.adoc[`CMakeConfigure()`]
 | Configure an external CMake tree (Cuppa toolchain/variant → CMake flags)
-| See xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
+| See xref:dependencies/publishing/packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build]
 
 | xref:methods/packages.adoc[`CMakeBuild()`]
 | `cmake --build`; ``--parallel N`` with Cuppa ``--parallel``, else ``--parallel 1``

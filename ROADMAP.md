@@ -636,7 +636,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | **Shipped** [#253](https://github.com/ja11sop/cuppa/pull/253) / [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/archive/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |
-| `doc-deps-four-hubs` | Dependencies: Using / Managing / Publishing / Authoring; Using-first usability | Medium | [`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md); aligns Option A list docs on [#337](https://github.com/ja11sop/cuppa/pull/337) |
+| `doc-deps-four-hubs` | Dependencies: Using / Managing / Publishing / Authoring; Using-first usability | Medium | [`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md) — P1–P3 + usability page on [#337](https://github.com/ja11sop/cuppa/pull/337); P4 GitLab/publish split still open |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)

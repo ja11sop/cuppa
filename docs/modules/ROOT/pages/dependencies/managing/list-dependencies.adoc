@@ -20,7 +20,7 @@ toolchains). Nested packages keep label-style ``requires`` edges (name, version,
 ``libs: …``). Closure-only packages leave the top-level unused / unreferenced lists and are
 protected from
 ``--force-wipe-unreferenced-dependencies``. See
-xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
+xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
 On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`, including a ``requires`` array on GitLab leaves).
@@ -36,6 +36,9 @@ leftover nest variants appear as top-level unused gitlab identities.
 It exits without building (exit 0 even when some rows are missing). See
 xref:integration/test-list-dependencies.adoc[`test_list_dependencies`] for the integration
 scenario.
+
+For the tip-consumer story (nested packages without publishing), see
+xref:dependencies/using/building-with-packages.adoc[Building with package dependencies].
 
 [source,shell]
 ----

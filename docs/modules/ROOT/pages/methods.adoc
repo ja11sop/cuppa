@@ -249,7 +249,7 @@ see the Coverage page and https://github.com/ja11sop/cuppa/issues/236[#236].
 
 Detailed tutorials: xref:methods/packages.adoc[Packages].
 
-See xref:packages.adoc[Publishing packages].
+See xref:dependencies/publishing/packages.adoc[Publishing packages].
 
 [#test-reporting-plugins]
 == Test reporting plugins

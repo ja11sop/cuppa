@@ -103,7 +103,7 @@ the project OS override. Keys in `configure.conf` / `cuppa.run` `default_options
 `package_gitlab_os_override`, `package_gitlab_identity_fallback`, and
 `package_gitlab_os_identity`.
 
-See xref:dependencies/gitlab.adoc#consume-overrides[GitLab lookup overrides].
+See xref:dependencies/using/gitlab.adoc#consume-overrides[GitLab lookup overrides].
 
 === HTML report source links without CI flags
 
@@ -201,4 +201,4 @@ xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper and `--cuppa
 
 See also `--develop` and the `--location-*` flags documented in
 xref:cli/dependencies-and-develop.adoc[Dependencies and develop] and
-xref:dependencies/location.adoc[Location dependencies].
+xref:dependencies/using/location.adoc[Location dependencies].

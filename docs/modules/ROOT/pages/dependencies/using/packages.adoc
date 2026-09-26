@@ -5,9 +5,9 @@
 out under `--dependencies-root` per toolchain / variant / architecture.
 
 Today the supported `package_manager` is GitLab generic packages — see
-xref:dependencies/gitlab.adoc[GitLab packages] for authentication, lookup overrides,
+xref:dependencies/using/gitlab.adoc[GitLab packages] for authentication, lookup overrides,
 `version="latest"`, and the Boost package extension. Publishing Cuppa-built libraries is a
-different workflow: xref:packages.adoc[Publishing packages].
+different workflow: xref:dependencies/publishing/packages.adoc[Publishing packages].
 
 [source,python]
 ----
@@ -31,13 +31,13 @@ cuppa.run(
 Pin `version` to a concrete string, or use `version = 'latest'` (or omit / `None`) to resolve
 the newest version **published in that registry** for the package name at configure time.
 Offline reuse of that pin is documented under
-xref:dependencies/gitlab.adoc#version-latest[Registry latest].
+xref:dependencies/using/gitlab.adoc#version-latest[Registry latest].
 A missing package or an unresolved `latest` fails during configure, before compile.
 
 On the publish side, the same floating tokens may appear on
 ``GitlabPackagePublisher``: the publisher-tree seed can keep ``"latest"`` while
 the staged archive and registry upload always record a concrete pin — see
-xref:packages.adoc#publish-version-latest[Publisher version latest].
+xref:dependencies/publishing/packages.adoc#publish-version-latest[Publisher version latest].
 
 == Develop vs package downloads
 
@@ -83,7 +83,7 @@ widget = cuppa.package_dependency(
 
 It is metadata: nothing about consuming the package reads it. Two workflows do.
 xref:dependencies/managing/develop.adoc#package-dependencies[`--clone-develop`] uses it to create
-the develop working copy above, and xref:packages.adoc#build-and-publish-dependencies[cascade]
+the develop working copy above, and xref:dependencies/publishing/packages.adoc#build-and-publish-dependencies[cascade]
 uses it to find the project that publishes the package. An optional `@branch` pin may be given,
 and `--<name>-<manager>-package-source=` overrides the declaration for one run.
 

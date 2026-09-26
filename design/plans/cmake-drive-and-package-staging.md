@@ -191,7 +191,7 @@ Deprecation text style (match existing Cuppa warnings): e.g. `env.Using() is dep
 
 ## Cuppa → CMake mapping (docs core)
 
-Antora section under [`packages.adoc`](../../docs/modules/ROOT/pages/packages.adoc) (“Publishing from an external CMake build”), cross-link from [`custom-commands.adoc`](../../docs/modules/ROOT/pages/methods/custom-commands.adoc).
+Antora section under [`dependencies/publishing/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/packages.adoc) (“Publishing from an external CMake build”), cross-link from [`custom-commands.adoc`](../../docs/modules/ROOT/pages/methods/custom-commands.adoc).
 
 | Cuppa surface | Typical CMake flag / use | Notes |
 |---------------|--------------------------|-------|

@@ -1,0 +1,68 @@
+= Building with package dependencies
+:description: Green tip builds against nested GitLab packages without learning how to publish them
+
+A tip application can depend on a deep stack of GitLab registry packages and still build
+without you learning how those packages are published. Cuppa resolves the tip's declared
+packages, fetches or reuses extracts under storage, and follows traveling manifests so the
+**consume** closure is available for compile and link.
+
+This page is the Using story. Cascade plan/clone/nest-publish belongs under
+xref:dependencies/publishing.adoc[Publishing dependencies] when you maintain that stack.
+
+== Declaring tip packages
+
+In the tip's `sconstruct` (or defaults), declare registry packages the same way as any other
+consumer:
+
+* `cuppa.package_dependency(...)` / project defaults
+* `env.BuildWith(...)` on libraries and tests that need those packages
+
+See xref:dependencies/using/packages.adoc[Package dependencies] and
+xref:dependencies/using/gitlab.adoc[GitLab packages] for authentication, `latest`, and
+lookup overrides.
+
+You do **not** need `--publish-package` or `--publish-cascade-dependencies` for a normal tip
+build against packages that already exist in the registry (or that `--develop` will satisfy
+locally).
+
+== What Cuppa does on build
+
+1. Resolves each tip package identity for the active toolchain and variant.
+2. Downloads or reuses the archive under `--downloads-root` / extracts under
+   `--dependencies-root`.
+3. Reads traveling manifests so nested package requirements are present for **consume** —
+   the tip build does not run a nest publish to obtain them.
+
+If a required identity is missing from the registry and you are not using develop copies,
+configure fails with a clear package miss (for example a `404`) before compile starts.
+
+== Optional develop copies
+
+When you have configured local working copies for some package identities, `--develop` can
+satisfy those identities from disk instead of a registry round-trip. That is still a
+**consume** workflow: you are pointing Cuppa at trees you already have, not publishing them.
+
+For branch health, cleanliness, and `--update-develop`, see
+xref:dependencies/managing/develop.adoc[Checking your develop copies].
+
+== Inspecting what storage holds
+
+After builds, `--list-dependencies` shows what is on disk. By default
+(`--list-scope=all`) Cuppa groups **used** (this resolve) separately from **unused**
+(present but not selected). Compare:
+
+* xref:dependencies/managing/list-dependencies.adoc[Listing dependency trees] — Option A
+  scopes (`all`, `resolve`, `referenced`, `unreferenced`, `compact`)
+* Requires samples: tip `requires` forests under used vs unused, and the paired
+  `all` vs `resolve` outputs on that page
+
+You can read those reports as a tip consumer without opening cascade maintainer docs.
+
+== When to open Publishing
+
+Go to xref:dependencies/publishing.adoc[Publishing dependencies] when you:
+
+* Upload or amend a Cuppa-built library to a registry
+* Cascade-build and nest-publish a package DAG
+* Cold-start missing nest packages that do not exist yet
+* List or update **publisher** working copies (`--list-publishers`)
