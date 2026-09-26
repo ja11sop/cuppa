@@ -287,10 +287,16 @@ a|
 include::partial$cli-examples/glance-force-wipe-mixed.html[]
 ++++
 
-| Orphan sweep (list first)
+| List orphan / unreferenced leftover trees
 a|
 ++++
-include::partial$cli-examples/glance-orphan-sweep.html[]
+include::partial$cli-examples/glance-list-unreferenced.html[]
+++++
+
+| Reclaim storage from orphaned (unreferenced) dependencies
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-unreferenced.html[]
 ++++
 
 |===
