@@ -128,6 +128,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   AsciiDoc cell counts; the versioning ``done`` vs ``shipped`` anchor sits above
   its heading to avoid a duplicate-id warning.
 
+- ``--list-dependencies`` / ``--list-downloads`` **Option A scopes**: default
+  ``--list-scope=all`` uses **usage** grouping (``used`` then ``unused`` —
+  unused siblings of tip identities park under ``unused``). ``resolve`` keeps
+  Pass A **resolve-identity** grouping (``referenced`` / ``unreferenced``,
+  siblings stay under referenced identities). ``referenced`` /
+  ``unreferenced`` filter those identity sections; ``compact`` is **used-only**
+  (resolve-bound leaves). Leaf bind (``referenced`` / wipe) is unchanged.
+  Design:
+  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md).
+
 ### Fixed
 
 - ``--list-dependencies`` no longer paints every child under a missing package

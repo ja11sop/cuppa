@@ -41,11 +41,11 @@ RULE = '-'
 # Leaf states that belong in the remove-name hint (project trees for the current selection).
 _REMOVAL_HINT_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
-_LIST_SCOPES = frozenset( ( 'all', 'referenced', 'unreferenced', 'compact' ) )
+_LIST_SCOPES = frozenset( ( 'all', 'resolve', 'referenced', 'unreferenced', 'compact' ) )
 
 _LIST_SCOPE_STATES = {
     'all': None,
-    # compact: only resolve-selected / missing / develop-shadowed leaves (no unused siblings).
+    # compact: only resolve-selected / missing / develop-shadowed leaves (used-only).
     'compact': dependency_tree.REFERENCED_STATES,
     'unreferenced': frozenset( ( 'unreferenced', ) ),
 }
@@ -219,16 +219,30 @@ def _referenced_identity_keys( rows ):
     return keys
 
 
-def _filter_rows_for_scope( rows, scope ):
-    """Return rows for a list scope.
+def _grouping_for_scope( scope ):
+    """``usage`` (used/unused) vs ``identity`` (referenced/unreferenced)."""
+    if scope in ( 'all', 'compact' ):
+        return 'usage'
+    return 'identity'
 
-    ``referenced`` keeps every leaf under an identity that has at least one
-    resolve-selected / missing / cached leaf (unused siblings stay visible).
-    ``compact`` is a refinement of ``referenced``: only those selected states
-    (never the unreferenced section). ``unreferenced`` keeps identities with
-    no selected leaf.
+
+def _section_label_for_scope( scope ):
+    """Which tree section to keep when scope is not a both-sections view."""
+    if scope == 'compact':
+        return 'used'
+    if scope in ( 'referenced', 'unreferenced' ):
+        return scope
+    return None
+
+
+def _filter_rows_for_scope( rows, scope ):
+    """Return rows for a list scope (Option A).
+
+    ``all`` / ``resolve`` keep every row (grouping differs). ``compact`` keeps
+    resolve-bound leaves only. ``referenced`` / ``unreferenced`` use resolve-identity
+    membership (unused siblings stay with a referenced identity).
     """
-    if scope == 'all':
+    if scope in ( 'all', 'resolve' ):
         return list( rows )
     if scope == 'compact':
         states = _LIST_SCOPE_STATES['compact']
@@ -248,18 +262,20 @@ def _filter_rows_for_scope( rows, scope ):
 
 
 def apply_list_scope( data, scope, tree_builder=None ):
-    """Filter listing data to ``all``, ``referenced``, ``unreferenced``, or ``compact``.
+    """Filter listing data for Option A scopes.
 
     Used by ``--list-dependencies`` and ``--list-downloads``. Rebuilds the hierarchical
     tree and size rollups so text and JSON stay consistent.
     """
     scope = normalise_list_scope( scope )
+    grouping = _grouping_for_scope( scope )
     rows = _filter_rows_for_scope( data.get( 'rows' ) or [], scope )
     filtered = dict( data )
     filtered['rows'] = rows
     filtered['scope'] = scope
-    # Tokens are computed before the scope filter. Compact hides unused siblings,
-    # so do not advertise wipe candidates the tree cannot show.
+    filtered['grouping'] = grouping
+    # Tokens are computed before the scope filter. Used-only compact hides unused
+    # siblings, so do not advertise wipe candidates the tree cannot show.
     if 'unqualified_duplicate_tokens' in data:
         if scope == 'compact':
             filtered['unqualified_duplicate_tokens'] = []
@@ -282,18 +298,21 @@ def apply_list_scope( data, scope, tree_builder=None ):
         else:
             tree_builder = dependency_tree.build_tree
 
-    tree = tree_builder( rows )
-    if scope != 'all':
-        # compact lands in the referenced section; keep that label for the tree.
-        section_label = 'referenced' if scope == 'compact' else scope
+    tree = tree_builder( rows, grouping=grouping )
+    section_label = _section_label_for_scope( scope )
+    if section_label is not None:
         tree = {
             'sections': [
                 section for section in ( tree.get( 'sections' ) or [] )
                 if section.get( 'label' ) == section_label and section.get( 'children' )
             ],
+            'grouping': grouping,
         }
     filtered['tree'] = tree
 
+    # compact is used-only (no unreferenced-state siblings). Identity ``referenced``
+    # still carries unused siblings, so keep counting their reclaimable bytes.
+    used_only = scope == 'compact'
     if downloads_listing:
         filtered['archive_count'] = sum(
                 1 for row in rows if row.get( 'role' ) == 'archive'
@@ -302,7 +321,7 @@ def apply_list_scope( data, scope, tree_builder=None ):
                 int( row.get( 'size_bytes' ) or 0 )
                 for row in rows if row.get( 'role' ) == 'archive'
         )
-        if scope in ( 'referenced', 'compact' ):
+        if used_only:
             filtered['unreferenced_bytes'] = 0
         else:
             filtered['unreferenced_bytes'] = sum(
@@ -313,7 +332,7 @@ def apply_list_scope( data, scope, tree_builder=None ):
         return filtered
 
     filtered['total_bytes'] = sum( int( row.get( 'size_bytes' ) or 0 ) for row in rows )
-    if scope in ( 'referenced', 'compact' ):
+    if used_only:
         filtered['unreferenced_bytes'] = 0
     else:
         filtered['unreferenced_bytes'] = sum(
@@ -404,17 +423,18 @@ def add_dependency_action_options( add_option ):
     )
     add_option(
         '--list-scope', dest='list_scope',
-        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
+        choices=( 'all', 'resolve', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
-        help="Which part --list-dependencies and --list-downloads show: all (default); "
-             "referenced (resolved identities, including unused siblings); "
-             "compact (refinement of referenced: resolve-selected leaves only); "
-             "or unreferenced. Orthogonal to --list-format. "
+        help="Which part --list-dependencies and --list-downloads show: all (default: "
+             "used then unused); resolve (referenced then unreferenced, unused siblings "
+             "stay under referenced identities); referenced / unreferenced (resolve-"
+             "identity sections only); compact (used-only: resolve-bound leaves). "
+             "Orthogonal to --list-format. "
              "Ignored by --list-builds and --list-develop",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
-        choices=( 'all', 'referenced', 'unreferenced', 'compact' ),
+        choices=( 'all', 'resolve', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
         help="Deprecated alias of --list-scope (kept for ~/.cuppaconfig compatibility)",
     )
@@ -1390,7 +1410,7 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
         )
 
     if (
-            scope in ( 'all', 'unreferenced' )
+            scope in ( 'all', 'resolve', 'referenced', 'unreferenced' )
             and any( row['state'] == 'unreferenced' for row in rows )
     ):
         out.write( "\n" )
@@ -1473,7 +1493,7 @@ def write_list_downloads_report( out, data, cuppa_env, verbose=False ):
         )
 
     if (
-            ( data.get( 'scope' ) or 'all' ) in ( 'all', 'unreferenced' )
+            ( data.get( 'scope' ) or 'all' ) in ( 'all', 'resolve', 'referenced', 'unreferenced' )
             and any(
                     row.get( 'state' ) == 'unreferenced' and row.get( 'role' ) == 'archive'
                     for row in rows

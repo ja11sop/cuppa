@@ -89,7 +89,7 @@ def _download_data( rows ):
     }
 
 
-def test_scope_all_keeps_every_row():
+def test_scope_all_uses_usage_grouping():
     rows = [
             _row( 'widget', 'referenced', 50 ),
             _row( 'orphan', 'unreferenced', 20 ),
@@ -97,7 +97,21 @@ def test_scope_all_keeps_every_row():
     ]
     filtered = dependency_actions.apply_list_scope( _data( rows ), 'all' )
     assert filtered['scope'] == 'all'
+    assert filtered['grouping'] == 'usage'
     assert len( filtered['rows'] ) == 3
+    labels = { section['label'] for section in filtered['tree']['sections'] }
+    assert labels == { 'used', 'unused' }
+
+
+def test_scope_resolve_uses_identity_grouping():
+    rows = [
+            _row( 'widget', 'referenced', 50 ),
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'resolve' )
+    assert filtered['scope'] == 'resolve'
+    assert filtered['grouping'] == 'identity'
+    assert len( filtered['rows'] ) == 2
     labels = { section['label'] for section in filtered['tree']['sections'] }
     assert labels == { 'referenced', 'unreferenced' }
 
@@ -110,6 +124,7 @@ def test_scope_referenced_drops_unreferenced_section():
     ]
     filtered = dependency_actions.apply_list_scope( _data( rows ), 'referenced' )
     assert filtered['scope'] == 'referenced'
+    assert filtered['grouping'] == 'identity'
     assert { row['dependency'] for row in filtered['rows'] } == { 'widget', 'absent' }
     assert filtered['unreferenced_bytes'] == 0
     assert filtered['missing_count'] == 1
@@ -121,8 +136,8 @@ def test_scope_referenced_drops_unreferenced_section():
     assert labels == [ 'referenced' ]
 
 
-def test_scope_referenced_keeps_unused_siblings_under_identity():
-    """referenced = whole identities that resolve, including unused sibling leaves."""
+def test_scope_referenced_keeps_unused_siblings():
+    """referenced keeps resolve-identity membership (siblings stay with the tip)."""
     rows = [
             {
                 **_row( 'boost', 'referenced', 100 ),
@@ -144,12 +159,18 @@ def test_scope_referenced_keeps_unused_siblings_under_identity():
     ]
     filtered = dependency_actions.apply_list_scope( _data( rows ), 'referenced' )
     assert filtered['scope'] == 'referenced'
-    assert len( filtered['rows'] ) == 2
     assert { row['path'] for row in filtered['rows'] } == {
             '/tmp/boost_1_91_0', '/tmp/boost_1_90_0',
     }
     assert filtered['total_bytes'] == 180
-    assert filtered['unreferenced_bytes'] == 0
+    assert filtered['unreferenced_bytes'] == 80
+
+    as_all = dependency_actions.apply_list_scope( _data( rows ), 'all' )
+    labels = {
+            section['label'] for section in as_all['tree']['sections']
+            if section.get( 'children' )
+    }
+    assert labels == { 'used', 'unused' }
 
 
 def test_scope_referenced_keeps_gitlab_siblings_despite_registry_alias():
@@ -190,6 +211,18 @@ def test_scope_referenced_keeps_gitlab_siblings_despite_registry_alias():
                 labels.append( child.get( 'label' ) )
     assert any( 'boost_package' in ( label or '' ) for label in labels )
 
+    as_all = dependency_actions.apply_list_scope( _data( rows ), 'all' )
+    unused = next(
+            section for section in as_all['tree']['sections']
+            if section['label'] == 'unused'
+    )
+    unused_labels = []
+    for type_node in unused.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                unused_labels.append( child.get( 'label' ) or child.get( 'short_name' ) )
+    assert any( '1.90' in ( label or '' ) or 'boost' in ( label or '' ) for label in unused_labels )
+
 
 def test_scope_compact_keeps_only_selected_leaves():
     rows = [
@@ -213,17 +246,17 @@ def test_scope_compact_keeps_only_selected_leaves():
     ]
     filtered = dependency_actions.apply_list_scope( _data( rows ), 'compact' )
     assert filtered['scope'] == 'compact'
+    assert filtered['grouping'] == 'usage'
     assert len( filtered['rows'] ) == 1
     assert filtered['rows'][0]['path'] == '/tmp/boost_1_91_0'
     assert filtered['total_bytes'] == 100
     assert filtered['unreferenced_bytes'] == 0
-    # compact ⊆ referenced: tree stays on the referenced section label.
     labels = [
             section['label']
             for section in filtered['tree']['sections']
             if section.get( 'children' )
     ]
-    assert labels == [ 'referenced' ]
+    assert labels == [ 'used' ]
     assert all( row['state'] != 'unreferenced' for row in filtered['rows'] )
 
 
@@ -252,6 +285,12 @@ def test_downloads_scope_compact_drops_unused_sibling_archives():
     assert filtered['archive_count'] == 1
     assert filtered['total_bytes'] == 100
     assert filtered['unreferenced_bytes'] == 0
+    labels = [
+            section['label']
+            for section in filtered['tree']['sections']
+            if section.get( 'children' )
+    ]
+    assert labels == [ 'used' ]
 
 
 def test_downloads_scope_referenced_keeps_unused_sibling_archives():
@@ -279,10 +318,21 @@ def test_downloads_scope_referenced_keeps_unused_sibling_archives():
     }
     assert filtered['archive_count'] == 2
     assert filtered['total_bytes'] == 180
-    assert filtered['unreferenced_bytes'] == 0
+    assert filtered['unreferenced_bytes'] == 80
+
+    as_all = dependency_actions.apply_list_scope(
+            _download_data( rows ), 'all',
+            tree_builder=dependency_downloads.build_downloads_tree,
+    )
+    assert as_all['grouping'] == 'usage'
+    labels = {
+            section['label'] for section in as_all['tree']['sections']
+            if section.get( 'children' )
+    }
+    assert labels == { 'used', 'unused' }
 
 
-def test_scope_unreferenced_keeps_only_orphans():
+def test_scope_unreferenced_keeps_only_orphan_identities():
     rows = [
             _row( 'widget', 'referenced', 50 ),
             _row( 'orphan', 'unreferenced', 20 ),
@@ -300,10 +350,38 @@ def test_scope_unreferenced_keeps_only_orphans():
     assert labels == [ 'unreferenced' ]
 
 
+def test_scope_unreferenced_excludes_siblings_of_referenced_identities():
+    """Unused siblings stay with the tip identity; unreferenced is orphan-only."""
+    rows = [
+            {
+                **_row( 'boost', 'referenced', 100 ),
+                'qualifier': '1.91.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_91_0',
+            },
+            {
+                **_row( 'boost', 'unreferenced', 80 ),
+                'qualifier': '1.90.0',
+                'type': 'archive',
+                'kind': 'archive',
+                'short_name': 'boost',
+                'path': '/tmp/boost_1_90_0',
+            },
+            _row( 'orphan', 'unreferenced', 20 ),
+    ]
+    filtered = dependency_actions.apply_list_scope( _data( rows ), 'unreferenced' )
+    assert len( filtered['rows'] ) == 1
+    assert filtered['rows'][0]['path'] == '/tmp/orphan'
+    assert filtered['unreferenced_bytes'] == 20
+
+
 def test_scope_unknown_falls_back_to_all():
     rows = [ _row( 'widget', 'referenced' ), _row( 'orphan', 'unreferenced' ) ]
     filtered = dependency_actions.apply_list_scope( _data( rows ), 'nope' )
     assert filtered['scope'] == 'all'
+    assert filtered['grouping'] == 'usage'
     assert len( filtered['rows'] ) == 2
 
 
@@ -364,6 +442,7 @@ def test_normalise_list_scope_prefers_known_values():
     assert dependency_actions.normalise_list_scope( [ 'referenced' ] ) == 'referenced'
     assert dependency_actions.normalise_list_scope( 'UNREFERENCED' ) == 'unreferenced'
     assert dependency_actions.normalise_list_scope( 'compact' ) == 'compact'
+    assert dependency_actions.normalise_list_scope( 'resolve' ) == 'resolve'
 
 
 def test_mark_unqualified_duplicate_rows_only_unused_siblings():
@@ -482,7 +561,7 @@ def test_mark_unqualified_duplicate_rows_with_unreferenced_branch_sibling():
     assert rows[1].get( 'removal_candidate' ) == 'unqualified_duplicate'
 
 
-def test_apply_list_scope_drops_unqualified_tokens_for_compact():
+def test_apply_list_scope_drops_unqualified_tokens_for_compact_only():
     rows = [
             {
                 **_row( 'widget', 'referenced', 100 ),
@@ -501,3 +580,4 @@ def test_apply_list_scope_drops_unqualified_tokens_for_compact():
     assert len( compact['rows'] ) == 1
     referenced = dependency_actions.apply_list_scope( data, 'referenced' )
     assert referenced['unqualified_duplicate_tokens'] == [ 'widget/@' ]
+    assert len( referenced['rows'] ) == 2

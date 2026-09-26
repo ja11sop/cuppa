@@ -26,12 +26,15 @@ def _leaf( dependency, state, size_bytes=100, storage_type='repository', qualifi
     }
 
 
-def _referenced_summaries( tree ):
+def _primary_summaries( tree ):
     sections = tree.get( 'sections' ) or []
-    referenced = next( ( s for s in sections if s.get( 'label' ) == 'referenced' ), None )
-    assert referenced is not None
+    primary = next(
+            ( s for s in sections if s.get( 'label' ) in ( 'used', 'referenced' ) ),
+            None,
+    )
+    assert primary is not None
     return [
-            child for child in referenced.get( 'children' ) or []
+            child for child in primary.get( 'children' ) or []
             if child.get( 'kind' ) == 'summary'
     ]
 
@@ -47,7 +50,7 @@ def test_referenced_summary_splits_missing_from_stale():
     leaves[2]['qualifier'] = '@master'
 
     tree = dependency_tree.build_tree( leaves )
-    summaries = { row['label']: row for row in _referenced_summaries( tree ) }
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
 
     assert 'dependencies in use' in summaries
     assert summaries['dependencies in use']['remark'] == '1 used'
@@ -63,7 +66,7 @@ def test_referenced_summary_keeps_stale_for_non_missing_unused():
             _leaf( 'cached_stem', 'cached' ),
     ]
     tree = dependency_tree.build_tree( leaves )
-    summaries = { row['label']: row for row in _referenced_summaries( tree ) }
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
 
     assert summaries['dependencies in use']['remark'] == '1 used'
     assert 'missing dependencies' not in summaries
@@ -126,7 +129,7 @@ def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
                     str( package_dir ), state='referenced',
             ),
     ] )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
     requires = _find_kind( referenced, 'requires' )
     assert requires is not None
     assert requires['label'] == 'requires'
@@ -151,7 +154,7 @@ def test_gitlab_tree_shows_requires_from_preloaded_entries():
                     ],
             ),
     ] )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
     requires = _find_kind( referenced, 'requires' )
     assert requires is not None
     assert requires['children'][0]['label'] == 'beta 2.0.0'
@@ -235,7 +238,7 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
     leaves[3]['size_bytes'] = 4000
 
     tree = dependency_tree.build_tree( leaves )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
 
     top_names = set()
     for type_node in referenced.get( 'children' ) or []:
@@ -393,6 +396,8 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     tree = dependency_tree.build_tree( leaves )
     identity = None
     for section in tree['sections']:
+        if section.get( 'label' ) != 'used':
+            continue
         for type_node in section.get( 'children' ) or []:
             if type_node.get( 'kind' ) != 'type':
                 continue
@@ -406,8 +411,26 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
             for child in identity['children']
             if child.get( 'kind' ) == 'version'
     }
+    assert set( versions ) == { '3.9.0' }
     assert versions['3.9.0'].get( 'has_missing_leaf' ) is True
-    assert versions['2.28.0'].get( 'has_missing_leaf' ) is not True
+
+    # Unused siblings (including older versions) sit under unused (usage grouping).
+    unused_identity = None
+    for section in tree['sections']:
+        if section.get( 'label' ) != 'unused':
+            continue
+        for type_node in section.get( 'children' ) or []:
+            for child in type_node.get( 'children' ) or []:
+                if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'cloud':
+                    unused_identity = child
+    assert unused_identity is not None
+    unused_versions = {
+            child['label']
+            for child in unused_identity['children']
+            if child.get( 'kind' ) == 'version'
+    }
+    assert '2.28.0' in unused_versions
+    assert '3.9.0' in unused_versions
 
     was_colour = colouriser.use_colour
     colouriser.enable()

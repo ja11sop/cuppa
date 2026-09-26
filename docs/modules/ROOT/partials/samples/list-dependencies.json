@@ -116,7 +116,7 @@
                     }
                 ],
                 "kind": "section",
-                "label": "referenced",
+                "label": "used",
                 "last_used": "today",
                 "location": "",
                 "remark": "1 total",
@@ -164,7 +164,7 @@
                     }
                 ],
                 "kind": "section",
-                "label": "unreferenced",
+                "label": "unused",
                 "last_used": "today",
                 "location": "",
                 "remark": "",

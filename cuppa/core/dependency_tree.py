@@ -198,7 +198,7 @@ def _identity_label( registry_name, short_name, section, remote_location=None, m
         detail = remote_location
     else:
         detail = short_name or registry_name or '-'
-    if section == 'referenced' and registry_name:
+    if section in ( 'referenced', 'used' ) and registry_name:
         if detail and detail != registry_name:
             return (
                 '{} [{}]'.format( registry_name, detail ),
@@ -256,8 +256,12 @@ def _sum_measured_sizes( items, size_attr='size_bytes' ):
     return total if saw else None
 
 
-def build_tree( leaves ):
+def build_tree( leaves, grouping='usage' ):
     """Group enriched leaves into section → type → identity → variant nodes.
+
+    ``grouping`` is ``usage`` (default: ``used`` / ``unused`` sections) or
+    ``identity`` (resolve view: ``referenced`` / ``unreferenced``, unused siblings
+    stay under referenced identities).
 
     Each leaf needs: type, short_name, stem, dependency (registry), qualifier,
     tool_variant, state, size_bytes, last_used_epoch, path, source_url,
@@ -265,6 +269,7 @@ def build_tree( leaves ):
     """
     leaves = list( leaves or [] )
     promote_requires_closure( leaves )
+    grouping = 'identity' if grouping == 'identity' else 'usage'
 
     groups = {}  # (type, group_key) -> dict
     nest_groups = {}  # normalised family -> group dict (closure-only gitlab)
@@ -324,20 +329,49 @@ def build_tree( leaves ):
 
     nest_index = nest_groups
 
-    referenced_idents = []
-    unreferenced_idents = []
+    primary_idents = []
+    secondary_idents = []
 
     for group in groups.values():
-        leaves_in = group['leaves']
-        pulls_referenced = any( leaf.get( 'state' ) in REFERENCED_STATES for leaf in leaves_in )
-        section = 'referenced' if pulls_referenced else 'unreferenced'
-        identity = _build_identity(
-                group, section, nest_index=nest_index, expand_requires_closure=True,
-        )
-        if section == 'referenced':
-            referenced_idents.append( identity )
-        else:
-            unreferenced_idents.append( identity )
+        if grouping == 'identity':
+            pulls_referenced = any(
+                    leaf.get( 'state' ) in REFERENCED_STATES for leaf in group['leaves']
+            )
+            section = 'referenced' if pulls_referenced else 'unreferenced'
+            identity = _build_identity(
+                    group,
+                    section,
+                    nest_index=nest_index if pulls_referenced else None,
+                    expand_requires_closure=pulls_referenced,
+            )
+            if pulls_referenced:
+                primary_idents.append( identity )
+            else:
+                secondary_idents.append( identity )
+            continue
+
+        selected = [
+                leaf for leaf in group['leaves']
+                if leaf.get( 'state' ) in REFERENCED_STATES
+        ]
+        orphans = [
+                leaf for leaf in group['leaves']
+                if leaf.get( 'state' ) not in REFERENCED_STATES
+        ]
+        if selected:
+            primary_idents.append( _build_identity(
+                    _group_with_leaves( group, selected ),
+                    'used',
+                    nest_index=nest_index,
+                    expand_requires_closure=True,
+            ) )
+        if orphans:
+            secondary_idents.append( _build_identity(
+                    _group_with_leaves( group, orphans ),
+                    'unused',
+                    nest_index=None,
+                    expand_requires_closure=False,
+            ) )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
@@ -349,12 +383,75 @@ def build_tree( leaves ):
                 ( node.get( 'registry_name' ) or node.get( 'short_name' ) or '' ).lower(),
         ) )
 
+    if grouping == 'identity':
+        return {
+            'sections': [
+                _build_section( 'referenced', sort_idents( primary_idents ) ),
+                _build_section( 'unreferenced', sort_idents( secondary_idents ) ),
+            ],
+            'grouping': grouping,
+        }
     return {
         'sections': [
-            _build_section( 'referenced', sort_idents( referenced_idents ) ),
-            _build_section( 'unreferenced', sort_idents( unreferenced_idents ) ),
+            _build_section( 'used', sort_idents( primary_idents ) ),
+            _build_section( 'unused', sort_idents( secondary_idents ) ),
         ],
+        'grouping': grouping,
     }
+
+
+def _group_with_leaves( group, leaves ):
+    """Copy an identity group, keeping only ``leaves`` and recomputing registry labels."""
+    storage_type = group['type']
+    group_key = group['short_name']
+    out = {
+            'type': storage_type,
+            'short_name': group_key,
+            'registry_name': None,
+            'remote_location': group.get( 'remote_location' ),
+            'leaves': list( leaves ),
+            'family_key': group.get( 'family_key' ),
+    }
+    for leaf in leaves:
+        if leaf.get( 'state' ) in REFERENCED_STATES and leaf.get( 'dependency' ):
+            name = leaf['dependency']
+            if (
+                    name
+                    and name != group_key
+                    and not name.startswith( 'git_' )
+                    and not name.startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+            elif (
+                    out['registry_name'] is None
+                    and name
+                    and not name.startswith( 'git_' )
+                    and not name.startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+        if leaf.get( 'remote_location' ) and not out.get( 'remote_location' ):
+            out['remote_location'] = leaf['remote_location']
+        elif leaf.get( 'source_url' ) and not out.get( 'remote_location' ):
+            out['remote_location'] = leaf['source_url']
+    # Orphan-only gitlab rows still prefer a registry-shaped dependency name when present.
+    if out['registry_name'] is None:
+        for leaf in leaves:
+            name = leaf.get( 'dependency' )
+            if (
+                    name
+                    and name != out['short_name']
+                    and not str( name ).startswith( 'git_' )
+                    and not str( name ).startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+                break
+    return out
 
 
 def _build_identity( group, section, nest_index=None, expand_requires_closure=False ):
@@ -614,7 +711,11 @@ def _requires_entries_from_variants( variants, in_use_only=False ):
 
 def _requires_group_for_variants( variants, nest_index=None, expand_requires_closure=False ):
     """Return a ``requires`` group node from the best readable package manifest."""
-    entries = _requires_entries_from_variants( variants )
+    entries = _requires_entries_from_variants( variants, in_use_only=True )
+    # Orphan-only versions (nothing tip-selected under this identity) still show
+    # their declared edges; tip versions prefer in-use extracts only.
+    if not entries:
+        entries = _requires_entries_from_variants( variants, in_use_only=False )
     if not entries:
         return None
     tip_is_selected = any(
@@ -992,7 +1093,9 @@ def _build_section( name, identities ):
 
     children = []
     remark = ''
-    if name == 'referenced' and type_nodes:
+    # Resolve-identity ``referenced`` and usage ``used`` both get in-use / missing /
+    # stale roll-ups (stale only when unused siblings still hang under the section).
+    if name in ( 'referenced', 'used' ) and type_nodes:
         used_bytes = None
         unused_bytes = None
         missing_bytes = None
@@ -1076,9 +1179,9 @@ def _build_section( name, identities ):
         children.append( _spacer_node() )
 
     for index, type_node in enumerate( type_nodes ):
-        # Empty row above each type group. Referenced already has a spacer after
+        # Empty row above each type group. Referenced/used already have a spacer after
         # the used/unused summaries before the first type.
-        if name != 'referenced' or index > 0:
+        if name not in ( 'referenced', 'used' ) or index > 0:
             children.append( _spacer_node() )
         wrapped = dict( type_node )
         # Spacers between identities are already in type_node children.
@@ -1427,7 +1530,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location
             )
-        elif section == 'unreferenced':
+        elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
                 if label_name:
                     label = _colour_identity_label(
@@ -1439,7 +1542,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
-        elif section == 'referenced':
+        elif section in ( 'referenced', 'used' ):
             if kind == 'identity':
                 if label_name:
                     label = _colour_identity_label(

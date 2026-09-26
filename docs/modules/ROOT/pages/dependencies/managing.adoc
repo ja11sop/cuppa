@@ -46,8 +46,10 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 cuppa -Q -D --list-dependencies
 ----
 
-Resolve marks the tree this project would use (without develop) as `referenced`, and sibling
-branches or other leftovers as `unreferenced`. That is the listing to use before reclaiming disk.
+Resolve marks the tree this project would use (without develop) with leaf state
+`referenced`, and sibling branches or other leftovers as `unreferenced`. The default listing
+groups those as **used** then **unused**; pass ``--list-scope=resolve`` for the Pass A
+referenced / unreferenced identity view. That is the listing to use before reclaiming disk.
 
 **Inspecting develop checkouts** — also omit `--develop` unless you want the banner to say it is
 active; the table is the same either way:

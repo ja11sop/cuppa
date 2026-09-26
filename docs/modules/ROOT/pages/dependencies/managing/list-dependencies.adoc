@@ -10,21 +10,27 @@ last used, remark (`in use` / `N used` when more than one leaf is selected / `mi
 (text and verbose only; omitted for JSON). When inventory sizes are missing or only sampled
 estimates, it prints a short notice and upgrades those trees to exact sizes (the first run on a
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
-remeasure of every tree. Rows are grouped referenced first then unreferenced,
-then by type (repository dependencies, gitlab packages, source archives, …), then by short name or
+remeasure of every tree. Rows are grouped **used** first then **unused** by default
+(usage grouping), then by type (repository dependencies, gitlab packages, source
+archives, …), then by short name or
 registry name, with branch or version children underneath. For tip-selected GitLab package
 extracts that contain ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``), a
 ``requires`` group nests the on-disk **package closure** as sized identity trees (versions →
 toolchains). Nested packages keep label-style ``requires`` edges (name, version, optional
-``libs: …``). Closure-only packages leave the top-level unreferenced list and are protected from
+``libs: …``). Closure-only packages leave the top-level unused / unreferenced lists and are
+protected from
 ``--force-wipe-unreferenced-dependencies``. See
 xref:dependencies/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
 On-disk paths are omitted by
 default; pass `--list-format=verbose` to add a LOCATION column, or `--list-format=json` for a
 machine-readable tree (plus flat `entries`, including a ``requires`` array on GitLab leaves).
-Default dependencies that are expected but absent appear as `missing`. Referenced section
+Default dependencies that are expected but absent appear as `missing`. The used / referenced
+section
 roll-ups separate `dependencies in use`, `missing dependencies` (when any expected trees are
-absent), and only then `potentially stale dependencies` for other non-selected referenced leaves.
+absent), and only then `potentially stale dependencies` for other non-selected bound
+leaves (for example develop-shadowed stems). Unused on-disk siblings of tip identities appear
+under the **unused** section by default (use ``--list-scope=resolve`` to keep them under the
+same **referenced** identity).
 It exits without building (exit 0 even when some rows are missing). See
 xref:integration/test-list-dependencies.adoc[`test_list_dependencies`] for the integration
 scenario.
@@ -32,6 +38,7 @@ scenario.
 [source,shell]
 ----
 cuppa -Q -D --list-dependencies
+cuppa -Q -D --list-dependencies --list-scope=resolve
 cuppa -Q -D --list-dependencies --list-scope=referenced
 cuppa -Q -D --list-dependencies --list-scope=compact
 cuppa -Q -D --list-dependencies --list-format=verbose
@@ -39,28 +46,32 @@ cuppa -Q -D --list-dependencies --list-format=json
 cuppa -Q -D --list-dependencies --exact-sizes
 ----
 
-`--list-scope` selects which part of the listing to show. The values nest:
+`--list-scope` selects which part of the listing to show. Leaf bind
+(`referenced` / `missing` / `cached` vs `unreferenced`) is unchanged; scope chooses
+**report grouping** and which rows appear:
 
-* `all` (default) — referenced section, then unreferenced
-* `referenced` — resolved identities only, **including** unused siblings under those
-  identities (other versions / branches next to `in use`). For GitLab packages the identity
-  is the registry name (for example `boost_package`); siblings share the on-disk package
-  folder (`boost/<version>`), so an unused version stays in this section rather than under
-  `unreferenced`
-* `compact` — a refinement of `referenced`: resolve-selected leaves only
-  (`in use` / `missing` / develop-shadowed). No unused siblings, and never the
-  unreferenced section
-* `unreferenced` — leftover identities this project does not resolve
+* `all` (default) — **usage** grouping: `used` then `unused`. Unused versions /
+  toolchains of tip identities sit under **unused**.
+* `resolve` — **resolve-identity** grouping: `referenced` then `unreferenced`.
+  Unused siblings stay under the same referenced identity (Pass A shape).
+* `referenced` — resolve-identity filter: identities with at least one
+  resolve-bound leaf (siblings included); referenced section only.
+* `unreferenced` — resolve-identity filter: identities with no resolve-bound leaf
+  (orphan leftovers only — not unused siblings of tips).
+* `compact` — **used-only**: resolve-bound leaves (`in use` / `missing` /
+  develop-shadowed); used section only.
 
-`compact` therefore implies `referenced`; it is not an orthogonal axis from
-`--list-format`. You can still combine any scope with `verbose` or `json`. Persist a
-preference in `~/.cuppaconfig` or `configure.conf` as `list_scope = 'referenced'`.
+`compact` is the short used-only view; it is not the same as `referenced`.
+You can still combine any scope with `verbose` or `json`. Persist a preference in
+`~/.cuppaconfig` or `configure.conf` as `list_scope = 'resolve'` or
+`list_scope = 'compact'`.
 `--list-dependencies-scope` remains as a deprecated alias.
 
 == Example listing shape
 
 Sizes and names vary; glyphs may be ASCII on some consoles. Every horizontal rule — including
-the one between `referenced` and `unreferenced` — spans the full table width (the same run of
+the one between `used` and `unused` (or `referenced` and `unreferenced` under
+``--list-scope=resolve``) — spans the full table width (the same run of
 hyphen characters as the header and footer rules), not a short separator. Listing samples are
 rendered by `python -m scripts.generate_doc_samples` through the same formatters the CLI uses:
 

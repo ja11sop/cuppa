@@ -3,7 +3,7 @@ Default dependencies: boost, boost_package
   -----------------------------------------------------------------------------
       SIZE  LAST USED  REMARK   DEPENDENCY / DOWNLOAD
   -----------------------------------------------------------------------------
-      180M  today      2 total  referenced from downloads
+      180M  today      2 total  used downloads
                                 │
        38M  today      1 used   ├── gitlab packages
                                 │   │
@@ -17,7 +17,7 @@ Default dependencies: boost, boost_package
       142M  today      in use           └── boost_1_91_0.tar.bz2
       2.1G  today      in use               └── [E] boost/1.91.0
   -----------------------------------------------------------------------------
-       36M  today               unreferenced downloads
+       36M  today               unused downloads
                                 │
        36M  today               └── gitlab packages
                                     │

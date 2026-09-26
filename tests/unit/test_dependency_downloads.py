@@ -95,10 +95,10 @@ def test_build_downloads_tree_splits_referenced_and_orphan():
     ]
     tree = dependency_downloads.build_downloads_tree( rows )
     sections = { section['label']: section for section in tree['sections'] }
-    assert sections['referenced']['size_bytes'] == 100
-    assert sections['unreferenced']['size_bytes'] == 50
-    assert sections['referenced']['display_label'] == 'referenced from downloads'
-    assert sections['unreferenced']['display_label'] == 'unreferenced downloads'
+    assert sections['used']['size_bytes'] == 100
+    assert sections['unused']['size_bytes'] == 50
+    assert sections['used']['display_label'] == 'used downloads'
+    assert sections['unused']['display_label'] == 'unused downloads'
 
     def leaves( node, found=None ):
         found = found if found is not None else []
@@ -108,7 +108,7 @@ def test_build_downloads_tree_splits_referenced_and_orphan():
             leaves( child, found )
         return found
 
-    ref_leaves = leaves( sections['referenced'] )
+    ref_leaves = leaves( sections['used'] )
     assert [ leaf['label'] for leaf in ref_leaves ] == [
             'boost_1_91_0.tar.gz', '[E] boost/1.91.0',
     ]
@@ -119,12 +119,12 @@ def test_build_downloads_tree_splits_referenced_and_orphan():
 
     type_labels = [
             child.get( 'label' )
-            for child in sections['referenced'].get( 'children' ) or []
+            for child in sections['used'].get( 'children' ) or []
             if child.get( 'kind' ) == 'type'
     ]
     assert 'source archives' in type_labels
 
-    unref_leaves = leaves( sections['unreferenced'] )
+    unref_leaves = leaves( sections['unused'] )
     assert [ leaf['label'] for leaf in unref_leaves ] == [ 'orphan.tar.gz' ]
     assert unref_leaves[0].get( 'children' ) == []
 
@@ -274,7 +274,7 @@ def test_collect_gitlab_matches_package_folder_to_registry_name( tmp_path, monke
     assert unref_archives[0]['short_name'] == 'boost_package'
 
     tree = data['tree']
-    ref = next( section for section in tree['sections'] if section['label'] == 'referenced' )
+    ref = next( section for section in tree['sections'] if section['label'] == 'used' )
 
     def find_archive_leaf( node, name ):
         if node.get( 'kind' ) == 'leaf' and node.get( 'label' ) == name:

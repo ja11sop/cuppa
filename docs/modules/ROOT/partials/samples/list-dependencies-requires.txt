@@ -3,7 +3,7 @@ Default dependencies: alpha
   -------------------------------------------------------------------------------------
       SIZE  LAST USED  REMARK       DEPENDENCY
   -------------------------------------------------------------------------------------
-       24K  today      3 total      referenced
+       24K  today      3 total      used
                                     │
        24K  today      3 used       ├── dependencies in use
                                     │
