@@ -1492,6 +1492,26 @@ footer.footer {
   color: var(--cuppa-brand-dark);
 }
 
+/*
+ * Doc placeholders: prefer <name> / <...> over a Unicode ellipsis glyph.
+ * Authors: [.cuppa-ph]`+`<abi>`+` or [.cuppa-ph-focus]`+`<abi>`+` with
+ * optional [.cuppa-ph-context]#surrounding text#.
+ */
+.doc .cuppa-ph,
+.doc code.cuppa-ph {
+  color: var(--cuppa-text-muted);
+}
+
+.doc .cuppa-ph-focus,
+.doc code.cuppa-ph-focus {
+  color: var(--cuppa-brand-dark);
+  font-weight: 600;
+}
+
+.doc .cuppa-ph-context {
+  color: var(--cuppa-text-muted);
+}
+
 @media print {
   .navbar {
     border-bottom: none;

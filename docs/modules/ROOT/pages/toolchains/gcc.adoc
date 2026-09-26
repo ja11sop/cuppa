@@ -13,7 +13,7 @@ Upstream project: https://gcc.gnu.org/[gcc.gnu.org] ·
 Option index: https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html[GCC Option Summary].
 
 In Cuppa, supported aliases include the generic `gcc` (whatever `g{plus}{plus}` on `PATH` reports)
-plus versioned names through **gcc16** (for example `gcc16`, `gcc162`, `gcc15`, …).
+plus versioned names through **gcc16** (for example `gcc16`, `gcc162`, `gcc15`, <...>).
 Only toolchains actually present on the machine become available.
 
 [source,sh]

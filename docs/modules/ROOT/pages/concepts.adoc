@@ -216,7 +216,7 @@ Common keyword arguments to `cuppa.run()`:
 `auto_enable_dependencies` is not a second import list. Put a **custom** factory in
 `import_dependencies` to bring it into the session; put the same factory (or its
 `.name()` string) in `auto_enable_dependencies` to auto-enable it. A custom factory only in
-`auto_enable_dependencies` both imports and auto-enables. Built-ins (`boost`, `qt5`, …) and
+`auto_enable_dependencies` both imports and auto-enables. Built-ins (`boost`, `qt5`, <...>) and
 pip entry-point plugins are already imported — list them only under `auto_enable_dependencies`
 when you want every sconscript to `BuildWith` them.
 

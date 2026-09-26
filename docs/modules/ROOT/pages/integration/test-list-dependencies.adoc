@@ -22,7 +22,7 @@ A local location tree under `--storage-root` is listed without stamping `used_by
 Planted unqualified and `stem@master` copies of the same VCS identity list as one family: the
 unqualified row is labelled `@master (unqualified)` (remove-coloured when unused beside an
 `in use` peer). The listing footer recommends a dry-run
-`--force-wipe-dependencies=…/@` command (including under `--list-scope=compact`).
+`--force-wipe-dependencies=<...>/@` command (including under `--list-scope=compact`).
 
 A second fixture plants GitHub release extracts, a Boost source archive, a GitLab package tree,
 and matching files under `downloads/`. Verbose listing then checks:
@@ -102,7 +102,7 @@ cuppa -D --offline --list-dependencies --exact-sizes --storage-root=<storage>
 == Expectations
 
 Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree name, and
-`unreferenced`. The first listing may print `Measuring exact sizes…` when inventory sizes are
+`unreferenced`. The first listing may print `Measuring exact sizes...` when inventory sizes are
 missing; a second listing reuses the cache. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
 `dependencies_root`. The planted tree remains on disk after listing.
 

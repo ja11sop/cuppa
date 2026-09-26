@@ -91,8 +91,8 @@ Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JS
 
 Useful methods:
 
-* `env.Coverage(program, sources, include_patterns=…, exclude_dependencies=…)`
-* `env.CollateCoverageFiles(sources, destination=…)`
+* `env.Coverage(program, sources, include_patterns=<...>, exclude_dependencies=<...>)`
+* `env.CollateCoverageFiles(sources, destination=<...>)`
 * `env.CollateCoverageIndex(...)` -- master index across tests/toolchains
 
 Consumer projects often write a master index under `_artefacts/coverage/` for browsing.

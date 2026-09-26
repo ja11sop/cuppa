@@ -33,7 +33,7 @@ Prefer Cuppa's specialised methods when they fit:
 | `Build()` / `Build*Lib()` — xref:methods/build.adoc[Build]
 
 | Run a binary under `--run` / `--test` / `--benchmark`
-| `Run()` / `BuildTest()` / … — xref:methods/test-run.adoc[Test and run]
+| `Run()` / `BuildTest()` / <...> — xref:methods/test-run.adoc[Test and run]
 
 | Copy or install files
 | `CopyFiles()` / `Install()` — xref:methods/staging-files.adoc[Staging files]
@@ -76,7 +76,7 @@ Do *not* write actions like:
 
 [source,python]
 ----
-# Avoid: "cd … && …" needs a shell; argv splitting breaks it
+# Avoid: "cd <...> && <...>" needs a shell; argv splitting breaks it
 env.Command(target, source, Action("cd $DIR && $COMMAND"))
 ----
 
@@ -98,7 +98,7 @@ Import('env')
 env.BuildTest(
     'cwd_probe',
     ['cwd_probe.cpp'],
-    working_dir=env['abs_final_dir'],  # process cwd; no "cd && …"
+    working_dir=env['abs_final_dir'],  # process cwd; no "cd && <...>"
 )
 ----
 
@@ -155,12 +155,12 @@ The motivation was interactive feedback: wrapping or buffering through the defau
 Reading incrementally from pipes lets cuppa print and colour warnings/errors as they appear.
 
 The trade-off is that this POSIX path does not go through a shell.
-Multi-part strings such as `Action("cd … && …")` therefore fail under default colourised output on Linux (`cd` is treated as the executable).
+Multi-part strings such as `Action("cd <...> && <...>")` therefore fail under default colourised output on Linux (`cd` is treated as the executable).
 
 Windows colourised `SPAWN` may still accept those strings because it reuses `PSPAWN`; that is a platform difference in the spawn wrapper, not a reason to use `cd &&` in portable sconscripts.
 
 * **POSIX + colourised output (default):** argv `IncrementalSubProcess` — multi-part shell strings fail.
-* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd … && …` (still not recommended for parallel-safe builds).
+* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd <...> && <...>` (still not recommended for parallel-safe builds).
 * **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
 ====
 

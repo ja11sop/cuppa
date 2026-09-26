@@ -10,9 +10,9 @@ plus plan / collect / clone / update companions. Conan graphs are out of scope.
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
 parents, then the tip). Cascade lets one tip command publish nested packages
 from their **publisher working trees**, then continue with the tip.
-Publisher trees may build with Cuppa methods (`BuildStaticLib`, `Install`, …),
+Publisher trees may build with Cuppa methods (`BuildStaticLib`, `Install`, <...>),
 external CMake, Boost.b2, or other `Command()` graphs — cascade only requires
-that nested ``cuppa … --publish-package`` can stage ``include/`` / ``lib/`` (or
+that nested ``cuppa <...> --publish-package`` can stage ``include/`` / ``lib/`` (or
 equivalent payload) and upload a GitLab archive.
 
 Pass ``--build-and-publish-dependencies`` with **exactly one** companion action:
@@ -85,7 +85,7 @@ Cuppa then:
   ``--publisher-root`` or the default ``<storage-root>/publishers`` forest
   (``\{root}/\{name}``, ``\{root}/\{package}``, or one nesting level), cloning from
   a ``package_source`` URL when you pass ``--clone-publishers``
-* Runs a nested ``cuppa -D … --publish-package`` for each dependency in
+* Runs a nested ``cuppa -D <...> --publish-package`` for each dependency in
   leaf-first order (**without** re-entering cascade)
 * After nested sessions that **actually upload** (or under ``--force``), refreshes
   the tip’s consume cache for that pin so the tip build sees the new artefacts —
@@ -129,7 +129,7 @@ Consume and ``--list-dependencies`` ``requires`` read the traveling file; legacy
 Cascade is **GitLab package** graphs only; Conan (and other package managers) are
 out of scope for these flags.
 
-Seed each direct package pin with ``package_source=…`` (or a develop publisher
+Seed each direct package pin with ``package_source=<...>`` (or a develop publisher
 tree under ``--develop``); transitive edges come from each resolved tree’s
 ``cuppa-publish.json``. Missing ``package_source`` / unresolved trees fail before
 nested uploads. A ``package_source`` URL needs either a tree that already exists
@@ -475,7 +475,7 @@ this run, the summary names both — for example
 === Updating publisher trees
 
 ``--collect-cascade`` reuses an existing forest tree as it stands — it does not
-fetch. When ``~/.cuppa/publishers/…`` (or a ``--publisher-root`` checkout) is
+fetch. When ``~/.cuppa/publishers/<...>`` (or a ``--publisher-root`` checkout) is
 behind its upstream, pass ``--update-publishers``. It uses the same gates as
 ``--update-develop``: fetch, then fast-forward only when the copy is clean,
 tracking an upstream, and strictly behind. Dirty, ahead, diverged, or detached
@@ -531,7 +531,7 @@ record a ``payload_sha256`` in ``cuppa-publish.json`` (digest of ``include/`` /
 ``lib/`` and other non-metadata payload files). When that hash already matches
 the tip extract, cascade **overlays** the new traveling JSON and copies the
 nested archive into the tip downloads cache **without** rewriting ``include/`` /
-``lib/``. That keeps tip rebuild tools (Cuppa ``Build*``, CMake, b2, Ninja, …)
+``lib/``. That keeps tip rebuild tools (Cuppa ``Build*``, CMake, b2, Ninja, <...>)
 from treating an unchanged consume prefix as brand-new after a metadata-only
 republish. Otherwise the tip extract is invalidated and re-populated; the nested
 archive is preferred as the install source when available (so ``--offline`` tip

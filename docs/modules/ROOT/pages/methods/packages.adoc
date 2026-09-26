@@ -25,25 +25,25 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 |===
 | Method | Role
 
-| `env.DownloadExtract(…)`
+| `env.DownloadExtract(<...>)`
 | Download a URL archive into the variant tree, extract, stamp a marker (default `CMakeLists.txt`)
 
-| `env.RemoveEmptyDirs(…)`
+| `env.RemoveEmptyDirs(<...>)`
 | Remove empty submodule placeholder dirs after archive extract (stamped); `gitmodules=True` or all empty children; `names=` overrides
 
-| `env.CMakeConfigure(…)`
+| `env.CMakeConfigure(<...>)`
 | Configure an external CMake project (toolchain/variant flags via `cuppa.buildsys.cmake`)
 
-| `env.CMakeBuild(…)`
+| `env.CMakeBuild(<...>)`
 | `cmake --build`; Cuppa `--parallel` → `--parallel N`, otherwise `--parallel 1` (pass `jobs=False` to omit)
 
-| `env.CMakeInstall(…)`
-| `cmake --build … --target install` (default omits `--parallel`)
+| `env.CMakeInstall(<...>)`
+| `cmake --build <...> --target install` (default omits `--parallel`)
 
-| `env.PublishPackage(…)`
+| `env.PublishPackage(<...>)`
 | Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amending metadata without rebuilding])
 
-| `env.InstallPackage(…)`
+| `env.InstallPackage(<...>)`
 | Install a package locally and extend `SYSINCPATH`
 |===
 

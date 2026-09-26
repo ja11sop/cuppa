@@ -52,7 +52,7 @@ know you need storage reclaim, publishing, or a custom factory.
 | Conan 2 (consume)
 | xref:dependencies/using/conan.adoc[Conan packages]
 
-| Built-ins (`boost`, `qt4`/`qt5`, `quince`, …)
+| Built-ins (`boost`, `qt4`/`qt5`, `quince`, <...>)
 | xref:dependencies/using/builtins.adoc[Built-in dependencies] ·
   xref:dependencies/using/builtins/boost.adoc[Boost]
 

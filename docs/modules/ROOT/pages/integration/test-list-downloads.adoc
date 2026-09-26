@@ -60,7 +60,7 @@ cuppa -D --offline --list-downloads --list-format=json --storage-root=<storage>
 
 Text output includes `Downloads in`, a `DEPENDENCY / DOWNLOAD` header, `source archives`,
 `referenced from downloads`, planted archive names, `[E]` extract children, and an archive-focused
-footer (`N archives, … download total`) plus `[E] = dependency extracted from the download above`. JSON parses with
+footer (`N archives, <...> download total`) plus `[E] = dependency extracted from the download above`. JSON parses with
 `entries`, `kind`, `archive_count`, `tree`, and `downloads_root`. Files remain on disk after listing.
 
 '''

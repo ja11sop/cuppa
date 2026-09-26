@@ -6,7 +6,7 @@
 Multi-variant (`--dbg` and `--rel`) staging for:
 
 * `CopyFiles()` under each variant `final/`
-* `Install(abs_final_dir/…)` layout parity with `CopyFiles()`
+* `Install(abs_final_dir/<...>)` layout parity with `CopyFiles()`
 * `CopyFilesAs()` / `InstallAs()` rename parity
 * `NotifyProgress` started/finished events for both variants when staging
 

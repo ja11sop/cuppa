@@ -13,8 +13,8 @@ left behind. SCons `-n` is a dry run.
 
 Names are the keys this project uses: `auto_enable_dependencies` (legacy:
 `default_dependencies`) plus names imported via `import_dependencies` (legacy:
-`dependencies=[…]`). Built-in factories that module scan always registers
-(`boost`, `qt4`, …) are **not** removable unless the project names them that way (for example
+`dependencies=[<...>]`). Built-in factories that module scan always registers
+(`boost`, `qt4`, `<...>`) are **not** removable unless the project names them that way (for example
 in `auto_enable_dependencies`). On-disk folder names and listing short names are rejected. An
 unknown or unused name prints an error (rejected name error-coloured and emphasised) and a
 ruled tree of dependencies that *can* be removed for the current selection (the in-use /
@@ -25,6 +25,8 @@ xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
 Tokens may also use the shared `[selector]name[/qualifier]` form described in
 xref:#dependency-tokens[Dependency tokens] — for example `[source]boost` or
 `[gl]boost_package/1.91` — to restrict by storage bucket and optional leaf qualifier.
+Worked examples for every remove / purge / wipe / force-wipe flavour live in
+xref:#selection-examples[Selection and filtering examples].
 
 Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
 variant products inside one extract folder. When that dependency implements selection-scoped
@@ -89,7 +91,8 @@ cuppa -Q -D --list-dependencies --list-scope=unreferenced
 * Version / leaf qualifier: `[gl]boost_package/1.91` or `boost/1.8*` (quote wildcards).
 * Unqualified VCS duplicate shown as `@master (unqualified)`: force-wipe with `name/@`.
 
-. Dry-run first (`-n`), then drop `-n`:
+. Dry-run first (`-n`), then drop `-n`. Prefer the
+  xref:#selection-examples[selection examples] table when choosing the flag family:
 
 [source,shell]
 ----
@@ -133,7 +136,7 @@ name/qualifier
 * **Untyped** tokens match across **all** buckets on purpose (for example source Boost and a
   GitLab package that share a name).
 * **Qualifier** is the leaf shown in the list tree (`1.91.0`, `@11.1.1`). Shell / `fnmatch`
-  wildcards (`*`, `?`, `[…]`) are accepted on the name and/or qualifier; quote them so the shell
+  wildcards (`*`, `?`, `[<...>]`) are accepted on the name and/or qualifier; quote them so the shell
   does not expand them.
 * Remove / purge / wipe still require **project-used** names; force-wipe does not.
 * Reports nest **summary → type → identity → version → leaves**, matching `--list-dependencies`
@@ -148,6 +151,146 @@ cuppa -Q -D -n --remove-dependencies='[source]boost'
 cuppa -Q -D -n --wipe-dependencies='[gl]boost_package/1.91'
 cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
 ----
+
+[#selection-examples]
+== Selection and filtering examples
+
+Use this table when choosing among remove / purge / wipe / force-wipe and when
+forming tokens. Dry-run with `-n` first. Full flag semantics are in the sections
+below; CLI summaries link here from
+xref:cli/inspect-and-maintain.adoc#dependency-storage-actions[Inspect and maintain].
+
+=== Which flag family
+
+[cols="2,2,3,3"]
+|===
+| Flag | Requires project-used name? | What leaves | Typical intent
+
+| `--remove-dependencies=<tokens>`
+| Yes
+| Current toolchain / variant / location-match **selection** only; downloads stay; `storage_clean` deps may keep the extract
+| Reclaim selected products or the selected package variant
+
+| `--remove-all-dependencies`
+| Yes (every project-used name)
+| Same as remove for each project-used name
+| Clear this project's selected caches in one go
+
+| `--purge-dependencies=<tokens>`
+| Yes
+| Remove **plus** matching downloads for the same selection
+| Free extract products (or trees) and their archives
+
+| `--purge-all-dependencies`
+| Yes (every project-used name)
+| Purge for every project-used name — not every leftover on disk
+| Project-wide selected purge
+
+| `--wipe-dependencies=<tokens>`
+| Yes
+| **Whole extract** + matching downloads for the selection (Boost `storage_clean` does not stop at products)
+| Clear-down so the next online build re-fetches
+
+| `--force-wipe-all-dependencies`
+| Yes (every project-used name)
+| Whole extracts + downloads for every project-used name in the selection
+| Wide clear-down; the `force-` prefix marks the breadth
+
+| `--force-wipe-dependencies=<tokens>`
+| No — any list-tree leaf
+| Exact named leaves (versions / branches / stems), including unused siblings under a used identity; matching downloads
+| Reclaim old Boost versions, unused location stems, leftovers remove cannot name
+
+| `--force-wipe-unreferenced-dependencies`
+| No
+| Every tree/download this resolve marks `unreferenced` (orphan sweep)
+| Rare blunt cleanup after `--list-scope=unreferenced`
+|===
+
+Do not combine remove, purge, and wipe modes in one invocation. Develop working
+copies are never deleted. SCons `-n` / `--no-exec` is a dry run for all of these.
+
+=== Token and filter examples
+
+Tokens share the `[selector]name[/qualifier]` grammar from
+xref:#dependency-tokens[Dependency tokens]. Quote wildcards for the shell.
+
+[cols="2,3,5"]
+|===
+| Intent | Flag | Example
+
+| Remove selected GitLab package variant (current toolchain)
+| `--remove-dependencies`
+| `cuppa -Q -D --dbg --toolchains=gcc --remove-dependencies=boost_package`
+
+| Remove by storage bucket
+| `--remove-dependencies`
+| `cuppa -Q -D -n --remove-dependencies='[gl]boost_package'`
+
+| Remove source Boost products only (`storage_clean`)
+| `--remove-dependencies`
+| `cuppa -Q -D --dbg --remove-dependencies='[source]boost'`
+
+| Remove every project-used name for this selection
+| `--remove-all-dependencies`
+| `cuppa -Q -D --remove-all-dependencies`
+
+| Purge package variant + its download archive
+| `--purge-dependencies`
+| `cuppa -Q -D --dbg --toolchains=gcc --purge-dependencies=boost_package`
+
+| Purge source Boost products + download (extract may remain)
+| `--purge-dependencies`
+| `cuppa -Q -D --dbg --purge-dependencies=boost`
+
+| Wipe whole extract + download (re-fetch next build)
+| `--wipe-dependencies`
+| `cuppa -Q -D --wipe-dependencies=boost`
+
+| Wipe a named GitLab package extract for this selection
+| `--wipe-dependencies`
+| `cuppa -Q -D --dbg --wipe-dependencies=boost_package`
+
+| Wipe every project-used extract in the selection
+| `--force-wipe-all-dependencies`
+| `cuppa -Q -D --force-wipe-all-dependencies`
+
+| Force-wipe one unused Boost version leaf
+| `--force-wipe-dependencies`
+| `cuppa -Q -D --force-wipe-dependencies=boost/1.86.0`
+
+| Force-wipe several version leaves
+| `--force-wipe-dependencies`
+| `cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0`
+
+| Force-wipe a version series (fnmatch)
+| `--force-wipe-dependencies`
+| `cuppa -Q -D -n --force-wipe-dependencies='boost/1.8*'`
+
+| Force-wipe with explicit source selector + wildcard
+| `--force-wipe-dependencies`
+| `cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'`
+
+| Force-wipe an unused location branch stem
+| `--force-wipe-dependencies`
+| `cuppa -Q -D --force-wipe-dependencies=fmt/@11.1.1`
+
+| Force-wipe unqualified VCS duplicate (`@master (unqualified)` in the list)
+| `--force-wipe-dependencies`
+| `cuppa -Q -D -n --force-wipe-dependencies=widget/@`
+
+| Mix archive + location leaves
+| `--force-wipe-dependencies`
+| `cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,fmt/@11.1.1`
+
+| Orphan sweep (list first)
+| `--force-wipe-unreferenced-dependencies`
+| `cuppa -Q -D --list-dependencies --list-scope=unreferenced` then `cuppa -Q -D -n --force-wipe-unreferenced-dependencies`
+|===
+
+After any live run, verify with
+`cuppa -Q -D --list-dependencies` and, when downloads were involved,
+`cuppa -Q -D --list-downloads` (add `--list-scope=unreferenced` after an orphan wipe).
 
 Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
 The version nests under the identity; `[E]` is partial because source assets stay:
@@ -216,6 +359,8 @@ include::partial$samples/purge-gitlab.html[]
 ++++
 
 See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
+More selection patterns:
+xref:#selection-examples[Selection and filtering examples].
 
 [#wipe-dependencies]
 == Wiping dependencies (clear-down)
@@ -245,6 +390,9 @@ cuppa -Q -D -n --wipe-dependencies=widget
 cuppa -Q -D --force-wipe-all-dependencies
 ----
 
+More selection patterns:
+xref:#selection-examples[Selection and filtering examples].
+
 Verify with `--list-dependencies` and `--list-downloads`.
 
 See xref:integration/test-wipe-dependencies.adoc[`test_wipe_dependencies`].
@@ -267,7 +415,8 @@ cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 ----
 
 Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
-tree — see xref:#dependency-tokens[Dependency tokens]. Examples: `boost/1.86.0`,
+tree — see xref:#dependency-tokens[Dependency tokens] and
+xref:#selection-examples[Selection and filtering examples]. Examples: `boost/1.86.0`,
 `[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` (unqualified stem — listed as
 `@master (unqualified)`). Bare project-used identity names belong on
 `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
@@ -288,11 +437,11 @@ from another project are omitted from that hint. Confirm with `-n`, then drop `-
 inventory still records another project's use of the unqualified path, force-wipe reports it
 after the report table (judgement tree, like other removal notices). On a dry-run (`-n`) that
 notice is a warning in the present tense so you can still abort; after a real wipe it becomes a
-past-tense note (`wiped…`, `removing the copy was safe`) and explains that proceeding was safe
+past-tense note (`wiped...`, `removing the copy was safe`) and explains that proceeding was safe
 when the canonical folder is present.
 
 Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
-Shell / `fnmatch` wildcards (`*`, `?`, `[…]`) on either side wipe **all** matching leaves —
+Shell / `fnmatch` wildcards (`*`, `?`, `[<...>]`) on either side wipe **all** matching leaves —
 useful for a version series:
 
 [source,shell]

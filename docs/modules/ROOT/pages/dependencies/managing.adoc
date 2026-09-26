@@ -14,7 +14,7 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 
 [cols="3,3,4"]
 |===
-| You want to know…
+| You want to know
 | Use
 | Looks at
 

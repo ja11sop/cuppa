@@ -154,8 +154,8 @@ P3–P5 can follow on the same PR if scope stays docs-only, or a docs follow-up 
 | P2 Using usability page | Done — `dependencies/using/building-with-packages.adoc` |
 | P3 relocate `packages.adoc` | Done — under `dependencies/publishing/`; top-level stub kept |
 | P4 Publishing megapage / GitLab consume–publish split | Done — `gitlab` / `cascade` / `amend-and-external` / `conan` children; Boost-from-source under Publishing |
-| P5 Authoring polish + AGENTS topic map | Done (topic map); Authoring still thin by design |
-| Next focus | Soak + optional further Publishing child polish; mark plan `done` when P4 has soaked on the PR |
+| P5 Authoring polish + AGENTS topic map | Done — topic map; placeholder guidance (`<name>` / `<...>`); remove/wipe selection examples table |
+| Next focus | None for this plan — further Publishing prose polish is ordinary docs work |
 
 ## Impact
 

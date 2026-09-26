@@ -45,7 +45,7 @@ warning, optimisation, standard-library, runtime, and module flags applied to th
 directories and GitLab package stems. Those keys historically include the compiler's reported
 point release (`gcc153` for GCC 15.3). `--toolchain-identity=major` drops that point digit
 (`gcc15`, `clang21`, `vc14`) so 15.2 and 15.3 machines can share trees and archives. Stdlib tags
-such as `-libc{plus}{plus}` remain. Registered archive names (`gcc17_gcc_snapshot_…`) already use
+such as `-libc{plus}{plus}` remain. Registered archive names (`gcc17_gcc_snapshot_<...>`) already use
 the major line plus a qualifier and are not rewritten.
 
 `full` keeps the point-release token. `--list-toolchains` and describe output still show the

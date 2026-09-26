@@ -5,9 +5,9 @@ These scenarios mirror the examples under xref:methods/custom-commands.adoc[Cust
 
 == What is tested
 
-1. `BuildTest(..., working_dir=env['abs_final_dir'])` runs the test with subprocess `cwd` set (no `cd && …` shell string).
-2. `cuppa.utility.command.run(..., working_dir=…, completion_file=…)` on `env.Command` is parallel-safe and creates the marker under `final/`.
-3. A multi-part shell `Action("cd … && …")` **fails under colourised POSIX `SPAWN`** (issue #14: argv `IncrementalSubProcess`).
+1. `BuildTest(..., working_dir=env['abs_final_dir'])` runs the test with subprocess `cwd` set (no `cd && <...>` shell string).
+2. `cuppa.utility.command.run(..., working_dir=<...>, completion_file=<...>)` on `env.Command` is parallel-safe and creates the marker under `final/`.
+3. A multi-part shell `Action("cd <...> && <...>")` **fails under colourised POSIX `SPAWN`** (issue #14: argv `IncrementalSubProcess`).
 4. The same Action **succeeds with `--raw-output` on POSIX** (colourised `SPAWN` not installed).
 5. On **Windows**, the same Action **succeeds under default colourised `SPAWN`**, because `windows_spawn` wraps native `PSPAWN` rather than argv `Popen` — still not a portable pattern.
 

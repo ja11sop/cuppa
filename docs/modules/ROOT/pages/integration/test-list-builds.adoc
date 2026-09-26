@@ -33,7 +33,7 @@ cuppa -D --offline --dbg --list-builds --list-format=json
 
 The listing includes `BUILD FOLDER`, `BY TOOLCHAIN VARIANT`, and `BY SCONSCRIPT` sections, a
 selected hang under the build folder, and a closing `Explicit command for the selected builds`
-block with a `cuppa -D …` line. The `--remove-builds` dry run announces what would be removed,
+block with a `cuppa -D <...>` line. The `--remove-builds` dry run announces what would be removed,
 prints the three build views with a `REMOVED` column, and keeps `_build`. The real
 `--remove-builds` leaves no `working` directories under `_build` and a follow-up listing shows
 zero selected entries. `--remove-all-builds` dry run keeps the root; the live run removes

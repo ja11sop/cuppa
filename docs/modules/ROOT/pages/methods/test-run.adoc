@@ -49,7 +49,7 @@ env.CollateCoverageIndex(coverage_files, destination=coverage_dir)
 
 Notes:
 
-* Prefer `env['abs_artefacts_root']` (and `env['artefacts_root']`) over hard-coded `#_artifacts/…`
+* Prefer `env['abs_artefacts_root']` (and `env['artefacts_root']`) over hard-coded `#_artifacts/<...>`
   so custom `--artefacts-root` / configure settings are honoured. `artifacts_root` is the same path.
 * `Filter()` here selects **outputs of the test node** (logs/JSON), not a `Glob()` of sources.
 * `MergeFlags()` / `BuildWith()` are documented with
@@ -62,7 +62,7 @@ For `cwd`, shell spawn, and `--use-shell`, see xref:methods/custom-commands.adoc
 
 == Testing with `BuildTest()`
 
-`env.BuildTest(target, source, …)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
+`env.BuildTest(target, source, <...>)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
 
 [source,python]
 ----
@@ -87,7 +87,7 @@ Preferred parameters:
 | Parameter | Role
 
 | `runner`
-| Runner name (default from `cuppa.run(default_runner=…)`; often `process`, `boost`, or `patched_boost`)
+| Runner name (default from `cuppa.run(default_runner=<...>)`; often `process`, `boost`, or `patched_boost`)
 
 | `expected`
 | Expected outcome string (default `'passed'`)
@@ -139,7 +139,7 @@ Toolchain-specific aliases such as `BuildBoostTest` appear when the toolchain ad
 
 == Testing with `Test()`
 
-`env.Test(program, …)` attaches a test action to an *existing* binary (for example one produced by `Build()`).
+`env.Test(program, <...>)` attaches a test action to an *existing* binary (for example one produced by `Build()`).
 
 [source,python]
 ----
@@ -179,7 +179,7 @@ Toolchain-specific aliases such as `BoostTest` appear when the toolchain adverti
 
 == Benchmarks with `BuildBenchmark()`
 
-`env.BuildBenchmark(target, source, …)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
+`env.BuildBenchmark(target, source, <...>)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
 
 Preferred parameters mirror `BuildTest()`, with explicit Depends names:
 
@@ -198,7 +198,7 @@ Deprecated aliases: `depends_on` → `build_depends_on`; `data` → `benchmark_d
 
 == Benchmarks with `Benchmark()`
 
-`env.Benchmark(program, …)` attaches a benchmark action to an existing binary.
+`env.Benchmark(program, <...>)` attaches a benchmark action to an existing binary.
 
 Preferred: `depends_on` for run-side Depends.
 Deprecated alias: `data`.

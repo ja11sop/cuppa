@@ -83,7 +83,7 @@ A common layout is:
 
 1. Online, parallel: download and build (unpinned Boost checks boost.org when no stored key
    exists; pass ``--boost-latest`` only to override a pin or force a refresh).
-2. Offline, serial: `cuppa … --offline --test` against the same `--downloads-root`.
+2. Offline, serial: `cuppa <...> --offline --test` against the same `--downloads-root`.
 
 Persistence makes step 2 reuse the version from step 1 instead of falling back to an older
 compiled-in default. Keep `--downloads-root` consistent across both passes so the archive and the
@@ -125,10 +125,10 @@ Source Boost keeps two homes under one extract: `clean/` (default) and `patched/
 the other home are reported as leftovers, not deleted. Use a second invocation with the other
 flag (or omit it) to clean that home too.
 
-`cuppa -c` removes the usual `_build/…` install copies of Boost libraries and also the
+`cuppa -c` removes the usual `_build/<...>` install copies of Boost libraries and also the
 cuppa-scoped **stage** directory under the extract
 (`build.<abi>/<toolchain>/<variant>/<arch>/`). It does **not** remove Boost.Build's
-`bin.<abi>/…` object trees, the headers, or the `b2` binary — those stay in the shared
+`bin.<abi>/<...>` object trees, the headers, or the `b2` binary — those stay in the shared
 cache. Use `--remove-dependencies=boost` for a selection-scoped wipe of stage **and**
 matching `bin.<abi>` toolset products (still leaving the extract). A future
 `--deep-clean` modifier on `-c` (Boost.Build `bin.<abi>` and similar coarse

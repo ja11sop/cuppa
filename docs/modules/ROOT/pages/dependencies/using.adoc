@@ -24,7 +24,7 @@ application with a nested GitLab package stack — without learning how to publi
   xref:dependencies/using/gitlab.adoc[GitLab] ·
   xref:dependencies/using/conan.adoc[Conan]
 
-| Built-ins (`boost`, Qt, Quince, …)
+| Built-ins (`boost`, Qt, Quince, <...>)
 | xref:dependencies/using/builtins.adoc[Built-in dependencies]
 |===
 

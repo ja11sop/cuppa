@@ -105,8 +105,8 @@ Import('env')
 #   doc/a/readme.md
 #   doc/b/readme.md
 # Default HTML targets under final/:
-#   …/final/doc/a/readme.html
-#   …/final/doc/b/readme.html
+#   <...>/final/doc/a/readme.html
+#   <...>/final/doc/b/readme.html
 env.MarkdownToHtml(['doc/a/readme.md', 'doc/b/readme.md'])
 ----
 
@@ -115,7 +115,7 @@ argument on this method — the emitter always owns the HTML path.
 
 == `AsciidocToHtml()`
 
-`AsciidocToHtml(target, source, …)` takes an optional **target** list. Empty or omitted targets
+`AsciidocToHtml(target, source, <...>)` takes an optional **target** list. Empty or omitted targets
 mirror under `final/` like Markdown; an explicit target list places HTML where you ask:
 
 [source,python]
@@ -123,7 +123,7 @@ mirror under `final/` like Markdown; an explicit target list places HTML where y
 Import('env')
 import os
 
-# Default mirror: doc/guide.adoc → …/final/doc/guide.html
+# Default mirror: doc/guide.adoc → <...>/final/doc/guide.html
 env.AsciidocToHtml([], ['doc/guide.adoc'])
 
 # Explicit HTML target (no mirror):
@@ -149,8 +149,8 @@ Import('env')
 #   styles/a/app.scss
 #   styles/b/app.scss
 # Default CSS targets under final/:
-#   …/final/styles/a/app.css
-#   …/final/styles/b/app.css
+#   <...>/final/styles/a/app.css
+#   <...>/final/styles/b/app.css
 env.CompileScss([], ['styles/a/app.scss', 'styles/b/app.scss'])
 ----
 
@@ -175,7 +175,7 @@ explicit target.
 
 == `RunAndRedirectToFile()`
 
-`RunAndRedirectToFile(target, source, …)` captures a program's stdout into a file. Empty targets
+`RunAndRedirectToFile(target, source, <...>)` captures a program's stdout into a file. Empty targets
 mirror under `final/` with extension `.out` (override with `extension=`):
 
 [source,python]
@@ -183,7 +183,7 @@ mirror under `final/` with extension `.out` (override with `extension=`):
 Import('env')
 import os
 
-# Default: tool → …/final/<mirrored>/tool.out
+# Default: tool → <...>/final/<mirrored>/tool.out
 env.RunAndRedirectToFile([], ['tool'])
 
 # Explicit capture file:

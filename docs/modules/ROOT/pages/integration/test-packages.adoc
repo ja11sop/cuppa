@@ -97,7 +97,7 @@ cuppa -D --offline --toolchains=gcc --rel --parallel
 == Expectations
 
 * Registration sconscript asserts pass; exit 0.
-* Default publish writes one `widget_<os>_…` archive under `_build/` (`.tar.gz` or `.zip`).
+* Default publish writes one `widget_<os>_<...>` archive under `_build/` (`.tar.gz` or `.zip`).
 * With `omit`, that archive does not use the `widget_<os>_` prefix.
 * Relative `package_lib` publish under `--rel --parallel` writes the same archive shape and the tarball/zip contains `libwidget.a` (or `widget.lib` on Windows).
 

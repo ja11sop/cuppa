@@ -18,7 +18,7 @@ develop working copy, the list adds a **note** and `--remove-publishers` will
 skip it.
 
 `--list-format=json` carries the same fields as develop entries where they
-overlap (`status`, `severity`, `notes`, `branch`, `upstream`, …) plus
+overlap (`status`, `severity`, `notes`, `branch`, `upstream`, <...>) plus
 `size_bytes` / `develop_linked` / `would_update`.
 
 [source,shell]

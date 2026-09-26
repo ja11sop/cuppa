@@ -183,7 +183,7 @@ Reading the report:
   name are emphasised (`✔✔✔` on that name row). Branch glyphs are always subdued.
 
 The closing summary emphasises the selected and total sizes (the selected size is also
-info-coloured when it is less than the total) and prints an explicit `cuppa -D …` command for
+info-coloured when it is less than the total) and prints an explicit `cuppa -D <...>` command for
 the selected builds that exist on disk (formatted like `--show-conf`), omitting active variants
 that have no matching trees. Append `--remove-builds` to that command to clear those folders.
 
@@ -229,9 +229,9 @@ Reading the report:
   and the folder hang reads `removed (N of M entries)`. Successful removals use the
   **remove_notice** colour (warn / purple family) and checks; a fully cleared sconscript name
   row emphasises size, mark, and name with heavy `✔` marks. Rows that were never candidates stay
-  dim with a blank mark (here `rel/…`).
+  dim with a blank mark (here `rel/<...>`).
 * After a live run the closing line is `Removed N entries freeing up SIZE of disk space.`
-  Dry-run uses `Would remove…` and `dry run (-n); nothing removed`.
+  Dry-run uses `Would remove...` and `dry run (-n); nothing removed`.
 * The final block is a ready-made `--list-builds` command for the same selection so you can
   confirm that nothing remains selected and that the build-folder size has dropped.
 
@@ -241,7 +241,7 @@ emphasised name row) in the **remove_error** colour, and a reason tree follows (
 `[N errors][N warnings][N notes]` on the intro line. Paths that were already gone are
 **notes** in the past tense (`was already gone`); other failures are **errors**. Mixed success
 and failure under one rollup shows `✓-✗`. Only bracketed values in the reason lines are
-coloured — for example `[Errno 13]` and `[_build/lib/…/working]`.
+coloured — for example `[Errno 13]` and `[_build/lib/<...>/working]`.
 
 Example live run when a path cannot be deleted:
 
@@ -275,7 +275,7 @@ Reading the report:
   the failure show as removed. The reason tree uses the intro
   `The build root could not be removed` and labels the obstructing path (often a file under a
   specific variant), so you can match the tree entry to a failed row in the tables.
-* A live success ends with `Removed build root … freeing up SIZE of disk space.` Verify with
+* A live success ends with `Removed build root <...> freeing up SIZE of disk space.` Verify with
   `--list-builds` as suggested — an empty or much smaller build root is the expected result.
 
 [#removal-safety]

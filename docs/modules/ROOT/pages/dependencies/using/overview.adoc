@@ -15,7 +15,7 @@ to its detailed guide. This overview explains the vocabulary shared by those gui
 still work):
 
 * `import_dependencies` — bring **custom** factories (`package_dependency`,
-  `location_dependency`, …) into this sconstruct session. Built-ins such as source `boost` are
+  `location_dependency`, <...>) into this sconstruct session. Built-ins such as source `boost` are
   already registered by Cuppa; you do not list them here.
 * `auto_enable_dependencies` — automatically `BuildWith()` that subset in every sconscript.
 

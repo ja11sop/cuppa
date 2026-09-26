@@ -12,12 +12,12 @@ estimates, it prints a short notice and upgrades those trees to exact sizes (the
 large root can take a while; later runs reuse the cache). Pass `--exact-sizes` to force a full
 remeasure of every tree. Rows are grouped **used** first then **unused** by default
 (usage grouping), then by type (repository dependencies, gitlab packages, source
-archives, …), then by short name or
+archives, <...>), then by short name or
 registry name, with branch or version children underneath. For tip-selected GitLab package
 extracts that contain ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``), a
 ``requires`` group nests the on-disk **package closure** as sized identity trees (versions →
 toolchains). Nested packages keep label-style ``requires`` edges (name, version, optional
-``libs: …``). Closure-only packages leave the top-level unused / unreferenced lists and are
+``libs: <...>``). Closure-only packages leave the top-level unused / unreferenced lists and are
 protected from
 ``--force-wipe-unreferenced-dependencies``. See
 xref:dependencies/using/gitlab.adoc#transitive-package-dependencies[Transitive package dependencies].
@@ -122,7 +122,7 @@ xref:dependencies/managing/removing.adoc#from-list-to-remove[From list to remove
 Under `--list-format=verbose` a LOCATION column is added. What it shows depends on the type:
 
 * *Location dependencies* — bare repository URL on the identity; `URL@branch` on each branch leaf.
-* *GitLab packages* — empty on the identity; registry `…/package/version` on the version row;
+* *GitLab packages* — empty on the identity; registry `<...>/package/version` on the version row;
   archive basename on each toolchain leaf.
 * *Source archives* (Boost source tarballs, GitHub release zips, and similar) — short name such as
   `boost` or `github.com/fmtlib/fmt` on the identity; version or tag on each child; download URL

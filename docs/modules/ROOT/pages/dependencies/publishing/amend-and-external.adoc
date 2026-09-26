@@ -138,7 +138,7 @@ Some packages are **built** outside Cuppa's usual ``BuildStaticLib`` /
   ``env.Clean`` on out-of-tree build dirs when cascade ``-c`` should remove them)
 
 Cascade does not care which of these built the payload; nested sessions always
-run ``cuppa … --publish-package`` in the publisher tree. The rest of this
+run ``cuppa <...> --publish-package`` in the publisher tree. The rest of this
 section focuses on the **CMake** pattern because it is the most common external
 case and needs toolchain/variant mapping.
 
@@ -197,7 +197,7 @@ After extract, call **`env.RemoveEmptyDirs`**, then list the stamp among
   submodule paths in `<dirname(parent)>/.gitmodules` (good default when the
   extract has a root `.gitmodules`)
 * omit `names` and `gitmodules` — every empty immediate child of `parent`
-* `names=(…)` — definitive list (overrides `gitmodules`)
+* `names=(<...>)` — definitive list (overrides `gitmodules`)
 
 [source,python]
 ----
@@ -210,11 +210,11 @@ archives = env.RemoveEmptyDirs(
 configure = env.CMakeConfigure(
     [ extracted, archives ],
     working_dir = extraction_folder,
-    # …
+    # <...>
 )
 ----
 
-Or call `cuppa.buildsys.acquire.remove_empty_dirs(…)` from your own `Action`
+Or call `cuppa.buildsys.acquire.remove_empty_dirs(<...>)` from your own `Action`
 (`cuppa.buildsys.cmake.remove_empty_dirs` still re-exports the same helper).
 Populated trees stay; library submodules you satisfy via `*_PROVIDER=package`
 / system packages do not need to remain as empty placeholders.
@@ -227,7 +227,7 @@ toolchain×variant invoke. Prefer the zero-arg accessors:
 [source,python]
 ----
 cxx = env.Toolchain().binary()
-name = env.Variant().name()   # dbg, rel, cov, …
+name = env.Variant().name()   # dbg, rel, cov, <...>
 ----
 
 `env['toolchain']` / `env['variant']` remain valid. Do not use keyed `env.Toolchain(name)` for
@@ -238,11 +238,11 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 | Cuppa surface | Typical CMake flag / use | Notes
 
 | `env.Toolchain().binary()` or `env['CXX']`
-| `-D CMAKE_CXX_COMPILER=…`
+| `-D CMAKE_CXX_COMPILER=<...>`
 | Cuppa-resolved absolute driver (including fetched toolchains)
 
 | `env['CC']`
-| `-D CMAKE_C_COMPILER=…`
+| `-D CMAKE_C_COMPILER=<...>`
 | When the project also builds C
 
 | `env.Variant().name() == 'dbg'`
@@ -259,9 +259,9 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
   **not** get that instrumentation unless the project adds its own coverage flags
 
 | `env.StdCpp(...)` / `--stdcpp` / toolchain default
-| `-D CMAKE_CXX_STANDARD=…`
+| `-D CMAKE_CXX_STANDARD=<...>`
 | Mapped by `cmake_configure_args` when `env['stdcpp']` is a known dialect
-  (`c++20` → `20`, …). Tokens such as `c++latest` are omitted; `c++2c` / `c++26`
+  (`c++20` → `20`, <...>). Tokens such as `c++latest` are omitted; `c++2c` / `c++26`
   map to `26` when your CMake is new enough
 
 | `publisher.package_variant()` (or the same token Cuppa uses in package stems)
@@ -277,7 +277,7 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
 | Large third-party trees often install once under `final/`, then publish from that prefix
 
 | `--parallel` / `env['job_count']`
-| `cmake --build … --parallel N` via `env.CMakeBuild`
+| `cmake --build <...> --parallel N` via `env.CMakeBuild`
 | With Cuppa `--parallel`, `CMakeBuild` passes `--parallel` with
   `env['job_count']` — the same affinity-aware count as SCons `-j` after the
   wrapper leaves cores free for the OS (e.g. 14 on a 16-core host). Never bare
@@ -286,9 +286,9 @@ the active handle (that form is deprecated; use `HasToolchain(name)` for registr
   with `jobs=N` or omit with `jobs=False`. Nested oversubscribe is possible if
   several CMake builds run under SCons `-j` at once; use `jobs=` then.
 
-| Generator (`-G Ninja`, …)
+| Generator (`-G Ninja`, <...>)
 | Default: `Ninja` when `ninja` is on `PATH`; else omit `-G`. Pass
-  `generator='…'` to force a generator, or `generator=False` to omit `-G`
+  `generator='<...>'` to force a generator, or `generator=False` to omit `-G`
 | Shared by `cmake_configure_args` and `env.CMakeConfigure`
 
 | `cuppa -c` / SCons clean
@@ -310,7 +310,7 @@ Import( 'env' )
 import os
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
-# Source tree already available (location dependency, extract step, …)
+# Source tree already available (location dependency, extract step, <...>)
 widget_src = env.BuildWith( 'widget_src' ).local_sub_path()
 
 package_dir = os.path.join( env['abs_final_dir'], 'package' )
@@ -356,7 +356,7 @@ Import( 'env' )
 import os
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 
-# extraction_folder = … Dir under env['build_dir'] after download/extract …
+# extraction_folder = <...> Dir under env['build_dir'] after download/extract <...>
 install_prefix = env.Dir( os.path.join( env['final_dir'], 'installed' ) )
 publisher = GitlabPackagePublisher(
     env,

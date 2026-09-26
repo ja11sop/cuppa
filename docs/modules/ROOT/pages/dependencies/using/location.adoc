@@ -23,7 +23,7 @@ cuppa.run(
 Either may be a string or a list. If you omit both, cuppa uses the retrieved tree root as a
 system include.
 
-Locations may be filesystem paths, archive URLs, or VCS URLs (for example `git+https://…@branch`).
+Locations may be filesystem paths, archive URLs, or VCS URLs (for example `git+https://<...>@branch`).
 Cuppa keeps checkouts and extracted archives under `--dependencies-root` and the downloaded
 archives themselves under `--downloads-root`, both shared between projects by default. See
 xref:build-layout.adoc[Build layout] for the defaults and for how to move them.
@@ -34,7 +34,7 @@ kept if it is the only copy on disk (cuppa does not move or delete it). When bot
 uses the canonical folder. Dependency-management commands
 (`--list-dependencies`, `--remove-dependencies`, `--purge-dependencies`, wipe / force-wipe)
 record that pair at **debug** log level and surface it in their trees: remove-coloured
-`@master (unqualified)` (or `@main (unqualified)`, …) leaves and a dry-run
+`@master (unqualified)` (or `@main (unqualified)`, <...>) leaves and a dry-run
 `--force-wipe-dependencies=` hint using the `name/@` shorthand (bare `@` means the unqualified
 stem, not `@master`) after the report footer. Ordinary builds prefer the canonical folder
 quietly — they do not print Location warnings or wipe hints for this case.

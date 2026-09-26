@@ -36,7 +36,7 @@ in whether a change to *B* forces *A* to rebuild:
   to the usual source / scanner edges).
 | Use when an input must invalidate the consumer — SQL scripts, generated properties, scenario
   files, or another node's outputs that feed a test or tool. Closely related to
-  `BuildTest(..., test_depends_on=…)` / `build_depends_on=…` on
+  `BuildTest(..., test_depends_on=<...>)` / `build_depends_on=<...>` on
   xref:methods/test-run.adoc[Test and run].
 
 | `Requires(target, prerequisite)`
@@ -47,7 +47,7 @@ in whether a change to *B* forces *A* to rebuild:
   after `Build()` has produced it under `final/`, without re-copying every time an unrelated
   prerequisite rebuilds for another reason. Without `Requires()`, the copy can race the link
   under parallel builds. Same pattern for publisher staging: `Requires(installed_include,
-  installed_lib)` so `PublishPackage(installed_include, …)` waits for the library Install
+  installed_lib)` so `PublishPackage(installed_include, <...>)` waits for the library Install
   without re-copying headers when only the `.a` changes (see
   xref:methods/staging-files.adoc#package-staging-with-install[Staging files]).
 |===

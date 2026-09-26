@@ -29,7 +29,7 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
 
 | Returns | Install / copy nodes
 | Evaluation | Build action
-| Output paths | Caller destination; `Copy*` joins relative paths onto `env['abs_final_dir']` unless `{hash}…` or absolute
+| Output paths | Caller destination; `Copy*` joins relative paths onto `env['abs_final_dir']` unless `{hash}<...>` or absolute
 | Progress | Yes — `MethodWithProgress` wraps `Install()` / `InstallAs()` on sconscript envs (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progress tracking]). `Copy*` deliberately do **not** call `NotifyProgress.add` a second time.
 |===
 
@@ -51,7 +51,7 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
 | `Install()`
 | Staging into a *package* directory for `PublishPackage()`, or when you want classic Install
   semantics with an explicit destination (including repository-aware installs). Pass
-  `os.path.join(env['abs_final_dir'], …)` yourself when you need Cuppa `final/` parity with
+  `os.path.join(env['abs_final_dir'], <...>)` yourself when you need Cuppa `final/` parity with
   `CopyFiles()`.
 
 | `InstallAs()`
@@ -67,7 +67,7 @@ wrap the copy with xref:methods/depends.adoc[`Requires()`] regardless of which h
 [source,python]
 ----
 # CopyFiles roughly does:
-destination = …  # relative → abs_final_dir / relative; '#' / absolute unchanged
+destination = <...>  # relative → abs_final_dir / relative; '#' / absolute unchanged
 env.Install(destination, filter_nodes(source, match, exclude))
 
 # CopyFilesAs roughly does:
@@ -98,7 +98,7 @@ env.CopyFiles(artefacts_dir, env.Filter(test, ['*.log', '*.json']))
 `Filter()` here selects **outputs of the test node**, not a `Glob()` of sources — see
 xref:methods/test-run.adoc[Test and run].
 
-Relative destination under each active variant (`--dbg`, `--rel`, …):
+Relative destination under each active variant (`--dbg`, `--rel`, <...>):
 
 [source,python]
 ----

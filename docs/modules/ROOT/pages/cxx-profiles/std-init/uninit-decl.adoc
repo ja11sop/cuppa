@@ -26,19 +26,19 @@ void automatic_uninitialized()
 
 [source]
 ----
-uninit_decl.cpp:…: error: variable 'Automatic' must be initialized or marked '[[uninit]]' under profile 'std::init'
+uninit_decl.cpp:<...>: error: variable 'Automatic' must be initialized or marked '[[uninit]]' under profile 'std::init'
 ----
 
 Union objects use a dedicated message shape:
 
 [source]
 ----
-error: variable '…' of union type must be initialized under profile 'std::init'
+error: variable '<...>' of union type must be initialized under profile 'std::init'
 ----
 
 == Resolutions
 
-* **Initialize** the object: `int Value = 0;` or aggregate initialization `{ … }`.
+* **Initialize** the object: `int Value = 0;` or aggregate initialization `{ <...> }`.
 * **Mark intentional indeterminate storage**: `{cxx-a-int-buffer-uninit}` and ensure later
   writes precede reads (see xref:cxx-profiles/std-init/uninit-read.adoc[reads before
   initialization]).
