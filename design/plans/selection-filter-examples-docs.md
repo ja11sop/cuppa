@@ -16,10 +16,10 @@ every example still needs a scannable intent + command + confirmation.
 
 | Piece | Decision |
 |-------|----------|
-| Glance | Every intent: colourised command + **Matches** against the synthetic inventory |
-| Worked subset | Explain **why** (typed vs untyped, wildcards, `@`, mixed) — not a second glance |
+| Glance | **Table** Intent \| Example; Example = colourised command + Matches against inventory |
+| Worked subset | Same command + Matches again, plus **why** prose and sample report output where available |
 | Command chrome | `pre.cuppa-output.cuppa-cli-example` in `.cuppa-cli-block` — flag = info, token = notice; Antora-style copy toolbox |
-| Matches | Ordinary prose + monospace / `cuppa-cli-token` bullets — **not** inside the command block |
+| Matches | Under the command in the glance table (HTML cell); repeated in worked sections — **not** inside the command `<pre>` |
 | Selectors in docs | Prefer **medium** names: `[source]`, `[gitlab]`, `[repository]`, `[conan]`, `[toolchain]`; mention short aliases once |
 | Inventory | Synthetic list-dependencies HTML sample; SIZE column aligned with real samples |
 | Types table | Dependency type → selector aliases from `SELECTOR_ALIASES` (+ untyped + reserved) |
