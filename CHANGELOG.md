@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--list-location=storage|publishers|develop|active`` on ``--list-dependencies`` —
+  under ``--list-format=verbose``, LOCATION can overlay working-copy paths marked
+  ``[dev]`` / ``[pub]`` (publisher forest under ``--publisher-root``, configured
+  ``develop=``, or ``active`` with ``--develop`` gating develop-over-publisher
+  precedence). Orthogonal to ``--list-scope``. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 1b ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Verbose LOCATION download mark renamed from ``[D]`` to ``[dls]`` (downloads /
+  archive), aligned with ``[dev]`` / ``[pub]``. Marks are info-coloured; paths
+  follow the row. Legend footer names ``--purge-dependencies`` and real publisher /
+  downloads roots.
+
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees
   (versions → toolchains). Closure-only packages leave the top-level unreferenced list and

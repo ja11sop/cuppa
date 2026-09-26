@@ -29,10 +29,10 @@ and matching files under `downloads/`. Verbose listing then checks:
 
 * archive identities (`github.com/fmtlib/fmt`, `boost`) with version children
 * LOCATION download URLs reconstructed from encoded folder names
-* `[D]` only where a regenerating archive exists under downloads (GitHub tag with a zip;
+* `[dls]` only where a regenerating archive exists under downloads (GitHub tag with a zip;
   Boost `.tar.gz` or `.zip` depending on platform; GitLab toolchain archive leaf — not the
   GitLab registry URL on the version row)
-* the `[D]` footer text
+* the `[dls]` footer text
 * JSON `has_download`, `download_path`, and `remote_location` on those entries
 
 An offline **alpha → beta → gamma** GitLab extract chain (with ``cuppa-publish.json``, no
@@ -106,7 +106,7 @@ Text output includes `Dependencies in`, a `DEPENDENCY` header, the planted tree 
 missing; a second listing reuses the cache. JSON parses with `entries`, `size_bytes`, `state`, `tree`, and
 `dependencies_root`. The planted tree remains on disk after listing.
 
-Verbose output includes `LOCATION`, grouped archive short names, `[D]` on cached download
+Verbose output includes `LOCATION`, grouped archive short names, `[dls]` on cached download
 leaves only, and the downloads footer. JSON entries for those leaves carry `has_download` /
 `download_path` / `remote_location` as appropriate.
 

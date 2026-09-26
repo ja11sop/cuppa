@@ -197,6 +197,97 @@ def test_with_download_mark_and_find_cached_download( tmp_path ):
     assert found == str( tc_dir / tc_archive )
 
 
+def test_list_location_marks_and_precedence():
+    from cuppa.core.dependency_identity import (
+        DOWNLOAD_MARK,
+        WORKING_COPY_DEV_MARK,
+        WORKING_COPY_PUB_MARK,
+        choose_working_copy_location,
+        normalise_list_location,
+        with_working_copy_mark,
+    )
+    assert with_working_copy_mark( '/wc/capy', 'dev' ) == \
+        '{} /wc/capy'.format( WORKING_COPY_DEV_MARK )
+    assert with_working_copy_mark( '/wc/capy', 'pub' ) == \
+        '{} /wc/capy'.format( WORKING_COPY_PUB_MARK )
+    assert with_working_copy_mark(
+            '{} /wc/capy'.format( DOWNLOAD_MARK ), 'pub'
+    ) == '{} /wc/capy'.format( WORKING_COPY_PUB_MARK )
+    assert normalise_list_location( None ) == 'storage'
+    assert normalise_list_location( 'active' ) == 'active'
+    assert normalise_list_location( ['publishers'] ) == 'publishers'
+    assert choose_working_copy_location(
+            'develop', '/dev', '/pub', False
+    ) == ( '/dev', 'dev' )
+    assert choose_working_copy_location(
+            'publishers', '/dev', '/pub', True
+    ) == ( '/pub', 'pub' )
+    assert choose_working_copy_location(
+            'active', '/dev', '/pub', False
+    ) == ( '/pub', 'pub' )
+    assert choose_working_copy_location(
+            'active', '/dev', '/pub', True
+    ) == ( '/dev', 'dev' )
+    assert choose_working_copy_location(
+            'active', '/dev', None, False
+    ) == ( None, None )
+    assert choose_working_copy_location(
+            'storage', '/dev', '/pub', True
+    ) == ( None, None )
+
+
+def test_apply_list_location_overlay_paints_identity( tmp_path ):
+    from cuppa.core import dependency_actions
+    from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK
+
+    forest = tmp_path / 'storage' / 'publishers'
+    tree_path = forest / 'widget'
+    tree_path.mkdir( parents=True )
+    ( tree_path / 'sconstruct' ).write_text( '# pub\n', encoding='utf-8' )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return self.get( name, default )
+
+    env = _Env( {
+        'dependencies': {},
+        'storage_root': str( tmp_path / 'storage' ),
+        'list_location': 'publishers',
+        'develop': False,
+    } )
+    tree = {
+        'sections': [
+            {
+                'kind': 'section',
+                'label': 'used',
+                'children': [
+                    {
+                        'kind': 'type',
+                        'label': 'gitlab packages',
+                        'children': [
+                            {
+                                'kind': 'identity',
+                                'registry_name': 'widget',
+                                'short_name': 'widget',
+                                'label': 'widget',
+                                'location': 'https://gitlab.example/api/v4/projects/1/widget/1.0',
+                                'children': [],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    painted, painted_dev, painted_pub = dependency_actions.apply_list_location_overlay( tree, env )
+    assert painted is True
+    assert painted_dev is False
+    assert painted_pub is True
+    identity = tree['sections'][0]['children'][0]['children'][0]
+    assert identity['location'].startswith( WORKING_COPY_PUB_MARK + ' ' )
+    assert str( tree_path ) in identity['location'] or 'publishers/widget' in identity['location']
+
+
 def test_archive_tree_marks_download_on_location():
     leaves = [
         {
@@ -892,7 +983,7 @@ def test_gitlab_verbose_locations_on_version_and_archive_leaf():
     version = next(
             child for child in identity['children'] if child.get( 'kind' ) == 'version'
     )
-    # Registry URL is not a downloads-root file — no [D] on the version row.
+    # Registry URL is not a downloads-root file — no [dls] on the version row.
     assert version['location'] == 'https://git.example/api/v4/projects/1/boost/1.91'
     leaf = version['children'][0]
     from cuppa.core.dependency_identity import DOWNLOAD_MARK

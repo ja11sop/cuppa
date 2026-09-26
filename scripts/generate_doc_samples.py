@@ -717,7 +717,7 @@ def sample_list_dependencies_html():
 
 
 def sample_list_dependencies_verbose():
-    """`--list-dependencies --list-format=verbose` with LOCATION / `[D]`."""
+    """`--list-dependencies --list-format=verbose` with LOCATION / `[dls]`."""
     out = io.StringIO()
     write_list_dependencies_report(
             out, _list_dependencies_data(), _list_dependencies_env(),

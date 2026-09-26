@@ -180,6 +180,139 @@ def write_unqualified_duplicate_wipe_hint( out, tokens, see_earlier_warnings=Fal
     out.write( "Drop -n and re-run after confirming.\n" )
 
 
+def _working_copy_index( cuppa_env ):
+    """Map dependency aliases to configured develop= and publisher-forest paths."""
+    from cuppa import develop
+    from cuppa.package_managers import package_cascade
+
+    index = {}
+
+    def remember( key, kind, path ):
+        if not key or not path:
+            return
+        token = str( key ).strip()
+        if not token:
+            return
+        slot = index.setdefault( token, { 'dev': None, 'pub': None } )
+        if not slot.get( kind ):
+            slot[kind] = path
+
+    try:
+        for name in sorted( cuppa_env.get( 'dependencies' ) or {} ):
+            factory = cuppa_env['dependencies'][name]
+            dependency = getattr( factory, '__self__', factory )
+            path = develop.configured_develop( dependency, cuppa_env )
+            if not path or not os.path.isdir( path ):
+                continue
+            remember( name, 'dev', path )
+            package = getattr( dependency, '_package', None )
+            if package:
+                remember( package, 'dev', path )
+            short = getattr( dependency, '_name', None )
+            if short:
+                remember( short, 'dev', path )
+    except Exception:
+        pass
+
+    try:
+        root = package_cascade.publisher_lookup_root( cuppa_env )
+    except Exception:
+        root = None
+    if root and os.path.isdir( root ):
+        try:
+            names = sorted( os.listdir( root ) )
+        except OSError:
+            names = []
+        for name in names:
+            if name.startswith( '.' ):
+                continue
+            path = os.path.join( root, name )
+            if package_cascade._looks_like_publisher_tree( path ):
+                remember( name, 'pub', path )
+
+    return index
+
+
+def _aliases_for_identity_node( node ):
+    """Names that may match a develop / publisher index entry for one identity."""
+    aliases = []
+    for key in (
+            node.get( 'registry_name' ),
+            node.get( 'short_name' ),
+            node.get( 'label_name' ),
+            node.get( 'label' ),
+    ):
+        if not key:
+            continue
+        text = str( key ).strip()
+        if text and text not in aliases:
+            aliases.append( text )
+    return aliases
+
+
+def _lookup_working_copies( index, aliases ):
+    develop_path = None
+    publisher_path = None
+    for alias in aliases:
+        slot = index.get( alias ) or {}
+        if not develop_path and slot.get( 'dev' ):
+            develop_path = slot['dev']
+        if not publisher_path and slot.get( 'pub' ):
+            publisher_path = slot['pub']
+        if develop_path and publisher_path:
+            break
+    return develop_path, publisher_path
+
+
+def apply_list_location_overlay( tree, cuppa_env ):
+    """Replace identity LOCATION with marked working-copy paths when requested.
+
+    Returns ``(painted, painted_dev, painted_pub)``. No-op for
+    ``--list-location=storage`` (default).
+    """
+    mode = dependency_identity.normalise_list_location(
+            cuppa_env.get( 'list_location' )
+    )
+    if mode == 'storage' or not tree:
+        return False, False, False
+
+    develop_enabled = bool( cuppa_env.get( 'develop' ) )
+    index = _working_copy_index( cuppa_env )
+    painted = False
+    painted_dev = False
+    painted_pub = False
+
+    def walk( node ):
+        nonlocal painted, painted_dev, painted_pub
+        if not isinstance( node, dict ):
+            return
+        if node.get( 'kind' ) == 'identity':
+            develop_path, publisher_path = _lookup_working_copies(
+                    index, _aliases_for_identity_node( node )
+            )
+            path, kind = dependency_identity.choose_working_copy_location(
+                    mode, develop_path, publisher_path, develop_enabled,
+            )
+            if path and kind:
+                display = storage.display_path( path )
+                node['location'] = dependency_identity.with_working_copy_mark(
+                        display, kind
+                )
+                node['working_copy_kind'] = kind
+                node['working_copy_path'] = path
+                painted = True
+                if kind == 'dev':
+                    painted_dev = True
+                else:
+                    painted_pub = True
+        for child in node.get( 'children' ) or []:
+            walk( child )
+
+    for section in tree.get( 'sections' ) or tree.get( 'children' ) or []:
+        walk( section )
+    return painted, painted_dev, painted_pub
+
+
 def emit_location_unqualified_duplicate_hints( out=None ):
     """If Location warned about stem/@branch pairs, print the wipe dry-run once.
 
@@ -429,8 +562,18 @@ def add_dependency_action_options( add_option ):
              "used then unused); resolve (referenced then unreferenced, unused siblings "
              "stay under referenced identities); referenced / unreferenced (resolve-"
              "identity sections only); compact (used-only: resolve-bound leaves). "
-             "Orthogonal to --list-format. "
+             "Orthogonal to --list-format and --list-location. "
              "Ignored by --list-builds and --list-develop",
+    )
+    add_option(
+        '--list-location', dest='list_location',
+        choices=dependency_identity.LIST_LOCATION_CHOICES,
+        nargs=1, action='store', default='storage',
+        help="Which LOCATION --list-dependencies shows under --list-format=verbose: "
+             "storage (default: registry / URL / extract), publishers ([pub] forest path "
+             "under --publisher-root), develop ([dev] configured develop= path), or "
+             "active (develop when --develop is on, else publishers, else storage). "
+             "Orthogonal to --list-scope. Ignored by --list-downloads and other list reports",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
@@ -534,6 +677,9 @@ def process_dependency_action_options( cuppa_env ):
     )
     cuppa_env['list_scope'] = scope
     cuppa_env['list_dependencies_scope'] = scope
+    cuppa_env['list_location'] = dependency_identity.normalise_list_location(
+            _scope_option( 'list_location' )
+    )
 
 
 def wants_dependency_action( cuppa_env ):
@@ -1394,20 +1540,63 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
     if verbose and data.get( 'has_download_marks' ):
         downloads_root = data.get( 'downloads_root' ) or cuppa_env.get( 'downloads_root' )
         out.write( "\n" )
-        out.write(
-            "{} = archive present under downloads".format(
-                    as_info( dependency_identity.DOWNLOAD_MARK )
-            )
-        )
+        out.write( "{} = the archive present under downloads".format(
+                as_info( dependency_identity.DOWNLOAD_MARK )
+        ) )
         if downloads_root:
             out.write( " ({})".format(
                     as_info( storage.display_path( downloads_root ) )
             ) )
         out.write( ".\n" )
-        out.write(
-            "If re-extracting a dependency fails, remove the corrupt archive there - "
-            "deleting only the dependency tree is not enough.\n"
+        out.write( storage.highlight_values(
+                "        If re-extracting a dependency fails, remove the corrupt "
+                "archive there using\n"
+                "        --purge-dependencies=[dependency]\n",
+                as_info,
+        ) )
+
+    if verbose and (
+            data.get( 'has_dev_marks' ) or data.get( 'has_pub_marks' )
+    ):
+        if data.get( 'has_dev_marks' ):
+            out.write( "\n" )
+            out.write( "{} = the configured {}\n".format(
+                    as_info( dependency_identity.WORKING_COPY_DEV_MARK ),
+                    storage.highlight_values(
+                            "develop=[develop_path] working copy", as_info
+                    ),
+            ) )
+        if data.get( 'has_pub_marks' ):
+            from cuppa.package_managers import package_cascade
+            try:
+                publisher_root = package_cascade.publisher_lookup_root( cuppa_env )
+            except Exception:
+                publisher_root = None
+            out.write( "\n" )
+            out.write( "{} = the {} under the in-force publisher root\n".format(
+                    as_info( dependency_identity.WORKING_COPY_PUB_MARK ),
+                    storage.highlight_values( "[publisher_path]", as_info ),
+            ) )
+            if publisher_root:
+                out.write( "        (as provided by {}, otherwise {}).\n".format(
+                        storage.highlight_values( "--publisher-root", as_info ),
+                        as_info( storage.display_path( publisher_root ) ),
+                ) )
+            else:
+                out.write( storage.highlight_values(
+                        "        (as provided by --publisher-root, otherwise "
+                        "[storage-root]/publishers).\n",
+                        as_info,
+                ) )
+        mode = dependency_identity.normalise_list_location(
+                cuppa_env.get( 'list_location' )
         )
+        if mode == 'active':
+            out.write( storage.highlight_values(
+                    "With --list-location=active, develop wins only when --develop is "
+                    "on (same precedence as cascade resolve).\n",
+                    as_info,
+            ) )
 
     if (
             scope in ( 'all', 'resolve', 'referenced', 'unreferenced' )
@@ -1525,11 +1714,30 @@ def list_dependencies( construct, cuppa_env, out=None ):
     rows = data['rows']
     tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
     verbose = list_format == 'verbose'
+    list_location = dependency_identity.normalise_list_location(
+            cuppa_env.get( 'list_location' )
+    )
+    painted = False
+    painted_dev = False
+    painted_pub = False
+    if verbose or list_location != 'storage':
+        # Overlay needs LOCATION; non-storage modes imply the verbose column.
+        if list_location != 'storage':
+            verbose = True
+        painted, painted_dev, painted_pub = apply_list_location_overlay(
+                tree, cuppa_env
+        )
+    data['tree'] = tree
+    data['list_location'] = list_location
+    data['has_working_copy_marks'] = painted
+    data['has_dev_marks'] = painted_dev
+    data['has_pub_marks'] = painted_pub
 
     if list_format == 'json':
         payload = {
             'dependencies_root': root,
             'scope': data.get( 'scope' ) or 'all',
+            'list_location': list_location,
             'tree': dependency_tree.tree_to_json( tree ),
             'entries': [
                 {

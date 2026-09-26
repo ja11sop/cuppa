@@ -140,7 +140,7 @@ identity for it:
 include::partial$samples/list-dependencies-requires-resolve.html[]
 ++++
 
-== Verbose LOCATION and ``[D]``
+== Verbose LOCATION and ``[dls]`` / ``[dev]`` / ``[pub]``
 
 Under `--list-format=verbose` a LOCATION column is added. What it shows depends on the type:
 
@@ -153,11 +153,47 @@ Under `--list-format=verbose` a LOCATION column is added. What it shows depends 
   download URL on the version leaf.
 
 When a regenerating archive exists under the downloads root (`--downloads-root`, for example
-`~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`), LOCATION is prefixed with `[D]` on the
+`~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`), LOCATION is prefixed with `[dls]` on the
 leaf that names that archive (HTTP/Boost extract rows, and GitLab toolchain archive
 basenames — not the GitLab registry URL on the version row). A footer explains the mark in
 verbose mode whenever such archives are present. If re-extracting a dependency fails, remove
 the corrupt archive under downloads; deleting only the dependency tree is not enough.
+
+[#working-copy-location-list-location]
+=== Working-copy LOCATION (``--list-location``)
+
+`--list-location` is orthogonal to `--list-format` and `--list-scope`. It only affects
+`--list-dependencies` LOCATION (under verbose, or when a non-`storage` value implies the
+LOCATION column). Health of those trees stays on
+xref:dependencies/managing/develop.adoc[`--list-develop`] and
+xref:dependencies/publishing/list-publishers.adoc[`--list-publishers`].
+
+[cols="2,8"]
+|===
+| Value | LOCATION shows
+
+| `storage` (default)
+| Registry / URL / extract paths as above
+
+| `publishers`
+| Forest path under the in-force publisher root (`--publisher-root`, else
+  `<storage-root>/publishers`), prefixed with `[pub]`, when a matching tree exists
+
+| `develop`
+| Configured `develop=` path, prefixed with `[dev]`, when configured (does not require
+  `--develop`)
+
+| `active`
+| What this tip would prefer with the current flags: `[dev]` when `--develop` is on and a
+  develop path applies; otherwise `[pub]` when a forest tree matches; otherwise storage.
+  Matches cascade `resolve_publisher_dir` precedence
+|===
+
+[source,shell]
+----
+cuppa -Q -D --list-dependencies --list-format=verbose --list-location=publishers
+cuppa -Q -D --list-dependencies --list-format=verbose --list-location=active --develop
+----
 
 ++++
 include::partial$samples/list-dependencies-verbose.html[]
@@ -201,7 +237,7 @@ include::partial$samples/list-dependencies-requires-resolve.json[]
 The inventory under `<dependencies_root>/.cuppa-inventory/` records sizes (exact after
 listing upgrades missing or sampled entries; resolve/build may still write samples until
 listing upgrades them), optional `remote_location` / `source_url`, and paths of known
-download archives so later listings can show LOCATION and `[D]` without re-guessing.
+download archives so later listings can show LOCATION and `[dls]` without re-guessing.
 
 Listing does not stamp `last_used` or `used_by`; a real `BuildWith` / default-dependency
 resolve does, recording the current sconstruct directory in `used_by`. Unqualified VCS stems

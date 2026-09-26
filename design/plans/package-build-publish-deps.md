@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-25
+- **Updated:** 2026-09-26
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -520,8 +520,8 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 
 ## Open questions (Phase 2+)
 
-1. **Making cloned publisher trees visible** — **partial (Q1a on [#335](https://github.com/ja11sop/cuppa/pull/335))**;
-   Q1b (publishers section on ``--list-dependencies``) remains open.
+1. **Making cloned publisher trees visible** — **Q1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335);
+   **Q1b intent settled** (2026-09-26); **implemented** on this branch (``--list-location``).
 
    ### Settled decisions (question 1a — forest shortcut + develop chrome)
 
@@ -540,15 +540,33 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
    **Drift note:** Phase 2b originally preferred a ``publishers`` **node** on the existing
    ``--list-*`` family “rather than inventing a parallel ``--list-publishers``.” The
    #335 slice delivered the shortcut + develop chrome instead (containment and git
-   health). That original preferred direction remains **open as Q1b** — a
-   publishers section on ``--list-dependencies`` (referenced vs orphan relative to
-   this tip) with its own settled table (how referenced is judged; ``--list-scope``).
+   health). Q1b does **not** revive that node; see the settled table below.
 
-   ### Open follow-on (question 1b)
+   ### Settled decisions (question 1b — LOCATION overlay on ``--list-dependencies``)
 
-   | Topic | Status |
-   |-------|--------|
-   | ``publishers`` section / node on ``--list-dependencies`` | **Open** — tip-relative referenced vs unreferenced forest trees; not delivered by Q1a |
+   **Job:** in verbose list-deps, optionally show working-copy paths in LOCATION
+   (marked ``[dev]`` / ``[pub]``) instead of registry/extract LOCATION — mirroring
+   what cascade/consume would prefer, not folding forest health into the storage tree.
+
+   | Topic | Decision |
+   |-------|----------|
+   | Primary job | Verbose LOCATION can show working-copy paths marked ``[dev]`` / ``[pub]`` instead of storage LOCATION |
+   | Non-job | No ``publishers`` TYPE_LABELS / top-level section; no STATUS health in list-deps; no multi-report stacking in this slice; forest orphans stay on ``--list-publishers`` |
+   | Flag surface | **``--list-location=``** with values ``storage`` (default with verbose), ``publishers``, ``develop``, ``active``. Orthogonal to ``--list-format`` / ``--list-scope`` (same pattern as ``--list-scope`` today) |
+   | Precedence | **``--develop``** gates develop-over-publisher when ``active`` (and when both WC kinds would otherwise compete); matches ``resolve_publisher_dir`` — without ``--develop``, configured develop is unused and forest/`package_source` wins |
+   | Publisher root | ``[pub]`` resolves via ``publisher_lookup_root(env)`` (``--publisher-root`` or ``{storage_root}/publishers``) |
+   | Compose ``--list-develop`` / ``--list-publishers`` | **Refuse** as primary surface — those flags are exclusive report modes today (develop tier exits before storage; publishers beat dependencies in the storage if-chain). Optional later sugar that *sets* ``--list-location`` only if dispatch and help are unambiguous |
+   | Stack health reports after the tree | **Deferred** — one primary report per invocation; keep footer / verify hints |
+   | ``--list-verbose-mode`` | **Refuse** (collides with ``--list-format=verbose``) |
+   | Consume ``final/`` gap | Out of scope for Q1b marks; ``[dev]`` means the configured develop WC, not necessarily the linked ``_build/.../final/...`` stage under publisher-shaped ``develop=`` |
+   | Implementation | **Done** — ``--list-location`` + ``[dev]``/``[pub]`` LOCATION paint + Antora |
+
+   **Typical commands:**
+
+   ```text
+   cuppa -Q -D --list-dependencies --list-format=verbose --list-location=publishers
+   cuppa -Q -D --list-dependencies --list-format=verbose --list-location=active --develop
+   ```
 
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
@@ -642,7 +660,7 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
 | Follow-on: tip no-op after metadata-only dependency refresh | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) (question 11; corosio→capy soak) — not yet in a named release |
-| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b open** (``--list-dependencies`` publishers section); question **4** still open (stem keying) |
+| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b settled + implemented** (``--list-location`` LOCATION overlay); question **4** still open (stem keying) |
 | Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) — see [Antora documentation](#antora-documentation-297) |
 | Collect finish: reused vs newly cloned | **Done** on master via [#334](https://github.com/ja11sop/cuppa/pull/334) (question 7) |
 
@@ -681,7 +699,7 @@ about one tool.
 |------|------------|--------|
 | Collect finish: **reused** vs **cloned** in plan/collect copy | ~~Open question **7**~~ **Done** — Antora `#collect-cascade` + CLI `--collect-cascade` ([#334](https://github.com/ja11sop/cuppa/pull/334)) |
 | ``publishers`` list/remove + develop chrome (Q1a) | ~~Open question **1**~~ **Done** on [#335](https://github.com/ja11sop/cuppa/pull/335) | ``--list-publishers`` / ``--remove-publishers`` |
-| ``publishers`` section on ``--list-dependencies`` (Q1b) | Open question **1b** | Tip-relative referenced vs orphan; settle before implementing |
+| ``--list-location`` LOCATION overlay on ``--list-dependencies`` (Q1b) | ~~Open question **1b**~~ **Done** (settled 2026-09-26; implemented this PR) | ``storage`` / ``publishers`` / ``develop`` / ``active``; ``--develop`` gates precedence; no publishers TYPE section |
 | Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Update resolve/clone destination tables and cold-start paths in the same change |
 | Build-deps-only without nested upload | Open question **3** (still open) | Do not document as if shipped |
 | Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |

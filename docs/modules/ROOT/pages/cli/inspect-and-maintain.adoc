@@ -24,7 +24,7 @@ cuppa -D -Q --list-dependencies
 
 | `--list-dependencies`
 | Retrieved dependency identities and leaves under the dependencies root
-| `--list-format`, `--list-scope`, `--exact-sizes`; omit `--develop` for normal storage inspection
+| `--list-format`, `--list-scope`, `--list-location`, `--exact-sizes`; omit `--develop` for normal storage inspection
 
 | `--list-downloads`
 | Cached archives plus extract/package leaves under the downloads root
@@ -77,6 +77,12 @@ xref:dependencies/managing.adoc#which-listing[Managing dependencies].
 
 `--list-scope=SCOPE` applies to `--list-dependencies` and `--list-downloads`. It is ignored by
 build and develop listings. `--list-dependencies-scope` is a deprecated compatibility alias.
+
+`--list-location=MODE` applies to `--list-dependencies` LOCATION only (with
+`--list-format=verbose`, or when a non-`storage` mode implies the LOCATION column). Values:
+`storage` (default), `publishers` (`[pub]`), `develop` (`[dev]`), `active` (develop when
+`--develop` is on, else publishers, else storage). See
+xref:dependencies/managing/list-dependencies.adoc#working-copy-location-list-location[Working-copy LOCATION].
 
 [cols="2,8"]
 |===

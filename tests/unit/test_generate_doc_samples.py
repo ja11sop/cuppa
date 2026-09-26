@@ -102,7 +102,7 @@ def test_list_dependencies_verbose_sample_has_location_and_download_mark():
     path = samples.sample_list_dependencies_verbose()
     text = path.read_text( encoding='utf-8' )
     assert 'LOCATION' in text
-    assert '[D]' in text
+    assert '[dls]' in text
     assert 'archive present under downloads' in text
     assert 'today' in text
     assert ' days ago' not in text
@@ -126,7 +126,7 @@ def test_list_dependencies_verbose_html_sample_colours_download_mark():
     )
 
     assert 'LOCATION' in text
-    assert '[D]' in text
+    assert '[dls]' in text
     assert 'cuppa-info' in text
     assert 'archive present under downloads' in text
     assert '/home/' not in text

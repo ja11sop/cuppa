@@ -21,6 +21,7 @@ from cuppa.colourise import (
     as_subdued,
 )
 from cuppa.core import dependency_inventory
+from cuppa.core import dependency_identity
 from cuppa.core.dependency_identity import (
     display_qualifier,
     gitlab_archive_name,
@@ -687,7 +688,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
             'size_bytes': None if missing_only else size_bytes,
             'last_used_epoch': None if missing_only else epoch,
             'remark': remark,
-            # Registry URL is not a downloads-root archive — [D] belongs on toolchain leaves.
+            # Registry URL is not a downloads-root archive — [dls] belongs on toolchain leaves.
             'location': version_location,
             'has_download': version_has_download,
             'missing': missing_only,
@@ -1340,8 +1341,6 @@ def _mute_row_fields( label, size, last_used, remark, location ):
         last_used = as_subdued( last_used )
     if remark:
         remark = as_subdued( remark )
-    if location:
-        location = as_subdued( location )
     return label, size, last_used, remark, location
 
 
@@ -1377,8 +1376,6 @@ def _remove_row_fields( label, size, last_used, remark, location ):
         last_used = as_remove_notice( last_used )
     if remark:
         remark = as_remove_notice( remark )
-    if location:
-        location = as_remove_notice( location )
     return label, size, last_used, remark, location
 
 
@@ -1391,8 +1388,8 @@ def _error_row_fields( label, size, last_used, remark, location, mute_location=F
         last_used = as_error( last_used )
     if remark:
         remark = as_error( remark )
-    if location:
-        location = as_subdued( location ) if mute_location else as_error( location )
+    # LOCATION is painted once at the end of the row so marks stay info-coloured.
+    _ = mute_location
     return label, size, last_used, remark, location
 
 
@@ -1547,6 +1544,8 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             } )
             continue
 
+        location_path_colour = None
+
         if row.get( '_missing_identity' ):
             # Missing dependency name: emphasised error; registry URL detail/LOCATION muted
             # so the gap (missing leaf) stays the visual focus.
@@ -1560,19 +1559,20 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 size = as_error( size )
             if last_used:
                 last_used = as_error( last_used )
-            if location:
-                location = as_subdued( location )
+            location_path_colour = as_subdued
         elif row.get( '_missing_version' ):
             # Version that contains a missing toolchain leaf: error on the version row only;
             # mute registry LOCATION; sibling toolchains paint normally.
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location, mute_location=True
             )
+            location_path_colour = as_subdued
         elif row.get( '_leaf_missing' ) or remark == 'missing' or row.get( '_state' ) == 'missing':
             # The missing leaf itself (and any other row that is itself missing).
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location
             )
+            location_path_colour = as_error
         elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
                 if label_name:
@@ -1585,6 +1585,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
             elif kind == 'requires':
                 # Structural heading — normal (non-muted) paint, same as used.
                 pass
@@ -1593,6 +1594,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
         elif section in ( 'referenced', 'used' ):
             if kind == 'identity':
                 if label_name:
@@ -1608,6 +1610,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     last_used = as_subdued( last_used )
                 if remark in ( 'develop', 'in use' ):
                     remark = as_info( remark )
+                # Used identity LOCATION path stays plain; marks still info.
             elif kind == 'version':
                 # Version rollups are secondary to the toolchain / variant leaf.
                 if size.strip():
@@ -1621,17 +1624,18 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
             elif kind == 'summary' or remark == 'in use':
                 if kind == 'summary' and 'stale' in ( label or '' ):
                     label, size, last_used, remark, location = _mute_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_subdued
                 else:
                     label = as_info( label ) if label else label
                     if remark:
                         remark = as_info( remark )
-                    if location:
-                        location = as_info( location )
+                    location_path_colour = as_info
                     if kind == 'summary' and size.strip():
                         size = as_info( size )
             elif kind == 'leaf':
@@ -1639,11 +1643,18 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     label, size, last_used, remark, location = _remove_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_remove_notice
                 else:
                     label, size, last_used, remark, location = _mute_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_subdued
             # section / type: normal colour (layout structure).
+
+        if location:
+            location = dependency_identity.paint_location(
+                    location, path_colour=location_path_colour
+            )
 
         # Tree glyphs stay muted regardless of row accent (same as --list-builds).
         dependency = ( as_subdued( stem ) if stem else '' ) + label

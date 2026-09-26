@@ -70,8 +70,9 @@ def add_storage_action_options( add_option ):
         help="Output format for --list-* options: text (default), verbose (text plus "
              "LOCATION for --list-dependencies / --list-downloads), or json "
              "(including --list-develop / --list-publishers / --list-toolchains / "
-             "--list-available-reports). Section filtering for "
-             "dependency and download listings is --list-scope",
+             "--list-available-reports). Section filtering for dependency and "
+             "download listings is --list-scope; working-copy LOCATION overlay for "
+             "--list-dependencies is --list-location",
     )
     from cuppa.core import dependency_actions
     from cuppa.core import publisher_actions
