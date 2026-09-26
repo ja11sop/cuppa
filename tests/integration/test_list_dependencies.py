@@ -475,8 +475,8 @@ cuppa.run(
     assert "unreferenced" in plain
     assert "fmt" in plain or "github.com" in plain or "boost" in plain
     assert "Review unreferenced trees" in plain
-    # [dls] footer is verbose-only even when regenerating archives exist.
-    assert "[dls] = the archive present under downloads" not in plain
+    # [dl] footer is verbose-only even when regenerating archives exist.
+    assert "[dl] = the archive present under downloads" not in plain
     assert "corrupt archive" not in plain
 
 
@@ -522,7 +522,7 @@ cuppa.run(
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):
-    """Verbose LOCATION groups GitHub/Boost archives and marks cached downloads with [dls]."""
+    """Verbose LOCATION groups GitHub/Boost archives and marks cached downloads with [dl]."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     planted = plant_archives_and_downloads(storage)
@@ -566,19 +566,19 @@ cuppa.run(
     assert "https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
     assert "https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" in plain
     # Only the tag with a downloads-root file is marked.
-    assert "[dls] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
-    assert "[dls] https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" not in plain
+    assert "[dl] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
+    assert "[dl] https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" not in plain
 
     assert re.search(r"\bboost\b", plain)
     assert "1.91.0" in plain or "boost_1_91_0" in plain or "archives.boost.io" in plain
-    assert "[dls] {}".format(planted["boost_url"]) in plain
+    assert "[dl] {}".format(planted["boost_url"]) in plain
 
-    # GitLab: registry URL on the version row without [dls]; archive leaf with [dls].
+    # GitLab: registry URL on the version row without [dl]; archive leaf with [dl].
     assert "gitlab.example/api/v4/projects/1/boost/1.91" in plain
-    assert "[dls] https://gitlab.example/api/v4/projects/1/boost/1.91" not in plain
-    assert "[dls] {}".format(planted["gitlab_archive"]) in plain
+    assert "[dl] https://gitlab.example/api/v4/projects/1/boost/1.91" not in plain
+    assert "[dl] {}".format(planted["gitlab_archive"]) in plain
 
-    assert "[dls] = the archive present under downloads" in plain
+    assert "[dl] = the archive present under downloads" in plain
     assert "--purge-dependencies=" in plain or "purge-dependencies" in plain
     assert "corrupt archive" in plain
 
@@ -873,6 +873,6 @@ cuppa.run(
     assert "[pub]" in plain
     assert "publishers/boost" in plain.replace( "\\", "/" )
     assert "in-force publisher root" in plain
-    assert "[dls]" in plain
+    assert "[dl]" in plain
     assert "--purge-dependencies=" in plain or "purge-dependencies" in plain
     assert planted["gitlab_archive"]  # planted layout still present on disk

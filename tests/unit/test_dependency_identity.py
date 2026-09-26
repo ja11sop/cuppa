@@ -983,7 +983,7 @@ def test_gitlab_verbose_locations_on_version_and_archive_leaf():
     version = next(
             child for child in identity['children'] if child.get( 'kind' ) == 'version'
     )
-    # Registry URL is not a downloads-root file — no [dls] on the version row.
+    # Registry URL is not a downloads-root file — no [dl] on the version row.
     assert version['location'] == 'https://git.example/api/v4/projects/1/boost/1.91'
     leaf = version['children'][0]
     from cuppa.core.dependency_identity import DOWNLOAD_MARK

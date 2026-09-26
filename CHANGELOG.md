@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
   question 1b ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
-- Verbose LOCATION download mark renamed from ``[D]`` to ``[dls]`` (downloads /
+- Verbose LOCATION download mark renamed from ``[D]`` to ``[dl]`` (download /
   archive), aligned with ``[dev]`` / ``[pub]``. Marks are info-coloured; paths
   follow the row. Legend footer names ``--purge-dependencies`` and real publisher /
   downloads roots.

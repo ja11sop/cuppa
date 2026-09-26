@@ -488,7 +488,7 @@ def gitlab_archive_name( package, tool_variant, system=None, extension=None, omi
 
 
 # Verbose LOCATION prefix when a regenerating archive exists under downloads_root.
-DOWNLOAD_MARK = '[dls]'
+DOWNLOAD_MARK = '[dl]'
 
 # Extract / expanded tree under dependencies_root (used by --list-downloads).
 EXTRACT_MARK = '[E]'
@@ -519,7 +519,7 @@ def split_location_mark( location ):
 
 
 def paint_location( location, path_colour=None ):
-    """Colour ``[dls]`` / ``[dev]`` / ``[pub]`` with info; optional style for the path.
+    """Colour ``[dl]`` / ``[dev]`` / ``[pub]`` with info; optional style for the path.
 
     Marks stay ``as_info`` even when the path is subdued or error-coloured, so the
     badge still scans in unused / missing rows.
@@ -538,7 +538,7 @@ def paint_location( location, path_colour=None ):
 
 
 def with_download_mark( location, has_download ):
-    """Prefix LOCATION with ``[dls]`` when a downloads-root archive is present."""
+    """Prefix LOCATION with ``[dl]`` when a downloads-root archive is present."""
     if not location or not has_download:
         return location or ''
     text = str( location )

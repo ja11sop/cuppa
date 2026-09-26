@@ -688,7 +688,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
             'size_bytes': None if missing_only else size_bytes,
             'last_used_epoch': None if missing_only else epoch,
             'remark': remark,
-            # Registry URL is not a downloads-root archive — [dls] belongs on toolchain leaves.
+            # Registry URL is not a downloads-root archive — [dl] belongs on toolchain leaves.
             'location': version_location,
             'has_download': version_has_download,
             'missing': missing_only,
