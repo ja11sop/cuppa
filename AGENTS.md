@@ -714,7 +714,7 @@ When docs and code disagree, **code is authoritative** (especially storage defau
 | Qt / Quince | `dependencies/using/builtins/qt.adoc` / `dependencies/using/builtins/quince.adoc` (thin stubs) |
 | Managing deps (list / update / remove) | `dependencies/managing.adoc` |
 | Listing dependency trees (Option A scopes) | `dependencies/managing/list-dependencies.adoc` |
-| Remove / purge / wipe selection examples | `dependencies/managing/removing.adoc` § Selection and filtering examples |
+| Remove / purge / wipe (reclaim storage) | `dependencies/managing/reclaiming.adoc` hub; action pages under `removing` / `purging` / `wiping` / `force-wiping` |
 | Publishing dependencies hub | `dependencies/publishing.adoc` |
 | Publishing packages overview | `dependencies/publishing/packages.adoc` (`packages.adoc` stub redirects) |
 | GitLab package publish | `dependencies/publishing/gitlab.adoc` |

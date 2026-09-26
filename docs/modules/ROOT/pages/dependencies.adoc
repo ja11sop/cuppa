@@ -60,7 +60,7 @@ know you need storage reclaim, publishing, or a custom factory.
 | List, remove, purge, develop copies
 | xref:dependencies/managing.adoc[Managing] ·
   xref:dependencies/managing/list-dependencies.adoc[list] ·
-  xref:dependencies/managing/removing.adoc[remove] ·
+  xref:dependencies/managing/reclaiming.adoc[reclaim] ·
   xref:dependencies/managing/develop.adoc[develop]
 
 | Publish / cascade / publisher trees

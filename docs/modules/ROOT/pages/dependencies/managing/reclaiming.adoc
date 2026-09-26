@@ -1,0 +1,301 @@
+= Reclaiming dependency storage
+:description: Overview of remove, purge, wipe, and force-wipe — tokens, flag families, and selection glance table
+
+Choose how aggressively to reclaim trees under `--dependencies-root` (and archives under
+`--downloads-root`). This page is the map: flag differences, dependency tokens, a shared
+example inventory, and a glance table of common filters.
+
+Detailed semantics and worked examples (why + dry-run reports) live on the action pages:
+
+[cols="1,2"]
+|===
+| Action | Page
+
+| Selection-scoped reclaim (downloads stay; `storage_clean` may keep extracts)
+| xref:dependencies/managing/removing.adoc[Removing dependencies]
+
+| Remove plus matching downloads
+| xref:dependencies/managing/purging.adoc[Purging dependencies]
+
+| Whole extract clear-down for project-used names (re-fetch next build)
+| xref:dependencies/managing/wiping.adoc[Wiping dependencies]
+
+| Named leaves regardless of use, plus orphan sweeps
+| xref:dependencies/managing/force-wiping.adoc[Force-wiping dependencies]
+|===
+
+CLI summaries also link here from
+xref:cli/inspect-and-maintain.adoc#dependency-storage-actions[Inspect and maintain].
+
+[#which-flag-family]
+== Which flag family
+
+[cols="2,2,3,3"]
+|===
+| Flag | Requires project-used name? | What leaves | Typical intent
+
+| `--remove-dependencies=<tokens>`
+| Yes
+| Current toolchain / variant / location-match **selection** only; downloads stay; `storage_clean` deps may keep the extract
+| Reclaim selected products or the selected package variant
+
+| `--remove-all-dependencies`
+| Yes (every project-used name)
+| Same as remove for each project-used name
+| Clear this project's selected caches in one go
+
+| `--purge-dependencies=<tokens>`
+| Yes
+| Remove **plus** matching downloads for the same selection
+| Free extract products (or trees) and their archives
+
+| `--purge-all-dependencies`
+| Yes (every project-used name)
+| Purge for every project-used name — not every leftover on disk
+| Project-wide selected purge
+
+| `--wipe-dependencies=<tokens>`
+| Yes
+| **Whole extract** + matching downloads for the selection (Boost `storage_clean` does not stop at products)
+| Clear-down so the next online build re-fetches
+
+| `--force-wipe-all-dependencies`
+| Yes (every project-used name)
+| Whole extracts + downloads for every project-used name in the selection
+| Wide clear-down; the `force-` prefix marks the breadth
+
+| `--force-wipe-dependencies=<tokens>`
+| No — any list-tree leaf
+| Exact named leaves (versions / branches / stems), including unused siblings under a used identity; matching downloads
+| Reclaim old Boost versions, unused location stems, leftovers remove cannot name
+
+| `--force-wipe-unreferenced-dependencies`
+| No
+| Every tree/download this resolve marks `unreferenced` (orphan sweep)
+| Rare blunt cleanup after `--list-scope=unreferenced`
+|===
+
+Do not combine remove, purge, and wipe modes in one invocation. Develop working
+copies are never deleted. SCons `-n` / `--no-exec` is a dry run for all of these.
+
+
+[#dependency-tokens]
+== Dependency tokens
+
+`--remove-dependencies`, `--purge-dependencies`, `--wipe-dependencies`, and
+`--force-wipe-dependencies` share one token grammar:
+
+[source,text]
+----
+[selector]name
+[selector]name/qualifier
+name
+name/qualifier
+----
+
+* **Selector** (optional) restricts the match to one **dependency type** — the same axis as
+  `--list-dependencies` type groups (see xref:#dependency-types-and-selectors[Dependency types and selectors]).
+* **Untyped** tokens (no `[<...>]` prefix) match across **all** types on purpose (for example a
+  source Boost extract and a GitLab package that share the name `boost`).
+* **Qualifier** is the leaf shown in the list tree (`1.91.0`, `@11.1.1`). Shell / `fnmatch`
+  wildcards (`*`, `?`, `[<...>]`) are accepted on the name and/or qualifier; quote them so the shell
+  does not expand them.
+* Remove / purge / wipe still require **project-used** names; force-wipe does not.
+* Reports nest **summary → type → identity → version → leaves**, matching `--list-dependencies`
+  on the identity/version axis. A summary root shows **removing** / **wiped** vs **remaining**
+  bytes. Version marks follow extract rollups (`✔✔✔` full, `-✔-` partial, `---` untouched).
+  Match versions with `name/qualifier` tokens (for example `boost/1.8*`), not a glued name like
+  `boost*1.8*`.
+
+[#dependency-types-and-selectors]
+=== Dependency types and selectors
+
+[cols="2,3,4"]
+|===
+| Dependency type | What it is | Selector aliases (docs prefer the first)
+
+| Source archives
+| Extracted source / archive trees (for example Boost built from a tarball)
+| `[source]`, `[sa]`, `[archive]`, `[source_archive]`, `[source-archive]`
+
+| GitLab packages
+| Registry package extracts under the GitLab generic layout
+| `[gitlab]`, `[gl]`, `[gitlab_package]`, `[gitlab-package]`
+
+| Repositories
+| VCS / location working copies (including develop-shaped trees under the dependencies root)
+| `[repository]`, `[repo]`, `[vcs]`, `[vcs_dependency]`, `[repository_dependency]`; quiet alias `[location]`
+
+| Conan
+| Conan package trees Cuppa tracks under the dependencies root
+| `[conan]`, `[cn]`, `[conan_package]`
+
+| Toolchains
+| Fetched / registered compiler installs under the toolchains area
+| `[toolchain]`, `[toolchains]`, `[tc]`, `[compiler]`
+
+| Untyped (no selector)
+| Match the name (and optional qualifier) in **every** type above
+| _(omit the `[<...>]` prefix)_
+
+| Reserved
+| Future GitHub generic packages — not implemented; must not be used as GitLab
+| `[gh]`, `[github]`, `[github_package]`, `[github-package]`
+|===
+
+[source,shell]
+----
+cuppa -Q -D -n --remove-dependencies='[source]boost'
+cuppa -Q -D -n --wipe-dependencies='[gitlab]boost_package/1.91'
+cuppa -Q -D -n --force-wipe-dependencies='[source]boost/1.8*'
+----
+
+[#selection-examples]
+== Selection and filtering examples
+
+Form tokens against the list tree and dry-run with `-n` first. The glance table keeps
+every common pattern (intent, colourised command, Matches). Intent links open the matching
+worked example on the
+xref:dependencies/managing/removing.adoc[remove],
+xref:dependencies/managing/purging.adoc[purge],
+xref:dependencies/managing/wiping.adoc[wipe], or
+xref:dependencies/managing/force-wiping.adoc[force-wipe] page.
+
+[#example-inventory]
+=== Example inventory
+
+The glance table and most worked examples refer to this synthetic
+`--list-dependencies` tree (sizes and toolchain ids are illustrative).
+When a worked example needs a different layout (for example source `boost` as
+**project-used**), that example shows its own inventory.
+
+++++
+include::partial$samples/selection-example-inventory.html[]
+++++
+
+[#token-filter-glance]
+=== Token and filter examples
+
+The table keeps every common pattern: **Intent**, a colourised **command**, and
+**Matches** against the xref:#example-inventory[example inventory]. Quote wildcards
+for the shell.
+
+Docs prefer the **medium** selector spellings: `[source]`, `[gitlab]`,
+`[repository]`, `[conan]`, `[toolchain]`. Short aliases (`[sa]`, `[gl]`, `[cn]`,
+`[repo]`, `[tc]`, <...>) and longer forms work the same — see
+xref:#dependency-types-and-selectors[Dependency types and selectors].
+
+Intent links in the table open the matching worked example on the action pages.
+
+[.cuppa-selection-glance,cols="35%,65%"]
+|===
+| Intent | Example
+
+| Remove selected GitLab package variant (current toolchain)
+a|
+++++
+include::partial$cli-examples/glance-remove-gitlab-selected.html[]
+++++
+
+| xref:dependencies/managing/removing.adoc#ex-typed-selector[Remove by dependency type using a selector (project-used)]
+a|
+++++
+include::partial$cli-examples/glance-remove-typed-gitlab.html[]
+++++
+
+| xref:dependencies/managing/removing.adoc#ex-remove-used-source[Remove used variants for a source-archive dependency (current selection)]
+a|
+++++
+include::partial$cli-examples/glance-remove-source-boost.html[]
+++++
+
+| Remove every **project-used** name for this selection
+a|
+++++
+include::partial$cli-examples/glance-remove-all.html[]
+++++
+
+| Purge package variant + its download archive
+a|
+++++
+include::partial$cli-examples/glance-purge-gitlab-selected.html[]
+++++
+
+| xref:dependencies/managing/removing.adoc#ex-remove-used-source[Purge used source-archive variants + download (extract may remain)]
+a|
+++++
+include::partial$cli-examples/glance-purge-boost.html[]
+++++
+
+| xref:dependencies/managing/wiping.adoc#ex-wipe-used-source[Wipe a used source-archive extract (re-fetch next build)]
+a|
+++++
+include::partial$cli-examples/glance-wipe-boost.html[]
+++++
+
+| xref:dependencies/managing/wiping.adoc#ex-wipe-gitlab[Wipe the selected GitLab package extract (project-used)]
+a|
+++++
+include::partial$cli-examples/glance-wipe-gitlab.html[]
+++++
+
+| Wipe every **project-used** extract in the selection
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-all.html[]
+++++
+
+| Force-wipe one **unused** Boost version leaf
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-boost-one.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-multi-token[Force-wipe several **unused** version leaves]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-boost-two.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-wildcard-untyped[Force-wipe an **unused** version series (fnmatch)]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-boost-wildcard.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-wildcard-typed[Force-wipe **unused** source versions only (typed wildcard)]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-source-boost-wildcard.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-location-stem[Force-wipe an **unused** location branch stem]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-fmt-stem.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-unqualified[Force-wipe an **unused** unqualified VCS duplicate]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-widget-unqualified.html[]
+++++
+
+| xref:dependencies/managing/force-wiping.adoc#ex-mixed[Force-wipe mixed **unused** archive + location leaves]
+a|
+++++
+include::partial$cli-examples/glance-force-wipe-mixed.html[]
+++++
+
+| Orphan sweep (list first)
+a|
+++++
+include::partial$cli-examples/glance-orphan-sweep.html[]
+++++
+
+|===
+
+After any live run, verify with `cuppa -Q -D --list-dependencies` and, when downloads
+were involved, `cuppa -Q -D --list-downloads` (add `--list-scope=unreferenced` after an
+orphan wipe).
+

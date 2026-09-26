@@ -143,10 +143,54 @@
   padding: 0.55rem 0.75rem;
   padding-right: 2.25rem;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
+/*
+ * Glance table: smaller type, force wrap so Intent can keep its column share.
+ * Outrank `.doc pre.cuppa-output { white-space: pre; overflow-x: auto }`.
+ */
+.doc table.cuppa-selection-glance {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.doc table.cuppa-selection-glance > * > tr > * {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  vertical-align: top;
+}
+
+.doc table.cuppa-selection-glance .cuppa-cli-block {
+  margin: 0;
+  max-width: 100%;
+}
+
+.doc table.cuppa-selection-glance pre.cuppa-output.cuppa-cli-example,
 .doc table pre.cuppa-output.cuppa-cli-example {
   margin: 0;
+  max-width: 100%;
+  font-size: 0.72em;
+  line-height: 1.4;
+  padding: 0.4rem 0.55rem;
+  padding-right: 1.75rem;
+  white-space: pre-wrap;
+  overflow-x: visible;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.doc table.cuppa-selection-glance pre.cuppa-output.cuppa-cli-example > code,
+.doc table pre.cuppa-output.cuppa-cli-example > code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+.doc table.cuppa-selection-glance .cuppa-cli-matches-label,
+.doc table.cuppa-selection-glance ul.cuppa-cli-matches {
+  font-size: 0.88em;
 }
 
 .cuppa-output .cuppa-cli-flag,

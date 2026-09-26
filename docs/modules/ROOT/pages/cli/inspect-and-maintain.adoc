@@ -97,7 +97,7 @@ build and develop listings. `--list-dependencies-scope` is a deprecated compatib
 
 These verbs intentionally have different ownership and re-fetch consequences.
 For worked selection and token examples, see
-xref:dependencies/managing/removing.adoc#selection-examples[Selection and filtering examples].
+xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples].
 
 [cols="2,3,5"]
 |===
@@ -177,8 +177,8 @@ patterns where the detailed workflow permits them.
 | Useful when the list tree displays an empty qualifier
 |===
 
-See xref:dependencies/managing/removing.adoc#dependency-tokens[Dependency tokens] and
-xref:dependencies/managing/removing.adoc#selection-examples[Selection and filtering examples]
+See xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
+xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples]
 before using force-wipe; those pages define every selector, show how tokens map to the
 inventory tree, and give a full remove / purge / wipe example table.
 

@@ -48,7 +48,11 @@ every example still needs a scannable intent + command + confirmation.
 
 ## Files
 
+- `docs/modules/ROOT/pages/dependencies/managing/reclaiming.adoc` (hub: tokens, flag family, glance)
 - `docs/modules/ROOT/pages/dependencies/managing/removing.adoc`
+- `docs/modules/ROOT/pages/dependencies/managing/purging.adoc`
+- `docs/modules/ROOT/pages/dependencies/managing/wiping.adoc`
+- `docs/modules/ROOT/pages/dependencies/managing/force-wiping.adoc`
 - `docs/modules/ROOT/partials/cli-examples/*.html`
 - `docs/modules/ROOT/partials/samples/selection-example-inventory.html`
 - `docs/supplemental-ui/css/cuppa-output.css`, `cuppa.css`

@@ -1,0 +1,73 @@
+= Purging dependencies
+:description: --purge-dependencies — remove plus matching downloads
+
+For the flag map, tokens, shared inventory, and glance table, see
+xref:dependencies/managing/reclaiming.adoc[Reclaiming dependency storage].
+
+[#purge-dependencies]
+== Purging dependencies and downloads
+
+`--purge-dependencies=name1,name2` and `--purge-all-dependencies` do everything
+`--remove-dependencies` / `--remove-all-dependencies` do, then delete the matching archives
+under the downloads root for the **same names and selection** (`--toolchains`, variants,
+location-match). `--purge-all-dependencies` means every **project-used** name — not every leftover
+toolchain tarball on disk. Unreferenced clang archives stay, just as `--list-downloads` shows them.
+
+Do not combine any `--purge-*` flag with any `--remove-*` flag in one invocation (name lists are
+not merged). Unknown names use the same hint tree as remove. A missing download is not a failure:
+remove still runs and the report notes there was no archive to delete. Develop working copies are
+never deleted; downloads for that name may still be purged. SCons `-n` is a dry run.
+
+Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
+the **download file** is deleted. That reclaims download space; the next build keeps using the
+extract. For a full clear-down of the extract (and matching downloads) so the next build
+re-downloads and re-extracts, use xref:dependencies/managing/wiping.adoc#wipe-dependencies[`--wipe-dependencies`].
+
+The report nests download → `[E]` → source assets and products (the same pairing as
+`--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
+the same `[E]` subtree directly under the identity. Leftover other-selection extracts **and**
+leftover downloads are called out like today’s leftover trees. Freed space includes download
+bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when archive-clean left
+source assets — `--list-dependencies` is still useful there).
+
+[source,shell]
+----
+cuppa -Q -D --purge-dependencies=boost_package
+cuppa -Q -D --dbg --toolchains=gcc --purge-dependencies=boost_package
+cuppa -Q -D --dbg --purge-dependencies=boost
+cuppa -Q -D -n --purge-dependencies=widget
+cuppa -Q -D --purge-all-dependencies
+----
+
+Example shape after purging the selected GitLab toolchain tree and tarball while another
+toolchain remains (sizes and ids vary). The report uses the same summary → type → identity →
+version tree as remove; archive files and extract leaves hang under the version:
+
+++++
+include::partial$samples/purge-gitlab.html[]
+++++
+
+See xref:integration/test-purge-dependencies.adoc[`test_purge_dependencies`].
+More selection patterns:
+xref:dependencies/managing/reclaiming.adoc#selection-examples[Selection and filtering examples].
+
+
+
+[#worked-purge-examples]
+== Worked examples
+
+[#ex-purge-gitlab]
+== Example 5 — Purge the selected GitLab package + download (project-used)
+
+Purge does everything remove does for the selected leaf, then deletes the matching
+download archive. Inventory: xref:dependencies/managing/reclaiming.adoc#example-inventory[shared example inventory].
+
+++++
+include::partial$cli-examples/purge-gitlab-selected.html[]
+++++
+
+++++
+include::partial$samples/purge-gitlab.html[]
+++++
+
+

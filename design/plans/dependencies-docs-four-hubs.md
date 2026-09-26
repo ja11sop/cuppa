@@ -73,7 +73,8 @@ Dependency-related Antora pages are large and hard to navigate:
 ** Managing dependencies
 *** Listing dependency trees            ← Option A scopes + requires all/resolve samples
 *** Listing downloads
-*** Removing, purging, and wiping
+*** Reclaiming dependency storage
+**** Removing / Purging / Wiping / Force-wiping
 *** Develop working copies
 ** Publishing dependencies
 *** Publishing overview
@@ -157,6 +158,7 @@ P3–P5 can follow on the same PR if scope stays docs-only, or a docs follow-up 
 | P4 Publishing megapage / GitLab consume–publish split | Done — `gitlab` / `cascade` / `amend-and-external` / `conan` children; Boost-from-source under Publishing |
 | P5 Authoring polish + AGENTS topic map | Done — topic map; placeholder strategy; remove/wipe selection examples (see [`selection-filter-examples-docs.md`](selection-filter-examples-docs.md)) |
 | Cleanup — selection Matches + Using nav + list-deps IA | Done — glance Matches; medium selectors; CLI copy; list-deps user-first; Using Overview-first; Conan framing |
+| Cleanup — reclaiming hub split | Done — `reclaiming.adoc` overview + remove/purge/wipe/force-wipe children |
 | Next focus | Authoring depth + Publishing/Authoring split (follow-ons below) |
 
 ## Follow-ons (docs IA)
