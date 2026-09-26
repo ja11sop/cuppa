@@ -120,6 +120,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names tip build only) rather than **(this package)**, which remains for publisher
   tips.
 
+- Doc samples: ``list-dependencies-requires`` fixture includes an unused nest
+  toolchain; paired ``list-dependencies-requires-resolve`` shows
+  ``--list-scope=resolve`` keeping that variant under tip ``requires``.
+
 - Doc samples: ``cascade-plan`` / ``cascade-plan-consume`` / ``cascade-plan-clone``
   and ``list-publishers`` now generate semantic HTML (and text/JSON siblings)
   via ``python -m scripts.generate_doc_samples``, and Antora includes those

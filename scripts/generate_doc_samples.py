@@ -1323,8 +1323,61 @@ def _enrich_dependency_rows_for_json( rows ):
     return enriched
 
 
-def _dependencies_json_payload( rows ):
-    """Payload shape matching ``dependency_actions.list_dependencies`` JSON mode."""
+def _dependencies_json_payload( rows, data=None, scope='all' ):
+    """Payload shape matching ``dependency_actions.list_dependencies`` JSON mode.
+
+    Prefer ``data`` from ``apply_list_scope`` so ``tree`` / ``scope`` / rollups match
+    the text samples (including usage vs resolve-identity grouping).
+    """
+    if data is not None:
+        scoped_rows = data.get( 'rows' ) or rows
+        tree = data.get( 'tree' ) or dependency_tree.build_tree(
+                scoped_rows,
+                grouping=data.get( 'grouping' ) or 'usage',
+        )
+        return {
+            'dependencies_root': data.get( 'dependencies_root' )
+                    or '/home/user/.cuppa/dependencies',
+            'scope': data.get( 'scope' ) or scope,
+            'grouping': data.get( 'grouping' ),
+            'tree': dependency_tree.tree_to_json( tree ),
+            'entries': [
+                {
+                    'size': row.get( 'size' ) or storage.human_size(
+                            int( row.get( 'size_bytes' ) or 0 )
+                    ),
+                    'size_bytes': int( row.get( 'size_bytes' ) or 0 ),
+                    'dependency': row['dependency'],
+                    'qualifier': row['qualifier'],
+                    'tool_variant': row.get( 'tool_variant' ),
+                    'last_used': row.get( 'last_used' ) or _format_age_epoch(
+                            row.get( 'last_used_epoch' )
+                    ),
+                    'state': row['state'],
+                    'path': row['path'],
+                    'type': row['type'],
+                    'kind': row.get( 'kind' ) or row['type'],
+                    'short_name': row.get( 'short_name' ),
+                    'stem': row.get( 'stem' ),
+                    'source_url': row.get( 'source_url' ),
+                    'remote_location': row.get( 'remote_location' ),
+                    'location': row.get( 'location' ),
+                    'has_download': bool( row.get( 'has_download' ) ),
+                    'download_path': row.get( 'download_path' ),
+                    'toolchain_session_name': row.get( 'toolchain_session_name' ),
+                    'requires': row.get( 'requires' ) or [],
+                }
+                for row in scoped_rows
+            ],
+            'total_bytes': int( data.get( 'total_bytes' ) or 0 ),
+            'unreferenced_bytes': int( data.get( 'unreferenced_bytes' ) or 0 ),
+            'missing_count': int( data.get( 'missing_count' ) or 0 ),
+            'unqualified_duplicate_tokens': list(
+                    data.get( 'unqualified_duplicate_tokens' ) or []
+            ),
+            'skips': list( data.get( 'skips' ) or [] ),
+        }
+
     tree = dependency_tree.build_tree( rows )
     total = sum( row['size_bytes'] for row in rows )
     unreferenced = sum(
@@ -1332,7 +1385,7 @@ def _dependencies_json_payload( rows ):
     )
     return {
         'dependencies_root': '/home/user/.cuppa/dependencies',
-        'scope': 'all',
+        'scope': scope,
         'tree': dependency_tree.tree_to_json( tree ),
         'entries': [
             {
@@ -1389,8 +1442,15 @@ def sample_list_dependencies_json():
 
 
 def _dependency_rows_for_requires_sample():
-    """Offline-style alpha → beta → gamma GitLab leaves with declared ``requires``."""
+    """Offline-style alpha → beta → gamma leaves with an unused nest toolchain.
+
+    Tip ``alpha`` selects ``gcc153``. Closure promotes matching ``beta`` / ``gamma``
+    extracts to referenced. A second ``beta`` toolchain (``gcc16``) stays
+    unreferenced so ``--list-scope=all`` vs ``resolve`` diverge: usage parks it
+    under ``unused``; resolve-identity keeps it under tip ``requires``.
+    """
     tool = 'gcc153_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
     root = '/home/user/.cuppa/dependencies'
     return [
         {
@@ -1443,6 +1503,30 @@ def _dependency_rows_for_requires_sample():
         },
         {
             'type': 'gitlab',
+            'dependency': 'beta',
+            'short_name': 'beta',
+            'stem': 'beta',
+            'qualifier': '2.0.0',
+            'tool_variant': other,
+            'state': 'unreferenced',
+            'size_bytes': int( 7 * 1024 ),
+            'last_used_epoch': NOW - ( 4 * 24 * 60 * 60 ),
+            'path': '{}/{}/beta/2.0.0'.format( root, other ),
+            'remote_location': 'https://gitlab.example/api/v4/projects/1/beta/2.0.0',
+            'package_archive': 'beta_debian_{}.tar.gz'.format( other ),
+            'has_download': False,
+            'requires': [
+                {
+                    'name': 'gamma',
+                    'package': 'gamma',
+                    'version': '3.0.0',
+                    'registry': 'same',
+                    'use_libs': [ 'gamma' ],
+                },
+            ],
+        },
+        {
+            'type': 'gitlab',
             'dependency': 'gamma',
             'short_name': 'gamma',
             'stem': 'gamma',
@@ -1467,7 +1551,7 @@ def _list_dependencies_requires_env():
     return env
 
 
-def _list_dependencies_requires_data():
+def _list_dependencies_requires_data( scope='all' ):
     data = {
         'rows': _dependency_rows_for_requires_sample(),
         'dependencies_root': str( Path.home() / '.cuppa' / 'dependencies' ),
@@ -1477,15 +1561,15 @@ def _list_dependencies_requires_data():
         'unqualified_duplicate_tokens': [],
     }
     return apply_list_scope(
-            data, 'all', tree_builder=dependency_tree.build_tree,
+            data, scope, tree_builder=dependency_tree.build_tree,
     )
 
 
 def sample_list_dependencies_requires():
-    """`--list-dependencies` with GitLab ``requires`` edges (alpha → beta → gamma)."""
+    """`--list-dependencies` (default ``all``) with GitLab ``requires`` closure."""
     out = io.StringIO()
     write_list_dependencies_report(
-            out, _list_dependencies_requires_data(),
+            out, _list_dependencies_requires_data( 'all' ),
             _list_dependencies_requires_env(),
     )
     return _write_sample(
@@ -1495,10 +1579,10 @@ def sample_list_dependencies_requires():
 
 
 def sample_list_dependencies_requires_html():
-    """Semantic HTML form of the ``requires`` listing sample."""
+    """Semantic HTML form of the default-``all`` ``requires`` listing sample."""
     def invoke( out ):
         write_list_dependencies_report(
-                out, _list_dependencies_requires_data(),
+                out, _list_dependencies_requires_data( 'all' ),
                 _list_dependencies_requires_env(),
         )
 
@@ -1510,11 +1594,54 @@ def sample_list_dependencies_requires_html():
 
 
 def sample_list_dependencies_requires_json():
-    """JSON tree/entries for the alpha → beta → gamma ``requires`` sample."""
-    rows = _enrich_dependency_rows_for_json( _dependency_rows_for_requires_sample() )
+    """JSON for the default-``all`` alpha → beta → gamma ``requires`` sample."""
+    data = _list_dependencies_requires_data( 'all' )
+    rows = _enrich_dependency_rows_for_json( data.get( 'rows' ) or [] )
+    data = dict( data )
+    data['rows'] = rows
     return _write_json_sample(
             'list-dependencies-requires.json',
-            _dependencies_json_payload( rows ),
+            _dependencies_json_payload( rows, data=data ),
+    )
+
+
+def sample_list_dependencies_requires_resolve():
+    """Same requires fixture with ``--list-scope=resolve`` (identity grouping)."""
+    out = io.StringIO()
+    write_list_dependencies_report(
+            out, _list_dependencies_requires_data( 'resolve' ),
+            _list_dependencies_requires_env(),
+    )
+    return _write_sample(
+            'list-dependencies-requires-resolve.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_list_dependencies_requires_resolve_html():
+    """Semantic HTML for the resolve-scope requires listing sample."""
+    def invoke( out ):
+        write_list_dependencies_report(
+                out, _list_dependencies_requires_data( 'resolve' ),
+                _list_dependencies_requires_env(),
+        )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-requires-resolve.html', text, colouriser,
+    )
+
+
+def sample_list_dependencies_requires_resolve_json():
+    """JSON for the resolve-scope requires sample."""
+    data = _list_dependencies_requires_data( 'resolve' )
+    rows = _enrich_dependency_rows_for_json( data.get( 'rows' ) or [] )
+    data = dict( data )
+    data['rows'] = rows
+    return _write_json_sample(
+            'list-dependencies-requires-resolve.json',
+            _dependencies_json_payload( rows, data=data ),
     )
 
 
@@ -1971,6 +2098,9 @@ GENERATORS = tuple(
                 sample_list_dependencies_requires,
                 sample_list_dependencies_requires_html,
                 sample_list_dependencies_requires_json,
+                sample_list_dependencies_requires_resolve,
+                sample_list_dependencies_requires_resolve_html,
+                sample_list_dependencies_requires_resolve_json,
                 sample_list_develop,
                 sample_list_develop_html,
                 sample_list_develop_json,
@@ -2019,6 +2149,9 @@ GENERATORS = tuple(
         sample_list_dependencies_requires,
         sample_list_dependencies_requires_html,
         sample_list_dependencies_requires_json,
+        sample_list_dependencies_requires_resolve,
+        sample_list_dependencies_requires_resolve_html,
+        sample_list_dependencies_requires_resolve_json,
         sample_list_develop,
         sample_list_develop_html,
         sample_list_develop_json,
@@ -2066,6 +2199,7 @@ def main( argv=None ):
                     'list-dependencies',
                     'list-dependencies-verbose',
                     'list-dependencies-requires',
+                    'list-dependencies-requires-resolve',
                     'list-publishers',
                     'list-toolchains',
                     'list-toolchains-verbose',
@@ -2095,6 +2229,7 @@ def main( argv=None ):
             'list-dependencies': sample_list_dependencies_html,
             'list-dependencies-verbose': sample_list_dependencies_verbose_html,
             'list-dependencies-requires': sample_list_dependencies_requires_html,
+            'list-dependencies-requires-resolve': sample_list_dependencies_requires_resolve_html,
             'list-publishers': sample_list_publishers_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,

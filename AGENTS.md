@@ -668,6 +668,7 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   `docs/modules/ROOT/partials/samples/` (text, JSON, and semantic HTML). Named
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
   `list-dependencies`, `list-dependencies-verbose`, `list-dependencies-requires`,
+  `list-dependencies-requires-resolve`,
   `list-publishers`, `list-toolchains`,
   `list-toolchains-verbose`, `cascade-plan`, `cascade-plan-consume`,
   `cascade-plan-clone`, and the `--remove-builds` / `--remove-all-builds`

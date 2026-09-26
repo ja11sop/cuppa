@@ -416,7 +416,7 @@ is tip-selected, edges still appear as labels under each walked version (no live
 required — plant extracts under the dependencies root to preview the tree). JSON includes the
 same edges on flat ``entries[].requires``; the nested tree appears under ``tree``. Doc samples:
 xref:dependencies/managing/list-dependencies.adoc#list-dependencies[Listing dependency trees]
-(``list-dependencies-requires`` partials). Design:
+(``list-dependencies-requires`` / ``list-dependencies-requires-resolve`` partials). Design:
 https://github.com/ja11sop/cuppa/blob/master/design/plans/list-deps-requires-closure.md[`list-deps-requires-closure`].
 
 See also xref:packages.adoc[Publishing packages].

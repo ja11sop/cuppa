@@ -3,21 +3,23 @@ Default dependencies: alpha
   --------------------------------------------------------------------------------------
       SIZE  LAST USED   REMARK       DEPENDENCY
   --------------------------------------------------------------------------------------
-       24K  today       3 total      used
+       31K  today       4 total      referenced
                                      │
        24K  today       3 used       ├── dependencies in use
+        7K  4 days ago  1 unused     ├── potentially stale dependencies
                                      │
-       24K  today       1 used       └── gitlab packages
+       31K  today       1 used       └── gitlab packages
                                          │
        12K  today                        └── alpha
        12K  today                            └── 1.0.0
        12K  today       in use                   ├── gcc153_rel_x86_64_cxx2c
                                                  │
-       12K  today                                └── requires
+       19K  today                                └── requires
                                                      │
-        8K  today                                    ├── beta
-        8K  today                                    │   └── 2.0.0
+       15K  today                                    ├── beta
+       15K  today                                    │   └── 2.0.0
         8K  today       in use                       │       ├── gcc153_rel_x86_64_cxx2c
+        7K  4 days ago                               │       ├── gcc16_rel_x86_64_cxx2c
                                                      │       │
                                                      │       └── requires
                         libs: gamma                  │           └── gamma 3.0.0
@@ -25,17 +27,6 @@ Default dependencies: alpha
         4K  today                                    └── gamma
         4K  today                                        └── 3.0.0
         4K  today       in use                               └── gcc153_rel_x86_64_cxx2c
-  --------------------------------------------------------------------------------------
-        7K  4 days ago               unused
-                                     │
-        7K  4 days ago               └── gitlab packages
-                                         │
-        7K  4 days ago                   └── beta
-        7K  4 days ago                       └── 2.0.0
-        7K  4 days ago                           ├── gcc16_rel_x86_64_cxx2c
-                                                 │
-                                                 └── requires
-                        libs: gamma                  └── gamma 3.0.0
   --------------------------------------------------------------------------------------
   4 entries, 31K total, 7K unreferenced
 

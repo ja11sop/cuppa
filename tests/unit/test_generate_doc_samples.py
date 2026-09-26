@@ -5,6 +5,8 @@
 
 """Doc listing samples must come from the real formatters (no hand-indented trees)."""
 
+import re
+
 import pytest
 
 from scripts import generate_doc_samples as samples
@@ -359,19 +361,44 @@ def test_json_list_samples_use_render_json_payload_shape():
                     encoding='utf-8'
             )
     )
-    assert len( requires['entries'] ) == 3
+    assert requires['scope'] == 'all'
+    assert requires.get( 'grouping' ) == 'usage'
+    assert len( requires['entries'] ) == 4
     alpha = next( entry for entry in requires['entries'] if entry['dependency'] == 'alpha' )
     assert alpha['requires'][0]['name'] == 'beta'
-    beta = next( entry for entry in requires['entries'] if entry['dependency'] == 'beta' )
-    assert beta['state'] == 'referenced'
+    beta_in_use = next(
+            entry for entry in requires['entries']
+            if entry['dependency'] == 'beta'
+            and entry['tool_variant'] == 'gcc153_rel_x86_64_cxx2c'
+    )
+    assert beta_in_use['state'] == 'referenced'
     text = samples.sample_list_dependencies_requires().read_text( encoding='utf-8' )
     assert 'requires' in text
     assert 'beta' in text
     assert 'gamma' in text
+    assert 'used' in text
+    assert 'unused' in text
+    assert 'gcc16_rel_x86_64_cxx2c' in text
     # Nested package under tip requires is a sized identity; deeper edges stay labels.
     assert 'gamma 3.0.0' in text
     assert 'libs: gamma' in text
-    assert '0B unreferenced' in text
+    assert '7K unreferenced' in text
+
+    resolve = json.loads(
+            samples.sample_list_dependencies_requires_resolve_json().read_text(
+                    encoding='utf-8'
+            )
+    )
+    assert resolve['scope'] == 'resolve'
+    assert resolve.get( 'grouping' ) == 'identity'
+    assert len( resolve['entries'] ) == 4
+    resolve_text = samples.sample_list_dependencies_requires_resolve().read_text(
+            encoding='utf-8'
+    )
+    assert 'referenced' in resolve_text
+    assert 'gcc16_rel_x86_64_cxx2c' in resolve_text
+    # Resolve keeps the unused nest toolchain under tip requires (no unused section).
+    assert not re.search( r'(?m)^\s*unused\s*$', resolve_text )
 
     develop = json.loads(
             samples.sample_list_develop_json().read_text( encoding='utf-8' )

@@ -90,12 +90,25 @@ stem (`│`) keep the hanging lines continuous between siblings. Referenced tree
 == GitLab ``requires`` edges
 
 GitLab packages that ship ``cuppa-publish.json`` (or a legacy ``cuppa-dependency.json``) also show a ``requires`` group under each
-version (declared transitive edges). The sample below is the offline alpha → beta → gamma
-fixture shape (no live registry). Coloured output uses the same ``cuppa-output`` chrome as the
-main listing:
+version (declared transitive edges). The samples below use the same offline alpha → beta → gamma
+fixture, with an extra unused ``beta`` toolchain (``gcc16``) so the Option A scopes diverge.
+
+=== Default ``--list-scope=all`` (usage grouping)
+
+Tip-matching nest extracts hang under used → ``requires``. The leftover ``gcc16`` ``beta`` extract
+appears under **unused** as a top-level gitlab identity:
 
 ++++
 include::partial$samples/list-dependencies-requires.html[]
+++++
+
+=== ``--list-scope=resolve`` (resolve-identity grouping)
+
+The same leftover nest toolchain stays under tip ``requires`` (Pass A shape) — there is no
+separate unused identity for it:
+
+++++
+include::partial$samples/list-dependencies-requires-resolve.html[]
 ++++
 
 When you are ready to reclaim disk, map labels from this tree to remove / wipe tokens — see
@@ -139,12 +152,21 @@ include::partial$samples/list-dependencies.json[]
 ----
 ====
 
-.Example `--list-dependencies --list-format=json` with GitLab ``requires`` (click to expand)
+.Example `--list-dependencies --list-format=json` with GitLab ``requires`` (``all``) (click to expand)
 [%collapsible]
 ====
 [source,json]
 ----
 include::partial$samples/list-dependencies-requires.json[]
+----
+====
+
+.Example `--list-dependencies --list-scope=resolve --list-format=json` with GitLab ``requires`` (click to expand)
+[%collapsible]
+====
+[source,json]
+----
+include::partial$samples/list-dependencies-requires-resolve.json[]
 ----
 ====
 
