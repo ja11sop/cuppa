@@ -362,7 +362,9 @@ cuppa.run(
     all_plain = strip_ansi(as_all.stdout)
     assert "1.90" in all_plain
     assert "unused" in all_plain
-    assert "Review unreferenced trees" in all_plain or "force-wipe-unreferenced" in all_plain
+    assert "To reclaim storage from an unused dependency" in all_plain
+    assert "--force-wipe-dependencies=" in all_plain
+    assert "--remove-dependencies=" in all_plain
 
 
 def test_list_dependencies_scope_compact_is_used_without_siblings(tmp_path):
@@ -409,7 +411,10 @@ cuppa.run(
     assert "1.91" in plain
     assert "1.90" not in plain
     assert re.search( r"\bentries, .* compact\b", plain )
-    assert "Review unreferenced trees" not in plain
+    assert "To reclaim storage from an unused dependency" not in plain
+    assert "force-wipe-unreferenced-dependencies" not in plain
+    assert "To reclaim storage from an in use dependency" in plain
+    assert "--remove-dependencies=" in plain
     assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
     assert not re.search( r"(?m)^\s*unused\s*$", plain )
 
@@ -474,7 +479,8 @@ cuppa.run(
     plain = strip_ansi(listed.stdout)
     assert "unreferenced" in plain
     assert "fmt" in plain or "github.com" in plain or "boost" in plain
-    assert "Review unreferenced trees" in plain
+    assert "To reclaim storage from an unreferenced dependency" in plain
+    assert "--force-wipe-dependencies=" in plain
     # [dl] footer is verbose-only even when regenerating archives exist.
     assert "[dl] = the archive present under downloads" not in plain
     assert "corrupt archive" not in plain

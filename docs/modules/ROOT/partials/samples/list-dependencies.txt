@@ -26,8 +26,20 @@ Default dependencies: boost_package
   ---------------------------------------------------------------------
   4 entries, 305.1M total, 5.8M unreferenced
 
-Review unreferenced trees, then clear them with:
+To reclaim storage from an in use dependency use one of:
+│
+├── cuppa -Q -D -n --remove-dependencies=[dependency]
+│   └── to remove the extracted or collected dependency for the active context (downloads stay)
+├── cuppa -Q -D -n --purge-dependencies=[dependency]
+│   └── to also remove matching downloads for the same active context
+└── cuppa -Q -D -n --wipe-dependencies=[dependency]
+    └── to clear the whole extract and matching downloads so the next online build re-fetches
 
-cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+To reclaim storage from an unused dependency use one of:
+│
+├── cuppa -Q -D -n --force-wipe-dependencies=[token]
+│   └── to wipe named list-tree leaves (including unused siblings under a used identity)
+└── cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+    └── orphan sweep for every unreferenced leaf this resolve sees (prefer named tokens above)
 
 Drop -n and re-run after confirming.

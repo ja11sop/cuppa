@@ -114,7 +114,10 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert text.startswith( '<pre class="cuppa-output"><code>' )
     assert 'cuppa-info' in text
     assert 'cuppa-emphasised' in text
+    assert 'force-wipe-dependencies=' in text
     assert 'force-wipe-unreferenced-dependencies' in text
+    assert 'remove-dependencies=' in text
+    assert 'To reclaim storage' in text
     assert '/tmp/' not in text
     assert '/home/' not in text
     assert '\x1b[' not in text

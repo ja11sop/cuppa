@@ -1481,6 +1481,87 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     emit_location_unqualified_duplicate_hints( out=out )
 
 
+def _reclaim_vocab( scope ):
+    """Section words matching ``--list-scope`` grouping (usage vs resolve-identity)."""
+    scope = normalise_list_scope( scope )
+    if scope in ( 'all', 'compact' ):
+        return 'in use', 'unused'
+    return 'referenced', 'unreferenced'
+
+
+def write_reclaim_storage_hint( out, data ):
+    """Scope-aware reclaim tree after ``--list-dependencies``.
+
+    Prefer named remove/purge/wipe and ``--force-wipe-dependencies`` over the
+    orphan sweep. Vocabulary tracks the report: used/unused vs referenced /
+    unreferenced. Only emits sections for leaf kinds present in ``data['rows']``.
+    """
+    rows = data.get( 'rows' ) or []
+    scope = data.get( 'scope' ) or 'all'
+    has_bound = any(
+            row.get( 'state' ) in dependency_tree.REFERENCED_STATES for row in rows
+    )
+    has_orphan = any( row.get( 'state' ) == 'unreferenced' for row in rows )
+    if not has_bound and not has_orphan:
+        return
+
+    bound_word, orphan_word = _reclaim_vocab( scope )
+    tee, elbow, pipe, gap = storage.glyphs()
+
+    def write_intro( word ):
+        article = 'an' if word[0].lower() in 'aeiou' or word.startswith( 'in ' ) else 'a'
+        out.write( "\nTo reclaim storage from {} {} dependency use one of:\n".format(
+                article, word
+        ) )
+        out.write( as_subdued( pipe.rstrip() ) + "\n" )
+
+    def write_option( branch, command, detail, last=False ):
+        out.write( as_subdued( branch ) )
+        out.write( storage.highlight_values( command, as_info ) + "\n" )
+        under = gap if last else pipe
+        out.write( as_subdued( under + elbow ) )
+        out.write( detail + "\n" )
+
+    if has_bound:
+        write_intro( bound_word )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --remove-dependencies=[dependency]",
+                "to remove the extracted or collected dependency for the active "
+                "context (downloads stay)",
+        )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --purge-dependencies=[dependency]",
+                "to also remove matching downloads for the same active context",
+        )
+        write_option(
+                elbow,
+                "cuppa -Q -D -n --wipe-dependencies=[dependency]",
+                "to clear the whole extract and matching downloads so the next "
+                "online build re-fetches",
+                last=True,
+        )
+
+    if has_orphan:
+        write_intro( orphan_word )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --force-wipe-dependencies=[token]",
+                "to wipe named list-tree leaves (including unused siblings under "
+                "a used identity)",
+        )
+        write_option(
+                elbow,
+                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies",
+                "orphan sweep for every unreferenced leaf this resolve sees "
+                "(prefer named tokens above)",
+                last=True,
+        )
+
+    out.write( "\nDrop -n and re-run after confirming.\n" )
+
+
 def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
     """Write the human-readable ``--list-dependencies`` report body.
 
@@ -1598,16 +1679,7 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
                     as_info,
             ) )
 
-    if (
-            scope in ( 'all', 'resolve', 'referenced', 'unreferenced' )
-            and any( row['state'] == 'unreferenced' for row in rows )
-    ):
-        out.write( "\n" )
-        out.write( "Review unreferenced trees, then clear them with:\n\n" )
-        out.write( as_emphasised(
-                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies"
-        ) + "\n" )
-        out.write( "\nDrop -n and re-run after confirming.\n" )
+    write_reclaim_storage_hint( out, data )
 
     tokens = list( data.get( 'unqualified_duplicate_tokens' ) or [] )
     from cuppa.location import Location

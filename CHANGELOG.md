@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   follow the row. Legend footer names ``--purge-dependencies`` and real publisher /
   downloads roots.
 
+- ``--list-dependencies`` reclaim footer lists remove / purge / wipe and named
+  ``--force-wipe-dependencies`` before the orphan sweep, with used/unused vs
+  referenced/unreferenced wording matched to ``--list-scope``.
+
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees
   (versions → toolchains). Closure-only packages leave the top-level unreferenced list and
