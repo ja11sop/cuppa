@@ -1,7 +1,7 @@
 # Plan: `--list-dependencies` requires closure under referenced
 
 - **Status:** done
-- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (`gl-dep-list`); [`removal-options.md`](removal-options.md) Phase 3 listing; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade consume stacks); ROADMAP Dependencies / packages
+- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (`gl-dep-list`); [`removal-options.md`](removal-options.md) Phase 3 listing; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade consume stacks); [`dependencies-docs-four-hubs.md`](dependencies-docs-four-hubs.md) (Antora Using/Managing/Publishing/Authoring); ROADMAP Dependencies / packages
 - **Updated:** 2026-09-26
 - **Impact:** minor — listing / wipe classification of GitLab package closure; `--list-scope` vocabulary (Option A); no consume solver change
 
