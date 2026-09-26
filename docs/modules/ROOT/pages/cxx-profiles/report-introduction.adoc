@@ -255,7 +255,7 @@ When `metadata.anonymised` is set, output defaults to the
 | `true` (plus `anonymisation_version`)
 
 | Paths in `report`, `locations[]`, scope fields
-| Project sources under `project/<thematic-stems>/<...>`; package dependencies collapse to
+| Project sources under `project/<thematic-stems>/<paths>`; package dependencies collapse to
   `deps/lib-<slug>/include/<...>` (encoded `_cuppa/_download/git_ssh_<...>` folders are replaced entirely);
   variant tails such as `dbg/x86_64/cxx2c` are preserved
 

@@ -42,15 +42,34 @@ Agent-oriented checklists and GitHub helper scripts live in `AGENTS.md`.
 
 == Documentation writing conventions
 
-Antora pages under `docs/modules/ROOT/pages/` follow the Formatting section of
-repository `AGENTS.md`. In particular:
+Antora pages under `docs/modules/ROOT/pages/` follow the **Placeholders and omissions**
+section of repository `AGENTS.md`. Short form:
 
-* Use three ASCII periods (`...`) only for **omissions** (excerpted files, truncated
-  status messages).
-* Prefer `` `<name>` `` for named placeholders and `` `<...>` `` when the slot has no
-  clearer name. Do **not** use the Unicode ellipsis character (`…`).
-* Optional muted / focus colour roles: `[.cuppa-ph]`, `[.cuppa-ph-focus]`,
-  `[.cuppa-ph-context]` (see supplemental `cuppa.css`).
+[cols="2,3,4"]
+|===
+| Intent | Write | Avoid
+
+| Editorial cut (excerpt, truncated status text)
+| Three ASCII periods `...`
+| Unicode ellipsis (U+2026)
+
+| Named fill-in
+| `` `<abi>` ``, `` `<storage>` ``, `` `<kwargs>` ``
+| Anonymous `` `<...>` `` when a real name exists
+
+| Anonymous fill-in (last resort)
+| `` `<...>` ``
+| Stacked `` `<...>/<...>` `` path holes; inventing placeholders inside CLI samples
+|===
+
+Colour roles (`[.cuppa-ph]`, `[.cuppa-ph-focus]`, `[.cuppa-ph-context]` in supplemental
+`cuppa.css`) are optional emphasis in prose — angle brackets are the primary signal.
+Copy-paste shell listings stay plain. Console fragments under `partials/samples/` may still
+show ``…`` when they mirror CLI truncation; do not “fix” those to doc placeholders.
+
+`python -m scripts.check_docs_placeholders` (included in `check_docs_urls`) fails the gate
+when authored AsciiDoc or `AGENTS.md` reintroduces U+2026 outside an explicit “do not use”
+teaching line.
 
 == Previewing the documentation site
 
@@ -65,7 +84,7 @@ npm run build
 That builds a single Antora version from the checkout (`next`) into `_docs_build/site/`.
 
 The public GitHub Pages site is multi-version: the latest release tag as stable
-(under `/cuppa/latest/<...>`) plus this checkout as prerelease `next`. To build that
+(under `/cuppa/latest/<page>`) plus this checkout as prerelease `next`. To build that
 locally (requires release tags in the clone):
 
 [source,shell]

@@ -35,16 +35,16 @@ Third-party packages can register plugins without forking cuppa:
 |===
 | Factory | Module
 
-| `cuppa.location_dependency(name, <...>)` | Location / header libraries
-| `cuppa.package_dependency(name, <...>)` | Registry packages
-| `cuppa.conan_deps(<...>)` / `cuppa.conan_dependency(<...>)` | Optional Conan 2 consumer (see xref:dependencies/using/conan.adoc#conan-2-consumer-optional[Conan packages])
+| `cuppa.location_dependency(name, <kwargs>)` | Location / header libraries
+| `cuppa.package_dependency(name, <kwargs>)` | Registry packages
+| `cuppa.conan_deps(<kwargs>)` / `cuppa.conan_dependency(<kwargs>)` | Optional Conan 2 consumer (see xref:dependencies/using/conan.adoc#conan-2-consumer-optional[Conan packages])
 | `cuppa.profile(name)` | Named profile class factory
 |===
 
-Pass custom classes into `cuppa.run(import_dependencies=[<...>], import_profiles=[<...>])`
+Pass custom classes into `cuppa.run(import_dependencies=[<deps>], import_profiles=[<profiles>])`
 (legacy: `dependencies` / `profiles`).
 
-When writing custom `env.Command` / `Action` helpers, avoid multi-part shell strings such as `cd <...> && <...>`.
+When writing custom `env.Command` / `Action` helpers, avoid multi-part shell strings such as `cd <dir> && <command>`.
 Use a Python action with subprocess `cwd=` (or `cuppa.utility.command.run`) so parallel builds stay correct.
 See xref:methods/custom-commands.adoc[Custom commands and working directories].
 
@@ -52,7 +52,7 @@ See xref:methods/custom-commands.adoc[Custom commands and working directories].
 
 Third-party packages can ship a named dependency that Cuppa discovers automatically via `cuppa.dependency.plugins`.
 After `pip install`, consumers list the dependency **by name** in `auto_enable_dependencies` — no
-`cuppa.run(import_dependencies=[<...>])` entry is required (the plugin already registered the factory).
+`cuppa.run(import_dependencies=[<deps>])` entry is required (the plugin already registered the factory).
 
 Two complete examples live under `examples/`. Both register the dependency name `fmt`; install **one** of them in a given environment (they are alternative supply chains for the same name).
 

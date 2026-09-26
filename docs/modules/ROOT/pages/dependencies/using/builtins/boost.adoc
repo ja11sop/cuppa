@@ -128,7 +128,7 @@ flag (or omit it) to clean that home too.
 `cuppa -c` removes the usual `_build/<...>` install copies of Boost libraries and also the
 cuppa-scoped **stage** directory under the extract
 (`build.<abi>/<toolchain>/<variant>/<arch>/`). It does **not** remove Boost.Build's
-`bin.<abi>/<...>` object trees, the headers, or the `b2` binary — those stay in the shared
+`bin.<abi>/<objects>` object trees, the headers, or the `b2` binary — those stay in the shared
 cache. Use `--remove-dependencies=boost` for a selection-scoped wipe of stage **and**
 matching `bin.<abi>` toolset products (still leaving the extract). A future
 `--deep-clean` modifier on `-c` (Boost.Build `bin.<abi>` and similar coarse

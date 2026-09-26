@@ -62,7 +62,7 @@ For `cwd`, shell spawn, and `--use-shell`, see xref:methods/custom-commands.adoc
 
 == Testing with `BuildTest()`
 
-`env.BuildTest(target, source, <...>)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
+`env.BuildTest(target, source, <kwargs>)` builds a program and, when `--test` or `--force-test` is active, runs it through the configured runner.
 
 [source,python]
 ----
@@ -139,7 +139,7 @@ Toolchain-specific aliases such as `BuildBoostTest` appear when the toolchain ad
 
 == Testing with `Test()`
 
-`env.Test(program, <...>)` attaches a test action to an *existing* binary (for example one produced by `Build()`).
+`env.Test(program, <kwargs>)` attaches a test action to an *existing* binary (for example one produced by `Build()`).
 
 [source,python]
 ----
@@ -179,7 +179,7 @@ Toolchain-specific aliases such as `BoostTest` appear when the toolchain adverti
 
 == Benchmarks with `BuildBenchmark()`
 
-`env.BuildBenchmark(target, source, <...>)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
+`env.BuildBenchmark(target, source, <kwargs>)` builds a program and, when `--benchmark` or `--force-benchmark` is active, runs it through the configured runner.
 
 Preferred parameters mirror `BuildTest()`, with explicit Depends names:
 

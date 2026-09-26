@@ -355,7 +355,7 @@ flake8 cuppa
 pylint -E cuppa
 pytest -m unit
 pytest -m integration
-python -m scripts.check_docs_urls   # versionless /cuppa/<...> links (also in check_release)
+python -m scripts.check_docs_urls   # versionless /cuppa/<page> links + placeholder gate (also in check_release)
 ```
 
 If you cannot activate the venv in the current shell, call the venv binaries by path
@@ -964,25 +964,48 @@ Use for:
 
 ## Placeholders and omissions
 
-Do **not** use the Unicode ellipsis character (`…`, U+2026). It is one glyph wide, easy to miss,
-and reads as “hidden unimportant text” when the omitted slot is often what the reader must notice.
+Treat **ellipsis** and **placeholders** as different tools. Do **not** use the Unicode
+ellipsis character (`…`, U+2026) in authored docs: it is one glyph wide, easy to miss, and
+reads as “I hid filler” when the slot is often what the reader must notice.
 
 | Intent | Write | Example |
 |--------|-------|---------|
-| Excerpt / omitted surrounding prose or code you are not teaching | Three ASCII periods `...` | “show only the changed block; `...` for the rest of the file” |
-| Hard-to-name placeholder (any value belonging here) | Angle brackets around three periods: `` `<...>` `` | `` `env.Build(target, source, <...>)` `` · `` `_build/<...>/final` `` |
-| Named placeholder (prefer when a clear name exists) | `` `<name>` `` | `` `<abi>` `` · `` `<name>` `` · `` `<storage>` `` |
+| Editorial cut — excerpted file, truncated status phrase, “rest omitted” | Three ASCII periods `...` | “show only the changed block; `...` for the rest of the file” · `` `Would remove...` `` · `` `wiped...` `` |
+| Named fill-in (prefer whenever a clear name exists) | `` `<name>` `` | `` `<abi>` `` · `` `<storage>` `` · `` `<registry>` `` · `` `<kwargs>` `` |
+| Anonymous fill-in (last resort when no honest name exists) | `` `<...>` `` | “more of the same” lists: `` `gcc`, `gcc15`, `<...>` `` · truly unnamed path segment |
+
+**Rules of thumb**
+
+1. `...` means *cut here* (you are not teaching the missing text). `` `<...>` `` / `` `<name>` ``
+   means *a value belongs here*.
+2. Prefer a **named** placeholder over `` `<...>` ``. Prefer a **concrete example** once, then
+   generalise with a placeholder, over leading with an anonymous hole.
+3. Avoid **stacking** anonymous slots (for example repeated `` `<...>` `` path segments in
+   `` `_build/<...>/<...>/final` ``). Name the segments you care about
+   (`` `_build/<toolchain>/<variant>/<sconscript>/final/` ``) or show one real path.
+4. **Colour is optional**, not the primary cue — angle brackets already signal “placeholder”.
+   Use roles in prose/tables when helpful; keep copy-paste `[source]` / shell listings plain.
+5. **Do not rewrite console samples** to invent placeholders. Generated fragments under
+   `partials/samples/` may still show Unicode ellipsis (U+2026) when they mirror CLI
+   truncation; that is product output. Fix truncation visibility in the tool (for example
+   verbose LOCATION) if needed.
+6. Fnmatch / shell **character classes** are neither omissions nor Cuppa placeholders. Prefer
+   prose (“a character class”) or `` `[chars]` ``; if you must show a hole write `` `[<...>]` ``,
+   never a Unicode ellipsis inside the brackets.
+7. For API signatures, name the open tail when you can: `` `env.Build(target, source, <kwargs>)` ``
+   rather than a bare `` `<...>` `` when you mean keyword arguments.
 
 Where colour helps (prose and tables, not raw CLI paste blocks):
 
-- Mute ordinary placeholders with the AsciiDoc role
-  `[.cuppa-ph]`+\`<abi>\`+` (CSS class `cuppa-ph` → `--cuppa-text-muted`).
+- Mute ordinary placeholders with `[.cuppa-ph]`+\`<abi>\`+` (CSS class `cuppa-ph` →
+  `--cuppa-text-muted`).
 - When the **placeholder is the point** of the phrase, use `[.cuppa-ph-focus]`+\`<abi>\`+`
-  and optionally wrap surrounding path text in `[.cuppa-ph-context]#bin.#` so the slot stands out.
-- Inside `[source]` / shell listings that readers copy, keep plain `` `<abi>` `` / `` `<...>` ``
-  without roles so paste stays clean.
+  and optionally wrap fixed surrounding path text in `[.cuppa-ph-context]#bin.#`.
+- Use focus/context sparingly — over-colouring becomes noise.
 
-Shell / fnmatch character classes in grammar notes: write `` `[<...>]` ``, not `` `[…]` ``.
+Gate: `python -m scripts.check_docs_placeholders` (also run from `check_docs_urls`) fails on
+U+2026 in authored `docs/**/*.adoc` and `AGENTS.md`, excluding `partials/samples/` and lines
+that document the forbidden glyph.
 
 If most of a file can be left with defaults, show just the section that needs changing and mark
 omissions with `...` (three periods), not a placeholder.

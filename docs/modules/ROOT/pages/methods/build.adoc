@@ -19,7 +19,7 @@ action nodes (see xref:methods.adoc#progress-tracking-and-variant-scoping[Progre
 
 == Building a program with `Build()`
 
-`Build(target, source, <...>)` produces a variant-aware executable.
+`Build(target, source, <kwargs>)` produces a variant-aware executable.
 Cuppa compiles sources (via `Compile()`), links with the wrapped `Program()`, and
 installs the result under the variant's `final/` directory.
 
@@ -40,7 +40,7 @@ Using vanilla SCons https://scons.org/doc/production/HTML/scons-man.html#b-Progr
 will break your Cuppa builds (or leave binaries outside the layout you expect).
 
 `Program()` is **not** Cuppa variant-aware: it does not follow Cuppa's
-`_build/<...>/<toolchain>/<variant>/<...>/final/` layout and does not pick up the multi-variant /
+`_build/<toolchain>/<variant>/<sconscript>/final/` layout and does not pick up the multi-variant /
 multi-toolchain grid (`--dbg` / `--rel` / `--cov`, `--toolchains=<...>`) the way `Build()` does.
 Prefer `Build()`.
 

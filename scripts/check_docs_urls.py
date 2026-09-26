@@ -3,7 +3,8 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""Docs URL integrity: versioned site paths must not rot to versionless /cuppa/….
+"""Docs integrity: versioned site paths must not rot, and authored docs must not
+reintroduce Unicode ellipsis placeholders.
 
     python -m scripts.check_docs_urls
     python -m scripts.check_docs_urls --built-site _docs_build/site
@@ -12,6 +13,9 @@ After ``latest_version_segment: latest``, absolute and supplemental-UI links of 
 ``…/cuppa/contributing.html`` 404; they must be ``…/cuppa/latest/…`` (or ``…/cuppa/next/…``
 for intentional prerelease pointers). This check runs from unit tests, ``check_release``,
 and the documentation workflow.
+
+Placeholder policy (``<name>`` / ``<...>`` vs ``...`` vs U+2026) lives in AGENTS.md;
+``check_docs_placeholders`` is included here so one gate covers both.
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ import argparse
 import re
 import sys
 from pathlib import Path
+
+from scripts.check_docs_placeholders import check as check_placeholders
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -120,6 +126,7 @@ def check(
     built_site: Path | None = None,
 ) -> list[str]:
     found = check_sources(repo_root)
+    found.extend(check_placeholders(repo_root))
     if built_site is not None:
         found.extend(check_built_site(built_site))
     return found
@@ -135,11 +142,11 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     found = check(built_site=args.built_site)
     if found:
-        print("Docs URL integrity check failed:")
+        print("Docs integrity check failed:")
         for problem in found:
             print("  - {}".format(problem))
         return 1
-    print("Docs URL integrity check passed")
+    print("Docs integrity check passed")
     return 0
 
 
