@@ -123,3 +123,36 @@
   vertical-align: text-bottom;
   -webkit-box-decoration-break: clone;
 }
+
+/*
+ * Colourised CLI teaching examples: flag (info) + token/filter (notice).
+ * Used in selection-examples command blocks and Matches list entries.
+ */
+.cuppa-output.cuppa-cli-example {
+  line-height: 1.35;
+  margin: 0.35rem 0;
+  padding: 0.55rem 0.75rem;
+  white-space: pre-wrap;
+}
+
+.doc table pre.cuppa-output.cuppa-cli-example {
+  margin: 0;
+}
+
+.cuppa-output .cuppa-cli-flag,
+.doc .cuppa-cli-flag {
+  color: var(--cuppa-console-info, #1d4ed8);
+  font-weight: 700;
+}
+
+.cuppa-output .cuppa-cli-token,
+.doc .cuppa-cli-token,
+.doc code.cuppa-cli-token {
+  color: var(--cuppa-console-notice, #a16207);
+  font-weight: 600;
+}
+
+.doc .cuppa-cli-matches code {
+  color: var(--cuppa-console-notice, #a16207);
+  font-weight: 600;
+}

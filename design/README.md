@@ -25,6 +25,7 @@ maintainer workflow evolved.
 | [`plans/gitlab-package-transitive.md`](plans/gitlab-package-transitive.md) | in progress | GitLab package A can carry deps on package B (manifest + BuildWith); consumer declares A only |
 | [`plans/list-deps-requires-closure.md`](plans/list-deps-requires-closure.md) | done | `--list-dependencies`: nest traveling-manifest closure under tip `requires`; Option A usage vs resolve-identity `--list-scope` |
 | [`plans/dependencies-docs-four-hubs.md`](plans/dependencies-docs-four-hubs.md) | done | Dependencies Antora: Using / Managing / Publishing / Authoring hubs; Using-first usability story; align list-deps Option A |
+| [`plans/selection-filter-examples-docs.md`](plans/selection-filter-examples-docs.md) | done | Remove/wipe selection docs: types/selectors table, synthetic inventory, glance table + worked Matches |
 | [`plans/run-default-dependency-objects.md`](plans/run-default-dependency-objects.md) | in progress | `cuppa.run` `default_dependencies` accepts objects; register vs auto-apply semantics / naming |
 | [`archive/gitlab-package-latest.md`](archive/gitlab-package-latest.md) | shipped | GitLab `version="latest"` = registry latest; Boost package retarget; consume docs — [#271](https://github.com/ja11sop/cuppa/issues/271) / [#272](https://github.com/ja11sop/cuppa/pull/272) |
 | [`archive/dependency-resolve.md`](archive/dependency-resolve.md) | shipped | BuildWith untyped resolve + type selectors; Quince `use_libs` — [#250](https://github.com/ja11sop/cuppa/issues/250) / [#270](https://github.com/ja11sop/cuppa/pull/270) |

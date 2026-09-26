@@ -197,6 +197,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dependencies Antora map uses four job hubs (**Using** / **Managing** / **Publishing** /
+  **Authoring**), with a Using-first usability page and Publishing split out of the old
+  top-level packages megapage. Managing remove/wipe docs add a dependency-types table,
+  synthetic list inventory, glance Intent|Example rows, and worked Matches with colourised
+  CLI flag/token spans. Docs placeholders prefer ``<name>`` / ``<…>`` over Unicode ellipsis
+  (``scripts.check_docs_placeholders``). Design:
+  [`dependencies-docs-four-hubs`](design/plans/dependencies-docs-four-hubs.md),
+  [`selection-filter-examples-docs`](design/plans/selection-filter-examples-docs.md).
+
 - Cascade Phase **2d**: the single traveling package manifest is
   ``cuppa-publish.json`` (identity, deps including ``package_source``,
   ``default_use_libs`` / ``link``). Publishers and ``--amend-package-manifest``
