@@ -30,7 +30,9 @@ roll-ups separate `dependencies in use`, `missing dependencies` (when any expect
 absent), and only then `potentially stale dependencies` for other non-selected bound
 leaves (for example develop-shadowed stems). Unused on-disk siblings of tip identities appear
 under the **unused** section by default (use ``--list-scope=resolve`` to keep them under the
-same **referenced** identity).
+same **referenced** identity). The same usage split applies inside tip GitLab ``requires``
+forests: only tip-matching / closure-in-use nest toolchains hang under used → requires;
+leftover nest variants appear as top-level unused gitlab identities.
 It exits without building (exit 0 even when some rows are missing). See
 xref:integration/test-list-dependencies.adoc[`test_list_dependencies`] for the integration
 scenario.

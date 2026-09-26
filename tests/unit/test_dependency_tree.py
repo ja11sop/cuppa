@@ -238,10 +238,10 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
     leaves[3]['size_bytes'] = 4000
 
     tree = dependency_tree.build_tree( leaves )
-    referenced = next( s for s in tree['sections'] if s['label'] == 'used' )
+    used = next( s for s in tree['sections'] if s['label'] == 'used' )
 
     top_names = set()
-    for type_node in referenced.get( 'children' ) or []:
+    for type_node in used.get( 'children' ) or []:
         if type_node.get( 'kind' ) != 'type':
             continue
         for child in type_node.get( 'children' ) or []:
@@ -249,7 +249,7 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
                 top_names.add( child.get( 'short_name' ) or child.get( 'label' ) )
     assert top_names == { 'alpha' }
 
-    requires = _find_kind( referenced, 'requires' )
+    requires = _find_kind( used, 'requires' )
     assert requires is not None
     # Spacer before first nested identity, then beta + spacer + gamma.
     kinds = [ child.get( 'kind' ) for child in requires.get( 'children' ) or [] ]
@@ -267,7 +267,8 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
             if child.get( 'kind' ) == 'identity'
     ]
     assert identity_order == [ 'beta', 'gamma' ]
-    assert nested['beta']['size_bytes'] == 15000
+    # Usage split: only tip-matching nest toolchains under used → requires.
+    assert nested['beta']['size_bytes'] == 8000
     assert nested['gamma']['size_bytes'] == 4000
 
     beta_requires = _find_kind( nested['beta'], 'requires' )
@@ -287,8 +288,84 @@ def test_gitlab_tree_nests_closure_under_requires_with_sizes():
             if child.get( 'kind' ) == 'leaf'
     ]
     remarks = { child['label']: child.get( 'remark' ) for child in beta_leaves }
-    assert remarks[tool] == 'in use'
-    assert remarks[other] == ''
+    assert remarks == { tool: 'in use' }
+
+    # Unused nest toolchains appear under unused (not under used → requires).
+    unused = next( s for s in tree['sections'] if s['label'] == 'unused' )
+    unused_names = set()
+    for type_node in unused.get( 'children' ) or []:
+        if type_node.get( 'kind' ) != 'type':
+            continue
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity':
+                unused_names.add( child.get( 'short_name' ) or child.get( 'label' ) )
+    assert 'beta' in unused_names
+    unused_beta = None
+    for type_node in unused.get( 'children' ) or []:
+        for child in type_node.get( 'children' ) or []:
+            if child.get( 'kind' ) == 'identity' and child.get( 'short_name' ) == 'beta':
+                unused_beta = child
+    assert unused_beta is not None
+    unused_beta_leaves = [
+            child for child in _find_kind( unused_beta, 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    assert [ child['label'] for child in unused_beta_leaves ] == [ other ]
+
+
+def test_identity_grouping_keeps_unused_nest_toolchains_under_requires():
+    """``grouping=identity`` keeps Pass A shape: unused nest variants hang under requires."""
+    tool = 'gcc15_rel_x86_64_cxx2c'
+    other = 'gcc16_rel_x86_64_cxx2c'
+    leaves = [
+            _gitlab_leaf(
+                    'alpha', '1.0.0', tool, '/deps/{}/alpha/1.0.0'.format( tool ),
+                    state='referenced',
+                    requires=[
+                            {
+                                    'name': 'beta',
+                                    'package': 'beta',
+                                    'version': '2.0.0',
+                                    'use_libs': ['beta'],
+                            },
+                    ],
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', tool, '/deps/{}/beta/2.0.0'.format( tool ),
+                    state='unreferenced',
+            ),
+            _gitlab_leaf(
+                    'beta', '2.0.0', other, '/deps/{}/beta/2.0.0'.format( other ),
+                    state='unreferenced',
+            ),
+    ]
+    leaves[0]['size_bytes'] = 12000
+    leaves[1]['size_bytes'] = 8000
+    leaves[2]['size_bytes'] = 7000
+
+    tree = dependency_tree.build_tree( leaves, grouping='identity' )
+    referenced = next( s for s in tree['sections'] if s['label'] == 'referenced' )
+    requires = _find_kind( referenced, 'requires' )
+    nested = {
+            child.get( 'short_name' ): child
+            for child in requires.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    }
+    assert set( nested ) == { 'beta' }
+    assert nested['beta']['size_bytes'] == 15000
+    beta_leaves = [
+            child for child in _find_kind( nested['beta'], 'version' )['children']
+            if child.get( 'kind' ) == 'leaf'
+    ]
+    assert { child['label'] for child in beta_leaves } == { tool, other }
+    unused = next( s for s in tree['sections'] if s['label'] == 'unreferenced' )
+    unused_idents = [
+            child
+            for type_node in unused.get( 'children' ) or []
+            for child in type_node.get( 'children' ) or []
+            if child.get( 'kind' ) == 'identity'
+    ]
+    assert not any( child.get( 'short_name' ) == 'beta' for child in unused_idents )
 
 
 def test_order_requires_families_dependent_first_soft_cycle():

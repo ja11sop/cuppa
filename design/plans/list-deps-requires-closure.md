@@ -52,10 +52,10 @@ Two **orthogonal** axes:
 1. **Leaf bind** — `referenced` / `missing` / `cached` vs `unreferenced` (wipe, paint, REMARK). Unchanged.
 2. **Report grouping** — how leaves are partitioned into top-level sections.
 
-| Grouping | Section labels | Unused siblings of a tip identity |
-|----------|----------------|-----------------------------------|
-| **usage** | `used` then `unused` | In **`unused`** |
-| **resolve-identity** | `referenced` then `unreferenced` | Stay under the **`referenced`** identity |
+| Grouping | Section labels | Unused siblings of a tip identity | Unused nest toolchains under tip `requires` |
+|----------|----------------|-----------------------------------|-----------------------------------------------|
+| **usage** | `used` then `unused` | In **`unused`** | In **`unused`** as top-level identities; used → requires keeps tip-matching only |
+| **resolve-identity** | `referenced` then `unreferenced` | Stay under the **`referenced`** identity | Stay under nested identities in tip `requires` (Pass A) |
 
 | `--list-scope` | Grouping | Rows / sections |
 |----------------|----------|-----------------|
@@ -95,3 +95,6 @@ Option C (`--list-style` × `--list-scope`) remains a later exploration.
 - Recalculate `unreferenced_bytes` after promotion in `_collect_rows` (leaf-state based).
 - `build_tree(..., grouping='usage'|'identity')` and the downloads twin; `apply_list_scope`
   chooses grouping from scope.
+- Usage grouping filters nest leaves in the tip ``requires`` forest to resolve-bound
+  states and promotes leftover nest toolchains/versions as top-level ``unused``
+  identities. Identity grouping keeps Pass A (all nest variants under ``requires``).

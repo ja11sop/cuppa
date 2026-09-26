@@ -359,10 +359,12 @@ def build_tree( leaves, grouping='usage' ):
                 if leaf.get( 'state' ) not in REFERENCED_STATES
         ]
         if selected:
+            # Usage split applies inside requires forests too: only tip-matching /
+            # closure_in_use nest leaves hang under used → requires.
             primary_idents.append( _build_identity(
                     _group_with_leaves( group, selected ),
                     'used',
-                    nest_index=nest_index,
+                    nest_index=_nest_index_with_states( nest_index, REFERENCED_STATES ),
                     expand_requires_closure=True,
             ) )
         if orphans:
@@ -372,6 +374,11 @@ def build_tree( leaves, grouping='usage' ):
                     nest_index=None,
                     expand_requires_closure=False,
             ) )
+
+    if grouping == 'usage':
+        # Leftover nest toolchains / versions (not tip-matching) surface as unused
+        # top-level identities instead of hanging under used → requires.
+        secondary_idents.extend( _unused_nest_identities( nest_index ) )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
@@ -398,6 +405,37 @@ def build_tree( leaves, grouping='usage' ):
         ],
         'grouping': grouping,
     }
+
+
+def _nest_index_with_states( nest_index, states ):
+    """Copy nest groups, keeping only leaves whose ``state`` is in ``states``."""
+    out = {}
+    for key, group in ( nest_index or {} ).items():
+        selected = [
+                leaf for leaf in group.get( 'leaves' ) or []
+                if leaf.get( 'state' ) in states
+        ]
+        if selected:
+            out[key] = _group_with_leaves( group, selected )
+    return out
+
+
+def _unused_nest_identities( nest_index ):
+    """Top-level unused identities for nest leaves that are not resolve-bound."""
+    idents = []
+    for group in ( nest_index or {} ).values():
+        orphans = [
+                leaf for leaf in group.get( 'leaves' ) or []
+                if leaf.get( 'state' ) not in REFERENCED_STATES
+        ]
+        if orphans:
+            idents.append( _build_identity(
+                    _group_with_leaves( group, orphans ),
+                    'unused',
+                    nest_index=None,
+                    expand_requires_closure=False,
+            ) )
+    return idents
 
 
 def _group_with_leaves( group, leaves ):
@@ -466,6 +504,7 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
                 leaves_in,
                 nest_index=nest_index,
                 expand_requires_closure=expand_requires_closure,
+                section=section,
         )
     elif storage_type == 'repository':
         children = _location_children( leaves_in )
@@ -570,7 +609,7 @@ def _location_children( leaves_in ):
     return children
 
 
-def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False ):
+def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False, section='referenced' ):
     by_version = {}
     for leaf in leaves_in:
         version = leaf.get( 'qualifier' ) or '-'
@@ -633,6 +672,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False 
                 variants,
                 nest_index=nest_index,
                 expand_requires_closure=expand_requires_closure,
+                section=section,
         )
         if requires_node is not None:
             if tool_children:
@@ -709,7 +749,9 @@ def _requires_entries_from_variants( variants, in_use_only=False ):
     return ordered or None
 
 
-def _requires_group_for_variants( variants, nest_index=None, expand_requires_closure=False ):
+def _requires_group_for_variants(
+        variants, nest_index=None, expand_requires_closure=False, section='referenced',
+):
     """Return a ``requires`` group node from the best readable package manifest."""
     entries = _requires_entries_from_variants( variants, in_use_only=True )
     # Orphan-only versions (nothing tip-selected under this identity) still show
@@ -723,7 +765,7 @@ def _requires_group_for_variants( variants, nest_index=None, expand_requires_clo
             for leaf in variants
     )
     if expand_requires_closure and nest_index and tip_is_selected:
-        return _requires_closure_forest( entries, nest_index )
+        return _requires_closure_forest( entries, nest_index, section=section )
     return _requires_group_from_entries( entries )
 
 
@@ -790,7 +832,7 @@ def _order_requires_families( families, edges, prefer=None ):
     return ordered
 
 
-def _requires_closure_forest( entries, nest_index ):
+def _requires_closure_forest( entries, nest_index, section='referenced' ):
     """Flat forest of sized nested identities for a tip's traveling-manifest closure."""
     tip_prefer = []
     tip_seen = set()
@@ -866,7 +908,7 @@ def _requires_closure_forest( entries, nest_index ):
         group = nest_index[family]
         # Nested packages keep label-style requires (no recursive sized forests).
         children.append( _build_identity(
-                group, 'referenced',
+                group, section,
                 nest_index=None,
                 expand_requires_closure=False,
         ) )
