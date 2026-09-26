@@ -5,6 +5,8 @@
 
 """Doc listing samples must come from the real formatters (no hand-indented trees)."""
 
+import re
+
 import pytest
 
 from scripts import generate_doc_samples as samples
@@ -156,6 +158,52 @@ def test_list_develop_html_sample_uses_semantic_classes_and_public_paths():
     assert '/home/' not in text
     assert '/Users/' not in text
     assert '\x1b[' not in text
+
+
+def test_list_publishers_sample_has_status_table_and_update_hint():
+    text = samples.sample_list_publishers().read_text( encoding='utf-8' )
+
+    assert text.startswith( 'Publishers in ~/.cuppa/publishers' )
+    assert 'STATUS  SIZE  PUBLISHER' in text
+    assert '--update-publishers would fast-forward' in text
+    assert 'develop-linked' in text
+
+
+def test_list_publishers_html_sample_is_semantic_and_path_safe():
+    text = samples.sample_list_publishers_html().read_text( encoding='utf-8' )
+
+    assert text.startswith( '<pre class="cuppa-output"><code>' )
+    assert 'STATUS  SIZE  PUBLISHER' in text
+    assert 'cuppa-warning' in text
+    assert 'cuppa-emphasised' in text
+    assert '/tmp/' not in text
+    assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_cascade_plan_html_samples_cover_publisher_consume_and_clone():
+    publisher = samples.sample_cascade_plan_html().read_text( encoding='utf-8' )
+    consume = samples.sample_cascade_plan_consume_html().read_text( encoding='utf-8' )
+    clone = samples.sample_cascade_plan_clone_html().read_text( encoding='utf-8' )
+
+    for text in ( publisher, consume, clone ):
+        assert text.startswith( '<pre class="cuppa-output"><code>' )
+        assert 'cuppa-emphasised' in text
+        assert '/tmp/' not in text
+        assert '/home/' not in text
+        assert '\x1b[' not in text
+
+    assert 'this package' in publisher
+    assert '--publish-package' in publisher
+    assert 'this project' in consume
+    assert 'tip build only' in consume
+    assert 'would clone' in clone
+    assert 'to make this plan executable' in clone
+
+
+def test_cascade_plan_text_sample_keeps_blank_line_before_finish():
+    text = samples.sample_cascade_plan().read_text( encoding='utf-8' )
+    assert 'from this tree\n\n--cascade-plan:' in text
 
 
 def test_list_toolchains_sample_has_discovered_and_registered():
@@ -313,14 +361,44 @@ def test_json_list_samples_use_render_json_payload_shape():
                     encoding='utf-8'
             )
     )
-    assert len( requires['entries'] ) == 3
+    assert requires['scope'] == 'all'
+    assert requires.get( 'grouping' ) == 'usage'
+    assert len( requires['entries'] ) == 4
     alpha = next( entry for entry in requires['entries'] if entry['dependency'] == 'alpha' )
     assert alpha['requires'][0]['name'] == 'beta'
+    beta_in_use = next(
+            entry for entry in requires['entries']
+            if entry['dependency'] == 'beta'
+            and entry['tool_variant'] == 'gcc153_rel_x86_64_cxx2c'
+    )
+    assert beta_in_use['state'] == 'referenced'
     text = samples.sample_list_dependencies_requires().read_text( encoding='utf-8' )
     assert 'requires' in text
-    assert 'beta 2.0.0' in text
+    assert 'beta' in text
+    assert 'gamma' in text
+    assert 'used' in text
+    assert 'unused' in text
+    assert 'gcc16_rel_x86_64_cxx2c' in text
+    # Nested package under tip requires is a sized identity; deeper edges stay labels.
     assert 'gamma 3.0.0' in text
-    assert 'libs: beta' in text
+    assert 'libs: gamma' in text
+    assert '7K unreferenced' in text
+
+    resolve = json.loads(
+            samples.sample_list_dependencies_requires_resolve_json().read_text(
+                    encoding='utf-8'
+            )
+    )
+    assert resolve['scope'] == 'resolve'
+    assert resolve.get( 'grouping' ) == 'identity'
+    assert len( resolve['entries'] ) == 4
+    resolve_text = samples.sample_list_dependencies_requires_resolve().read_text(
+            encoding='utf-8'
+    )
+    assert 'referenced' in resolve_text
+    assert 'gcc16_rel_x86_64_cxx2c' in resolve_text
+    # Resolve keeps the unused nest toolchain under tip requires (no unused section).
+    assert not re.search( r'(?m)^\s*unused\s*$', resolve_text )
 
     develop = json.loads(
             samples.sample_list_develop_json().read_text( encoding='utf-8' )
@@ -328,6 +406,13 @@ def test_json_list_samples_use_render_json_payload_shape():
     assert develop['would_update'] == [ 'flange' ]
     assert { entry['name'] for entry in develop['entries'] } == { 'flange', 'gizmo' }
     assert develop['entries'][0]['path'].startswith( '/home/user/' )
+
+    publishers = json.loads(
+            samples.sample_list_publishers_json().read_text( encoding='utf-8' )
+    )
+    assert publishers['tree_count'] == 3
+    assert publishers['would_update'] == [ 'capy' ]
+    assert publishers['entries'][0]['path'].startswith( '/home/user/' )
 
     builds = json.loads(
             samples.sample_list_builds_json().read_text(

@@ -11,6 +11,7 @@
 
 import os
 import re
+from collections import deque
 
 from cuppa.colourise import (
     as_emphasised,
@@ -23,6 +24,7 @@ from cuppa.core import dependency_inventory
 from cuppa.core.dependency_identity import (
     display_qualifier,
     gitlab_archive_name,
+    gitlab_family_name,
     gitlab_package_from_remote,
     list_identity_key,
     strip_vcs_qualifier,
@@ -45,6 +47,116 @@ REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 # Match --list-builds: fixed width, right-aligned size column.
 SIZE_WIDTH = 8
 RULE = '-'
+
+
+def normalise_package_key( name ):
+    """Stable key for matching manifest package names to on-disk GitLab families."""
+    text = str( name or '' ).strip().lower().replace( '_', '-' )
+    return text or None
+
+
+def promote_requires_closure( leaves ):
+    """Mark traveling-manifest closure packages for nesting under tip ``requires``.
+
+    Tip-selected GitLab leaves seed a BFS over each leaf's ``requires`` entries.
+    Matching on-disk families that are not tip packages are tagged
+    ``nest_under_requires`` so the tree builder hangs them under tip ``requires``
+    instead of as top-level identities.
+
+    Only closure leaves whose ``tool_variant`` matches a tip-selected toolchain
+    are promoted to ``referenced`` (``in use``). Sibling toolchains stay
+    ``unreferenced`` under the nested identity so wipe can reclaim them.
+
+    Idempotent: safe to call from ``build_tree`` and from ``_collect_rows``.
+    """
+    if not leaves:
+        return leaves
+
+    tip_families = set()
+    tip_tool_variants = set()
+    by_family = {}
+    for leaf in leaves:
+        if ( leaf.get( 'type' ) or leaf.get( 'kind' ) ) != 'gitlab':
+            continue
+        family = normalise_package_key(
+                gitlab_family_name( leaf )
+                or leaf.get( 'short_name' )
+                or leaf.get( 'dependency' )
+        )
+        if not family:
+            continue
+        by_family.setdefault( family, [] ).append( leaf )
+        if leaf.get( 'state' ) in REFERENCED_STATES and not leaf.get( 'nest_under_requires' ):
+            tip_families.add( family )
+            leaf['tip_selected'] = True
+            tool = leaf.get( 'tool_variant' )
+            if tool and tool not in ( '-', '' ):
+                tip_tool_variants.add( tool )
+
+    if not tip_families:
+        return leaves
+
+    def family_aliases( key ):
+        if not key:
+            return ()
+        aliases = { key }
+        aliases.add( key.replace( '-', '_' ) )
+        aliases.add( key.replace( '_', '-' ) )
+        return aliases
+
+    def lookup_family( package ):
+        key = normalise_package_key( package )
+        if not key:
+            return None, []
+        for alias in family_aliases( key ):
+            normalised = normalise_package_key( alias )
+            if normalised in by_family:
+                return normalised, by_family[normalised]
+        return key, []
+
+    queue = []
+    seen = set()
+    for leaf in leaves:
+        if not leaf.get( 'tip_selected' ):
+            continue
+        for entry in leaf.get( 'requires' ) or []:
+            package = entry.get( 'package' ) or entry.get( 'name' )
+            version = str( entry.get( 'version' ) or '' )
+            edge = ( normalise_package_key( package ), version )
+            if edge[0] and edge not in seen:
+                seen.add( edge )
+                queue.append( entry )
+
+    closure_families = set()
+    while queue:
+        entry = queue.pop( 0 )
+        package = entry.get( 'package' ) or entry.get( 'name' )
+        family, members = lookup_family( package )
+        if not family:
+            continue
+        if family not in tip_families:
+            closure_families.add( family )
+        for member in members:
+            for nested in member.get( 'requires' ) or []:
+                nested_package = nested.get( 'package' ) or nested.get( 'name' )
+                nested_version = str( nested.get( 'version' ) or '' )
+                edge = ( normalise_package_key( nested_package ), nested_version )
+                if edge[0] and edge not in seen:
+                    seen.add( edge )
+                    queue.append( nested )
+
+    for family in closure_families:
+        for leaf in by_family.get( family ) or []:
+            leaf['nest_under_requires'] = True
+            leaf['requires_closure'] = True
+            tool = leaf.get( 'tool_variant' )
+            in_use = bool( tip_tool_variants ) and tool in tip_tool_variants
+            leaf['closure_in_use'] = in_use
+            if in_use and leaf.get( 'state' ) == 'unreferenced':
+                leaf['state'] = 'referenced'
+            leaf.pop( 'tip_selected', None )
+
+    return leaves
 
 
 def _max_epoch( left, right ):
@@ -86,7 +198,7 @@ def _identity_label( registry_name, short_name, section, remote_location=None, m
         detail = remote_location
     else:
         detail = short_name or registry_name or '-'
-    if section == 'referenced' and registry_name:
+    if section in ( 'referenced', 'used' ) and registry_name:
         if detail and detail != registry_name:
             return (
                 '{} [{}]'.format( registry_name, detail ),
@@ -144,20 +256,38 @@ def _sum_measured_sizes( items, size_attr='size_bytes' ):
     return total if saw else None
 
 
-def build_tree( leaves ):
+def build_tree( leaves, grouping='usage' ):
     """Group enriched leaves into section → type → identity → variant nodes.
+
+    ``grouping`` is ``usage`` (default: ``used`` / ``unused`` sections) or
+    ``identity`` (resolve view: ``referenced`` / ``unreferenced``, unused siblings
+    stay under referenced identities).
 
     Each leaf needs: type, short_name, stem, dependency (registry), qualifier,
     tool_variant, state, size_bytes, last_used_epoch, path, source_url,
     remote_location (optional), location.
     """
+    leaves = list( leaves or [] )
+    promote_requires_closure( leaves )
+    grouping = 'identity' if grouping == 'identity' else 'usage'
+
     groups = {}  # (type, group_key) -> dict
+    nest_groups = {}  # normalised family -> group dict (closure-only gitlab)
 
     for leaf in leaves:
         storage_type, group_key = list_identity_key( leaf )
         # Prefer short_name as the stable family key so boost_package and disk boost/ meet.
         key = ( storage_type, group_key )
-        group = groups.get( key )
+        nest_only = (
+                storage_type == 'gitlab'
+                and leaf.get( 'nest_under_requires' )
+        )
+        target = nest_groups if nest_only else groups
+        nest_key = (
+                normalise_package_key( group_key )
+                if nest_only else key
+        )
+        group = target.get( nest_key )
         if group is None:
             group = {
                 'type': storage_type,
@@ -165,8 +295,9 @@ def build_tree( leaves ):
                 'registry_name': None,
                 'remote_location': None,
                 'leaves': [],
+                'family_key': nest_key if nest_only else None,
             }
-            groups[key] = group
+            target[nest_key] = group
         if leaf.get( 'state' ) in REFERENCED_STATES and leaf.get( 'dependency' ):
             # Prefer a real registry name over an encoded folder.
             name = leaf['dependency']
@@ -196,18 +327,58 @@ def build_tree( leaves ):
             group['remote_location'] = leaf['source_url']
         group['leaves'].append( leaf )
 
-    referenced_idents = []
-    unreferenced_idents = []
+    nest_index = nest_groups
+
+    primary_idents = []
+    secondary_idents = []
 
     for group in groups.values():
-        leaves_in = group['leaves']
-        pulls_referenced = any( leaf.get( 'state' ) in REFERENCED_STATES for leaf in leaves_in )
-        section = 'referenced' if pulls_referenced else 'unreferenced'
-        identity = _build_identity( group, section )
-        if section == 'referenced':
-            referenced_idents.append( identity )
-        else:
-            unreferenced_idents.append( identity )
+        if grouping == 'identity':
+            pulls_referenced = any(
+                    leaf.get( 'state' ) in REFERENCED_STATES for leaf in group['leaves']
+            )
+            section = 'referenced' if pulls_referenced else 'unreferenced'
+            identity = _build_identity(
+                    group,
+                    section,
+                    nest_index=nest_index if pulls_referenced else None,
+                    expand_requires_closure=pulls_referenced,
+            )
+            if pulls_referenced:
+                primary_idents.append( identity )
+            else:
+                secondary_idents.append( identity )
+            continue
+
+        selected = [
+                leaf for leaf in group['leaves']
+                if leaf.get( 'state' ) in REFERENCED_STATES
+        ]
+        orphans = [
+                leaf for leaf in group['leaves']
+                if leaf.get( 'state' ) not in REFERENCED_STATES
+        ]
+        if selected:
+            # Usage split applies inside requires forests too: only tip-matching /
+            # closure_in_use nest leaves hang under used → requires.
+            primary_idents.append( _build_identity(
+                    _group_with_leaves( group, selected ),
+                    'used',
+                    nest_index=_nest_index_with_states( nest_index, REFERENCED_STATES ),
+                    expand_requires_closure=True,
+            ) )
+        if orphans:
+            secondary_idents.append( _build_identity(
+                    _group_with_leaves( group, orphans ),
+                    'unused',
+                    nest_index=None,
+                    expand_requires_closure=False,
+            ) )
+
+    if grouping == 'usage':
+        # Leftover nest toolchains / versions (not tip-matching) surface as unused
+        # top-level identities instead of hanging under used → requires.
+        secondary_idents.extend( _unused_nest_identities( nest_index ) )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
@@ -219,15 +390,109 @@ def build_tree( leaves ):
                 ( node.get( 'registry_name' ) or node.get( 'short_name' ) or '' ).lower(),
         ) )
 
+    if grouping == 'identity':
+        return {
+            'sections': [
+                _build_section( 'referenced', sort_idents( primary_idents ) ),
+                _build_section( 'unreferenced', sort_idents( secondary_idents ) ),
+            ],
+            'grouping': grouping,
+        }
     return {
         'sections': [
-            _build_section( 'referenced', sort_idents( referenced_idents ) ),
-            _build_section( 'unreferenced', sort_idents( unreferenced_idents ) ),
+            _build_section( 'used', sort_idents( primary_idents ) ),
+            _build_section( 'unused', sort_idents( secondary_idents ) ),
         ],
+        'grouping': grouping,
     }
 
 
-def _build_identity( group, section ):
+def _nest_index_with_states( nest_index, states ):
+    """Copy nest groups, keeping only leaves whose ``state`` is in ``states``."""
+    out = {}
+    for key, group in ( nest_index or {} ).items():
+        selected = [
+                leaf for leaf in group.get( 'leaves' ) or []
+                if leaf.get( 'state' ) in states
+        ]
+        if selected:
+            out[key] = _group_with_leaves( group, selected )
+    return out
+
+
+def _unused_nest_identities( nest_index ):
+    """Top-level unused identities for nest leaves that are not resolve-bound."""
+    idents = []
+    for group in ( nest_index or {} ).values():
+        orphans = [
+                leaf for leaf in group.get( 'leaves' ) or []
+                if leaf.get( 'state' ) not in REFERENCED_STATES
+        ]
+        if orphans:
+            idents.append( _build_identity(
+                    _group_with_leaves( group, orphans ),
+                    'unused',
+                    nest_index=None,
+                    expand_requires_closure=False,
+            ) )
+    return idents
+
+
+def _group_with_leaves( group, leaves ):
+    """Copy an identity group, keeping only ``leaves`` and recomputing registry labels."""
+    storage_type = group['type']
+    group_key = group['short_name']
+    out = {
+            'type': storage_type,
+            'short_name': group_key,
+            'registry_name': None,
+            'remote_location': group.get( 'remote_location' ),
+            'leaves': list( leaves ),
+            'family_key': group.get( 'family_key' ),
+    }
+    for leaf in leaves:
+        if leaf.get( 'state' ) in REFERENCED_STATES and leaf.get( 'dependency' ):
+            name = leaf['dependency']
+            if (
+                    name
+                    and name != group_key
+                    and not name.startswith( 'git_' )
+                    and not name.startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+            elif (
+                    out['registry_name'] is None
+                    and name
+                    and not name.startswith( 'git_' )
+                    and not name.startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+        if leaf.get( 'remote_location' ) and not out.get( 'remote_location' ):
+            out['remote_location'] = leaf['remote_location']
+        elif leaf.get( 'source_url' ) and not out.get( 'remote_location' ):
+            out['remote_location'] = leaf['source_url']
+    # Orphan-only gitlab rows still prefer a registry-shaped dependency name when present.
+    if out['registry_name'] is None:
+        for leaf in leaves:
+            name = leaf.get( 'dependency' )
+            if (
+                    name
+                    and name != out['short_name']
+                    and not str( name ).startswith( 'git_' )
+                    and not str( name ).startswith( 'https_' )
+            ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+                break
+    return out
+
+
+def _build_identity( group, section, nest_index=None, expand_requires_closure=False ):
     storage_type = group['type']
     leaves_in = group['leaves']
     short = group['short_name']
@@ -235,7 +500,12 @@ def _build_identity( group, section ):
     remote_location = group.get( 'remote_location' )
 
     if storage_type == 'gitlab':
-        children = _gitlab_children( leaves_in )
+        children = _gitlab_children(
+                leaves_in,
+                nest_index=nest_index,
+                expand_requires_closure=expand_requires_closure,
+                section=section,
+        )
     elif storage_type == 'repository':
         children = _location_children( leaves_in )
     elif storage_type == 'conan':
@@ -339,7 +609,7 @@ def _location_children( leaves_in ):
     return children
 
 
-def _gitlab_children( leaves_in ):
+def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False, section='referenced' ):
     by_version = {}
     for leaf in leaves_in:
         version = leaf.get( 'qualifier' ) or '-'
@@ -398,8 +668,15 @@ def _gitlab_children( leaves_in ):
                     ),
             ) )
         # Declared transitive edges from the traveling package manifest (on-disk extract).
-        requires_node = _requires_group_for_variants( variants )
+        requires_node = _requires_group_for_variants(
+                variants,
+                nest_index=nest_index,
+                expand_requires_closure=expand_requires_closure,
+                section=section,
+        )
         if requires_node is not None:
+            if tool_children:
+                tool_children.append( _spacer_node() )
             tool_children.append( requires_node )
         missing_only = bool( missing ) and used == 0 and missing == len( variants )
         has_missing_leaf = bool( missing )
@@ -420,21 +697,77 @@ def _gitlab_children( leaves_in ):
     return children
 
 
-def _requires_group_for_variants( variants ):
-    """Return a ``requires`` group node from the first readable package manifest."""
-    for leaf in variants:
-        path = leaf.get( 'path' )
-        if not path or not os.path.isdir( path ):
+def _requires_entries_from_variants( variants, in_use_only=False ):
+    """Union traveling-manifest requires across a version's toolchain variants.
+
+    ``variants`` is whatever the caller already scoped (used-only nest leaves,
+    unused nest leftovers, or a full identity). ``in_use_only=True`` further
+    restricts to tip-selected / ``closure_in_use`` extracts; callers fall back to
+    ``False`` when that yields nothing so orphan-only versions still show edges.
+    """
+    from cuppa.package_managers.cuppa_publish_manifest import read_traveling_manifest
+
+    def leaf_in_use( leaf ):
+        if leaf.get( 'tip_selected' ) or leaf.get( 'closure_in_use' ):
+            return True
+        # Tip identity siblings selected by resolve (not nest-only).
+        return (
+                leaf.get( 'state' ) in REFERENCED_STATES
+                and not leaf.get( 'nest_under_requires' )
+        )
+
+    ordered = []
+    seen = set()
+    for leaf in sorted(
+            variants,
+            key=lambda item: (
+                    0 if leaf_in_use( item ) else 1,
+                    item.get( 'tool_variant' ) or '',
+                    item.get( 'path' ) or '',
+            ),
+    ):
+        if in_use_only and not leaf_in_use( leaf ):
             continue
-        group = requires_group_from_package_dir( path )
-        if group is not None:
-            return group
-    # Prefer requires already attached on the leaf (unit / pre-enriched rows).
-    for leaf in variants:
-        edges = leaf.get( 'requires' )
-        if edges:
-            return _requires_group_from_entries( edges )
-    return None
+
+        entries = None
+        path = leaf.get( 'path' )
+        if path and os.path.isdir( path ):
+            document = read_traveling_manifest( path )
+            if document:
+                entries = list( document.get( 'dependencies' ) or [] )
+        if not entries:
+            edges = leaf.get( 'requires' )
+            if edges:
+                entries = list( edges )
+        for entry in entries or []:
+            package = entry.get( 'package' ) or entry.get( 'name' )
+            version = str( entry.get( 'version' ) or '' )
+            key = ( normalise_package_key( package ), version )
+            if not key[0] or key in seen:
+                continue
+            seen.add( key )
+            ordered.append( entry )
+    return ordered or None
+
+
+def _requires_group_for_variants(
+        variants, nest_index=None, expand_requires_closure=False, section='referenced',
+):
+    """Return a ``requires`` group node from the best readable package manifest."""
+    entries = _requires_entries_from_variants( variants, in_use_only=True )
+    # Orphan-only versions (nothing tip-selected under this identity) still show
+    # their declared edges; tip versions prefer in-use extracts only.
+    if not entries:
+        entries = _requires_entries_from_variants( variants, in_use_only=False )
+    if not entries:
+        return None
+    tip_is_selected = any(
+            leaf.get( 'state' ) in REFERENCED_STATES and not leaf.get( 'nest_under_requires' )
+            for leaf in variants
+    )
+    if expand_requires_closure and nest_index and tip_is_selected:
+        return _requires_closure_forest( entries, nest_index, section=section )
+    return _requires_group_from_entries( entries )
 
 
 def requires_group_from_package_dir( package_dir ):
@@ -447,33 +780,212 @@ def requires_group_from_package_dir( package_dir ):
     return _requires_group_from_entries( document.get( 'dependencies' ) or [] )
 
 
+def _order_requires_families( families, edges, prefer=None ):
+    """Order nested requires families for listing display.
+
+    Uses the same leaf-first Kahn approach as cascade publish order, then
+    **reverses** so the tree reads dependent-first (heavier / closer to the tip
+    first) when descending under ``requires``. Cycles do not raise — leftovers
+    append before the reverse (listing only needs an intuitive order).
+
+    ``edges`` maps family -> set of families it depends on (among ``families``).
+    ``prefer`` is an optional declaration order used when several nodes are ready.
+    """
+    if not families:
+        return []
+    family_set = set( families )
+    edge_keys = {
+            name: { dep for dep in ( edges.get( name ) or () ) if dep in family_set }
+            for name in family_set
+    }
+    prefer = list( prefer or [] )
+    rank = { name: index for index, name in enumerate( prefer ) }
+
+    def ready_key( name ):
+        return ( rank.get( name, 10 ** 9 ), name )
+
+    waiting = { name: len( edge_keys.get( name, () ) ) for name in family_set }
+    dependents = {}
+    for parent, children in edge_keys.items():
+        for child in children:
+            dependents.setdefault( child, set() ).add( parent )
+
+    ready = deque( sorted(
+            [ name for name, count in waiting.items() if count == 0 ],
+            key=ready_key,
+    ) )
+    ordered = []
+    while ready:
+        node = ready.popleft()
+        ordered.append( node )
+        for parent in sorted( dependents.get( node, () ), key=ready_key ):
+            waiting[parent] -= 1
+            if waiting[parent] == 0:
+                ready.append( parent )
+
+    if len( ordered ) != len( family_set ):
+        leftovers = sorted(
+                [ name for name in family_set if name not in ordered ],
+                key=ready_key,
+        )
+        ordered.extend( leftovers )
+    ordered.reverse()
+    return ordered
+
+
+def _requires_closure_forest( entries, nest_index, section='referenced' ):
+    """Flat forest of sized nested identities for a tip's traveling-manifest closure."""
+    tip_prefer = []
+    tip_seen = set()
+    for entry in entries or []:
+        package = entry.get( 'package' ) or entry.get( 'name' )
+        family = normalise_package_key( package )
+        if not family:
+            continue
+        aliases = { family, family.replace( '-', '_' ), family.replace( '_', '-' ) }
+        matched = None
+        for alias in aliases:
+            normalised = normalise_package_key( alias )
+            if normalised in nest_index:
+                matched = normalised
+                break
+        if matched and matched not in tip_seen:
+            tip_seen.add( matched )
+            tip_prefer.append( matched )
+
+    # BFS discover every on-disk family in the tip's closure.
+    closure_families = set()
+    queue = list( tip_prefer )
+    seen_queue = set( tip_prefer )
+    while queue:
+        family = queue.pop( 0 )
+        closure_families.add( family )
+        for leaf in nest_index[family]['leaves']:
+            for nested in leaf.get( 'requires' ) or []:
+                package = nested.get( 'package' ) or nested.get( 'name' )
+                key = normalise_package_key( package )
+                if not key:
+                    continue
+                matched = None
+                for alias in (
+                        key,
+                        key.replace( '-', '_' ),
+                        key.replace( '_', '-' ),
+                ):
+                    normalised = normalise_package_key( alias )
+                    if normalised in nest_index:
+                        matched = normalised
+                        break
+                if matched and matched not in seen_queue:
+                    seen_queue.add( matched )
+                    queue.append( matched )
+
+    # Union dependency edges among nested families (all variants under each).
+    edges = { family: set() for family in closure_families }
+    for family in closure_families:
+        for leaf in nest_index[family]['leaves']:
+            for nested in leaf.get( 'requires' ) or []:
+                package = nested.get( 'package' ) or nested.get( 'name' )
+                key = normalise_package_key( package )
+                if not key:
+                    continue
+                for alias in (
+                        key,
+                        key.replace( '-', '_' ),
+                        key.replace( '_', '-' ),
+                ):
+                    normalised = normalise_package_key( alias )
+                    if normalised in closure_families and normalised != family:
+                        edges[family].add( normalised )
+                        break
+
+    ordered_families = _order_requires_families(
+            closure_families, edges, prefer=tip_prefer,
+    )
+
+    children = []
+    for family in ordered_families:
+        children.append( _spacer_node() )
+        group = nest_index[family]
+        # Nested packages keep label-style requires (no recursive sized forests).
+        children.append( _build_identity(
+                group, section,
+                nest_index=None,
+                expand_requires_closure=False,
+        ) )
+
+    # Manifest edges with no on-disk extract stay as labels after the forest.
+    label_edges = []
+    for entry in entries or []:
+        package = entry.get( 'package' ) or entry.get( 'name' )
+        family = normalise_package_key( package )
+        if family and family in closure_families:
+            continue
+        if family and any(
+                normalise_package_key( alias ) in closure_families
+                for alias in (
+                        family,
+                        family.replace( '-', '_' ),
+                        family.replace( '_', '-' ),
+                )
+        ):
+            continue
+        label_edges.append( _requires_edge_node( entry ) )
+    for index, edge in enumerate( label_edges ):
+        if children or index > 0:
+            children.append( _spacer_node() )
+        children.append( edge )
+
+    if not children:
+        return None
+
+    sized_children = [
+            child for child in children if child.get( 'kind' ) != 'spacer'
+    ]
+    size_bytes = _sum_measured_sizes( sized_children )
+    epoch = None
+    for child in sized_children:
+        epoch = _max_epoch( epoch, child.get( 'last_used_epoch' ) )
+    return {
+        'kind': 'requires',
+        'label': 'requires',
+        'size_bytes': size_bytes,
+        'last_used_epoch': epoch,
+        'remark': '',
+        'location': '',
+        'children': children,
+    }
+
+
+def _requires_edge_node( entry ):
+    name = entry.get( 'name' ) or entry.get( 'package' ) or '-'
+    version = entry.get( 'version' ) or '-'
+    package = entry.get( 'package' ) or name
+    use_libs = entry.get( 'use_libs' ) or []
+    remark = ''
+    if use_libs:
+        remark = 'libs: {}'.format( ', '.join( str( item ) for item in use_libs ) )
+    return {
+        'kind': 'requires_edge',
+        'label': '{} {}'.format( name, version ),
+        'label_name': str( name ),
+        'label_detail': str( version ),
+        'size_bytes': None,
+        'last_used_epoch': None,
+        'remark': remark,
+        'location': '',
+        'requires_name': str( name ),
+        'requires_package': str( package ),
+        'requires_version': str( version ),
+        'requires_use_libs': [ str( item ) for item in use_libs ],
+        'children': [],
+    }
+
+
 def _requires_group_from_entries( entries ):
     if not entries:
         return None
-    children = []
-    for entry in entries:
-        name = entry.get( 'name' ) or entry.get( 'package' ) or '-'
-        version = entry.get( 'version' ) or '-'
-        package = entry.get( 'package' ) or name
-        use_libs = entry.get( 'use_libs' ) or []
-        remark = ''
-        if use_libs:
-            remark = 'libs: {}'.format( ', '.join( str( item ) for item in use_libs ) )
-        children.append( {
-            'kind': 'requires_edge',
-            'label': '{} {}'.format( name, version ),
-            'label_name': str( name ),
-            'label_detail': str( version ),
-            'size_bytes': None,
-            'last_used_epoch': None,
-            'remark': remark,
-            'location': '',
-            'requires_name': str( name ),
-            'requires_package': str( package ),
-            'requires_version': str( version ),
-            'requires_use_libs': [ str( item ) for item in use_libs ],
-            'children': [],
-        } )
+    children = [ _requires_edge_node( entry ) for entry in entries ]
     return {
         'kind': 'requires',
         'label': 'requires',
@@ -591,26 +1103,28 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_label,
-            'size_bytes': _sum_measured_sizes( items ),
+            'size_bytes': None,  # filled from leaves below (includes nested requires)
             'last_used_epoch': epoch,
             'remark': _remark_count( used, 'used' ),
             'location': '',
             'children': _spacer_between_identities( items ),
         } )
     for type_key, items in sorted( by_type.items() ):
-        size_bytes = _sum_measured_sizes( items )
         epoch = None
         for node in items:
             epoch = _max_epoch( epoch, node.get( 'last_used_epoch' ) )
         type_nodes.append( {
             'kind': 'type',
             'label': type_key,
-            'size_bytes': size_bytes,
+            'size_bytes': None,
             'last_used_epoch': epoch,
             'remark': '',
             'location': '',
             'children': _spacer_between_identities( items ),
         } )
+
+    for type_node in type_nodes:
+        type_node['size_bytes'] = _sum_measured_sizes( list( _iter_leaves( type_node ) ) )
 
     size_bytes = _sum_measured_sizes( type_nodes )
     epoch = None
@@ -622,7 +1136,9 @@ def _build_section( name, identities ):
 
     children = []
     remark = ''
-    if name == 'referenced' and type_nodes:
+    # Resolve-identity ``referenced`` and usage ``used`` both get in-use / missing /
+    # stale roll-ups (stale only when unused siblings still hang under the section).
+    if name in ( 'referenced', 'used' ) and type_nodes:
         used_bytes = None
         unused_bytes = None
         missing_bytes = None
@@ -706,9 +1222,9 @@ def _build_section( name, identities ):
         children.append( _spacer_node() )
 
     for index, type_node in enumerate( type_nodes ):
-        # Empty row above each type group. Referenced already has a spacer after
+        # Empty row above each type group. Referenced/used already have a spacer after
         # the used/unused summaries before the first type.
-        if name != 'referenced' or index > 0:
+        if name not in ( 'referenced', 'used' ) or index > 0:
             children.append( _spacer_node() )
         wrapped = dict( type_node )
         # Spacers between identities are already in type_node children.
@@ -802,6 +1318,9 @@ def _epoch_to_iso( epoch ):
 
 def _size_text( size_bytes, kind=None, state=None, remark=None ):
     if kind == 'spacer':
+        return ''.rjust( SIZE_WIDTH )
+    # Structure / label-only requires rows: blank SIZE, not a dash placeholder.
+    if kind in ( 'requires', 'requires_edge' ) and size_bytes is None:
         return ''.rjust( SIZE_WIDTH )
     if state == 'missing' or remark == 'missing':
         text = '-'
@@ -936,6 +1455,9 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
         if state == 'missing' or remark == 'missing' or missing_identity:
             last_used = '-'
+        elif kind in ( 'requires', 'requires_edge' ) and node.get( 'size_bytes' ) is None:
+            # Structure / label-only requires: blank LAST USED, not '-'.
+            last_used = ''
         elif node.get( 'last_used_epoch' ) is not None:
             last_used = dependency_inventory.format_age(
                     _epoch_to_iso( node.get( 'last_used_epoch' ) )
@@ -1051,7 +1573,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location
             )
-        elif section == 'unreferenced':
+        elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
                 if label_name:
                     label = _colour_identity_label(
@@ -1063,7 +1585,15 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
-        elif section == 'referenced':
+            elif kind == 'requires':
+                # Structural heading — normal (non-muted) paint, same as used.
+                pass
+            elif kind == 'requires_edge':
+                # Label-only declared edges stay subdued (same as under used → requires).
+                label, size, last_used, remark, location = _mute_row_fields(
+                        label, size, last_used, remark, location
+                )
+        elif section in ( 'referenced', 'used' ):
             if kind == 'identity':
                 if label_name:
                     label = _colour_identity_label(
@@ -1084,7 +1614,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     size = as_subdued( size )
                 if last_used:
                     last_used = as_subdued( last_used )
-            elif kind in ( 'requires', 'requires_edge' ):
+            elif kind == 'requires':
+                # Structural heading — normal (non-muted) paint.
+                pass
+            elif kind == 'requires_edge':
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )

@@ -1,0 +1,111 @@
+= Wiping dependencies
+:description: --wipe-dependencies and --force-wipe-all-dependencies — whole extract clear-down
+
+For the flag map, tokens, shared inventory, and glance table, see
+xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
+Wipe is the third step on the
+xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
+(remove → purge → wipe). For naming leaves from the list tree without matching this
+project's active context, use
+xref:dependencies/managing/force-wiping.adoc[force-wipe] instead.
+
+[#wipe-dependencies]
+== Wiping dependencies (clear-down)
+
+`--wipe-dependencies=name1,name2` clears the **whole extract** for the named **project-used**
+dependencies under the **active context**, plus matching downloads. Unlike purge, source Boost
+with `storage_clean` does **not** stop at product clean — the extract goes too. The next build
+without `--offline` re-downloads and re-extracts as usual.
+
+For wiping **every** project-used name in the active context, use
+`--force-wipe-all-dependencies` (the `force-` prefix marks how wide that is). For specific old
+versions or branches visible in the list tree (including unused siblings under a referenced
+identity), use xref:dependencies/managing/force-wiping.adoc#force-wipe-dependencies[`--force-wipe-dependencies`].
+
+Do not combine any wipe / force-wipe flag with `--remove-*` or `--purge-*`, or with another wipe
+mode, in one invocation. Develop working copies are never deleted. SCons `-n` is a dry run.
+Missing trees / downloads are not a failure.
+When inventory `used_by` names another project, `--wipe-dependencies` emits the same judgement-tree
+notices as force-wipe (warning on dry-run, past-tense note after a real wipe). See
+xref:contributing/report-patterns.adoc[Report patterns].
+
+[source,shell]
+----
+cuppa -Q -D --wipe-dependencies=boost
+cuppa -Q -D --dbg --wipe-dependencies=boost_package
+cuppa -Q -D -n --wipe-dependencies=widget
+cuppa -Q -D --force-wipe-all-dependencies
+----
+
+More filter patterns:
+xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples].
+
+Verify with `--list-dependencies` and `--list-downloads`.
+
+See xref:integration/test-wipe-dependencies.adoc[`test_wipe_dependencies`].
+
+
+
+[#worked-wipe-examples]
+== Worked examples
+
+These walkthroughs match intents linked from the
+xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glance table.
+The GitLab wipe uses the shared inventory below; the source-archive wipe shows its own
+inventory (project-used `boost`) inline.
+
+[#worked-wipe-shared-inventory]
+=== Shared example inventory
+
+++++
+include::partial$samples/selection-example-inventory.html[]
+++++
+
+[#ex-wipe-used-source]
+=== Wipe a used source-archive extract (re-fetch next build)
+
+Unlike
+xref:dependencies/managing/removing.adoc#ex-remove-used-source[remove of used source variants],
+wipe clears the **whole** used extract (and matching download), so the next online build
+re-fetches. Still requires a **project-used** name — same alternate inventory as that remove
+example:
+
+.Inventory for this example (`boost` project-used)
+++++
+include::partial$samples/selection-inventory-source-boost-used.html[]
+++++
+
+++++
+include::partial$cli-examples/wipe-boost.html[]
+++++
+
+Matches (this inventory):
+
+[.cuppa-cli-matches]
+* `[source]boost/1.91.0` — whole extract + matching download for the active context
+
+Dry-run report:
+
+++++
+include::partial$samples/wipe-source-boost-dry-run.html[]
+++++
+
+[#ex-wipe-gitlab]
+=== Wipe the selected GitLab package extract (project-used)
+
+++++
+include::partial$cli-examples/wipe-gitlab.html[]
+++++
+
+Matches:
+
+[.cuppa-cli-matches]
+* `[gitlab]boost_package/1.91` — whole context-matched extract + matching download
+
+Dry-run report:
+
+++++
+include::partial$samples/wipe-gitlab-dry-run.html[]
+++++
+
+

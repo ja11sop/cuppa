@@ -141,7 +141,7 @@ escape hatch.
 
 Cuppa forwards host `PKG_CONFIG_PATH` when it is set even without these options. Dependencies that
 install shared libraries, such as the optional
-xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan consumer], configure their own runtime
+xref:dependencies/using/conan.adoc#conan-2-consumer-optional[Conan consumer], configure their own runtime
 search paths; they do not require `--propagate-env`.
 
 `--use-shell` is also an escape hatch. Prefer `working_dir`, `cwd=`, or Python actions over shell

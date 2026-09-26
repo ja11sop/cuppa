@@ -15,7 +15,7 @@ The intro line uses this shape:
 {Verb} {emphasised N} {subject}: [N errors][N warnings][N notes]
 ----
 
-Examples: `Wiping **9** trees: …`, `Removed **2** trees: …`, and `--list-develop` (which also
+Examples: `Wiping **9** trees: <...>`, `Removed **2** trees: <...>`, and `--list-develop` (which also
 appends ok / not-using-develop counts).
 
 Always show all three brackets. Mute zeros; colour non-zeros as error / warning / info so readers
@@ -46,8 +46,8 @@ If an outcome is “proceed anyway / already done / cannot abort”:
 | Scenario | Dry-run / before | After real action
 
 | Force-wipe or wipe `used_by` (including a safe unqualified stem duplicate)
-| `warning`: `wiping…`, `removing this copy is safe`, `would be re-fetched`
-| `note`: `wiped…`, `removing the copy was safe`, `will be re-fetched`
+| `warning`: `wiping...`, `removing this copy is safe`, `would be re-fetched`
+| `note`: `wiped...`, `removing the copy was safe`, `will be re-fetched`
 
 | Path already gone on remove / wipe / builds
 | (does not fire on dry-run)
@@ -111,7 +111,7 @@ Prefer these instead of inventing a second flat warning list:
 | Benign miss classification
 |===
 
-Do not invent a second flat `as_warning("Not all…")` plus an indented list for dependency
+Do not invent a second flat `as_warning("Not all...")` plus an indented list for dependency
 failures.
 
 == Where to go next

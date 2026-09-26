@@ -32,7 +32,7 @@ on xref:methods/flags-and-toolchain.adoc[Flags and toolchain].
 | `env.HeaderUnit(path)`
 | Register a header for BMI compilation (`'include/h.hpp'` or `'<span>'`)
 
-| `env.Module(name, interface=…, implementation=…)`
+| `env.Module(name, interface=<...>, implementation=<...>)`
 | Compile/register a named module; objects link into a later `Build()` in the same env
 
 | `env.ImportModules(dir)`

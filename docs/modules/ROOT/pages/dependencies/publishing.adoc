@@ -1,0 +1,41 @@
+= Publishing dependencies
+:description: Ship Cuppa-built packages, cascade nest publishes, and manage publisher trees
+
+Use this hub when you **maintain or ship** package artefacts — GitLab registry uploads,
+cascading nest publishes, amend/external builds, Conan publish, and publisher working copies.
+
+If you only need your application to **build against** nested packages already in the
+registry (or under `--develop`), start with
+xref:dependencies/using/building-with-packages.adoc[Building with package dependencies]
+instead.
+
+Content that is really about *defining* a new dependency factory or pip plugin belongs under
+xref:dependencies/authoring.adoc[Authoring dependencies] (see that hub for the split).
+
+== Where to start
+
+[cols="1,2"]
+|===
+| Goal | Page
+
+| Publishing overview (chooser)
+| xref:dependencies/publishing/packages.adoc[Publishing packages overview]
+
+| ``PublishPackage`` / GitLab generic / Boost from source
+| xref:dependencies/publishing/gitlab.adoc[GitLab package publish]
+
+| Cascading dependency publishes
+| xref:dependencies/publishing/cascade.adoc[Cascading dependency publishes]
+
+| Amend metadata / external CMake builds
+| xref:dependencies/publishing/amend-and-external.adoc[Amending metadata and external builds]
+
+| Conan 2 publish
+| xref:dependencies/publishing/conan.adoc[Conan 2 publishing]
+
+| List, remove, and update publisher trees
+| xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees]
+|===
+
+Storage reclaim for ordinary dependency extracts stays under
+xref:dependencies/managing.adoc[Managing dependencies].

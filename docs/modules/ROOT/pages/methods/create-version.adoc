@@ -77,7 +77,7 @@ versioned binary exists (for example copying into a docker tree under
 
 For each `CreateVersion()` target the C++ toolchain writes a sibling **header** and **source**
 (plus a small `.txt` sidecar used as a build input). With
-`namespaces=['app', 'version']` and target `…/version.cpp`, you get approximately:
+`namespaces=['app', 'version']` and target `<...>/version.cpp`, you get approximately:
 
 * `version.hpp` — declares `app::version::build::identity`
 * `version.cpp` — defines the static accessors (compiled into your program)
@@ -131,7 +131,7 @@ public:
     typedef std::string              string_t;
     typedef std::vector<string_t>    revisions_t;
 
-    // … nested dependency type and dependencies_t map …
+    // <...> nested dependency type and dependencies_t map <...>
 
     static const char* product_version();
     static const char* product_repository();
@@ -168,7 +168,7 @@ private:
 | From the project `location=` (default `env['base_path']`) via Cuppa's location / SCM helpers
 
 | `build_variant()`
-| Active Cuppa variant name (`dbg`, `rel`, `cov`, …)
+| Active Cuppa variant name (`dbg`, `rel`, `cov`, <...>)
 
 | `build_time()` / `build_user()` / `build_host()`
 | UTC time, user, and hostname recorded when the version file was generated
@@ -211,7 +211,7 @@ const char* identity::build_variant()
     return "dbg";
 }
 
-// … remaining accessors, Dependencies_ initialiser, Report_ …
+// <...> remaining accessors, Dependencies_ initialiser, Report_ <...>
 
 } // namespace build
 } // namespace version

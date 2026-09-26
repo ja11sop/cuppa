@@ -4,7 +4,7 @@
 Cuppa stores retrieved dependency trees under `--dependencies-root` and archives under
 `--downloads-root`. This section is about **inspecting and reclaiming** that storage, and about
 checking **develop** working copies — not about declaring dependencies (see
-xref:dependencies/overview.adoc[Overview]).
+xref:dependencies/using.adoc[Using dependencies]).
 
 [#which-listing]
 == Which listing for which question
@@ -14,13 +14,29 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 
 [cols="3,3,4"]
 |===
-| You want to know… | Use | Looks at
+| You want to know
+| Use
+| Looks at
 
-| What is under the shared dependencies root, and which trees this project would use | `--list-dependencies` (optional `--list-scope`) | `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
-| What archives sit under the downloads root, and which trees they feed | `--list-downloads` (optional `--list-scope`) | `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
-| What publisher working copies sit under the cascade forest (git health + size) | `--list-publishers` | In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`); develop-shaped STATUS report |
-| Branch, cleanliness, and ahead/behind of configured develop working copies | `--list-develop` | Develop paths from the sconstruct
-| What is under `_build` | `--list-builds` | `--build-root`
+| What is under the shared dependencies root, and which trees this project would use
+| `--list-dependencies` (optional `--list-scope`)
+| `--dependencies-root` (for example `~/.cuppa/dependencies` or a legacy `~/_cuppa/_download`)
+
+| What archives sit under the downloads root, and which trees they feed
+| `--list-downloads` (optional `--list-scope`)
+| `--downloads-root` (for example `~/.cuppa/downloads` or a legacy `~/_cuppa/_cache`)
+
+| What publisher working copies sit under the cascade forest (git health + size)
+| `--list-publishers` (see xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees])
+| In-force publisher root (`--publisher-root`, else `~/.cuppa/publishers`); develop-shaped STATUS report
+
+| Branch, cleanliness, and ahead/behind of configured develop working copies
+| `--list-develop`
+| Develop paths from the sconstruct
+
+| What is under ``_build``
+| `--list-builds`
+| `--build-root`
 |===
 
 **Inspecting dependency storage** — omit `--develop`:
@@ -30,8 +46,10 @@ switch; `--list-develop` is a *report* about working copies. They are easy to mi
 cuppa -Q -D --list-dependencies
 ----
 
-Resolve marks the tree this project would use (without develop) as `referenced`, and sibling
-branches or other leftovers as `unreferenced`. That is the listing to use before reclaiming disk.
+Resolve marks the tree this project would use (without develop) with leaf state
+`referenced`, and sibling branches or other leftovers as `unreferenced`. The default listing
+groups those as **used** then **unused**; pass ``--list-scope=resolve`` for the Pass A
+referenced / unreferenced identity view. That is the listing to use before reclaiming disk.
 
 **Inspecting develop checkouts** — also omit `--develop` unless you want the banner to say it is
 active; the table is the same either way:
@@ -65,12 +83,13 @@ cuppa -Q -D --list-dependencies --develop
 | xref:dependencies/managing/list-downloads.adoc[Listing downloads]
 | `--list-downloads` and how archives pair with extracts
 
-| xref:dependencies/managing/list-publishers.adoc[Listing publisher trees]
-| `--list-publishers` / `--remove-publishers` for the cascade forest
-
-| xref:dependencies/managing/removing.adoc[Removing, purging, and wiping]
-| Tokens, remove / purge / wipe / force-wipe, and matching names from the list tree
+| xref:dependencies/managing/reclaiming.adoc[Reclaiming storage]
+| Context-scoped remove→purge→wipe vs list-tree force-wipe; tokens and filter glance
 
 | xref:dependencies/managing/develop.adoc[Checking your develop copies]
 | `--list-develop`, clone, checkout / reset, and `--update-develop`
 |===
+
+Publisher working copies (`--list-publishers` / `--remove-publishers`) live under
+xref:dependencies/publishing.adoc[Publishing dependencies] —
+xref:dependencies/publishing/list-publishers.adoc[Listing publisher trees].

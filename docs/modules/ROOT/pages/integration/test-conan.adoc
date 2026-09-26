@@ -85,7 +85,7 @@ cuppa.run(
 
 === `sconstruct` (pip plugin)
 
-No `import_dependencies=[…]` — the plugin registers `fmt`:
+No `import_dependencies=[<...>]` — the plugin registers `fmt`:
 
 [source,python]
 ----
@@ -175,4 +175,4 @@ Reasons this stayed deferred:
 
 Related test module: `tests/integration/methods/test_conan.py`.
 Example plugin package: `examples/conan_fmt_plugin/`.
-See also xref:dependencies/conan.adoc[Conan packages], xref:packages.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `design/archive/conan-consumer-plan.md`, and `design/archive/conan-publish-plan.md`.
+See also xref:dependencies/using/conan.adoc[Conan packages], xref:dependencies/publishing/conan.adoc#conan-package-publishing[Conan 2 publishing], xref:extending.adoc#pip-dependency-plugin-conan-example[Extending cuppa], `design/archive/conan-consumer-plan.md`, and `design/archive/conan-publish-plan.md`.

@@ -1,0 +1,40 @@
+= Using dependencies
+:description: Declare and consume location, package, Conan, and built-in dependencies
+
+Use this hub when you want a green build that **consumes** dependencies — including an
+application that pulls nested registry packages — without learning how to publish that
+stack.
+
+== Where to start
+
+[cols="1,2"]
+|===
+| Goal | Page
+
+| Shared declaration model (`cuppa.run`, `BuildWith`)
+| xref:dependencies/using/overview.adoc[Overview]
+
+| Source trees, VCS, archives
+| xref:dependencies/using/location.adoc[Location dependencies]
+
+| Registry and Conan packages (consume)
+| xref:dependencies/using/packages.adoc[Package dependencies] ·
+  xref:dependencies/using/gitlab.adoc[GitLab] ·
+  xref:dependencies/using/conan.adoc[Conan]
+
+| Build against nested packages without publishing them
+| xref:dependencies/using/building-with-packages.adoc[Building with package dependencies]
+
+| Built-ins (`boost`, Qt, Quince, <...>)
+| xref:dependencies/using/builtins.adoc[Built-in dependencies]
+|===
+
+Cuppa supports more than one package supply chain. **GitLab generic packages** and
+**Conan** are both first-class consume paths; pick the one that matches how your
+artefacts are published. Location dependencies remain the path for VCS and archive trees
+you manage yourself.
+
+When you need to inspect or reclaim storage, go to
+xref:dependencies/managing.adoc[Managing dependencies].
+When you maintain or ship package artefacts, go to
+xref:dependencies/publishing.adoc[Publishing dependencies].

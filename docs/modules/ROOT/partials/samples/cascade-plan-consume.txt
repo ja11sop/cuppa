@@ -1,0 +1,22 @@
+Printing Cascade plan for building this project widget [==consume] (dependencies publish; tip build only) given the command:
+cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan
+
+Cascade plan: widget [==consume] (this project) with 2 package dependencies: [0 errors][0 warnings][0 notes]
+│
+├── 1 of 2  capy [==develop]
+│           │
+│           └── using publisher at [~/.cuppa/publishers/capy]
+│
+├── 2 of 2  corosio [==0.3.1]
+│           │
+│           └── using publisher at [~/.cuppa/publishers/corosio]
+│
+└── then widget [==consume] from this tree
+
+--cascade-plan: 1 package planned;
+│
+├── pass --publish-cascade-dependencies
+│
+└── to run this plan
+
+nothing was built, published, uploaded, or cloned.

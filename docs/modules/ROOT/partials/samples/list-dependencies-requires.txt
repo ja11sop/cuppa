@@ -1,35 +1,43 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: alpha
-  -------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK       DEPENDENCY
-  -------------------------------------------------------------------------
-       12K  today      1 total      referenced
-                                    │
-       12K  today      1 used       ├── dependencies in use
-                                    │
-       12K  today      1 used       └── gitlab packages
-                                        │
-       12K  today                       └── alpha
-       12K  today                           └── 1.0.0
-       12K  today      in use                   ├── gcc153_rel_x86_64_cxx2c
-         -  -                                   └── requires
-         -  -          libs: beta                   └── beta 2.0.0
-  -------------------------------------------------------------------------
-       12K  today                   unreferenced
-                                    │
-       12K  today                   └── gitlab packages
-                                        │
-        8K  today                       ├── beta
-        8K  today                       │   └── 2.0.0
-        8K  today                       │       ├── gcc153_rel_x86_64_cxx2c
-         -  -                           │       └── requires
-         -  -          libs: gamma      │           └── gamma 3.0.0
-                                        │
-        4K  today                       └── gamma
-        4K  today                           └── 3.0.0
-        4K  today                               └── gcc153_rel_x86_64_cxx2c
-  -------------------------------------------------------------------------
-  3 entries, 24K total, 12K unreferenced
+  --------------------------------------------------------------------------------------
+      SIZE  LAST USED   REMARK       DEPENDENCY
+  --------------------------------------------------------------------------------------
+       24K  today       3 total      used
+                                     │
+       24K  today       3 used       ├── dependencies in use
+                                     │
+       24K  today       1 used       └── gitlab packages
+                                         │
+       12K  today                        └── alpha
+       12K  today                            └── 1.0.0
+       12K  today       in use                   ├── gcc153_rel_x86_64_cxx2c
+                                                 │
+       12K  today                                └── requires
+                                                     │
+        8K  today                                    ├── beta
+        8K  today                                    │   └── 2.0.0
+        8K  today       in use                       │       ├── gcc153_rel_x86_64_cxx2c
+                                                     │       │
+                                                     │       └── requires
+                        libs: gamma                  │           └── gamma 3.0.0
+                                                     │
+        4K  today                                    └── gamma
+        4K  today                                        └── 3.0.0
+        4K  today       in use                               └── gcc153_rel_x86_64_cxx2c
+  --------------------------------------------------------------------------------------
+        7K  4 days ago               unused
+                                     │
+        7K  4 days ago               └── gitlab packages
+                                         │
+        7K  4 days ago                   └── beta
+        7K  4 days ago                       └── 2.0.0
+        7K  4 days ago                           ├── gcc16_rel_x86_64_cxx2c
+                                                 │
+                                                 └── requires
+                        libs: gamma                  └── gamma 3.0.0
+  --------------------------------------------------------------------------------------
+  4 entries, 31K total, 7K unreferenced
 
 Review unreferenced trees, then clear them with:
 

@@ -114,7 +114,7 @@ python -m scripts.check_docs_urls
 ----
 
 After a local multi-version docs build, add `--built-site _docs_build/site` so generated navbar
-hrefs cannot regress to versionless `/cuppa/….html` (404 once `latest_version_segment` is on).
+hrefs cannot regress to versionless `/cuppa/<...>.html` (404 once `latest_version_segment` is on).
 `scripts.check_release` includes the source-side check automatically.
 
 [mermaid]

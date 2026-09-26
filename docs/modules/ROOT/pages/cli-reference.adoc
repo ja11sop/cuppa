@@ -12,7 +12,7 @@ cuppa [SCons options] [Cuppa options] [VARIABLES] [TARGETS]
 
 In everyday Cuppa use you mostly pass SCons options such as `-D` and Cuppa options such as
 `--dbg`, `--toolchains=`, and `--test`. Projects normally express *what* to build in `sconscript`
-files (`env.Build`, `env.BuildTest`, …) and select slices with Cuppa's named options
+files (`env.Build`, `env.BuildTest`, <...>) and select slices with Cuppa's named options
 (`--scripts=`, variants, toolchains, actions). The design rationale is in
 xref:concepts.adoc#command-line[Concepts: Command line and project description].
 

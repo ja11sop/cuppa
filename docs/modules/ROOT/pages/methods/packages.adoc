@@ -4,7 +4,7 @@
 Cuppa package methods stage and publish libraries for registry or Conan consumers.
 Publisher trees often combine `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` (or
 raw `Command()`), `Install()`, and `Depends()` / `Requires()` — see
-xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build],
+xref:dependencies/publishing/amend-and-external.adoc#publishing-from-external-cmake[Publishing from an external CMake build],
 xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[Depends].
 
 == Behaviour summary
@@ -25,25 +25,25 @@ xref:methods/staging-files.adoc[Staging files], and xref:methods/depends.adoc[De
 |===
 | Method | Role
 
-| `env.DownloadExtract(…)`
+| `env.DownloadExtract(<...>)`
 | Download a URL archive into the variant tree, extract, stamp a marker (default `CMakeLists.txt`)
 
-| `env.RemoveEmptyDirs(…)`
+| `env.RemoveEmptyDirs(<...>)`
 | Remove empty submodule placeholder dirs after archive extract (stamped); `gitmodules=True` or all empty children; `names=` overrides
 
-| `env.CMakeConfigure(…)`
+| `env.CMakeConfigure(<...>)`
 | Configure an external CMake project (toolchain/variant flags via `cuppa.buildsys.cmake`)
 
-| `env.CMakeBuild(…)`
+| `env.CMakeBuild(<...>)`
 | `cmake --build`; Cuppa `--parallel` → `--parallel N`, otherwise `--parallel 1` (pass `jobs=False` to omit)
 
-| `env.CMakeInstall(…)`
-| `cmake --build … --target install` (default omits `--parallel`)
+| `env.CMakeInstall(<...>)`
+| `cmake --build <...> --target install` (default omits `--parallel`)
 
-| `env.PublishPackage(…)`
-| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:packages.adoc#amend-package-manifest[Amending metadata without rebuilding])
+| `env.PublishPackage(<...>)`
+| Build (and optionally publish) a package; GitLab generic tarball or Conan `export-pkg` via a publisher object; upload requires `--publish-package`; GitLab metadata-only retar with `--amend-package-manifest` (see xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amending metadata without rebuilding])
 
-| `env.InstallPackage(…)`
+| `env.InstallPackage(<...>)`
 | Install a package locally and extend `SYSINCPATH`
 |===
 
@@ -73,18 +73,18 @@ Run a release build with upload when you intend to push:
 cuppa -D --rel --publish-package
 ----
 
-See xref:packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage,
-including xref:packages.adoc#publish-version-latest[floating ``version="latest"``]
+See xref:dependencies/publishing/packages.adoc[Publishing packages] for `GitlabPackagePublisher` and `ConanPackagePublisher` usage,
+including xref:dependencies/publishing/gitlab.adoc#publish-version-latest[floating ``version="latest"``]
 (seed may stay floating; staged archive and upload stay concrete).
 
 Custom `Command()` steps that wrap external CMake generate/build before `Install()` are common in
 publisher sconscripts — see xref:methods/custom-commands.adoc[Custom commands] and
-xref:packages.adoc#publishing-from-external-cmake[Publishing from an external CMake build].
+xref:dependencies/publishing/amend-and-external.adoc#publishing-from-external-cmake[Publishing from an external CMake build].
 
 == Related methods
 
 * xref:methods/staging-files.adoc[Staging files] · xref:methods/depends.adoc[Depends]
 * xref:methods/dependencies-and-profiles.adoc[Dependencies and profiles] — consuming packages via `BuildWith()`
-* xref:packages.adoc[Publishing packages] · xref:dependencies/packages.adoc[Package dependencies]
+* xref:dependencies/publishing/packages.adoc[Publishing packages] · xref:dependencies/using/packages.adoc[Package dependencies]
 * xref:integration/test-packages.adoc[Integration: Packages] ·
   xref:integration/test-conan.adoc[Conan]

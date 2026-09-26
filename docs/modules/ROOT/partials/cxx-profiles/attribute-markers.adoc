@@ -1,4 +1,5 @@
 // Inline {cpp} profile attribute markers for prose (HTML entities avoid AsciiDoc xref parsing).
+// Placeholders use &lt;...&gt; (not a Unicode ellipsis) so the slot stays visible.
 ifndef::cxx-profiles-attribute-markers-loaded[]
 :cxx-profiles-attribute-markers-loaded:
 :cxx-a-uninit: &#91;&#91;uninit&#93;&#93;
@@ -6,11 +7,11 @@ ifndef::cxx-profiles-attribute-markers-loaded[]
 :cxx-a-now-uninit: &#91;&#91;now_uninit&#93;&#93;
 :cxx-a-now-init: &#91;&#91;now_init&#93;&#93;
 :cxx-a-int-buffer-uninit: int Buffer &#91;&#91;uninit&#93;&#93;;
-:cxx-a-profiles-ellipsis: &#91;&#91;profiles::&hellip;&#93;&#93;
-:cxx-a-profiles-enforce-ellipsis: &#91;&#91;profiles::enforce(&hellip;)&#93;&#93;
+:cxx-a-profiles-ellipsis: &#91;&#91;profiles::&lt;...&gt;&#93;&#93;
+:cxx-a-profiles-enforce-ellipsis: &#91;&#91;profiles::enforce(&lt;...&gt;)&#93;&#93;
 :cxx-a-profiles-enforce-std-init: &#91;&#91;profiles::enforce(std::init)&#93;&#93;;
 :cxx-a-profiles-enforce-foo: &#91;&#91;profiles::enforce(foo)&#93;&#93;;
 :cxx-a-profiles-enforce-foo-std-init: &#91;&#91;profiles::enforce(foo, std::init)&#93;&#93;;
 :cxx-a-profiles-enforce-empty: &#91;&#91;profiles::enforce()&#93;&#93;;
-:cxx-a-profiles-suppress: &#91;&#91;profiles::suppress(std::init, rule: &quot;rule_id&quot;, justification: &quot;&hellip;&quot;)&#93;&#93;
+:cxx-a-profiles-suppress: &#91;&#91;profiles::suppress(std::init, rule: &quot;rule_id&quot;, justification: &quot;&lt;...&gt;&quot;)&#93;&#93;
 endif::[]

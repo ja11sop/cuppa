@@ -23,7 +23,7 @@ Non-empty develop destinations are refused without cloning.
 ----
 Widget = cuppa.location_dependency(
     'widget',
-    location='git+file:///…@master',
+    location='git+file:///<...>@master',
     develop='/path/to/develop/widget',
 )
 cuppa.run(

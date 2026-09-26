@@ -19,7 +19,7 @@ cuppa -D --dbg --test --scripts=test/sconscript
 ----
 
 Test and run actions use the same process environment Cuppa builds for the variant.
-If a dependency provides shared libraries (for example xref:dependencies/conan.adoc#conan-2-consumer-optional[Conan]), those library search paths are applied automatically.
+If a dependency provides shared libraries (for example xref:dependencies/using/conan.adoc#conan-2-consumer-optional[Conan]), those library search paths are applied automatically.
 Separately, `--propagate-env` / `--propagate-path` / `--merge-path` control whether your *shell* environment is visible to those processes — see xref:cli/output-and-environment.adoc#environment-propagation[Environment propagation].
 
 == Runners
@@ -91,8 +91,8 @@ Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JS
 
 Useful methods:
 
-* `env.Coverage(program, sources, include_patterns=…, exclude_dependencies=…)`
-* `env.CollateCoverageFiles(sources, destination=…)`
+* `env.Coverage(program, sources, include_patterns=<...>, exclude_dependencies=<...>)`
+* `env.CollateCoverageFiles(sources, destination=<...>)`
 * `env.CollateCoverageIndex(...)` -- master index across tests/toolchains
 
 Consumer projects often write a master index under `_artefacts/coverage/` for browsing.

@@ -100,6 +100,11 @@
     if( !pre.closest( '.doc' ) ){
       return false;
     }
+    // Teaching CLI snippets wrap in place (especially in tables); do not scroll-panel them.
+    if( pre.classList.contains( 'cuppa-cli-example' )
+        || pre.closest( '.cuppa-cli-block' ) ){
+      return false;
+    }
     return pre.classList.contains( 'cuppa-output' )
         || Boolean( pre.closest( '.listingblock, .literalblock' ) );
   }

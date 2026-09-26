@@ -149,7 +149,7 @@ are on the hub under xref:toolchains.adoc#c-language-level[{cpp} language level]
 * Floor: toolset **14.2+** (`vc142` and newer)
 * Exported interface units: `-interface`, `-TP`, space-separated `-ifcOutput PATH`
 * Non-exported partitions (`module M:part;`): `-internalPartition`, `-TP`, `-ifcOutput PATH`
-* Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\…` paths)
+* Consumers: space-separated `-reference name=PATH` (colon-attached forms break on absolute `C:\<...>` paths)
 * BMI extension: `.ifc`
 * Header units: `-exportHeader` (+ `-headerName:angle` for system headers); consumers use `-headerUnit` / `-headerUnit:angle`
 * `import std`: toolset **14.3+** when STL `modules/std.ixx` is present (compiled with `-interface` / `-ifcOutput`)

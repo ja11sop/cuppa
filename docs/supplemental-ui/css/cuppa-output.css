@@ -102,10 +102,151 @@
 
 .cuppa-output .cuppa-label {
   background: var(--cuppa-output-meaning, var(--cuppa-console-text, #1b1b1b));
-  border-radius: 0.2em;
+  border-radius: 0.15em;
   box-decoration-break: clone;
+  box-sizing: border-box;
   color: var(--cuppa-console-surface, var(--cuppa-page, #fff));
+  /*
+   * Report trees use line-height: 1. Vertical padding (or a taller font strut)
+   * paints into neighbouring rows and can hide glyphs on the line above. Keep
+   * the chip to one row: horizontal inset only, height capped to the line box.
+   */
+  display: inline-block;
   font-weight: 700;
-  padding: 0.05em 0.25em;
+  line-height: 1;
+  margin: 0;
+  max-height: 1em;
+  max-height: 1lh;
+  overflow: hidden;
+  padding-block: 0;
+  padding-inline: 0.25em;
+  vertical-align: text-bottom;
   -webkit-box-decoration-break: clone;
+}
+
+/*
+ * Colourised CLI teaching examples: flag (info) + token/filter (notice).
+ * .cuppa-cli-block hosts the Antora-style copy toolbox (cuppa-cli-copy.js).
+ * The toolbox floats over the top-right corner — no reserved right gutter.
+ */
+.doc .cuppa-cli-block {
+  position: relative;
+  margin: 0.45rem 0 0.35rem;
+}
+
+.doc .cuppa-cli-block > .source-toolbox {
+  top: 0.15rem;
+  right: 0.2rem;
+  z-index: 2;
+  background: color-mix( in srgb, var(--cuppa-console-surface, #fefefe) 88%, transparent );
+  border-radius: 0.2rem;
+  padding: 0.12rem 0.15rem;
+  line-height: 1;
+}
+
+.doc .cuppa-cli-block:hover > .source-toolbox {
+  visibility: visible;
+}
+
+.cuppa-output.cuppa-cli-example {
+  line-height: 1.35;
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  /*
+   * Prefer wrap on whitespace. Extra soft breaks come from <wbr> after '=' and
+   * ',' in the HTML. Multi-segment flags use .cuppa-cli-flag / .cuppa-cli-nowrap
+   * (white-space: nowrap) so browsers do not break on ASCII '-'.
+   */
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  overflow-x: auto;
+}
+
+/*
+ * Glance table: slightly smaller type; wrap commands on whitespace so Intent
+ * keeps its column share. Outrank `.doc pre.cuppa-output { white-space: pre }`.
+ */
+.doc table.cuppa-selection-glance {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.doc table.cuppa-selection-glance > * > tr > * {
+  vertical-align: top;
+}
+
+.doc table.cuppa-selection-glance .cuppa-cli-block {
+  margin: 0;
+  max-width: 100%;
+}
+
+.doc table.cuppa-selection-glance pre.cuppa-output.cuppa-cli-example,
+.doc table pre.cuppa-output.cuppa-cli-example {
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.86em;
+  line-height: 1.4;
+  padding: 0.4rem 0.55rem;
+  white-space: pre-wrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  overflow-x: auto;
+}
+
+.doc table.cuppa-selection-glance pre.cuppa-output.cuppa-cli-example > code,
+.doc table pre.cuppa-output.cuppa-cli-example > code {
+  white-space: inherit;
+  overflow-wrap: inherit;
+  word-break: inherit;
+}
+
+.doc table.cuppa-selection-glance .cuppa-cli-matches-label,
+.doc table.cuppa-selection-glance ul.cuppa-cli-matches {
+  font-size: 0.92em;
+}
+
+.cuppa-output .cuppa-cli-flag,
+.doc .cuppa-cli-flag {
+  color: var(--cuppa-console-info, #1d4ed8);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Uncoloured option tokens that must not break on internal '-' (e.g. --list-scope). */
+.cuppa-output .cuppa-cli-nowrap,
+.doc .cuppa-cli-nowrap {
+  white-space: nowrap;
+}
+
+.cuppa-output .cuppa-cli-token,
+.doc .cuppa-cli-token,
+.doc code.cuppa-cli-token {
+  color: var(--cuppa-console-notice, #a16207);
+  font-weight: 600;
+}
+
+.doc .cuppa-cli-matches code {
+  color: var(--cuppa-console-notice, #a16207);
+  font-weight: 600;
+}
+
+.doc .cuppa-cli-matches-label {
+  margin: 0.4rem 0 0.15rem;
+  font-size: 0.92em;
+}
+
+.doc ul.cuppa-cli-matches {
+  margin: 0.15rem 0 0.35rem 1.1rem;
+  padding: 0;
+}
+
+.doc ul.cuppa-cli-matches li {
+  margin: 0.15rem 0;
+}
+
+.doc table .cuppa-cli-block {
+  margin-top: 0;
 }

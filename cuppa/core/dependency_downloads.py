@@ -579,8 +579,13 @@ def collect_download_rows( construct, cuppa_env ):
     }
 
 
-def build_downloads_tree( rows ):
-    """Group archive/product rows into section → type → identity → leaves."""
+def build_downloads_tree( rows, grouping='usage' ):
+    """Group archive/product rows into section → type → identity → leaves.
+
+    ``grouping`` matches ``dependency_tree.build_tree``: ``usage`` (default:
+    ``used`` / ``unused``) or ``identity`` (``referenced`` / ``unreferenced``).
+    """
+    grouping = 'identity' if grouping == 'identity' else 'usage'
     groups = {}
     for row in rows:
         storage_type, group_key = dependency_identity.list_identity_key( row )
@@ -609,21 +614,40 @@ def build_downloads_tree( rows ):
             group['remote_location'] = row['remote_location']
         group['rows'].append( row )
 
-    referenced_idents = []
-    unreferenced_idents = []
+    primary_idents = []
+    secondary_idents = []
     for group in groups.values():
-        # Match dependency listing: any selected leaf pulls the whole identity
-        # (including unused sibling archives) into the referenced section.
-        pulls_referenced = any(
-                row.get( 'state' ) in dependency_tree.REFERENCED_STATES
-                for row in group['rows']
-        )
-        section = 'referenced' if pulls_referenced else 'unreferenced'
-        identity = _build_downloads_identity( group, section )
-        if section == 'referenced':
-            referenced_idents.append( identity )
-        else:
-            unreferenced_idents.append( identity )
+        if grouping == 'identity':
+            # Any selected leaf pulls the whole identity (including unused sibling
+            # archives) into the referenced section.
+            pulls_referenced = any(
+                    row.get( 'state' ) in dependency_tree.REFERENCED_STATES
+                    for row in group['rows']
+            )
+            section = 'referenced' if pulls_referenced else 'unreferenced'
+            identity = _build_downloads_identity( group, section )
+            if pulls_referenced:
+                primary_idents.append( identity )
+            else:
+                secondary_idents.append( identity )
+            continue
+
+        selected = [
+                row for row in group['rows']
+                if row.get( 'state' ) in dependency_tree.REFERENCED_STATES
+        ]
+        orphans = [
+                row for row in group['rows']
+                if row.get( 'state' ) not in dependency_tree.REFERENCED_STATES
+        ]
+        if selected:
+            primary_idents.append( _build_downloads_identity(
+                    _group_with_download_rows( group, selected ), 'used',
+            ) )
+        if orphans:
+            secondary_idents.append( _build_downloads_identity(
+                    _group_with_download_rows( group, orphans ), 'unused',
+            ) )
 
     def sort_idents( items ):
         return sorted( items, key=lambda node: (
@@ -635,12 +659,46 @@ def build_downloads_tree( rows ):
                 ( node.get( 'registry_name' ) or node.get( 'short_name' ) or '' ).lower(),
         ) )
 
+    if grouping == 'identity':
+        return {
+            'sections': [
+                _build_downloads_section( 'referenced', sort_idents( primary_idents ) ),
+                _build_downloads_section( 'unreferenced', sort_idents( secondary_idents ) ),
+            ],
+            'grouping': grouping,
+        }
     return {
         'sections': [
-            _build_downloads_section( 'referenced', sort_idents( referenced_idents ) ),
-            _build_downloads_section( 'unreferenced', sort_idents( unreferenced_idents ) ),
+            _build_downloads_section( 'used', sort_idents( primary_idents ) ),
+            _build_downloads_section( 'unused', sort_idents( secondary_idents ) ),
         ],
+        'grouping': grouping,
     }
+
+
+def _group_with_download_rows( group, rows ):
+    """Copy a downloads identity group, keeping only ``rows``."""
+    storage_type = group['type']
+    group_key = group['short_name']
+    out = {
+            'type': storage_type,
+            'short_name': group_key,
+            'registry_name': None,
+            'remote_location': group.get( 'remote_location' ),
+            'rows': list( rows ),
+    }
+    for row in rows:
+        if row.get( 'state' ) in dependency_tree.REFERENCED_STATES and row.get( 'dependency' ):
+            name = row['dependency']
+            if name and name != group_key and not str( name ).startswith( ( 'git_', 'https_' ) ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+            elif out['registry_name'] is None and name and not str( name ).startswith( ( 'git_', 'https_' ) ):
+                out['registry_name'] = name
+                if storage_type == 'gitlab':
+                    out['short_name'] = name
+    return out
 
 
 def _archive_size( rows ):
@@ -781,6 +839,8 @@ def _flat_download_children( rows_in ):
 
 
 _DOWNLOAD_SECTION_TITLES = {
+    'used': 'used downloads',
+    'unused': 'unused downloads',
     'referenced': 'referenced from downloads',
     'unreferenced': 'unreferenced downloads',
 }
@@ -831,7 +891,7 @@ def _build_downloads_section( name, identities ):
         children.append( dependency_tree._spacer_node() )
         children.extend( type_nodes )
     remark = ''
-    if name == 'referenced' and identities:
+    if name in ( 'referenced', 'used' ) and identities:
         remark = dependency_tree._remark_count(
                 sum( int( ident.get( 'used_count' ) or 0 ) for ident in identities ),
                 'total',

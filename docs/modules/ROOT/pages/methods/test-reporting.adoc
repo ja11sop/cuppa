@@ -26,13 +26,13 @@ They activate with `--test` / `--force-test` and usually sit in the same sconscr
 |===
 | Method | Role
 
-| `env.GenerateHtmlTestReport(tests, …)`
+| `env.GenerateHtmlTestReport(tests, <...>)`
 | Per-test HTML (and JSON) reports from test nodes; optional `link_style` (for example `'gitlab'`)
 
-| `env.CollateTestReportIndex(reports, destination=…)`
+| `env.CollateTestReportIndex(reports, destination=<...>)`
 | Master test-report index across tests for a destination tree
 
-| `env.GenerateBittenReport(tests, …)`
+| `env.GenerateBittenReport(tests, <...>)`
 | Bitten XML report generation (same `--test` gate as the HTML helpers)
 |===
 
@@ -60,7 +60,7 @@ Notes:
 
 * These methods return `[]` when `--test` is not active, so configure stays quiet on compile-only
   builds.
-* Prefer `abs_artefacts_root` over hard-coded `#_artifacts/…` so custom roots are honoured.
+* Prefer `abs_artefacts_root` over hard-coded `#_artifacts/<...>` so custom roots are honoured.
 * Coverage collation is separate — xref:methods/coverage.adoc[Coverage].
 
 == Related methods

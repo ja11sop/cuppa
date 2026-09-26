@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
+  GitLab extracts under each tip version’s ``requires`` group as sized package trees
+  (versions → toolchains). Closure-only packages leave the top-level unreferenced list and
+  stay protected from ``--force-wipe-unreferenced-dependencies``. Nested ``requires`` under
+  those packages remain label edges. Design:
+  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md) (pass A).
+
 - ``--list-publishers`` / ``--remove-publishers`` / ``--remove-all-publishers`` —
   inspect and reclaim the cascade publisher forest under the in-force root
   (``--publisher-root``, else ``<storage-root>/publishers``). List report matches
@@ -113,7 +120,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names tip build only) rather than **(this package)**, which remains for publisher
   tips.
 
+- Doc samples: ``list-dependencies-requires`` fixture includes an unused nest
+  toolchain; paired ``list-dependencies-requires-resolve`` shows
+  ``--list-scope=resolve`` keeping that variant under tip ``requires``.
+
+- Doc samples: ``cascade-plan`` / ``cascade-plan-consume`` / ``cascade-plan-clone``
+  and ``list-publishers`` now generate semantic HTML (and text/JSON siblings)
+  via ``python -m scripts.generate_doc_samples``, and Antora includes those
+  fragments on Publishing Packages and Listing publisher trees. Managing-deps
+  comparison tables use cell-per-line layout so underscore paths do not break
+  AsciiDoc cell counts; the versioning ``done`` vs ``shipped`` anchor sits above
+  its heading to avoid a duplicate-id warning.
+
+- ``--list-dependencies`` / ``--list-downloads`` **Option A scopes**: default
+  ``--list-scope=all`` uses **usage** grouping (``used`` then ``unused`` —
+  unused siblings of tip identities park under ``unused``). Nested GitLab
+  ``requires`` forests follow the same split: only tip-matching / closure-in-use
+  nest toolchains hang under used → requires; leftover nest variants surface as
+  top-level ``unused`` identities. ``resolve`` keeps Pass A **resolve-identity**
+  grouping (``referenced`` / ``unreferenced``, siblings and nest leftovers stay
+  under referenced identities). ``referenced`` /
+  ``unreferenced`` filter those identity sections; ``compact`` is **used-only**
+  (resolve-bound leaves). Leaf bind (``referenced`` / wipe) is unchanged.
+  Design:
+  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md).
+
 ### Fixed
+
+- ``--list-dependencies`` mutes label-only ``requires`` edges under the **unused**
+  / **unreferenced** sections the same way as under used / referenced (structural
+  ``requires`` headings stay normal).
 
 - ``--list-dependencies`` no longer paints every child under a missing package
   identity as an error. When one toolchain leaf is missing (for example the
@@ -160,6 +196,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Phase 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 ### Changed
+
+- Dependencies Antora map uses four job hubs (**Using** / **Managing** / **Publishing** /
+  **Authoring**), with a Using-first usability page and Publishing split out of the old
+  top-level packages megapage. Managing reclaim docs use a
+  xref-style hub (**Reclaiming storage**) plus remove / purge / wipe /
+  force-wipe children; the hub separates **context-scoped** remove→purge→wipe from
+  **list-tree** force-wipe (often the everyday reclaim outside a matching project build);
+  glance table intents carry Matches; worked examples drop global numbering and embed the
+  inventory; listing docs open with how to read the tree before GitLab ``requires``. Docs
+  placeholders prefer ``<name>`` / ``<…>`` over Unicode ellipsis
+  (``scripts.check_docs_placeholders``). Design:
+  [`dependencies-docs-four-hubs`](design/plans/dependencies-docs-four-hubs.md),
+  [`selection-filter-examples-docs`](design/plans/selection-filter-examples-docs.md).
 
 - Cascade Phase **2d**: the single traveling package manifest is
   ``cuppa-publish.json`` (identity, deps including ``package_source``,

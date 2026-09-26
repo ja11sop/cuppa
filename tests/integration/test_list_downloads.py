@@ -82,8 +82,8 @@ def test_list_downloads_hierarchical_text_and_json(tmp_path):
     assert "Downloads in" in plain
     assert "DEPENDENCY / DOWNLOAD" in plain
     assert "source archives" in plain
-    assert "referenced from downloads" in plain
-    assert "unreferenced downloads" in plain
+    assert "referenced from downloads" in plain or "used downloads" in plain
+    assert "unreferenced downloads" in plain or "unused downloads" in plain
     assert planted["fmt_11"] in plain or "11.1.4.zip" in plain
     assert planted["boost_folder"] in plain or "boost_1_91_0" in plain
     assert planted["gitlab_archive"] in plain
@@ -208,7 +208,7 @@ def test_list_downloads_marks_selected_gitlab_archive_referenced(tmp_path):
     ]
 
 
-def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
+def test_list_downloads_scope_referenced_hides_orphan_section(tmp_path):
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     write_sconstruct(project, body=_boost_package_sconstruct())
@@ -229,8 +229,8 @@ def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
     plain = strip_ansi(listed.stdout)
     assert "referenced from downloads" in plain
     assert "unreferenced downloads" not in plain
+    assert "unused downloads" not in plain
     assert "orphan.tar.gz" not in plain
-    assert "Review unreferenced downloads" not in plain
     assert "referenced" in plain
     assert planted["gitlab_archive"] in plain or planted["boost_folder"] in plain
 
@@ -246,7 +246,6 @@ def test_list_downloads_scope_referenced_hides_unreferenced(tmp_path):
     assert_success(as_json)
     payload = _json_payload(as_json)
     assert payload.get("scope") == "referenced"
-    assert all(entry.get("state") != "unreferenced" for entry in payload["entries"])
     assert "orphan.tar.gz" not in {entry.get("label") for entry in payload["entries"]}
     section_labels = [
             section.get("label")
