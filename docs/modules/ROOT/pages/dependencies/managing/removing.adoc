@@ -1,7 +1,7 @@
 = Removing dependencies
 :description: --remove-dependencies and --remove-all-dependencies — context-scoped reclaim
 
-For the flag map, tokens, shared inventory, and glance table, see
+For the flag map, filters, shared inventory, and glance table, see
 xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
 Remove is the first step on the
 xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
@@ -30,18 +30,18 @@ referenced picture from `--list-dependencies`, without unreferenced leftovers), 
 `Collating dependency tree...`. See
 xref:integration/test-remove-dependencies.adoc[`test_remove_dependencies`].
 
-Tokens may also use the shared `[selector]name[/qualifier]` form described in
-xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] — for example `[source]boost` or
+Filters may also use the shared `[selector]name[/qualifier]` form described in
+xref:dependencies/managing/reclaiming.adoc#dependency-filters[Dependency filters] — for example `[source]boost` or
 `[gitlab]boost_package/1.91` — to restrict by dependency type and optional leaf qualifier.
 The glance table of common filters is on
 xref:dependencies/managing/reclaiming.adoc#filter-examples[Reclaiming storage];
 remove-specific walkthroughs are in xref:#worked-remove-examples[Worked examples] below.
 
-Source Boost (the `boost` dependency that builds with b2) stores headers and all toolchain
-variant products inside one extract folder. When that dependency implements context-scoped
-`storage_clean` (Boost does), `--remove-dependencies=boost` deletes only the b2 **stage** and
-matching Boost.Build toolset directories under `--build-dir` (`bin.<abi>`) for the current
-toolchain / variant / arch flags — not the whole `bin.<abi>` tree.
+Source Boost (the `boost` dependency that builds with b2) stores headers and all
+toolchain/variant **build products** inside one extract folder.
+`--remove-dependencies=boost` deletes only the b2 **stage** and matching Boost.Build
+toolset directories under `--build-dir` (`bin.<abi>`) for the current toolchain / variant /
+arch flags — not the whole `bin.<abi>` tree.
 
 The extract root, headers, and the `b2` binary stay so a later build does not need to
 re-download the tarball. Other stage trees and other toolsets' intermediates under the same
@@ -51,18 +51,19 @@ Removal leaves use honest scopes: cuppa-precise for stage
 (`clean/build.c{plus}{plus}2c [clang211/debug/x86_64]`) and Boost.Build toolset **family** for bin
 (`clean/bin.c{plus}{plus}2c [clang-linux-21*/debug]` — major family ± patch dirs such as
 `clang-linux-21.1`, not a cuppa minor like `clang211`). The identity SIZE is the full extract
-(same basis as `--list-dependencies`). Products and a muted `source assets` leaf hang under an
+(same basis as `--list-dependencies`). Build products and a muted `source assets` leaf hang under an
 `[E]` extract row (`---` nothing going, `-✔-` partial, `✔✔✔` everything under it going). Empty
 `bin.<abi>` husks with no toolset children stay on disk but are omitted from the table. The
-freed-space summary reports the remaining archive size after product removal.
+freed-space summary reports the remaining extract size after build-product removal.
 
 `--boost-patched` selects the `patched/` home; without it, `clean/` is active and `patched/`
-products show as leftovers. After a live product clean, cuppa refreshes that extract's inventory
+build products show as leftovers. After a live clean, cuppa refreshes that extract's inventory
 with an exact size; verify with `cuppa -Q -D --list-dependencies`.
 
-Dependencies without `storage_clean` still remove their whole owned tree under the dependencies
-root (for example GitLab `boost_package` removes the selected package variant folder). Authors
-declare those trees with `storage_paths()` and optional `storage_clean()` — see
+GitLab packages and other dependencies that do not keep a shared extract remove their whole
+owned tree under the dependencies root (for example `boost_package` removes the selected
+package folder for the active context). Authors declare those trees with `storage_paths()`
+and optional partial-clean hooks — see
 xref:dependencies/authoring/extending.adoc[Writing your own dependencies].
 
 [source,shell]
@@ -76,7 +77,7 @@ cuppa -Q -D --remove-all-dependencies
 ----
 
 
-Example shape after a source Boost product clean (extract stays; sizes and toolset ids vary).
+Example shape after a source Boost build-product clean (extract stays; sizes and toolset ids vary).
 The version nests under the identity; `[E]` is partial because source assets stay:
 
 ++++
@@ -119,10 +120,10 @@ cuppa -Q -D --list-dependencies --list-scope=unreferenced
 . Read the hierarchy: type group → identity (registry name or short name) → version / branch →
   toolchain or extract leaves. For GitLab packages the **identity** is the registry name
   (for example `boost_package`); the on-disk package folder may differ (for example `boost/<version>`).
-  Listing short names are **not** remove tokens unless they are also project-used names.
+  Listing short names are **not** remove filters unless they are also project-used names.
 
-. Map labels to tokens (see
-  xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens]):
+. Map labels to filters (see
+  xref:dependencies/managing/reclaiming.adoc#dependency-filters[Dependency filters]):
 
 * Untyped project-used name: `boost_package` or `boost` — remove / purge / wipe for the active context.
 * Typed dependency type: `[gitlab]boost_package` or `[source]boost` (see
@@ -175,7 +176,7 @@ include::partial$samples/selection-example-inventory.html[]
 [#ex-typed-selector]
 === Remove by dependency type (project-used GitLab)
 
-A typed token limits the match to one dependency type. Against the shared inventory,
+A typed filter limits the match to one dependency type. Against the shared inventory,
 `[gitlab]boost_package` is **project-used** under **used** → gitlab packages, so remove
 can target the context-matched toolchain leaf. It does **not** open source-archive `boost`
 (unused here) or unused GitLab `boost/1.86.0`.
@@ -198,12 +199,12 @@ include::partial$samples/remove-gitlab-dry-run.html[]
 ++++
 
 [#ex-remove-used-source]
-=== Remove used variants for a source-archive dependency (active context)
+=== Remove used build products for a source-archive dependency (active context)
 
 `--remove-dependencies='[source]boost'` (or untyped `boost` when only the source type is
-in play) cleans **used** context outputs for that source-archive dependency — for Boost,
+in play) cleans **used** build products for that source-archive dependency — for Boost,
 the b2 stage / toolset dirs under the **used** version for the **active context** — and
-leaves the extract (`storage_clean`). It does **not** wipe unused version leaves. That
+leaves the extract. It does **not** wipe unused version leaves. That
 requires `boost` to be a **project-used** name.
 
 The shared inventory has source `boost` only under **unused**, so remove refuses there.

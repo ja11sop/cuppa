@@ -24,7 +24,7 @@ cuppa -Q -D --list-dependencies --exact-sizes
 
 For a consume-only story (nested packages without publishing), see
 xref:dependencies/using/building-with-packages.adoc[Building with package dependencies].
-When you are ready to reclaim disk, map labels from this tree to remove / wipe tokens — see
+When you are ready to reclaim disk, map labels from this tree to remove / wipe filters — see
 xref:dependencies/managing/removing.adoc#from-list-to-remove[From list to remove].
 
 == How to read the listing
@@ -51,7 +51,7 @@ Type groups always appear in this order (empty groups are omitted):
 * **repository dependencies** — location / VCS working copies (branches and stems such as `@master`)
 * **gitlab packages** — registry package extracts (versions → toolchain leaves)
 * **conan packages** — Conan trees Cuppa tracks under the dependencies root (when present)
-* **source archives** — extracted archives such as source Boost (versions → products)
+* **source archives** — extracted archives such as source Boost (versions → build products)
 * **toolchains** — fetched compiler installs under the toolchains area (when listed here)
 
 Default dependencies that are expected but absent appear as `missing`. The used section

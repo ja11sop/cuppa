@@ -25,9 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``--list-dependencies`` reclaim footer lists remove / purge / wipe and named
   ``--force-wipe-dependencies`` before the orphan sweep, with used/unused vs
   referenced/unreferenced wording matched to ``--list-scope``. Command lines use
-  ``<name>`` / ``<token>`` placeholders (not ``[]``, which is list-tree selector
-  syntax); reclaim flags are emphasised info; detail lines are subdued. Wipe
-  wording spells out whole-extract vs purge's products-plus-downloads.
+  a shared ``<filter>`` placeholder (comma-separated ``[selector]name/qualifier``;
+  not ``[]`` alone, which is list-tree selector syntax); reclaim flags are
+  emphasised info; detail lines are subdued. Wording distinguishes build-product
+  clean (remove), same plus download with extract staying (purge), and whole
+  extract plus download (wipe).
 
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees

@@ -1558,19 +1558,21 @@ def write_reclaim_storage_hint( out, data ):
         write_intro( bound_word )
         write_option(
                 tee,
-                "cuppa -Q -D -n --remove-dependencies=<name>",
-                "to remove the active-context extract or products (downloads stay)",
+                "cuppa -Q -D -n --remove-dependencies=<filter>",
+                "delete this context's build products (or the selected package "
+                "tree); downloads stay",
         )
         write_option(
                 tee,
-                "cuppa -Q -D -n --purge-dependencies=<name>",
-                "to also remove matching downloads for the same active context",
+                "cuppa -Q -D -n --purge-dependencies=<filter>",
+                "same as remove, and delete the matching download archive "
+                "(extract stays)",
         )
         write_option(
                 elbow,
-                "cuppa -Q -D -n --wipe-dependencies=<name>",
-                "to delete the entire extract (not only products) and matching "
-                "downloads so the next online build re-fetches",
+                "cuppa -Q -D -n --wipe-dependencies=<filter>",
+                "delete the whole extract and its download "
+                "(next online build re-fetches)",
                 last=True,
         )
 
@@ -1578,18 +1580,24 @@ def write_reclaim_storage_hint( out, data ):
         write_intro( orphan_word )
         write_option(
                 tee,
-                "cuppa -Q -D -n --force-wipe-dependencies=<token>",
-                "to wipe named list-tree leaves (including unused siblings under "
-                "a used identity); <token> may use [selector]name/qualifier",
+                "cuppa -Q -D -n --force-wipe-dependencies=<filter>",
+                "wipe named list-tree leaves (including unused siblings under "
+                "a used identity)",
         )
         write_option(
                 elbow,
                 "cuppa -Q -D -n --force-wipe-unreferenced-dependencies",
                 "orphan sweep for every unreferenced leaf this resolve sees "
-                "(prefer named tokens above)",
+                "(prefer named filters above)",
                 last=True,
         )
 
+    out.write( "\n" )
+    out.write( as_subdued( "Note: " ) )
+    out.write( _paint_cli_advice( "<filter>" ) )
+    out.write( as_subdued(
+            " is a comma-separated list of [selector]name/qualifier"
+    ) + "\n" )
     out.write( "\nDrop -n and re-run after confirming.\n" )
 
 
@@ -1663,7 +1671,7 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
         out.write( "        If re-extracting a dependency fails, remove the corrupt "
                    "archive there using\n" )
         out.write( "        {}\n".format(
-                _paint_cli_advice( "--purge-dependencies=<name>" )
+                _paint_cli_advice( "--purge-dependencies=<filter>" )
         ) )
 
     if verbose and (

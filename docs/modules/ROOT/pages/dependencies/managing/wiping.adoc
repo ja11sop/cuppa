@@ -1,7 +1,7 @@
 = Wiping dependencies
 :description: --wipe-dependencies and --force-wipe-all-dependencies — whole extract clear-down
 
-For the flag map, tokens, shared inventory, and glance table, see
+For the flag map, filters, shared inventory, and glance table, see
 xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
 Wipe is the third step on the
 xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
@@ -14,7 +14,7 @@ xref:dependencies/managing/force-wiping.adoc[force-wipe] instead.
 
 `--wipe-dependencies=name1,name2` clears the **whole extract** for the named **project-used**
 dependencies under the **active context**, plus matching downloads. Unlike purge, source Boost
-with `storage_clean` does **not** stop at product clean — the extract goes too. The next build
+does **not** stop at build-product clean — the extract goes too. The next build
 without `--offline` re-downloads and re-extracts as usual.
 
 For wiping **every** project-used name in the active context, use
@@ -65,10 +65,11 @@ include::partial$samples/selection-example-inventory.html[]
 === Wipe a used source-archive extract (re-fetch next build)
 
 Unlike
-xref:dependencies/managing/removing.adoc#ex-remove-used-source[remove of used source variants],
+xref:dependencies/managing/removing.adoc#ex-remove-used-source[remove] and
+xref:dependencies/managing/purging.adoc#ex-purge-used-source[purge] (which leave the extract),
 wipe clears the **whole** used extract (and matching download), so the next online build
-re-fetches. Still requires a **project-used** name — same alternate inventory as that remove
-example:
+re-fetches. Still requires a **project-used** name — same alternate inventory as those
+examples:
 
 .Inventory for this example (`boost` project-used)
 ++++

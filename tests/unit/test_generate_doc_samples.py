@@ -117,6 +117,9 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert '--force-wipe-dependencies' in text
     assert 'force-wipe-unreferenced-dependencies' in text
     assert '--remove-dependencies' in text
+    assert '&lt;filter&gt;' in text or '<filter>' in text
+    assert 'Note:' in text
+    assert '--remove-dependencies' in text
     assert 'To reclaim storage' in text
     assert '/tmp/' not in text
     assert '/home/' not in text

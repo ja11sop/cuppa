@@ -157,9 +157,9 @@ The dependency actions are:
 
 Do not combine remove, purge, and wipe modes in one command.
 
-=== Dependency tokens
+=== Dependency filters
 
-Removal tokens use `[selector]name[/qualifier]`. Selectors identify storage kinds; qualifiers
+Removal filters use `[selector]name[/qualifier]`. Selectors identify storage kinds; qualifiers
 select versions, branches, package stems, or toolchain archive leaves. They accept fnmatch
 patterns where the detailed workflow permits them.
 
@@ -184,9 +184,9 @@ patterns where the detailed workflow permits them.
 | Useful when the list tree displays an empty qualifier
 |===
 
-See xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
+See xref:dependencies/managing/reclaiming.adoc#dependency-filters[Dependency filters] and
 xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples]
-before using force-wipe; those pages define every selector, show how tokens map to the
+before using force-wipe; those pages define every selector, show how filters map to the
 inventory tree, and give a full remove / purge / wipe example table.
 
 == Previewing maintenance

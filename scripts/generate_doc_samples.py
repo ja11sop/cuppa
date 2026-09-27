@@ -497,6 +497,115 @@ def sample_remove_boost_product_clean_html():
     return _write_html_sample( 'remove-boost-product-clean.html', text, colouriser )
 
 
+def _purge_boost_fixture( name ):
+    """Source Boost purge: build-product clean + matching download; extract stays."""
+    root = _work_root( name )
+    deps = root / 'dependencies'
+    downloads = root / 'downloads'
+    downloads.mkdir( parents=True )
+    extract = deps / 'boost_1_91_0'
+    stage = extract / 'clean' / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
+    bindir = extract / 'clean' / 'bin.c++2c' / 'boost' / 'bin.v2'
+    _touch_dir( stage, NOW - DAY )
+    _touch_dir( bindir, NOW - DAY )
+    _touch_dir( extract / 'clean' / 'boost', NOW - DAY )
+
+    archive_path = downloads / 'boost_1_91_0.tar.gz'
+    archive_path.write_bytes( b'x' * int( 140 * 1024 * 1024 ) )
+    os.utime( archive_path, ( NOW - DAY, NOW - DAY ) )
+
+    archives = [ {
+        'dependency': 'boost',
+        'extract': str( extract ),
+        'extract_bytes': int( 2.1 * 1024 ** 3 ),
+        'source_bytes': int( 1.7 * 1024 ** 3 ),
+        'qualifier': '1.91.0',
+        'storage_type': 'archive',
+        'age_text': 'yesterday',
+        'age_epoch': NOW - DAY,
+    } ]
+    targets = [
+        dependency_removal.RemovalTarget(
+                dependency='boost',
+                path=str( stage ),
+                qualifier='1.91.0',
+                tool_variant='gcc153/debug/x86_64',
+                storage_type='archive',
+                size_bytes=int( 298.4 * 1024 * 1024 ),
+                label='clean/build.c++2c [gcc153/debug/x86_64]',
+                extra_paths=(),
+        ),
+        dependency_removal.RemovalTarget(
+                dependency='boost',
+                path=str( bindir ),
+                qualifier='1.91.0',
+                tool_variant='gcc-15*/debug',
+                storage_type='archive',
+                size_bytes=int( 113.9 * 1024 * 1024 ),
+                label='clean/bin.c++2c [gcc-15*/debug]',
+                extra_paths=(),
+        ),
+    ]
+    download_targets = [
+        dependency_removal.DownloadTarget(
+                dependency='boost',
+                path=str( archive_path ),
+                qualifier='1.91.0',
+                tool_variant=None,
+                storage_type='archive',
+                size_bytes=int( 140 * 1024 * 1024 ),
+                label=archive_path.name,
+                missing=False,
+        ),
+    ]
+    env = _FakeEnv(
+            purge_dependencies='boost',
+            default_dependencies=[ 'boost' ],
+            dependencies_root=str( deps ),
+            downloads_root=str( downloads ),
+            sconstruct_dir=str( root ),
+            no_exec=False,
+    )
+    plan = {
+        'targets': targets,
+        'leftovers': [],
+        'archives': archives,
+        'develop_skips': [],
+        'owned': [],
+    }
+    purge_plan = ( download_targets, [], str( downloads ) )
+    return env, plan, purge_plan, deps, downloads
+
+
+def _render_purge_boost( name, colouriser=None ):
+    env, plan, purge_plan, deps, downloads = _purge_boost_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan, purge_plan=purge_plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [
+                ( deps, '~/.cuppa/dependencies' ),
+                ( downloads, '~/.cuppa/downloads' ),
+            ],
+    )
+
+
+def sample_purge_source_boost():
+    """`--purge-dependencies=boost` build products + download (extract stays)."""
+    return _write_sample(
+            'purge-source-boost.txt',
+            _render_purge_boost( 'purge-boost-text' ),
+    )
+
+
+def sample_purge_source_boost_html():
+    """Semantic HTML form of the source Boost purge report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_purge_boost( 'purge-boost-html', colouriser )
+    return _write_html_sample( 'purge-source-boost.html', text, colouriser )
+
+
 def _purge_gitlab_fixture( name ):
     root = _work_root( name )
     deps = root / 'dependencies'
@@ -2131,6 +2240,8 @@ GENERATORS = tuple(
                 sample_remove_gitlab_dry_run_html,
                 sample_remove_boost_product_clean,
                 sample_remove_boost_product_clean_html,
+                sample_purge_source_boost,
+                sample_purge_source_boost_html,
                 sample_purge_gitlab,
                 sample_purge_gitlab_html,
         )
@@ -2182,6 +2293,8 @@ GENERATORS = tuple(
         sample_remove_gitlab_dry_run_html,
         sample_remove_boost_product_clean,
         sample_remove_boost_product_clean_html,
+        sample_purge_source_boost,
+        sample_purge_source_boost_html,
         sample_purge_gitlab,
         sample_purge_gitlab_html,
 ) = GENERATORS
@@ -2211,6 +2324,7 @@ def main( argv=None ):
                     'remove-all-builds-dry-run',
                     'remove-gitlab-dry-run',
                     'remove-boost-product-clean',
+                    'purge-source-boost',
                     'purge-gitlab',
             ),
             help='generate one semantic HTML recipe (default: all checked-in samples)',
@@ -2241,6 +2355,7 @@ def main( argv=None ):
             'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,
             'remove-gitlab-dry-run': sample_remove_gitlab_dry_run_html,
             'remove-boost-product-clean': sample_remove_boost_product_clean_html,
+            'purge-source-boost': sample_purge_source_boost_html,
             'purge-gitlab': sample_purge_gitlab_html,
         }
         generators = [ recipes[name] for name in arguments.sample ]

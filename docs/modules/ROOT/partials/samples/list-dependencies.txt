@@ -28,18 +28,20 @@ Default dependencies: boost_package
 
 To reclaim storage from an in use dependency use one of:
 │
-├── cuppa -Q -D -n --remove-dependencies=<name>
-│   └── to remove the active-context extract or products (downloads stay)
-├── cuppa -Q -D -n --purge-dependencies=<name>
-│   └── to also remove matching downloads for the same active context
-└── cuppa -Q -D -n --wipe-dependencies=<name>
-    └── to delete the entire extract (not only products) and matching downloads so the next online build re-fetches
+├── cuppa -Q -D -n --remove-dependencies=<filter>
+│   └── delete this context's build products (or the selected package tree); downloads stay
+├── cuppa -Q -D -n --purge-dependencies=<filter>
+│   └── same as remove, and delete the matching download archive (extract stays)
+└── cuppa -Q -D -n --wipe-dependencies=<filter>
+    └── delete the whole extract and its download (next online build re-fetches)
 
 To reclaim storage from an unused dependency use one of:
 │
-├── cuppa -Q -D -n --force-wipe-dependencies=<token>
-│   └── to wipe named list-tree leaves (including unused siblings under a used identity); <token> may use [selector]name/qualifier
+├── cuppa -Q -D -n --force-wipe-dependencies=<filter>
+│   └── wipe named list-tree leaves (including unused siblings under a used identity)
 └── cuppa -Q -D -n --force-wipe-unreferenced-dependencies
-    └── orphan sweep for every unreferenced leaf this resolve sees (prefer named tokens above)
+    └── orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)
+
+Note: <filter> is a comma-separated list of [selector]name/qualifier
 
 Drop -n and re-run after confirming.
