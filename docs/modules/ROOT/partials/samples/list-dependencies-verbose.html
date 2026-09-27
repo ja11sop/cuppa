@@ -29,23 +29,23 @@ Default dependencies: <span class="cuppa-info">boost_package</span>
 
 <span class="cuppa-info">[dl]</span> = the archive present under downloads (<span class="cuppa-info">~/.cuppa/downloads</span>).
         If re-extracting a dependency fails, remove the corrupt archive there using
-        <span class="cuppa-info">--purge-dependencies</span>=[<span class="cuppa-info">dependency</span>]
+        <span class="cuppa-emphasised"><span class="cuppa-info">--purge-dependencies</span></span>=<span class="cuppa-info">&lt;name&gt;</span>
 
 To reclaim storage from an in use dependency use one of:
 <span class="cuppa-subdued">│</span>
-<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-info">--remove-dependencies</span>=[<span class="cuppa-info">dependency</span>]
-<span class="cuppa-subdued">│   └── </span>to remove the extracted or collected dependency for the active context (downloads stay)
-<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-info">--purge-dependencies</span>=[<span class="cuppa-info">dependency</span>]
-<span class="cuppa-subdued">│   └── </span>to also remove matching downloads for the same active context
-<span class="cuppa-subdued">└── </span>cuppa -Q -D -n <span class="cuppa-info">--wipe-dependencies</span>=[<span class="cuppa-info">dependency</span>]
-<span class="cuppa-subdued">    └── </span>to clear the whole extract and matching downloads so the next online build re-fetches
+<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--remove-dependencies</span></span>=<span class="cuppa-info">&lt;name&gt;</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-subdued">to remove the active-context extract or products (downloads stay)</span>
+<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--purge-dependencies</span></span>=<span class="cuppa-info">&lt;name&gt;</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-subdued">to also remove matching downloads for the same active context</span>
+<span class="cuppa-subdued">└── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--wipe-dependencies</span></span>=<span class="cuppa-info">&lt;name&gt;</span>
+<span class="cuppa-subdued">    └── </span><span class="cuppa-subdued">to delete the entire extract (not only products) and matching downloads so the next online build re-fetches</span>
 
 To reclaim storage from an unused dependency use one of:
 <span class="cuppa-subdued">│</span>
-<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-info">--force-wipe-dependencies</span>=[<span class="cuppa-info">token</span>]
-<span class="cuppa-subdued">│   └── </span>to wipe named list-tree leaves (including unused siblings under a used identity)
-<span class="cuppa-subdued">└── </span>cuppa -Q -D -n <span class="cuppa-info">--force-wipe-unreferenced-dependencies</span>
-<span class="cuppa-subdued">    └── </span>orphan sweep for every unreferenced leaf this resolve sees (prefer named tokens above)
+<span class="cuppa-subdued">├── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--force-wipe-dependencies</span></span>=<span class="cuppa-info">&lt;token&gt;</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-subdued">to wipe named list-tree leaves (including unused siblings under a used identity); &lt;token&gt; may use [selector]name/qualifier</span>
+<span class="cuppa-subdued">└── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--force-wipe-unreferenced-dependencies</span></span>
+<span class="cuppa-subdued">    └── </span><span class="cuppa-subdued">orphan sweep for every unreferenced leaf this resolve sees (prefer named tokens above)</span>
 
 Drop -n and re-run after confirming.
 </code></pre>

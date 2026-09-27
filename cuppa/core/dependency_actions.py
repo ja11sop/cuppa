@@ -13,6 +13,7 @@ Listings and removals run instead of a build. Report body goes to stdout (mode b
 """
 
 import os
+import re
 import sys
 
 from cuppa.colourise import (
@@ -1481,6 +1482,37 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     emit_location_unqualified_duplicate_hints( out=out )
 
 
+def _paint_cli_advice( text ):
+    """Paint ``--flags`` as emphasised info and ``<placeholders>`` as info.
+
+    Angle-bracket placeholders avoid clashing with list-tree ``[selector]`` syntax.
+    ``--flag=<value>`` / ``--flag=literal`` paint the flag emphasised and the
+    value info (same pattern as cascade plan banners).
+    """
+    pattern = re.compile(
+            r'(--[a-zA-Z][\w-]*(?:=(?:<[^>\s]+>|[^\s]+))?|<[^>\s]+>)'
+    )
+    parts = []
+    last = 0
+    for match in pattern.finditer( text ):
+        if match.start() > last:
+            parts.append( text[last:match.start()] )
+        token = match.group( 1 )
+        if token.startswith( '--' ):
+            if '=' in token:
+                flag, _, value = token.partition( '=' )
+                parts.append(
+                        as_emphasised( as_info( flag ) ) + '=' + as_info( value )
+                )
+            else:
+                parts.append( as_emphasised( as_info( token ) ) )
+        else:
+            parts.append( as_info( token ) )
+        last = match.end()
+    parts.append( text[last:] )
+    return ''.join( parts )
+
+
 def _reclaim_vocab( scope ):
     """Section words matching ``--list-scope`` grouping (usage vs resolve-identity)."""
     scope = normalise_list_scope( scope )
@@ -1517,29 +1549,28 @@ def write_reclaim_storage_hint( out, data ):
 
     def write_option( branch, command, detail, last=False ):
         out.write( as_subdued( branch ) )
-        out.write( storage.highlight_values( command, as_info ) + "\n" )
+        out.write( _paint_cli_advice( command ) + "\n" )
         under = gap if last else pipe
         out.write( as_subdued( under + elbow ) )
-        out.write( detail + "\n" )
+        out.write( as_subdued( detail ) + "\n" )
 
     if has_bound:
         write_intro( bound_word )
         write_option(
                 tee,
-                "cuppa -Q -D -n --remove-dependencies=[dependency]",
-                "to remove the extracted or collected dependency for the active "
-                "context (downloads stay)",
+                "cuppa -Q -D -n --remove-dependencies=<name>",
+                "to remove the active-context extract or products (downloads stay)",
         )
         write_option(
                 tee,
-                "cuppa -Q -D -n --purge-dependencies=[dependency]",
+                "cuppa -Q -D -n --purge-dependencies=<name>",
                 "to also remove matching downloads for the same active context",
         )
         write_option(
                 elbow,
-                "cuppa -Q -D -n --wipe-dependencies=[dependency]",
-                "to clear the whole extract and matching downloads so the next "
-                "online build re-fetches",
+                "cuppa -Q -D -n --wipe-dependencies=<name>",
+                "to delete the entire extract (not only products) and matching "
+                "downloads so the next online build re-fetches",
                 last=True,
         )
 
@@ -1547,9 +1578,9 @@ def write_reclaim_storage_hint( out, data ):
         write_intro( orphan_word )
         write_option(
                 tee,
-                "cuppa -Q -D -n --force-wipe-dependencies=[token]",
+                "cuppa -Q -D -n --force-wipe-dependencies=<token>",
                 "to wipe named list-tree leaves (including unused siblings under "
-                "a used identity)",
+                "a used identity); <token> may use [selector]name/qualifier",
         )
         write_option(
                 elbow,
@@ -1629,11 +1660,10 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
                     as_info( storage.display_path( downloads_root ) )
             ) )
         out.write( ".\n" )
-        out.write( storage.highlight_values(
-                "        If re-extracting a dependency fails, remove the corrupt "
-                "archive there using\n"
-                "        --purge-dependencies=[dependency]\n",
-                as_info,
+        out.write( "        If re-extracting a dependency fails, remove the corrupt "
+                   "archive there using\n" )
+        out.write( "        {}\n".format(
+                _paint_cli_advice( "--purge-dependencies=<name>" )
         ) )
 
     if verbose and (
@@ -1641,11 +1671,9 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
     ):
         if data.get( 'has_dev_marks' ):
             out.write( "\n" )
-            out.write( "{} = the configured {}\n".format(
+            out.write( "{} = the configured develop={} working copy\n".format(
                     as_info( dependency_identity.WORKING_COPY_DEV_MARK ),
-                    storage.highlight_values(
-                            "develop=[develop_path] working copy", as_info
-                    ),
+                    as_info( "<path>" ),
             ) )
         if data.get( 'has_pub_marks' ):
             from cuppa.package_managers import package_cascade
@@ -1656,27 +1684,26 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
             out.write( "\n" )
             out.write( "{} = the {} under the in-force publisher root\n".format(
                     as_info( dependency_identity.WORKING_COPY_PUB_MARK ),
-                    storage.highlight_values( "[publisher_path]", as_info ),
+                    as_info( "<publisher_path>" ),
             ) )
             if publisher_root:
                 out.write( "        (as provided by {}, otherwise {}).\n".format(
-                        storage.highlight_values( "--publisher-root", as_info ),
+                        _paint_cli_advice( "--publisher-root" ),
                         as_info( storage.display_path( publisher_root ) ),
                 ) )
             else:
-                out.write( storage.highlight_values(
-                        "        (as provided by --publisher-root, otherwise "
-                        "[storage-root]/publishers).\n",
-                        as_info,
+                out.write( "        (as provided by {}, otherwise {}).\n".format(
+                        _paint_cli_advice( "--publisher-root" ),
+                        as_info( "<storage-root>/publishers" ),
                 ) )
         mode = dependency_identity.normalise_list_location(
                 cuppa_env.get( 'list_location' )
         )
         if mode == 'active':
-            out.write( storage.highlight_values(
-                    "With --list-location=active, develop wins only when --develop is "
-                    "on (same precedence as cascade resolve).\n",
-                    as_info,
+            out.write( "With {}, develop wins only when {} is "
+                       "on (same precedence as cascade resolve).\n".format(
+                    _paint_cli_advice( "--list-location=active" ),
+                    _paint_cli_advice( "--develop" ),
             ) )
 
     write_reclaim_storage_hint( out, data )
