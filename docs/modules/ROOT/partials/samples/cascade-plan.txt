@@ -15,7 +15,7 @@ Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 er
 
 --cascade-plan: 1 package planned;
 │
-├── pass either --publish-cascade-dependencies or --publish-package
+├── pass one of --build-cascade-dependencies, --publish-cascade-dependencies, or --publish-package
 │
 └── to run this plan
 

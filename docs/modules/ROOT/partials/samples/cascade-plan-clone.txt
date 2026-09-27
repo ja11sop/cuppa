@@ -17,7 +17,7 @@ Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 erro
 
 --cascade-plan: 1 package planned, 1 publisher tree to clone first;
 │
-├── pass --clone-publishers along with either --publish-cascade-dependencies or --publish-package
+├── pass --clone-publishers along with one of --build-cascade-dependencies, --publish-cascade-dependencies, or --publish-package
 │
 └── to make this plan executable
 

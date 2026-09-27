@@ -166,7 +166,9 @@ class PublishPackageMethod(object):
                         'Pair with a companion action: --publish-package '
                         '(nested publish + tip upload), '
                         '--publish-cascade-dependencies (nested publish, tip '
-                        'build only), --cascade-plan, --collect-cascade, or '
+                        'build only), --build-cascade-dependencies (nested '
+                        'build, no registry upload, tip build only), '
+                        '--cascade-plan, --collect-cascade, or '
                         '--update-publishers. Not compatible with -n/--no-exec '
                         'when nested sessions would run. Nested publishes that '
                         'are already current in the registry are skipped unless '
@@ -193,7 +195,22 @@ class PublishPackageMethod(object):
                         '--publish-package each resolved GitLab package '
                         'dependency (leaf-first), refresh tip consume caches, '
                         'then continue with the tip build only — do not upload '
-                        'the tip. Cannot be combined with --publish-package. '
+                        'the tip. Cannot be combined with --publish-package or '
+                        '--build-cascade-dependencies. Works for consume-only '
+                        'tips and publisher tips.'
+                ),
+        )
+        add_option(
+                '--build-cascade-dependencies',
+                dest='build-cascade-dependencies',
+                action='store_true',
+                help=(
+                        'With --build-and-publish-dependencies, build each '
+                        'resolved GitLab package dependency (leaf-first) '
+                        'without registry upload, then continue with the tip '
+                        'build only. Nested sessions do not pass '
+                        '--publish-package. Cannot be combined with '
+                        '--publish-package or --publish-cascade-dependencies. '
                         'Works for consume-only tips and publisher tips.'
                 ),
         )

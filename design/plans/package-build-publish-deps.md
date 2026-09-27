@@ -492,7 +492,7 @@ Pattern (unchanged spirit): **enable** + **action**.
 | Dual graph | Consume tip SoT = registered package factories (+ versions). Publisher tip SoT remains ``publisher._dependencies``. No merge invents edges the tip did not declare as direct package deps |
 | Entry timing | After the tip sconscript read, when cascade is on and no publisher tip already ran cascade for this ``sconstruct_dir`` (publisher tips still enter from ``GitlabPackagePublisher`` construction). Pre-sconscript ``BuildWith`` continues to rely on Slice F deferral when the registry pin is missing |
 | Tip identity (banners / plan) | Project / ``sconstruct_dir`` basename; version label ``consume`` (not a registry upload identity) |
-| Build-deps-only (no nested **upload**) | **Open Q3** — next slice after Q1b; proposed flag ``--build-cascade-dependencies`` (see open question 3 table). Distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
+| Build-deps-only (no nested **upload**) | **Settled Q3** (2026-09-27) — ``--build-cascade-dependencies`` on this branch. Distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
 | Extract-seed (**1b**) | **Follow-on**: omit tip ``package_source`` when an extract’s traveling manifest can supply it |
 | Package ``develop=`` (**2b**) | **Follow-on / likely partial today**: with ``--develop``, configured develop publisher tree already wins in resolve. Do not require ``develop=`` for packages in MVP |
 | Partial coverage | Resolve: develop tree wins under ``--develop``, else ``package_source`` / publisher-root / clone. Collect: clone missing into ``--publisher-root`` (not into operator-owned ``develop=``). Plan/collect must report reused develop vs cloned vs missing source |
@@ -512,6 +512,10 @@ Example shapes:
 # Consume-only or publisher tip: nest-publish DAG, tip build only
 cuppa -D --rel --build-and-publish-dependencies --publish-cascade-dependencies \
   --publisher-root=~/coding/packages
+
+# Nest-build DAG (no registry upload), tip build only
+cuppa -D --rel --build-and-publish-dependencies --build-cascade-dependencies \
+  --publisher-root=~/coding/packages --develop
 
 # Publisher tip: nest-publish DAG, then tip upload
 cuppa -D --rel --build-and-publish-dependencies --publish-package \
@@ -619,19 +623,19 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
    nested registry upload) — distinct from `--cascade-plan` / `--collect-cascade`
-   and from Phase 4 **nest-deps-only** (which **does** nested upload). **Next
-   implementation slice** after Q1b ([#338](https://github.com/ja11sop/cuppa/pull/338)).
+   and from Phase 4 **nest-deps-only** (which **does** nested upload).
 
-   ### Proposed settled decisions (question 3 — build-deps-only) — write before code
+   ### Settled decisions (question 3 — build-deps-only) — 2026-09-27
 
-   | Topic | Proposed decision |
-   |-------|-------------------|
+   | Topic | Decision |
+   |-------|----------|
    | Flag name | **``--build-cascade-dependencies``** (dependencies-noun family; parallel to ``--publish-cascade-dependencies``) |
-   | What runs | Nested ``cuppa`` sessions **build only** (same clean/build path as nest today); **no** ``PublishPackage`` / registry upload; tip **build only** |
-   | Compose | **Refuse** with ``--publish-package`` and with ``--publish-cascade-dependencies`` (pick one end state); keep ``--cascade-plan`` / ``--collect-cascade`` review/collect-only where nest already refuses |
-   | Skip-if-current | Keep local extract/archive freshness that does not need registry HEAD; no new skip story |
-   | Invalidate / refresh | No post-upload tip wipe (no nested upload); document that |
-   | Docs | Antora cascade companion table + CLI; do not claim shipped until the flag exists |
+   | What runs | Nested ``cuppa`` sessions **build only** via ``project_only`` argv (no ``--publish-package`` / ``--stage-package`` forced); tip **build only**. Nested ``PublishPackage`` in a publisher sconscript may still stage without upload when that method runs without ``--publish-package``. |
+   | Compose | **Refuse** with ``--publish-package`` and with ``--publish-cascade-dependencies`` (pick one end state). Requires ``--build-and-publish-dependencies``. Plan/collect/update companions keep existing refuse rules. |
+   | Nested argv | Drop tip ``--build-cascade-dependencies`` (and the usual cascade drop set); **never** append ``--publish-package``. |
+   | Skip-if-current | **Do not** use registry HEAD skip (``package_pin_is_current``) on this path — that story is for nest-publish. No new local skip invented in this slice; every resolved node runs a nested build (unless clean path already covered). |
+   | Invalidate / refresh | **No** tip consume refresh / post-upload wipe (no nested upload). Clear deferred registry fetches without ``audit_deferred_cascade_fetches`` failure. |
+   | Docs | Antora cascade companion table + CLI + CHANGELOG when the flag lands. |
    | Out of scope | Q4 forest keying; ``--list-location`` behaviour beyond incidental wording |
 4. **Publisher forest layout / keying** (was “richer `--publisher-root` layout”).
 
@@ -721,7 +725,8 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
 | Follow-on: tip no-op after metadata-only dependency refresh | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) (question 11; corosio→capy soak) — not yet in a named release |
-| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b** on [#338](https://github.com/ja11sop/cuppa/pull/338) (``--list-location``); LOCATION≠reclaim settled 2026-09-27; publisher remove docs/UX follow-on noted; **Q3** next; **Q4** stem keying still open |
+| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b** on [#338](https://github.com/ja11sop/cuppa/pull/338) (``--list-location``); LOCATION≠reclaim settled 2026-09-27; publisher remove list-shaped report on [#338](https://github.com/ja11sop/cuppa/pull/338); **Q4** stem keying still open |
+| Question 3 — ``--build-cascade-dependencies`` | **Done on this branch** (2026-09-27) — nest-build without registry upload; tip build only; Antora companion table + CLI + samples; Q4 deferred |
 | Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) — see [Antora documentation](#antora-documentation-297) |
 | Collect finish: reused vs newly cloned | **Done** on master via [#334](https://github.com/ja11sop/cuppa/pull/334) (question 7) |
 
@@ -762,9 +767,9 @@ about one tool.
 | ``publishers`` list/remove + develop chrome (Q1a) | ~~Open question **1**~~ **Done** on [#335](https://github.com/ja11sop/cuppa/pull/335) | ``--list-publishers`` / ``--remove-publishers`` |
 | ``--list-location`` LOCATION overlay on ``--list-dependencies`` (Q1b) | ~~Open question **1b**~~ **Done** on [#338](https://github.com/ja11sop/cuppa/pull/338) | ``storage`` / ``publishers`` / ``develop`` / ``active``; ``--develop`` gates precedence; no publishers TYPE section |
 | LOCATION compose with wipe/remove | **Settled refuse** (2026-09-27) | List overlay only; reclaim verbs stay root-specific |
-| ``--remove-publishers`` list-shaped report (``would rm`` / ``removed``) + samples | Follow-on (before or with Q3) | REMARK first column; ``as_remove_notice`` row paint; folder-name filters; no selectors / no purge |
+| ``--remove-publishers`` list-shaped report (``would rm`` / ``removed``) + samples | **Done** on [#338](https://github.com/ja11sop/cuppa/pull/338) | REMARK first column; ``as_remove_notice`` row paint; folder-name filters; no selectors / no purge |
 | Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Defer until settle table + soak collision evidence; then own PR |
-| Build-deps-only without nested upload | Open question **3** — **next** after Q1b | Proposed ``--build-cascade-dependencies``; settle table then implement; do not document as shipped |
+| Build-deps-only without nested upload | ~~Open question **3**~~ **Done on this branch** (2026-09-27) | ``--build-cascade-dependencies``; Antora companion table + CLI + samples |
 | Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |
 
 ### Editorial rules (ongoing)

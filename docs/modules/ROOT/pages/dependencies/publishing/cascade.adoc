@@ -1,19 +1,21 @@
 = Cascading dependency publishes
 :description: Nest-publish GitLab package DAGs from publisher working trees
 
-Leaf-first nested ``--publish-package`` sessions for deep GitLab package stacks,
+Leaf-first nested publish or build sessions for deep GitLab package stacks,
 plus plan / collect / clone / update companions. Conan graphs are out of scope.
 
 [#build-and-publish-dependencies]
 == How cascade works
 
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
-parents, then the tip). Cascade lets one tip command publish nested packages
-from their **publisher working trees**, then continue with the tip.
+parents, then the tip). Cascade lets one tip command nest-publish or nest-build
+packages from their **publisher working trees**, then continue with the tip.
 Publisher trees may build with Cuppa methods (`BuildStaticLib`, `Install`, <...>),
-external CMake, Boost.b2, or other `Command()` graphs — cascade only requires
-that nested ``cuppa <...> --publish-package`` can stage ``include/`` / ``lib/`` (or
-equivalent payload) and upload a GitLab archive.
+external CMake, Boost.b2, or other `Command()` graphs. Nest-publish companions
+require that nested ``cuppa <...> --publish-package`` can stage ``include/`` /
+``lib/`` (or equivalent payload) and upload a GitLab archive; nest-build
+(``--build-cascade-dependencies``) runs nested project builds without that
+upload.
 
 Pass ``--build-and-publish-dependencies`` with **exactly one** companion action:
 
@@ -29,7 +31,11 @@ Pass ``--build-and-publish-dependencies`` with **exactly one** companion action:
 
 | ``--publish-cascade-dependencies``
 | Same nested publish
-| Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package``)
+| Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package`` or ``--build-cascade-dependencies``)
+
+| ``--build-cascade-dependencies``
+| Leaf-first nested **build** (no ``--publish-package`` / no registry upload)
+| Tip **build only** (cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies``)
 
 | ``--cascade-plan``
 | Nothing (report only)
@@ -40,12 +46,13 @@ Pass ``--build-and-publish-dependencies`` with **exactly one** companion action:
 | Exit after collect
 
 | ``--update-publishers``
-| Fast-forward clean forest trees (optional; may combine with collect or a publish action)
-| Stop before build/upload unless a publish companion is also set
+| Fast-forward clean forest trees (optional; may combine with collect or a nest action)
+| Stop before nest work unless a nest companion is also set
 |===
 
-Bare ``--build-and-publish-dependencies`` alone is refused. The two tip publish
-actions cannot be combined.
+Bare ``--build-and-publish-dependencies`` alone is refused. The nest companions
+(``--publish-package``, ``--publish-cascade-dependencies``,
+``--build-cascade-dependencies``) cannot be combined with each other.
 
 [source,shell]
 ----
@@ -57,6 +64,11 @@ cuppa -D --rel --toolchains=gcc15 \
 cuppa -D --rel --toolchains=gcc15 \
   --publish-cascade-dependencies --build-and-publish-dependencies \
   --publisher-root=~/coding/packages
+
+# Nest-build deps (no registry upload), tip build only
+cuppa -D --rel --toolchains=gcc15 \
+  --build-cascade-dependencies --build-and-publish-dependencies \
+  --publisher-root=~/coding/packages --develop
 ----
 
 [mermaid]
@@ -68,9 +80,10 @@ flowchart TD
   choose -->|--cascade-plan| plan[Print plan and exit]
   choose -->|--collect-cascade| collect[Resolve or clone trees; exit]
   choose -->|--update-publishers alone| update[Update forest; exit]
-  choose -->|--publish-cascade-dependencies| nestBuild[Nest-publish then tip build]
+  choose -->|--build-cascade-dependencies| nestBuildOnly[Nest-build then tip build]
+  choose -->|--publish-cascade-dependencies| nestPublishBuild[Nest-publish then tip build]
   choose -->|--publish-package| nestUpload[Nest-publish then tip upload]
-  choose -->|both publish actions| refuseBoth[Refuse]
+  choose -->|combined nest companions| refuseBoth[Refuse]
 ....
 
 Cuppa then:
@@ -85,12 +98,14 @@ Cuppa then:
   ``--publisher-root`` or the default ``<storage-root>/publishers`` forest
   (``\{root}/\{name}``, ``\{root}/\{package}``, or one nesting level), cloning from
   a ``package_source`` URL when you pass ``--clone-publishers``
-* Runs a nested ``cuppa -D <...> --publish-package`` for each dependency in
-  leaf-first order (**without** re-entering cascade)
+* Runs a nested ``cuppa -D <...>`` for each dependency in leaf-first order
+  (**without** re-entering cascade): ``--publish-package`` for nest-publish
+  companions, or a project-only build for ``--build-cascade-dependencies``
 * After nested sessions that **actually upload** (or under ``--force``), refreshes
   the tip’s consume cache for that pin so the tip build sees the new artefacts —
   preferring the nested archive on disk when available (works with ``--offline``).
-  See xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs]
+  Nest-build skips that refresh (no registry upload). See
+  xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs]
 * Continues with this project’s normal tip build and, when ``--publish-package``
   is set, tip upload
 
@@ -100,7 +115,7 @@ flowchart LR
   tipEdges[Tip package edges]
   dag[Expand cuppa-publish.json DAG]
   resolve[Resolve publisher trees]
-  nest[Nested publish leaf-first]
+  nest[Nested publish or build leaf-first]
   refresh[Refresh tip consume on upload]
   tipAction[Tip build or tip upload]
 

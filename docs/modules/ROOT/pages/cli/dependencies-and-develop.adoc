@@ -174,16 +174,27 @@ xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amen
 `--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
 Pair with a companion action: `--publish-package` (nested publish + tip upload),
 `--publish-cascade-dependencies` (nested publish, tip build only — consume-only
-and publisher tips), or a stop mode (`--cascade-plan` / `--collect-cascade` /
-`--update-publishers`). Optional `--publisher-root=PATH` overrides the default
-`<storage-root>/publishers` forest when resolving trees. See
+and publisher tips), `--build-cascade-dependencies` (nested build without
+registry upload, tip build only), or a stop mode (`--cascade-plan` /
+`--collect-cascade` / `--update-publishers`). Optional `--publisher-root=PATH`
+overrides the default `<storage-root>/publishers` forest when resolving trees.
+See
 xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes]
 and xref:dependencies/publishing/cascade.adoc#cascade-consume-only[Consume-only tips].
 
 `--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
 continues with the tip **build** (no tip upload). Requires
-`--build-and-publish-dependencies`. Cannot be combined with `--publish-package`.
+`--build-and-publish-dependencies`. Cannot be combined with `--publish-package`
+or `--build-cascade-dependencies`.
 See xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+
+`--build-cascade-dependencies` nest-**builds** the resolved dependency DAG
+(nested sessions do not pass `--publish-package`; no registry upload) then
+continues with the tip **build**. Requires `--build-and-publish-dependencies`.
+Cannot be combined with `--publish-package` or `--publish-cascade-dependencies`.
+Prefer `--develop` when tip consume should use local publisher trees rather than
+registry archives. See
+xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
 tree, then stops without cloning, building, or uploading. It requires

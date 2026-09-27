@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--build-cascade-dependencies`` with ``--build-and-publish-dependencies`` —
+  leaf-first nested **build** of the GitLab package DAG without registry upload,
+  then tip build only. Nested sessions use project-only argv (no
+  ``--publish-package``). Cannot combine with ``--publish-package`` or
+  ``--publish-cascade-dependencies``. Registry HEAD skip-if-current does not
+  apply on this path. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
 - ``--list-location=storage|publishers|develop|active`` on ``--list-dependencies`` —
   overlays working-copy paths marked ``[dev]`` / ``[pub]`` (publisher forest under
   ``--publisher-root``, configured ``develop=``, or ``active`` with ``--develop``
