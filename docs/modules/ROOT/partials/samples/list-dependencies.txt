@@ -1,21 +1,21 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: boost_package
-  ---------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------
       SIZE  LAST USED  REMARK   DEPENDENCY
-  ---------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------
     299.3M  today      1 total  used
                                 │
     299.3M  today      1 used   ├── dependencies in use
                                 │
-    299.3M  today      1 used   └── gitlab packages select as [gl], [gitlab] or [gitlab_package]
+    299.3M  today      1 used   └── gitlab packages [gl]
                                     │
     299.3M  today                   └── boost_package
     299.3M  today                       └── 1.91
     299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------
       5.8M  today               unused
                                 │
-      5.8M  today               └── source archives select as [sa], [source], [archive] or [source_archive]
+      5.8M  today               └── source archives [sa]
                                     │
       2.9M  today                   ├── boost
       2.9M  today                   │   └── 1.91.0
@@ -23,7 +23,7 @@ Default dependencies: boost_package
       2.9M  today                   └── github.com/fmtlib/fmt
       1.4M  today                       ├── 11.1.4
       1.5M  today                       └── 12.2.0
-  ---------------------------------------------------------------------------------------------------------
+  ---------------------------------------------------------------------
   4 entries, 305.1M total, 5.8M unreferenced
 
 To reclaim storage from an in use dependency use one of:
@@ -43,7 +43,9 @@ To reclaim storage from an unused dependency use one of:
     └── orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)
 
 Note: <filter> is a comma-separated list of name, [selector]name, name/qualifier, [selector]name/qualifier
-      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards for the shell
-      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or '[source]boost/[4-9].*'
+      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards
+      │   for the shell
+      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or
+          '[source]boost/[4-9].*'
 
 Drop -n and re-run after confirming.

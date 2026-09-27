@@ -1597,24 +1597,36 @@ def write_reclaim_storage_hint( out, data ):
     out.write( "\nDrop -n and re-run after confirming.\n" )
 
 
-def _write_filter_note( out ):
-    """Footer note: filter forms (info), then a short fnmatch / examples tree."""
+def _write_filter_note( out, width=None ):
+    """Footer note: filter forms (info), then a wrapped fnmatch / examples tree."""
     forms = (
             'name',
             '[selector]name',
             'name/qualifier',
             '[selector]name/qualifier',
     )
-    # Commas inside a multi-name filter stay with the example (not subdued separators).
-    examples = (
-            'boost',
-            'boost,conan',
-            'boost/1.86',
-            "'boost/1.8*'",
-            "'[source]boost/[4-9].*'",
+    examples_text = (
+            "e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or "
+            "'[source]boost/[4-9].*'"
     )
-    tee, elbow, _pipe, _gap = storage.glyphs()
-    note_indent = as_subdued( '      ' )
+    fnmatch_text = (
+            "fnmatch wildcards (*,?,[...]) are supported for name and qualifier; "
+            "quote wildcards for the shell"
+    )
+    tee, elbow, pipe, gap = storage.glyphs()
+    note_indent = '      '
+    prose_width = storage.WIDEST_PROSE if width is None else width
+
+    def write_wrapped( first_branch, carried_branch, text, body_paint ):
+        wrap_width = max(
+                prose_width - len( first_branch ), storage.NARROWEST_PROSE,
+        )
+        branch = first_branch
+        for piece in storage.wrapped( text, wrap_width ):
+            out.write( as_subdued( branch ) )
+            out.write( body_paint( piece ) + "\n" )
+            branch = carried_branch
+
     out.write( "Note: " )
     out.write( as_info( "<filter>" ) )
     out.write( as_subdued( " is a comma-separated list of " ) )
@@ -1623,20 +1635,18 @@ def _write_filter_note( out ):
             out.write( as_subdued( ", " ) )
         out.write( as_info( form ) )
     out.write( "\n" )
-    out.write( note_indent + as_subdued( tee ) )
-    out.write( as_subdued(
-            "fnmatch wildcards (*,?,[...]) are supported for name and qualifier; "
-            "quote wildcards for the shell"
-    ) + "\n" )
-    out.write( note_indent + as_subdued( elbow ) )
-    out.write( as_subdued( "e.g. " ) )
-    for index, example in enumerate( examples ):
-        if index == len( examples ) - 1:
-            out.write( as_subdued( " or " ) )
-        elif index:
-            out.write( as_subdued( ", " ) )
-        out.write( example )
-    out.write( "\n" )
+    write_wrapped(
+            note_indent + tee,
+            note_indent + pipe,
+            fnmatch_text,
+            as_subdued,
+    )
+    write_wrapped(
+            note_indent + elbow,
+            note_indent + gap,
+            examples_text,
+            lambda piece: piece,  # examples stay plain (incl. commas in boost,conan)
+    )
 
 
 def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):

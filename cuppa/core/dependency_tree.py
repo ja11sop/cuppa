@@ -43,15 +43,34 @@ TYPE_LABELS = (
     ( 'toolchain', 'toolchains' ),
 )
 
-# Operator-facing filter selectors shown muted after each type group label.
+# Operator-facing filter selectors after each type group label.
+# Compact: short alias only. Verbose: full "select as … or …" list.
 # Order matches reclaim docs (short → preferred → longer); not every SELECTOR_ALIASES spelling.
-TYPE_SELECTOR_HINTS = {
+TYPE_SELECTOR_HINTS_SHORT = {
+    'repository': '[vcs]',
+    'gitlab': '[gl]',
+    'conan': '[cn]',
+    'archive': '[sa]',
+    'toolchain': '[tc]',
+}
+
+TYPE_SELECTOR_HINTS_VERBOSE = {
     'repository': 'select as [vcs], [repo], [repository] or [location]',
     'gitlab': 'select as [gl], [gitlab] or [gitlab_package]',
     'conan': 'select as [cn], [conan] or [conan_package]',
     'archive': 'select as [sa], [source], [archive] or [source_archive]',
     'toolchain': 'select as [tc], [toolchain], [toolchains] or [compiler]',
 }
+
+# Back-compat alias for callers that still import the verbose map name.
+TYPE_SELECTOR_HINTS = TYPE_SELECTOR_HINTS_VERBOSE
+
+
+def type_selector_hint( type_key, verbose=False ):
+    """Muted selector hint for a type group row (short, or verbose ``select as``)."""
+    if verbose:
+        return TYPE_SELECTOR_HINTS_VERBOSE.get( type_key )
+    return TYPE_SELECTOR_HINTS_SHORT.get( type_key )
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
@@ -1114,7 +1133,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_label,
-            'selector_hint': TYPE_SELECTOR_HINTS.get( type_key ),
+            'type_key': type_key,
             'size_bytes': None,  # filled from leaves below (includes nested requires)
             'last_used_epoch': epoch,
             'remark': _remark_count( used, 'used' ),
@@ -1128,7 +1147,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_key,
-            'selector_hint': TYPE_SELECTOR_HINTS.get( type_key ),
+            'type_key': type_key,
             'size_bytes': None,
             'last_used_epoch': epoch,
             'remark': '',
@@ -1462,9 +1481,13 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             stem = prefix + branch
             label = node.get( 'label' ) or ''
         # Include selector hint in the plain label before width calculation; paint later.
-        selector_hint = node.get( 'selector_hint' ) if kind == 'type' else None
-        if selector_hint:
-            label = ( label + ' ' + selector_hint ).rstrip()
+        selector_hint = None
+        if kind == 'type':
+            selector_hint = type_selector_hint(
+                    node.get( 'type_key' ), verbose=verbose,
+            )
+            if selector_hint:
+                label = ( label + ' ' + selector_hint ).rstrip()
         size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
         if state == 'missing' or remark == 'missing' or missing_identity:
             last_used = '-'

@@ -31,9 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   clean (remove), same plus download with extract staying (purge), and whole
   extract plus download (wipe). The footer Note lists the four filter forms and
   a short fnmatch / examples tree; type group rows show muted selector aliases
-  (``select as [gl], [gitlab] or [gitlab_package]``). Verbose ``[pub]`` LOCATION
-  paths follow ``[dl]`` colour (info when used, subdued when unused); ``[dev]``
-  paths stay plain when used and subdued when unused.
+  (compact ``[gl]``; verbose ``select as [gl], [gitlab] or [gitlab_package]``).
+  Verbose ``[pub]`` LOCATION paths follow ``[dl]`` colour (info when used,
+  subdued when unused); ``[dev]`` paths stay plain when used and subdued when
+  unused. The reclaim footer Note wraps like judgement-tree prose.
 
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees

@@ -122,8 +122,10 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert 'fnmatch wildcards' in text
     assert 'boost,conan' in text
     assert "[selector]name/qualifier" in text or '[selector]name/qualifier' in text
-    assert 'select as [gl], [gitlab] or [gitlab_package]' in text
-    assert 'select as [sa], [source], [archive] or [source_archive]' in text
+    # Compact list: short selector aliases only.
+    assert '[gl]' in text
+    assert '[sa]' in text
+    assert 'select as [gl]' not in text
     assert '--remove-dependencies' in text
     assert 'To reclaim storage' in text
     assert '/tmp/' not in text
@@ -140,6 +142,8 @@ def test_list_dependencies_verbose_html_sample_colours_download_mark():
     assert '[dl]' in text
     assert 'cuppa-info' in text
     assert 'archive present under downloads' in text
+    assert 'select as [gl], [gitlab] or [gitlab_package]' in text
+    assert 'select as [sa], [source], [archive] or [source_archive]' in text
     assert '/home/' not in text
     assert '\x1b[' not in text
 
