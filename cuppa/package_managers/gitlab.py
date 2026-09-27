@@ -25,6 +25,130 @@ from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_nod
 from cuppa.utility.storage import display_path
 
 
+# --refresh-downloads session (configure-time force re-fetch of package archives).
+# None = flag absent; True = bare (all GitLab packages); set = selective names.
+_refresh_downloads_selection = None
+_refresh_downloads_seen = set()
+
+
+def begin_refresh_downloads_session( raw_option ):
+    """Start a configure session from ``process_dependency_action_options``.
+
+    ``raw_option`` is ``''`` (bare flag) or a comma-separated name list.
+    """
+    global _refresh_downloads_selection, _refresh_downloads_seen
+    _refresh_downloads_seen = set()
+    if raw_option is None:
+        _refresh_downloads_selection = None
+        return
+    text = str( raw_option ).strip()
+    if not text:
+        _refresh_downloads_selection = True
+        return
+    names = { part.strip() for part in text.split( ',' ) if part.strip() }
+    _refresh_downloads_selection = names
+
+
+def reset_refresh_downloads_session_for_tests():
+    """Clear session state between unit tests."""
+    global _refresh_downloads_selection, _refresh_downloads_seen
+    _refresh_downloads_selection = None
+    _refresh_downloads_seen = set()
+
+
+def refresh_downloads_applies( dependency_name, package_name ):
+    """Whether this package should drop cache before download for the session."""
+    selection = _refresh_downloads_selection
+    if selection is None:
+        return False
+    if selection is True:
+        return True
+    return bool(
+            ( dependency_name and dependency_name in selection )
+            or ( package_name and package_name in selection )
+    )
+
+
+def note_refresh_downloads_seen( dependency_name, package_name ):
+    """Record names that matched a selective ``--refresh-downloads=LIST``."""
+    selection = _refresh_downloads_selection
+    if not isinstance( selection, set ):
+        return
+    if dependency_name and dependency_name in selection:
+        _refresh_downloads_seen.add( dependency_name )
+    if package_name and package_name in selection:
+        _refresh_downloads_seen.add( package_name )
+
+
+def audit_refresh_downloads( env=None ):
+    """Refuse if selective ``--refresh-downloads=LIST`` named unknown deps."""
+    selection = _refresh_downloads_selection
+    if not isinstance( selection, set ):
+        return
+    missing = sorted( selection - _refresh_downloads_seen )
+    if not missing:
+        return
+    import SCons.Errors
+    from cuppa.colourise import as_error
+    listed = ", ".join( missing )
+    logger.error(
+            "--refresh-downloads named unknown GitLab package "
+            "dependency(ies): [{}]".format( as_error( listed ) )
+    )
+    raise SCons.Errors.StopError(
+            "--refresh-downloads named unknown GitLab package "
+            "dependency(ies): [{}]. Use Cuppa dependency names or "
+            "registry package names that this project constructs, "
+            "or pass the bare flag for all project-used packages."
+            .format( listed )
+    )
+
+
+def _remove_package_consume_cache( cache_dir, package_dir, label ):
+    """Delete archive cache dir contents and the extract package_dir."""
+    removed = []
+    if cache_dir and os.path.isdir( cache_dir ):
+        for name in os.listdir( cache_dir ):
+            path = os.path.join( cache_dir, name )
+            try:
+                if os.path.isdir( path ) and not os.path.islink( path ):
+                    shutil.rmtree( path )
+                else:
+                    os.remove( path )
+                removed.append( path )
+            except OSError as error:
+                logger.error(
+                        "Failed to remove package archive [{}] while "
+                        "refreshing [{}]: {}".format(
+                                as_error( path ),
+                                as_error( label ),
+                                as_error( str( error ) ),
+                        )
+                )
+                raise GitlabPackageDependencyException(
+                        "Failed to remove package archive [{}] while "
+                        "refreshing [{}]: {}".format( path, label, error )
+                )
+    if package_dir and os.path.isdir( package_dir ):
+        try:
+            shutil.rmtree( package_dir )
+            removed.append( package_dir )
+        except OSError as error:
+            logger.error(
+                    "Failed to remove package extract [{}] while "
+                    "refreshing [{}]: {}".format(
+                            as_error( package_dir ),
+                            as_error( label ),
+                            as_error( str( error ) ),
+                    )
+            )
+            raise GitlabPackageDependencyException(
+                    "Failed to remove package extract [{}] while "
+                    "refreshing [{}]: {}".format( package_dir, label, error )
+            )
+    return removed
+
+
 def lib_copy_ignore_names( names, package_dir_name, package_file_name ):
     """Names to skip when copying ``source_lib_dir`` (often ``abs_final_dir``).
 
@@ -1349,7 +1473,8 @@ class GitlabPackageDependency:
             develop=None,
             package_source=None,
             os_override=None,
-            toolchain_override=None
+            toolchain_override=None,
+            dependency_name=None,
         ):
 
         from cuppa.toolchains.identity import option_text
@@ -1361,6 +1486,7 @@ class GitlabPackageDependency:
         self._offline = self.is_option_set( "offline" )
         self._clean = self.is_option_set( "clean" )
         self._dump = self.is_option_set( "dump" )
+        self._dependency_name = dependency_name
 
         use_develop = self.is_option_set( "develop" )
         self._develop = develop
@@ -1382,11 +1508,18 @@ class GitlabPackageDependency:
         if not self._library_prefix:
             self._library_prefix = ""
 
-        self._package_id = "/".join( [ package, self.version(), variant ] )
+        self._package_id = "/".join( [ package, self.version(), self._variant ] )
+
+        # Count selective --refresh-downloads names even when this construction
+        # later skips network work (develop, dump, storage resolve-only).
+        if refresh_downloads_applies( self._dependency_name, self._package ):
+            note_refresh_downloads_seen( self._dependency_name, self._package )
 
         cuppa.core.storage_options.report_roots( cuppa_env )
 
-        cache_dir = os.path.join( cuppa_env['downloads_root'], 'packages', package, version )
+        cache_dir = os.path.join(
+                cuppa_env['downloads_root'], 'packages', package, self.version()
+        )
         candidates = consume_archive_candidates(
                 cuppa_env,
                 registry=registry,
@@ -1519,6 +1652,55 @@ class GitlabPackageDependency:
                     as_notice( display_path( self._package_dir ) )
             ) )
             return
+
+        want_refresh = refresh_downloads_applies(
+                self._dependency_name, self._package
+        )
+        if want_refresh:
+            no_exec = bool(
+                    self.is_option_set( "no_exec" )
+                    or self._cuppa_env.get( 'no_exec' )
+            )
+            if no_exec:
+                logger.info(
+                        "--refresh-downloads: would re-fetch package [{}] "
+                        "(skipped under -n / --no-exec)".format(
+                                as_info( self._package_id )
+                        )
+                )
+            elif self._offline:
+                logger.error(
+                        "--refresh-downloads cannot run in OFFLINE mode "
+                        "(package [{}])".format( as_error( self._package_id ) )
+                )
+                raise GitlabPackageDependencyException(
+                        "--refresh-downloads cannot run in OFFLINE mode "
+                        "(package [{}]). Drop --offline to re-fetch, or omit "
+                        "--refresh-downloads.".format( self._package_id )
+                )
+            else:
+                removed = _remove_package_consume_cache(
+                        cache_dir, self._package_dir, self._package_id
+                )
+                if removed:
+                    logger.info(
+                            "--refresh-downloads: cleared {} path(s) for "
+                            "package [{}]; re-fetching".format(
+                                    as_info( str( len( removed ) ) ),
+                                    as_info( self._package_id ),
+                            )
+                    )
+                else:
+                    logger.info(
+                            "--refresh-downloads: no cached archive/extract "
+                            "for package [{}]; fetching".format(
+                                    as_info( self._package_id )
+                            )
+                    )
+                # Prefer the configured stem after a force clear (do not reuse a
+                # sibling stem that survived a partial remove).
+                self._download_target = preferred_target
+                package_file = os.path.basename( self._download_target )
 
         if not os.path.exists( self._extraction_dir ):
             os.makedirs( self._extraction_dir )

@@ -158,6 +158,27 @@ The dependency actions are:
 
 Do not combine remove, purge, and wipe modes in one command.
 
+[#refresh-downloads]
+=== Refresh package downloads (configure-time)
+
+Same-version GitLab package republish leaves a sticky archive until you delete
+it. Prefer an opt-in re-fetch on the **next configure** over a separate purge
+when you only need currency for this build:
+
+[source,sh]
+----
+cuppa -D --rel --refresh-downloads
+cuppa -D --rel --refresh-downloads=protobuf,abseil_cpp
+----
+
+`--refresh-downloads` clears the matching package archive(s) and extract for
+the active toolchain/variant, then downloads and extracts again. Bare flag =
+all project-used GitLab package dependencies; `=NAMES` selects by Cuppa
+dependency name or registry package name. It refuses `--offline`, skips deps
+using `--develop` / a local stage, and does not delete under `-n` /
+`--no-exec`. It complements purge/wipe; it does not replace them. Location /
+Conan archives are out of scope.
+
 Publisher forest reclaim is separate: `--remove-publishers=NAME` /
 `--remove-all-publishers` (comma-separated folder names under the in-force
 publisher root). Dry-run with `-n` prints the full `--list-publishers` table

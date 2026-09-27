@@ -32,6 +32,11 @@ It is **not** the same as a filter **selector** (`[gitlab]`, `[source]`, <...>),
 restricts which dependency *type* a name matches — see
 xref:#dependency-types-and-selectors[Dependency types and selectors].
 
+When a GitLab package was **republished at the same version** and you only need this
+build to see the new archive (not a storage clean-out), prefer configure-time
+xref:cli/inspect-and-maintain.adoc#refresh-downloads[`--refresh-downloads`]
+over purge/wipe.
+
 [cols="1,2,4"]
 |===
 | Step | Flag family | Relative to the previous step

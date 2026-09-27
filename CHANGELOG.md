@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--refresh-downloads`` / ``--refresh-downloads=NAMES`` — opt-in configure-time
+  re-fetch of GitLab package archives (and re-extract) so same-version registry
+  overwrites are not sticky. Bare flag refreshes all project-used GitLab package
+  dependencies; ``=NAMES`` selects by Cuppa dependency or registry package name.
+  Refuses ``--offline``; skips ``--develop`` / local stage; skips drop under
+  ``-n`` / ``--no-exec``. Complements purge/wipe. Design:
+  [`package-download-refresh`](design/plans/package-download-refresh.md)
+  ([#296](https://github.com/ja11sop/cuppa/issues/296)).
+
 - ``--build-cascade-dependencies`` with ``--build-and-publish-dependencies`` —
   leaf-first nested **build** of the GitLab package DAG without registry upload,
   then tip build only. Nested sessions use project-only argv (no
