@@ -1615,7 +1615,7 @@ def _write_filter_note( out ):
     )
     tee, elbow, _pipe, _gap = storage.glyphs()
     note_indent = as_subdued( '      ' )
-    out.write( as_subdued( "Note: " ) )
+    out.write( "Note: " )
     out.write( as_info( "<filter>" ) )
     out.write( as_subdued( " is a comma-separated list of " ) )
     for index, form in enumerate( forms ):
