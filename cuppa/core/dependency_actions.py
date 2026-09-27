@@ -1598,19 +1598,23 @@ def write_reclaim_storage_hint( out, data ):
 
 
 def _write_filter_note( out ):
-    """Footer note: filter forms (info) and fnmatch examples (plain)."""
+    """Footer note: filter forms (info), then a short fnmatch / examples tree."""
     forms = (
             'name',
             '[selector]name',
             'name/qualifier',
             '[selector]name/qualifier',
     )
+    # Commas inside a multi-name filter stay with the example (not subdued separators).
     examples = (
             'boost',
+            'boost,conan',
             'boost/1.86',
             "'boost/1.8*'",
             "'[source]boost/[4-9].*'",
     )
+    tee, elbow, _pipe, _gap = storage.glyphs()
+    note_indent = as_subdued( '      ' )
     out.write( as_subdued( "Note: " ) )
     out.write( as_info( "<filter>" ) )
     out.write( as_subdued( " is a comma-separated list of " ) )
@@ -1618,16 +1622,21 @@ def _write_filter_note( out ):
         if index:
             out.write( as_subdued( ", " ) )
         out.write( as_info( form ) )
+    out.write( "\n" )
+    out.write( note_indent + as_subdued( tee ) )
     out.write( as_subdued(
-            " (fnmatch supported for name and qualifier, e.g. "
-    ) )
+            "fnmatch wildcards (*,?,[...]) are supported for name and qualifier; "
+            "quote wildcards for the shell"
+    ) + "\n" )
+    out.write( note_indent + as_subdued( elbow ) )
+    out.write( as_subdued( "e.g. " ) )
     for index, example in enumerate( examples ):
         if index == len( examples ) - 1:
             out.write( as_subdued( " or " ) )
         elif index:
             out.write( as_subdued( ", " ) )
         out.write( example )
-    out.write( as_subdued( "); quote wildcards for the shell" ) + "\n" )
+    out.write( "\n" )
 
 
 def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):

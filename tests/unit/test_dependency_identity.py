@@ -236,6 +236,57 @@ def test_list_location_marks_and_precedence():
     ) == ( None, None )
 
 
+def test_working_copy_location_path_follows_section_colour():
+    """``[pub]`` / ``[dev]`` paths: info when used, subdued when unused (like ``[dl]``)."""
+    from cuppa.colourise import as_info, as_subdued, colouriser
+    from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK
+
+    path = '~/.cuppa/publishers/capy'
+    location = '{} {}'.format( WORKING_COPY_PUB_MARK, path )
+
+    def tree_for( section ):
+        return {
+            'sections': [
+                {
+                    'kind': 'section',
+                    'label': section,
+                    'children': [
+                        {
+                            'kind': 'type',
+                            'label': 'gitlab packages',
+                            'children': [
+                                {
+                                    'kind': 'identity',
+                                    'label': 'capy',
+                                    'location': location,
+                                    'size_bytes': 10,
+                                    'last_used_epoch': None,
+                                    'children': [],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        used = '\n'.join(
+                dependency_tree.render_tree_lines( tree_for( 'used' ), verbose=True )[0]
+        )
+        unused = '\n'.join(
+                dependency_tree.render_tree_lines( tree_for( 'unused' ), verbose=True )[0]
+        )
+        assert as_info( path ) in used
+        assert as_subdued( path ) in unused
+        assert as_info( WORKING_COPY_PUB_MARK ) in used
+        assert as_info( WORKING_COPY_PUB_MARK ) in unused
+    finally:
+        colouriser.use_colour = was_colour
+
+
 def test_apply_list_location_overlay_paints_identity( tmp_path ):
     from cuppa.core import dependency_actions
     from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK

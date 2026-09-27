@@ -119,7 +119,8 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert '--remove-dependencies' in text
     assert '&lt;filter&gt;' in text or '<filter>' in text
     assert 'Note:' in text
-    assert 'fnmatch' in text
+    assert 'fnmatch wildcards' in text
+    assert 'boost,conan' in text
     assert "[selector]name/qualifier" in text or '[selector]name/qualifier' in text
     assert '([gl],[gitlab],[gitlab_package])' in text
     assert '([sa],[source],[archive],[source_archive])' in text

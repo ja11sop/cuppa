@@ -42,6 +42,8 @@ To reclaim storage from an unused dependency use one of:
 └── cuppa -Q -D -n --force-wipe-unreferenced-dependencies
     └── orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)
 
-Note: <filter> is a comma-separated list of name, [selector]name, name/qualifier, [selector]name/qualifier (fnmatch supported for name and qualifier, e.g. boost, boost/1.86, 'boost/1.8*' or '[source]boost/[4-9].*'); quote wildcards for the shell
+Note: <filter> is a comma-separated list of name, [selector]name, name/qualifier, [selector]name/qualifier
+      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards for the shell
+      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or '[source]boost/[4-9].*'
 
 Drop -n and re-run after confirming.

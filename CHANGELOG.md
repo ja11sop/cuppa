@@ -30,8 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   emphasised info; detail lines are subdued. Wording distinguishes build-product
   clean (remove), same plus download with extract staying (purge), and whole
   extract plus download (wipe). The footer Note lists the four filter forms and
-  fnmatch examples; type group rows show muted selector aliases
-  (``[gl]``, ``[source]``, <...>).
+  a short fnmatch / examples tree; type group rows show muted selector aliases
+  (``[gl]``, ``[source]``, <...>). Verbose ``[pub]`` / ``[dev]`` LOCATION paths
+  follow ``[dl]`` colour (info when used, subdued when unused).
 
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees

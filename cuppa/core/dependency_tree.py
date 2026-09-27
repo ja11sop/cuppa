@@ -1594,6 +1594,9 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     )
                 else:
                     label = _emphasised_normal( label ) if label else label
+                # [dl]/[dev]/[pub] paths: mute like unused download LOCATION.
+                if dependency_identity.split_location_mark( location )[0]:
+                    location_path_colour = as_subdued
             elif kind == 'leaf':
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
@@ -1623,7 +1626,9 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     last_used = as_subdued( last_used )
                 if remark in ( 'develop', 'in use' ):
                     remark = as_info( remark )
-                # Used identity LOCATION path stays plain; marks still info.
+                # [dl]/[dev]/[pub] paths: info like in-use download LOCATION.
+                if dependency_identity.split_location_mark( location )[0]:
+                    location_path_colour = as_info
             elif kind == 'version':
                 # Version rollups are secondary to the toolchain / variant leaf.
                 if size.strip():
