@@ -43,6 +43,16 @@ TYPE_LABELS = (
     ( 'toolchain', 'toolchains' ),
 )
 
+# Operator-facing filter selectors shown muted after each type group label.
+# Order matches reclaim docs (short → preferred → longer); not every SELECTOR_ALIASES spelling.
+TYPE_SELECTOR_HINTS = {
+    'repository': '([vcs],[repo],[repository],[location])',
+    'gitlab': '([gl],[gitlab],[gitlab_package])',
+    'conan': '([cn],[conan],[conan_package])',
+    'archive': '([sa],[source],[archive],[source_archive])',
+    'toolchain': '([tc],[toolchain],[toolchains],[compiler])',
+}
+
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
 # Match --list-builds: fixed width, right-aligned size column.
@@ -1104,6 +1114,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_label,
+            'selector_hint': TYPE_SELECTOR_HINTS.get( type_key ),
             'size_bytes': None,  # filled from leaves below (includes nested requires)
             'last_used_epoch': epoch,
             'remark': _remark_count( used, 'used' ),
@@ -1117,6 +1128,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_key,
+            'selector_hint': TYPE_SELECTOR_HINTS.get( type_key ),
             'size_bytes': None,
             'last_used_epoch': epoch,
             'remark': '',
@@ -1479,6 +1491,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_missing_version': missing_version,
             '_leaf_missing': leaf_missing,
             '_removal_candidate': node.get( 'removal_candidate' ),
+            '_selector_hint': node.get( 'selector_hint' ),
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
@@ -1650,6 +1663,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     )
                     location_path_colour = as_subdued
             # section / type: normal colour (layout structure).
+
+        # Type group rows: append muted filter selectors in every section.
+        if kind == 'type' and row.get( '_selector_hint' ):
+            label = ( label or '' ) + ' ' + as_subdued( row['_selector_hint'] )
 
         if location:
             location = dependency_identity.paint_location(

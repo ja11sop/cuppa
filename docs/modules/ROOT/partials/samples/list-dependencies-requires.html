@@ -1,14 +1,14 @@
 <pre class="cuppa-output"><code>
 Dependencies in <span class="cuppa-info">~/.cuppa/dependencies</span>
 Default dependencies: <span class="cuppa-info">alpha</span>
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+<span class="cuppa-subdued">  ---------------------------------------------------------------------------------------</span>
       SIZE  LAST USED   REMARK       DEPENDENCY
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+<span class="cuppa-subdued">  ---------------------------------------------------------------------------------------</span>
        24K  today       3 total      used
                                      <span class="cuppa-subdued">│</span>
   <span class="cuppa-info">     24K</span>  today       <span class="cuppa-info">3 used</span>       <span class="cuppa-subdued">├── </span><span class="cuppa-info">dependencies in use</span>
                                      <span class="cuppa-subdued">│</span>
-       24K  today       1 used       <span class="cuppa-subdued">└── </span>gitlab packages
+       24K  today       1 used       <span class="cuppa-subdued">└── </span>gitlab packages <span class="cuppa-subdued">([gl],[gitlab],[gitlab_package])</span>
                                      <span class="cuppa-subdued">    │</span>
   <span class="cuppa-subdued">     12K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">    └── </span><span class="cuppa-emphasised"><span class="cuppa-info">alpha</span></span>
   <span class="cuppa-subdued">     12K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">        └── </span>1.0.0
@@ -26,10 +26,10 @@ Default dependencies: <span class="cuppa-info">alpha</span>
   <span class="cuppa-subdued">      4K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                └── </span><span class="cuppa-emphasised"><span class="cuppa-info">gamma</span></span>
   <span class="cuppa-subdued">      4K</span>  <span class="cuppa-subdued">today</span>                    <span class="cuppa-subdued">                    └── </span>3.0.0
         4K  today       <span class="cuppa-info">in use</span>       <span class="cuppa-subdued">                        └── </span><span class="cuppa-info">gcc153_rel_x86_64_cxx2c</span>
-  <span class="cuppa-subdued">--------------------------------------------------------------------------------------</span>
+  <span class="cuppa-subdued">---------------------------------------------------------------------------------------</span>
         7K  4 days ago               unused
                                      <span class="cuppa-subdued">│</span>
-        7K  4 days ago               <span class="cuppa-subdued">└── </span>gitlab packages
+        7K  4 days ago               <span class="cuppa-subdued">└── </span>gitlab packages <span class="cuppa-subdued">([gl],[gitlab],[gitlab_package])</span>
                                      <span class="cuppa-subdued">    │</span>
         7K  4 days ago               <span class="cuppa-subdued">    └── </span><span class="cuppa-emphasised">beta</span>
         7K  4 days ago               <span class="cuppa-subdued">        └── </span>2.0.0
@@ -37,7 +37,7 @@ Default dependencies: <span class="cuppa-info">alpha</span>
                                      <span class="cuppa-subdued">            │</span>
                                      <span class="cuppa-subdued">            └── </span>requires
                         <span class="cuppa-subdued">libs: gamma</span>  <span class="cuppa-subdued">                └── </span><span class="cuppa-subdued">gamma 3.0.0</span>
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------</span>
+<span class="cuppa-subdued">  ---------------------------------------------------------------------------------------</span>
   4 entries, 31K total, 7K unreferenced
 
 To reclaim storage from an in use dependency use one of:
@@ -56,7 +56,7 @@ To reclaim storage from an unused dependency use one of:
 <span class="cuppa-subdued">└── </span>cuppa -Q -D -n <span class="cuppa-emphasised"><span class="cuppa-info">--force-wipe-unreferenced-dependencies</span></span>
 <span class="cuppa-subdued">    └── </span><span class="cuppa-subdued">orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)</span>
 
-<span class="cuppa-subdued">Note: </span><span class="cuppa-info">&lt;filter&gt;</span><span class="cuppa-subdued"> is a comma-separated list of [selector]name/qualifier</span>
+<span class="cuppa-subdued">Note: </span><span class="cuppa-info">&lt;filter&gt;</span><span class="cuppa-subdued"> is a comma-separated list of </span><span class="cuppa-info">name</span><span class="cuppa-subdued">, </span><span class="cuppa-info">[selector]name</span><span class="cuppa-subdued">, </span><span class="cuppa-info">name/qualifier</span><span class="cuppa-subdued">, </span><span class="cuppa-info">[selector]name/qualifier</span><span class="cuppa-subdued"> (fnmatch supported for name and qualifier, e.g. </span>boost<span class="cuppa-subdued">, </span>boost/1.86<span class="cuppa-subdued">, </span>&#x27;boost/1.8*&#x27;<span class="cuppa-subdued"> or </span>&#x27;[source]boost/[4-9].*&#x27;<span class="cuppa-subdued">); quote wildcards for the shell</span>
 
 Drop -n and re-run after confirming.
 </code></pre>

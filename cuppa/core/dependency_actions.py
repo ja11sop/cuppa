@@ -1593,12 +1593,41 @@ def write_reclaim_storage_hint( out, data ):
         )
 
     out.write( "\n" )
-    out.write( as_subdued( "Note: " ) )
-    out.write( _paint_cli_advice( "<filter>" ) )
-    out.write( as_subdued(
-            " is a comma-separated list of [selector]name/qualifier"
-    ) + "\n" )
+    _write_filter_note( out )
     out.write( "\nDrop -n and re-run after confirming.\n" )
+
+
+def _write_filter_note( out ):
+    """Footer note: filter forms (info) and fnmatch examples (plain)."""
+    forms = (
+            'name',
+            '[selector]name',
+            'name/qualifier',
+            '[selector]name/qualifier',
+    )
+    examples = (
+            'boost',
+            'boost/1.86',
+            "'boost/1.8*'",
+            "'[source]boost/[4-9].*'",
+    )
+    out.write( as_subdued( "Note: " ) )
+    out.write( as_info( "<filter>" ) )
+    out.write( as_subdued( " is a comma-separated list of " ) )
+    for index, form in enumerate( forms ):
+        if index:
+            out.write( as_subdued( ", " ) )
+        out.write( as_info( form ) )
+    out.write( as_subdued(
+            " (fnmatch supported for name and qualifier, e.g. "
+    ) )
+    for index, example in enumerate( examples ):
+        if index == len( examples ) - 1:
+            out.write( as_subdued( " or " ) )
+        elif index:
+            out.write( as_subdued( ", " ) )
+        out.write( example )
+    out.write( as_subdued( "); quote wildcards for the shell" ) + "\n" )
 
 
 def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):

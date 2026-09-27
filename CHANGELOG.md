@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   not ``[]`` alone, which is list-tree selector syntax); reclaim flags are
   emphasised info; detail lines are subdued. Wording distinguishes build-product
   clean (remove), same plus download with extract staying (purge), and whole
-  extract plus download (wipe).
+  extract plus download (wipe). The footer Note lists the four filter forms and
+  fnmatch examples; type group rows show muted selector aliases
+  (``[gl]``, ``[source]``, <...>).
 
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees
