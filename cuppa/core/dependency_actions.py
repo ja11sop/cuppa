@@ -230,25 +230,46 @@ def _working_copy_index( cuppa_env ):
             path = os.path.join( root, name )
             if package_cascade._looks_like_publisher_tree( path ):
                 remember( name, 'pub', path )
+                # Meet nest / registry aliases that differ only by - vs _.
+                remember( name.replace( '-', '_' ), 'pub', path )
+                remember( name.replace( '_', '-' ), 'pub', path )
 
     return index
 
 
 def _aliases_for_identity_node( node ):
-    """Names that may match a develop / publisher index entry for one identity."""
+    """Names that may match a develop / publisher index entry for one identity.
+
+    Includes hyphen/underscore package variants so nest ``requires`` identities
+    (``google_cloud_cpp``) meet publisher folders (``google-cloud-cpp``).
+    """
     aliases = []
     for key in (
             node.get( 'registry_name' ),
             node.get( 'short_name' ),
             node.get( 'label_name' ),
+            node.get( 'family_key' ),
             node.get( 'label' ),
     ):
         if not key:
             continue
         text = str( key ).strip()
-        if text and text not in aliases:
-            aliases.append( text )
-    return aliases
+        # Drop compact mark+path suffixes if label was already rewritten.
+        if text.startswith( '[' ) or ' [' in text:
+            text = text.split( ' [', 1 )[0].strip()
+        if not text or text in aliases:
+            continue
+        aliases.append( text )
+    expanded = []
+    for alias in aliases:
+        for variant in (
+                alias,
+                alias.replace( '-', '_' ),
+                alias.replace( '_', '-' ),
+        ):
+            if variant and variant not in expanded:
+                expanded.append( variant )
+    return expanded
 
 
 def _lookup_working_copies( index, aliases ):
@@ -265,8 +286,13 @@ def _lookup_working_copies( index, aliases ):
     return develop_path, publisher_path
 
 
-def apply_list_location_overlay( tree, cuppa_env ):
-    """Replace identity LOCATION with marked working-copy paths when requested.
+def apply_list_location_overlay( tree, cuppa_env, compact=False ):
+    """Overlay working-copy paths for ``--list-location`` (non-storage).
+
+    Verbose (``compact=False``): replace identity LOCATION with
+    ``[dev]|[pub] <path>``. Compact: rewrite the DEPENDENCY identity label to
+    ``name [dev]|[pub] <path>`` (replacing bracket detail, or appending when
+    there was none) and leave LOCATION empty so the column stays unused.
 
     Returns ``(painted, painted_dev, painted_pub)``. No-op for
     ``--list-location=storage`` (default).
@@ -296,11 +322,27 @@ def apply_list_location_overlay( tree, cuppa_env ):
             )
             if path and kind:
                 display = storage.display_path( path )
-                node['location'] = dependency_identity.with_working_copy_mark(
+                marked = dependency_identity.with_working_copy_mark(
                         display, kind
                 )
                 node['working_copy_kind'] = kind
                 node['working_copy_path'] = path
+                if compact:
+                    name = (
+                            node.get( 'label_name' )
+                            or node.get( 'registry_name' )
+                            or node.get( 'short_name' )
+                            or node.get( 'label' )
+                            or ''
+                    )
+                    node['label'] = '{} {}'.format( name, marked ).strip()
+                    node['label_name'] = name
+                    node['label_detail'] = None
+                    node['compact_wc_location'] = marked
+                    node['location'] = ''
+                else:
+                    node['location'] = marked
+                    node.pop( 'compact_wc_location', None )
                 painted = True
                 if kind == 'dev':
                     painted_dev = True
@@ -570,11 +612,13 @@ def add_dependency_action_options( add_option ):
         '--list-location', dest='list_location',
         choices=dependency_identity.LIST_LOCATION_CHOICES,
         nargs=1, action='store', default='storage',
-        help="Which LOCATION --list-dependencies shows under --list-format=verbose: "
-             "storage (default: registry / URL / extract), publishers ([pub] forest path "
-             "under --publisher-root), develop ([dev] configured develop= path), or "
-             "active (develop when --develop is on, else publishers, else storage). "
-             "Orthogonal to --list-scope. Ignored by --list-downloads and other list reports",
+        help="Working-copy overlay for --list-dependencies: storage (default: registry / "
+             "URL / extract LOCATION when verbose), publishers ([pub] forest path under "
+             "--publisher-root), develop ([dev] configured develop= path), or active "
+             "(develop when --develop is on, else publishers, else storage). Compact "
+             "text puts the mark and path on the identity DEPENDENCY label; verbose "
+             "keeps a LOCATION column. Orthogonal to --list-format and --list-scope. "
+             "Ignored by --list-downloads and other list reports",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
@@ -1407,11 +1451,15 @@ def _render_skip_tree( skips ):
 
 
 def _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' ):
-    """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``."""
+    """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``.
+
+    Returns False when there is nothing to show (no lines, or header only).
+    """
     lines, _columns = dependency_tree.render_tree_lines(
             tree, verbose=verbose, tree_header=tree_header,
     )
-    if not lines:
+    # Header-only means empty sections — treat as no tree so callers can fall back.
+    if len( lines ) <= 1:
         return False
     width = max( storage.visible_len( line ) for line in lines )
     rule = as_subdued( INDENT + RULE * width )
@@ -1469,12 +1517,14 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
             if row.get( 'state' ) in _REMOVAL_HINT_STATES
             and row.get( 'dependency' ) in project_set
     ]
+    # Default build_tree grouping is usage (used/unused); identity grouping uses
+    # referenced/unreferenced. Keep the primary in-use section either way.
     tree = dependency_tree.build_tree( hint_rows )
-    # Removable hint: referenced section only (no unreferenced leftovers).
     tree = {
         'sections': [
                 section for section in tree.get( 'sections' ) or []
-                if section.get( 'label' ) == 'referenced' and section.get( 'children' )
+                if section.get( 'label' ) in ( 'used', 'referenced' )
+                and section.get( 'children' )
         ],
     }
     if not _write_ruled_tree( out, tree ):
@@ -1597,6 +1647,42 @@ def write_reclaim_storage_hint( out, data ):
     out.write( "\nDrop -n and re-run after confirming.\n" )
 
 
+def _paint_fnmatch_note_detail( text ):
+    """Subdue fnmatch prose; keep ``name`` / ``qualifier`` as info."""
+    pattern = re.compile( r'\b(name|qualifier)\b' )
+    parts = []
+    last = 0
+    for match in pattern.finditer( text ):
+        if match.start() > last:
+            parts.append( as_subdued( text[last:match.start()] ) )
+        parts.append( as_info( match.group( 1 ) ) )
+        last = match.end()
+    if last < len( text ):
+        parts.append( as_subdued( text[last:] ) )
+    return ''.join( parts )
+
+
+def _paint_filter_examples_detail( text ):
+    """Paint an ``e.g. …`` wrap piece: subdued connectives, plain example tokens."""
+    if text.startswith( 'e.g. ' ):
+        out = as_subdued( 'e.g. ' )
+        rest = text[len( 'e.g. ' ):]
+    else:
+        out = ''
+        rest = text
+
+    # Split on subdued connectives while keeping boost,conan as one token.
+    # Tokens are either quoted ('…') or unquoted runs without ', ' / ' or '.
+    pattern = re.compile( r"(, | or )" )
+    parts = pattern.split( rest )
+    for part in parts:
+        if part in ( ', ', ' or ' ):
+            out += as_subdued( part )
+        else:
+            out += part
+    return out
+
+
 def _write_filter_note( out, width=None ):
     """Footer note: filter forms (info), then a wrapped fnmatch / examples tree."""
     forms = (
@@ -1617,14 +1703,15 @@ def _write_filter_note( out, width=None ):
     note_indent = '      '
     prose_width = storage.WIDEST_PROSE if width is None else width
 
-    def write_wrapped( first_branch, carried_branch, text, body_paint ):
-        wrap_width = max(
-                prose_width - len( first_branch ), storage.NARROWEST_PROSE,
-        )
+    # Same wrap width for every sibling branch (tee and elbow are equal length).
+    branch_width = len( note_indent + tee )
+    wrap_width = max( prose_width - branch_width, storage.NARROWEST_PROSE )
+
+    def write_wrapped( first_branch, carried_branch, text, paint ):
         branch = first_branch
         for piece in storage.wrapped( text, wrap_width ):
             out.write( as_subdued( branch ) )
-            out.write( body_paint( piece ) + "\n" )
+            out.write( paint( piece ) + "\n" )
             branch = carried_branch
 
     out.write( "Note: " )
@@ -1639,13 +1726,13 @@ def _write_filter_note( out, width=None ):
             note_indent + tee,
             note_indent + pipe,
             fnmatch_text,
-            as_subdued,
+            _paint_fnmatch_note_detail,
     )
     write_wrapped(
             note_indent + elbow,
             note_indent + gap,
             examples_text,
-            lambda piece: piece,  # examples stay plain (incl. commas in boost,conan)
+            _paint_filter_examples_detail,
     )
 
 
@@ -1722,9 +1809,7 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
                 _paint_cli_advice( "--purge-dependencies=<filter>" )
         ) )
 
-    if verbose and (
-            data.get( 'has_dev_marks' ) or data.get( 'has_pub_marks' )
-    ):
+    if data.get( 'has_dev_marks' ) or data.get( 'has_pub_marks' ):
         if data.get( 'has_dev_marks' ):
             out.write( "\n" )
             out.write( "{} = the configured develop={} working copy\n".format(
@@ -1875,12 +1960,12 @@ def list_dependencies( construct, cuppa_env, out=None ):
     painted = False
     painted_dev = False
     painted_pub = False
-    if verbose or list_location != 'storage':
-        # Overlay needs LOCATION; non-storage modes imply the verbose column.
-        if list_location != 'storage':
-            verbose = True
+    if list_location != 'storage':
+        # Compact text: mark+path on the identity DEPENDENCY label.
+        # Verbose / JSON: LOCATION field (JSON has no column layout).
+        use_compact_label = ( list_format == 'text' )
         painted, painted_dev, painted_pub = apply_list_location_overlay(
-                tree, cuppa_env
+                tree, cuppa_env, compact=use_compact_label,
         )
     data['tree'] = tree
     data['list_location'] = list_location

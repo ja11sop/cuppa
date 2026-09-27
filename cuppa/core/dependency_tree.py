@@ -601,6 +601,7 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
         'label_detail': detail_part,
         'registry_name': registry,
         'short_name': short,
+        'family_key': group.get( 'family_key' ),
         'size_bytes': None if missing_only else size_bytes,
         'last_used_epoch': None if missing_only else epoch,
         'remark': remark,
@@ -1386,6 +1387,31 @@ def _colour_identity_label( name, detail, accent, detail_accent=None ):
     return coloured_name
 
 
+def _colour_identity_label_or_wc(
+        name, detail, accent, compact_wc=None, path_colour=None, detail_accent=None,
+):
+    """Identity label: optional compact ``[dev]|[pub] path`` instead of bracket detail.
+
+    Compact: mark is plain, path is subdued; the dependency name keeps ``accent``.
+    Verbose LOCATION keeps info marks via ``paint_location`` defaults.
+    """
+    if not name and not compact_wc:
+        return ''
+    if compact_wc:
+        coloured_name = accent( name ) if name else ''
+        painted_wc = dependency_identity.paint_location(
+                compact_wc,
+                path_colour=path_colour or as_subdued,
+                mark_colour='plain',
+        )
+        if coloured_name and painted_wc:
+            return coloured_name + ' ' + painted_wc
+        return coloured_name or painted_wc
+    return _colour_identity_label(
+            name, detail, accent, detail_accent=detail_accent,
+    )
+
+
 def _emphasised_info( text ):
     return as_emphasised( as_info( text ) )
 
@@ -1514,6 +1540,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_section': section,
             '_label_name': node.get( 'label_name' ),
             '_label_detail': node.get( 'label_detail' ),
+            '_compact_wc_location': node.get( 'compact_wc_location' ),
             '_missing_identity': missing_identity,
             '_missing_version': missing_version,
             '_leaf_missing': leaf_missing,
@@ -1572,6 +1599,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         section = row.get( '_section' )
         label_name = row.get( '_label_name' )
         label_detail = row.get( '_label_detail' )
+        compact_wc = row.get( '_compact_wc_location' )
 
         if kind == 'spacer':
             dependency = as_subdued( stem ) if stem else ''
@@ -1589,9 +1617,11 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         if row.get( '_missing_identity' ):
             # Missing dependency name: emphasised error; registry URL detail/LOCATION muted
             # so the gap (missing leaf) stays the visual focus.
-            if label_name:
-                label = _colour_identity_label(
-                        label_name, label_detail, _emphasised_error, detail_accent=as_subdued
+            if label_name or compact_wc:
+                label = _colour_identity_label_or_wc(
+                        label_name, label_detail, _emphasised_error,
+                        compact_wc=compact_wc, path_colour=as_subdued,
+                        detail_accent=as_subdued,
                 )
             else:
                 label = _emphasised_error( label ) if label else label
@@ -1615,9 +1645,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             location_path_colour = as_error
         elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
-                if label_name:
-                    label = _colour_identity_label(
-                            label_name, label_detail, _emphasised_normal
+                if label_name or compact_wc:
+                    label = _colour_identity_label_or_wc(
+                            label_name, label_detail, _emphasised_normal,
+                            compact_wc=compact_wc, path_colour=as_subdued,
                     )
                 else:
                     label = _emphasised_normal( label ) if label else label
@@ -1640,9 +1671,22 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 location_path_colour = as_subdued
         elif section in ( 'referenced', 'used' ):
             if kind == 'identity':
-                if label_name:
-                    label = _colour_identity_label(
-                            label_name, label_detail, _emphasised_info
+                # Compact WC paths are always subdued (mark stays info). Verbose
+                # LOCATION: [pub]/[dl] path info when used; [dev] path stays plain.
+                if compact_wc:
+                    wc_path_colour = as_subdued
+                else:
+                    wc_mark = dependency_identity.split_location_mark( location )[0]
+                    wc_path_colour = None
+                    if (
+                            wc_mark
+                            and wc_mark != dependency_identity.WORKING_COPY_DEV_MARK
+                    ):
+                        wc_path_colour = as_info
+                if label_name or compact_wc:
+                    label = _colour_identity_label_or_wc(
+                            label_name, label_detail, _emphasised_info,
+                            compact_wc=compact_wc, path_colour=wc_path_colour,
                     )
                 else:
                     label = _emphasised_info( label ) if label else label
@@ -1653,8 +1697,6 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     last_used = as_subdued( last_used )
                 if remark in ( 'develop', 'in use' ):
                     remark = as_info( remark )
-                # LOCATION marks: [pub]/[dl] path info when used; [dev] path stays plain
-                # (local working copy — less “remote badge” than publishers / downloads).
                 mark, _ = dependency_identity.split_location_mark( location )
                 if mark and mark != dependency_identity.WORKING_COPY_DEV_MARK:
                     location_path_colour = as_info

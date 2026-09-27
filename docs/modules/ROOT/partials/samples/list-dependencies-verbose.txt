@@ -9,7 +9,7 @@ Default dependencies: boost_package
                                 │
     299.3M  today      1 used   └── gitlab packages select as [gl], [gitlab] or [gitlab_package]
                                     │
-    299.3M  today                   └── boost_package
+    299.3M  today                   └── boost_package                                                        [pub] ~/.cuppa/publishers/boost
     299.3M  today                       └── 1.91                                                             https://gitlab.example/api/v4/projects/1/boost/1.91
     299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c                                      [dl] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
   -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ Default dependencies: boost_package
                                 │
       5.8M  today               └── source archives select as [sa], [source], [archive] or [source_archive]
                                     │
-      2.9M  today                   ├── boost
+      2.9M  today                   ├── boost                                                                [pub] ~/.cuppa/publishers/boost
       2.9M  today                   │   └── 1.91.0                                                           [dl] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
                                     │
       2.9M  today                   └── github.com/fmtlib/fmt
@@ -29,6 +29,9 @@ Default dependencies: boost_package
 [dl] = the archive present under downloads (~/.cuppa/downloads).
         If re-extracting a dependency fails, remove the corrupt archive there using
         --purge-dependencies=<filter>
+
+[pub] = the <publisher_path> under the in-force publisher root
+        (as provided by --publisher-root, otherwise ~/.cuppa/publishers).
 
 To reclaim storage from an in use dependency use one of:
 │
@@ -47,9 +50,7 @@ To reclaim storage from an unused dependency use one of:
     └── orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)
 
 Note: <filter> is a comma-separated list of name, [selector]name, name/qualifier, [selector]name/qualifier
-      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards
-      │   for the shell
-      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or
-          '[source]boost/[4-9].*'
+      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards for the shell
+      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or '[source]boost/[4-9].*'
 
 Drop -n and re-run after confirming.

@@ -48,10 +48,8 @@ To reclaim storage from an unreferenced dependency use one of:
 <span class="cuppa-subdued">    └── </span><span class="cuppa-subdued">orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)</span>
 
 Note: <span class="cuppa-info">&lt;filter&gt;</span><span class="cuppa-subdued"> is a comma-separated list of </span><span class="cuppa-info">name</span><span class="cuppa-subdued">, </span><span class="cuppa-info">[selector]name</span><span class="cuppa-subdued">, </span><span class="cuppa-info">name/qualifier</span><span class="cuppa-subdued">, </span><span class="cuppa-info">[selector]name/qualifier</span>
-<span class="cuppa-subdued">      ├── </span><span class="cuppa-subdued">fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards</span>
-<span class="cuppa-subdued">      │   </span><span class="cuppa-subdued">for the shell</span>
-<span class="cuppa-subdued">      └── </span>e.g. boost, boost,conan, boost/1.86, &#x27;boost/1.8*&#x27; or
-<span class="cuppa-subdued">          </span>&#x27;[source]boost/[4-9].*&#x27;
+<span class="cuppa-subdued">      ├── </span><span class="cuppa-subdued">fnmatch wildcards (*,?,[...]) are supported for </span><span class="cuppa-info">name</span><span class="cuppa-subdued"> and </span><span class="cuppa-info">qualifier</span><span class="cuppa-subdued">; quote wildcards for the shell</span>
+<span class="cuppa-subdued">      └── </span><span class="cuppa-subdued">e.g. </span>boost<span class="cuppa-subdued">, </span>boost,conan<span class="cuppa-subdued">, </span>boost/1.86<span class="cuppa-subdued">, </span>&#x27;boost/1.8*&#x27;<span class="cuppa-subdued"> or </span>&#x27;[source]boost/[4-9].*&#x27;
 
 Drop -n and re-run after confirming.
 </code></pre>

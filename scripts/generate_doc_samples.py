@@ -41,8 +41,10 @@ from cuppa.core import (
         storage_actions,
         toolchain_actions,
 )
+import cuppa.core.dependency_actions as dependency_actions
 from cuppa.core.dependency_actions import (
         _format_age_epoch,
+        apply_list_location_overlay,
         apply_list_scope,
         write_list_dependencies_report,
         write_list_downloads_report,
@@ -825,13 +827,71 @@ def sample_list_dependencies_html():
     return _write_html_sample( 'list-dependencies.html', text, colouriser )
 
 
-def sample_list_dependencies_verbose():
-    """`--list-dependencies --list-format=verbose` with LOCATION / `[dl]`."""
+def _list_dependencies_with_location( mode, compact ):
+    """Scoped list-deps data with a fake publisher/develop working-copy index."""
+    data = _list_dependencies_data()
+    env = _list_dependencies_env()
+    env['list_location'] = mode
+    home = Path.home()
+    pub = str( home / '.cuppa' / 'publishers' / 'boost' )
+    develop = str( home / 'coding' / 'boost' )
+    if mode == 'develop':
+        index = {
+            'boost': { 'dev': develop, 'pub': None },
+            'boost_package': { 'dev': develop, 'pub': None },
+        }
+    else:
+        index = {
+            'boost': { 'dev': None, 'pub': pub },
+            'boost_package': { 'dev': None, 'pub': pub },
+        }
+
+    original = dependency_actions._working_copy_index
+    dependency_actions._working_copy_index = lambda cuppa_env: index
+    try:
+        tree = data.get( 'tree' ) or dependency_tree.build_tree( data['rows'] )
+        painted, painted_dev, painted_pub = apply_list_location_overlay(
+                tree, env, compact=compact,
+        )
+        data['tree'] = tree
+        data['has_working_copy_marks'] = painted
+        data['has_dev_marks'] = painted_dev
+        data['has_pub_marks'] = painted_pub
+        data['list_location'] = mode
+    finally:
+        dependency_actions._working_copy_index = original
+    return data, env
+
+
+def sample_list_dependencies_location():
+    """`--list-dependencies --list-location=publishers` (compact: mark+path on label)."""
+    data, env = _list_dependencies_with_location( 'publishers', compact=True )
     out = io.StringIO()
-    write_list_dependencies_report(
-            out, _list_dependencies_data(), _list_dependencies_env(),
-            verbose=True,
+    write_list_dependencies_report( out, data, env, verbose=False )
+    return _write_sample(
+            'list-dependencies-location.txt',
+            _rewrite_sample_home( out.getvalue() ),
     )
+
+
+def sample_list_dependencies_location_html():
+    """Semantic HTML form of compact ``--list-location=publishers``."""
+    def invoke( out ):
+        data, env = _list_dependencies_with_location( 'publishers', compact=True )
+        write_list_dependencies_report( out, data, env, verbose=False )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-location.html', text, colouriser,
+    )
+
+
+def sample_list_dependencies_verbose():
+    """`--list-dependencies --list-format=verbose --list-location=publishers`."""
+    data, env = _list_dependencies_with_location( 'publishers', compact=False )
+    out = io.StringIO()
+    write_list_dependencies_report( out, data, env, verbose=True )
     return _write_sample(
             'list-dependencies-verbose.txt',
             _rewrite_sample_home( out.getvalue() ),
@@ -839,12 +899,10 @@ def sample_list_dependencies_verbose():
 
 
 def sample_list_dependencies_verbose_html():
-    """Semantic HTML form of verbose `--list-dependencies`."""
+    """Semantic HTML form of verbose list-deps with ``[pub]`` LOCATION overlay."""
     def invoke( out ):
-        write_list_dependencies_report(
-                out, _list_dependencies_data(), _list_dependencies_env(),
-                verbose=True,
-        )
+        data, env = _list_dependencies_with_location( 'publishers', compact=False )
+        write_list_dependencies_report( out, data, env, verbose=True )
 
     text, colouriser = _capture_html( invoke )
     text = _rewrite_sample_home( text, colouriser )
@@ -2201,6 +2259,8 @@ GENERATORS = tuple(
                 sample_list_downloads_json,
                 sample_list_dependencies,
                 sample_list_dependencies_html,
+                sample_list_dependencies_location,
+                sample_list_dependencies_location_html,
                 sample_list_dependencies_verbose,
                 sample_list_dependencies_verbose_html,
                 sample_list_dependencies_json,
@@ -2254,6 +2314,8 @@ GENERATORS = tuple(
         sample_list_downloads_json,
         sample_list_dependencies,
         sample_list_dependencies_html,
+        sample_list_dependencies_location,
+        sample_list_dependencies_location_html,
         sample_list_dependencies_verbose,
         sample_list_dependencies_verbose_html,
         sample_list_dependencies_json,
@@ -2310,6 +2372,7 @@ def main( argv=None ):
                     'list-develop',
                     'list-downloads',
                     'list-dependencies',
+                    'list-dependencies-location',
                     'list-dependencies-verbose',
                     'list-dependencies-requires',
                     'list-dependencies-requires-resolve',
@@ -2341,6 +2404,7 @@ def main( argv=None ):
             'list-develop': sample_list_develop_html,
             'list-downloads': sample_list_downloads_html,
             'list-dependencies': sample_list_dependencies_html,
+            'list-dependencies-location': sample_list_dependencies_location_html,
             'list-dependencies-verbose': sample_list_dependencies_verbose_html,
             'list-dependencies-requires': sample_list_dependencies_requires_html,
             'list-dependencies-requires-resolve': sample_list_dependencies_requires_resolve_html,

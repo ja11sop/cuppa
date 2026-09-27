@@ -518,11 +518,13 @@ def split_location_mark( location ):
     return None, text
 
 
-def paint_location( location, path_colour=None ):
-    """Colour ``[dl]`` / ``[dev]`` / ``[pub]`` with info; optional style for the path.
+def paint_location( location, path_colour=None, mark_colour=None ):
+    """Colour ``[dl]`` / ``[dev]`` / ``[pub]``; optional styles for mark and path.
 
-    Marks stay ``as_info`` even when the path is subdued or error-coloured, so the
-    badge still scans in unused / missing rows.
+    Default mark colour is ``as_info`` so badges still scan on verbose LOCATION
+    rows (even when the path is subdued or error-coloured). Pass
+    ``mark_colour`` as a callable to restyle the mark, or the string
+    ``'plain'`` to leave the mark uncoloured (compact DEPENDENCY overlays).
     """
     from cuppa.colourise import as_info
 
@@ -531,7 +533,12 @@ def paint_location( location, path_colour=None ):
     mark, rest = split_location_mark( location )
     if not mark:
         return path_colour( location ) if path_colour else location
-    painted = as_info( mark )
+    if mark_colour == 'plain':
+        painted = mark
+    elif mark_colour is not None:
+        painted = mark_colour( mark )
+    else:
+        painted = as_info( mark )
     if rest:
         painted += ' ' + ( path_colour( rest ) if path_colour else rest )
     return painted

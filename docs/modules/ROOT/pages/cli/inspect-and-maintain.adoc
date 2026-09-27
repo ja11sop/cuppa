@@ -78,11 +78,12 @@ xref:dependencies/managing.adoc#which-listing[Managing dependencies].
 `--list-scope=SCOPE` applies to `--list-dependencies` and `--list-downloads`. It is ignored by
 build and develop listings. `--list-dependencies-scope` is a deprecated compatibility alias.
 
-`--list-location=MODE` applies to `--list-dependencies` LOCATION only (with
-`--list-format=verbose`, or when a non-`storage` mode implies the LOCATION column). Values:
-`storage` (default), `publishers` (`[pub]`), `develop` (`[dev]`), `active` (develop when
-`--develop` is on, else publishers, else storage). See
-xref:dependencies/managing/list-dependencies.adoc#working-copy-location-list-location[Working-copy LOCATION].
+`--list-location=MODE` overlays working-copy paths on `--list-dependencies` (orthogonal to
+`--list-format`): compact text puts a plain `[dev]` / `[pub]` mark and subdued path on the
+identity DEPENDENCY label; verbose keeps a LOCATION column with info-coloured marks.
+Values: `storage` (default), `publishers` (`[pub]`), `develop` (`[dev]`), `active`
+(develop when `--develop` is on, else publishers, else storage). See
+xref:dependencies/managing/list-dependencies.adoc#working-copy-location-list-location[Working-copy location].
 
 [cols="2,8"]
 |===

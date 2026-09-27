@@ -22,7 +22,7 @@ Publishers in ~/.cuppa/publishers
             and --remove-publishers will skip it
 
 Ahead and behind are relative to your last fetch; no remote was contacted
-Of these, --update-publishers would fast-forward 1 ([capy]) as of your last fetch; it fetches
-first, so it may find more
+Of these, --update-publishers would fast-forward 1 ([capy]) as of your last fetch; it fetches first, so it may
+find more
 
 A note of develop-linked means this forest path matches a configured develop= working copy — prefer --list-develop / --update-develop for that copy; --remove-publishers will skip it.

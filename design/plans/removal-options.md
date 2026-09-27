@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Storage roots, listing, and removal; GitHub [#132](https://github.com/ja11sop/cuppa/issues/132), [#133](https://github.com/ja11sop/cuppa/issues/133), [#134](https://github.com/ja11sop/cuppa/issues/134), [#135](https://github.com/ja11sop/cuppa/issues/135), [#138](https://github.com/ja11sop/cuppa/issues/138), [#145](https://github.com/ja11sop/cuppa/issues/145), [#146](https://github.com/ja11sop/cuppa/issues/146), [#148](https://github.com/ja11sop/cuppa/issues/148), [#153](https://github.com/ja11sop/cuppa/issues/153)
-- **Updated:** 2026-08-07
+- **Updated:** 2026-09-27
 
 `--list-develop` and `--update-develop` (§3.5, §3.6), the storage rename (§3.1, §8, Phase 1),
 build listing/removal (`--list-builds`, `--remove-builds`, `--remove-all-builds`, Phase 2),
@@ -1753,10 +1753,12 @@ cuppa -Q -D --remove-dependencies=widgt
 
 Exit non-zero. Message:
 `error: widgt is not a used dependency for the specified build variants in this project.`
-(the rejected name is error-coloured and emphasised). Then a ruled **in-use / referenced**
-dependency tree for the current selection (same renderer as `--list-dependencies`, no
-unreferenced section), introduced by `Known dependencies which can be removed are:` and
-`Collating dependency tree...`.
+(the rejected name is error-coloured and emphasised). Then a ruled **in-use** dependency
+tree for the current selection (same renderer as `--list-dependencies` default usage
+grouping: the ``used`` section; with identity grouping, ``referenced``), introduced by
+`Known dependencies which can be removed are:` and `Collating dependency tree...`. Do
+**not** filter only for the label ``referenced`` — default ``build_tree`` emits ``used`` /
+``unused``, and that mismatch yields an empty header-only table.
 
 ```
 cuppa -Q -D --remove-dependencies=boost

@@ -309,17 +309,31 @@ def emphasised_count_phrase( count, noun, plural_noun=None ):
 
 
 def wrapped( text, width ):
-    """Wrap prose, keeping bracketed values whole so they can still be coloured."""
+    """Wrap prose, keeping bracketed values whole so they can still be coloured.
+
+    Placeholders are the **same length** as the bracketed span so wrap decisions
+    match the restored display width. Longer placeholders (e.g. a fixed
+    ``BRACKETPLACEHOLDER…`` string) wrap too aggressively on lines that only
+    look long while protected.
+    """
     if not width:
         return [ text ]
     width = max( width, NARROWEST_PROSE )
     brackets = []
+    placeholders = []
 
     def protect( match ):
-        brackets.append( match.group( 0 ) )
-        # A single unsplittable token; restoring may exceed ``width`` (preferred
-        # over splitting ``[...]`` and losing highlight_values colouring).
-        return "BRACKETPLACEHOLDER{:d}X".format( len( brackets ) - 1 )
+        original = match.group( 0 )
+        index = len( brackets )
+        brackets.append( original )
+        # Same length, no spaces/hyphens — textwrap keeps the token whole.
+        # Private-use characters avoid colliding with report prose.
+        placeholder = ''.join(
+                chr( 0xE000 + ( ( index * 31 + offset ) % 256 ) )
+                for offset in range( len( original ) )
+        )
+        placeholders.append( placeholder )
+        return placeholder
 
     protected = re.sub( r'\[[^\[\]]*\]', protect, text )
     lines = textwrap.wrap(
@@ -328,10 +342,8 @@ def wrapped( text, width ):
     ) or [ protected ]
     restored = []
     for line in lines:
-        for index, original in enumerate( brackets ):
-            line = line.replace(
-                    "BRACKETPLACEHOLDER{:d}X".format( index ), original
-            )
+        for placeholder, original in zip( placeholders, brackets ):
+            line = line.replace( placeholder, original )
         restored.append( line )
     return restored
 

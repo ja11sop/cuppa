@@ -60,7 +60,11 @@ opens with roll-ups when useful: `dependencies in use`, then `missing dependenci
 develop-shadowed stems).
 
 On-disk paths are omitted by default. Pass `--list-format=verbose` for a LOCATION column, or
-`--list-format=json` for a machine-readable tree.
+`--list-format=json` for a machine-readable tree. With a non-`storage`
+`--list-location`, compact text still stays column-free: the identity DEPENDENCY label
+shows a plain `[dev]` / `[pub]` mark and a subdued working-copy path in place of (or
+after) the usual bracket detail — see
+xref:#working-copy-location-list-location[Working-copy location].
 
 NOTE: GitLab packages with traveling manifests also nest a ``requires`` group under tip
 versions. That is covered in xref:#list-dependencies-requires[Package ``requires`` graphs]
@@ -160,20 +164,32 @@ verbose mode whenever such archives are present. If re-extracting a dependency f
 the corrupt archive under downloads; deleting only the dependency tree is not enough.
 
 [#working-copy-location-list-location]
-=== Working-copy LOCATION (``--list-location``)
+=== Working-copy location (``--list-location``)
 
-`--list-location` is orthogonal to `--list-format` and `--list-scope`. It only affects
-`--list-dependencies` LOCATION (under verbose, or when a non-`storage` value implies the
-LOCATION column). Health of those trees stays on
+`--list-location` is orthogonal to `--list-format` and `--list-scope`. It overlays
+working-copy paths on `--list-dependencies` when a matching develop or publisher tree
+exists. Health of those trees stays on
 xref:dependencies/managing/develop.adoc[`--list-develop`] and
 xref:dependencies/publishing/list-publishers.adoc[`--list-publishers`].
 
+* *Compact text* (default `--list-format=text`) — no LOCATION column. On each identity
+  that has a matching working copy (including nested ``requires`` package identities),
+  the DEPENDENCY label becomes `name [dev]|[pub] <path>`: the mark and path **replace**
+  the usual bracket detail (for example the git host path on a repository identity), or
+  **append** after a bare name (for example `boost_package [pub] ~/.cuppa/publishers/boost`).
+  The mark is plain and the path is subdued so the identity name stays the focus.
+* *Verbose* — LOCATION column shows the same mark and path; DEPENDENCY keeps the
+  registry / host detail. Marks stay info-coloured; used `[pub]` / `[dl]` paths are
+  info; used `[dev]` paths stay plain.
+
+A footer explains `[dev]` / `[pub]` whenever either mark was painted (compact or verbose).
+
 [cols="2,8"]
 |===
-| Value | LOCATION shows
+| Value | Overlay shows
 
 | `storage` (default)
-| Registry / URL / extract paths as above
+| No working-copy overlay (verbose LOCATION stays registry / URL / extract as above)
 
 | `publishers`
 | Forest path under the in-force publisher root (`--publisher-root`, else
@@ -191,9 +207,21 @@ xref:dependencies/publishing/list-publishers.adoc[`--list-publishers`].
 
 [source,shell]
 ----
+cuppa -Q -D --list-dependencies --list-location=develop
+cuppa -Q -D --list-dependencies --list-location=publishers
 cuppa -Q -D --list-dependencies --list-format=verbose --list-location=publishers
 cuppa -Q -D --list-dependencies --list-format=verbose --list-location=active --develop
 ----
+
+Compact text puts the mark and path on the identity label (plain mark, subdued path;
+no LOCATION column):
+
+++++
+include::partial$samples/list-dependencies-location.html[]
+++++
+
+Verbose keeps registry detail on DEPENDENCY and shows the working-copy path in LOCATION
+(info-coloured `[pub]` mark; `[dl]` on archive leaves as usual):
 
 ++++
 include::partial$samples/list-dependencies-verbose.html[]

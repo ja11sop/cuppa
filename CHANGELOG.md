@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - ``--list-location=storage|publishers|develop|active`` on ``--list-dependencies`` —
-  under ``--list-format=verbose``, LOCATION can overlay working-copy paths marked
-  ``[dev]`` / ``[pub]`` (publisher forest under ``--publisher-root``, configured
-  ``develop=``, or ``active`` with ``--develop`` gating develop-over-publisher
-  precedence). Orthogonal to ``--list-scope``. Design:
+  overlays working-copy paths marked ``[dev]`` / ``[pub]`` (publisher forest under
+  ``--publisher-root``, configured ``develop=``, or ``active`` with ``--develop``
+  gating develop-over-publisher precedence). Orthogonal to ``--list-format`` and
+  ``--list-scope``: compact text puts a plain mark and subdued path on the identity
+  DEPENDENCY label (including nest ``requires`` identities; replacing bracket detail
+  or appending when none); verbose keeps a LOCATION column with info marks. Design:
   [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
   question 1b ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
@@ -173,6 +175,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md).
 
 ### Fixed
+
+- ``--remove-dependencies`` unknown-name hint tree keeps the default ``used``
+  section (and ``referenced`` under identity grouping). Filtering only for
+  ``referenced`` left a header-only empty table after ``build_tree`` switched to
+  usage grouping.
+
+- ``storage.wrapped`` protects bracketed spans with same-length placeholders so
+  wrap width matches the restored text. Longer fixed placeholders made follow-on
+  Note lines (for example the reclaim footer ``e.g. …`` branch) wrap earlier than
+  sibling prose of similar length.
 
 - ``--list-dependencies`` mutes label-only ``requires`` edges under the **unused**
   / **unreferenced** sections the same way as under used / referenced (structural

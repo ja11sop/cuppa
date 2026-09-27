@@ -882,3 +882,54 @@ cuppa.run(
     assert "[dl]" in plain
     assert "--purge-dependencies=" in plain or "purge-dependencies" in plain
     assert planted["gitlab_archive"]  # planted layout still present on disk
+
+
+def test_list_dependencies_list_location_compact_does_not_force_verbose( tmp_path ):
+    """Non-storage --list-location stays compact: mark+path on DEPENDENCY, no LOCATION."""
+    project = copy_dummy_project( tmp_path )
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads( storage )
+    forest = storage / "publishers" / "boost"
+    forest.mkdir( parents=True )
+    ( forest / "sconstruct" ).write_text( "# publisher\n", encoding="utf-8" )
+    ( forest / ".git" ).mkdir()
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-location=publishers",
+        "--storage-root={}".format( storage ),
+        extra_env=own_home( tmp_path ),
+    )
+    assert_success( listed )
+    plain = strip_ansi( listed.stdout )
+    header_lines = [
+            line for line in plain.splitlines()
+            if "DEPENDENCY" in line and "SIZE" in line
+    ]
+    assert header_lines
+    assert "LOCATION" not in header_lines[0]
+    assert "[pub]" in plain
+    assert "publishers/boost" in plain.replace( "\\", "/" )
+    assert "boost_package" in plain
+    assert "in-force publisher root" in plain or "publisher root" in plain

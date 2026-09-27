@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-26
+- **Updated:** 2026-09-27
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Problem
@@ -544,26 +544,29 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 
    ### Settled decisions (question 1b — LOCATION overlay on ``--list-dependencies``)
 
-   **Job:** in verbose list-deps, optionally show working-copy paths in LOCATION
-   (marked ``[dev]`` / ``[pub]``) instead of registry/extract LOCATION — mirroring
+   **Job:** optionally show working-copy paths marked ``[dev]`` / ``[pub]`` — mirroring
    what cascade/consume would prefer, not folding forest health into the storage tree.
+   Verbose puts them in the LOCATION column; compact puts them on the identity
+   DEPENDENCY label (replace bracket detail, or append when none).
 
    | Topic | Decision |
    |-------|----------|
-   | Primary job | Verbose LOCATION can show working-copy paths marked ``[dev]`` / ``[pub]`` instead of storage LOCATION |
+   | Primary job | Working-copy paths marked ``[dev]`` / ``[pub]`` via ``--list-location`` |
+   | Compact vs verbose | **Orthogonal** — non-``storage`` does **not** force verbose. Compact: ``name [dev]\|[pub] <path>`` on the identity label (plain mark, subdued path; nest ``requires`` identities included); verbose: LOCATION column with info marks (DEPENDENCY keeps registry/host detail) |
    | Non-job | No ``publishers`` TYPE_LABELS / top-level section; no STATUS health in list-deps; no multi-report stacking in this slice; forest orphans stay on ``--list-publishers`` |
-   | Flag surface | **``--list-location=``** with values ``storage`` (default with verbose), ``publishers``, ``develop``, ``active``. Orthogonal to ``--list-format`` / ``--list-scope`` (same pattern as ``--list-scope`` today) |
+   | Flag surface | **``--list-location=``** with values ``storage`` (default), ``publishers``, ``develop``, ``active``. Orthogonal to ``--list-format`` / ``--list-scope`` |
    | Precedence | **``--develop``** gates develop-over-publisher when ``active`` (and when both WC kinds would otherwise compete); matches ``resolve_publisher_dir`` — without ``--develop``, configured develop is unused and forest/`package_source` wins |
    | Publisher root | ``[pub]`` resolves via ``publisher_lookup_root(env)`` (``--publisher-root`` or ``{storage_root}/publishers``) |
    | Compose ``--list-develop`` / ``--list-publishers`` | **Refuse** as primary surface — those flags are exclusive report modes today (develop tier exits before storage; publishers beat dependencies in the storage if-chain). Optional later sugar that *sets* ``--list-location`` only if dispatch and help are unambiguous |
    | Stack health reports after the tree | **Deferred** — one primary report per invocation; keep footer / verify hints |
    | ``--list-verbose-mode`` | **Refuse** (collides with ``--list-format=verbose``) |
    | Consume ``final/`` gap | Out of scope for Q1b marks; ``[dev]`` means the configured develop WC, not necessarily the linked ``_build/.../final/...`` stage under publisher-shaped ``develop=`` |
-   | Implementation | **Done** — ``--list-location`` + ``[dev]``/``[pub]`` LOCATION paint + Antora |
+   | Implementation | **Done** — ``--list-location`` compact label + verbose LOCATION + Antora |
 
    **Typical commands:**
 
    ```text
+   cuppa -Q -D --list-dependencies --list-location=develop
    cuppa -Q -D --list-dependencies --list-format=verbose --list-location=publishers
    cuppa -Q -D --list-dependencies --list-format=verbose --list-location=active --develop
    ```

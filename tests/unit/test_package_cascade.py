@@ -2886,7 +2886,11 @@ def test_unused_develop_with_no_other_tree_is_notes_not_a_false_error():
     assert "to use this existing tree" in visible
     assert "--develop" in visible
     assert "--clone-publishers" in visible
-    assert "to clone into" in visible or "to fetch it" in visible
+    # Wrap may split "to clone into" across lines; require both halves.
+    assert (
+            ( "to clone" in visible and "into [" in visible )
+            or "to fetch it" in visible
+    )
     assert "use --publisher-root" in visible
     assert "filesystem package_source" not in visible
     assert "error:" not in visible
@@ -3479,20 +3483,38 @@ def test_wrapped_keeps_bracketed_values_whole_for_colouring():
             "depends on [application, baa, common_types, moo, protocols, "
             "session_protocol, system, transport_layer]"
     )
+    # Width 60 is shorter than the line: wrap before the bracket, never inside it.
     pieces = storage_util.wrapped( long_deps, 60 )
-    assert len( pieces ) == 1
-    assert pieces[0] == long_deps
+    assert pieces == [
+            "depends on",
+            "[application, baa, common_types, moo, protocols, "
+            "session_protocol, system, transport_layer]",
+    ]
 
     was = colouriser.use_colour
     colouriser.enable()
     try:
-        highlighted = storage_util.highlight_values( pieces[0], as_info )
+        highlighted = storage_util.highlight_values( pieces[1], as_info )
         assert as_info(
                 "application, baa, common_types, moo, protocols, "
                 "session_protocol, system, transport_layer"
         ) in highlighted
     finally:
         colouriser.use_colour = was
+
+
+def test_wrapped_placeholder_length_matches_bracket_span():
+    """Placeholders must not inflate width or short lines wrap too early."""
+    from cuppa.utility import storage as storage_util
+
+    # Visible length 76; fits in 100. Old long placeholders forced a wrap.
+    examples = (
+            "e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or "
+            "'[source]boost/[4-9].*'"
+    )
+    assert len( examples ) == 76
+    pieces = storage_util.wrapped( examples, 100 )
+    assert pieces == [ examples ]
 
 
 def test_stage_repo_hint_reads_location_id_from_dependency_class():
