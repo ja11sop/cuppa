@@ -46,11 +46,11 @@ TYPE_LABELS = (
 # Operator-facing filter selectors shown muted after each type group label.
 # Order matches reclaim docs (short → preferred → longer); not every SELECTOR_ALIASES spelling.
 TYPE_SELECTOR_HINTS = {
-    'repository': 'select as [vcs],[repo],[repository],[location]',
-    'gitlab': 'select as [gl],[gitlab],[gitlab_package]',
-    'conan': 'select as [cn],[conan],[conan_package]',
-    'archive': 'select as [sa],[source],[archive],[source_archive]',
-    'toolchain': 'select as [tc],[toolchain],[toolchains],[compiler]',
+    'repository': 'select as [vcs], [repo], [repository] or [location]',
+    'gitlab': 'select as [gl], [gitlab] or [gitlab_package]',
+    'conan': 'select as [cn], [conan] or [conan_package]',
+    'archive': 'select as [sa], [source], [archive] or [source_archive]',
+    'toolchain': 'select as [tc], [toolchain], [toolchains] or [compiler]',
 }
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
@@ -1461,6 +1461,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             branch = elbow if is_last else tee
             stem = prefix + branch
             label = node.get( 'label' ) or ''
+        # Include selector hint in the plain label before width calculation; paint later.
+        selector_hint = node.get( 'selector_hint' ) if kind == 'type' else None
+        if selector_hint:
+            label = ( label + ' ' + selector_hint ).rstrip()
         size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
         if state == 'missing' or remark == 'missing' or missing_identity:
             last_used = '-'
@@ -1491,7 +1495,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_missing_version': missing_version,
             '_leaf_missing': leaf_missing,
             '_removal_candidate': node.get( 'removal_candidate' ),
-            '_selector_hint': node.get( 'selector_hint' ),
+            '_selector_hint': selector_hint,
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
@@ -1671,9 +1675,12 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     location_path_colour = as_subdued
             # section / type: normal colour (layout structure).
 
-        # Type group rows: append muted filter selectors in every section.
+        # Type group rows: mute the "select as …" hint (already in the plain label).
         if kind == 'type' and row.get( '_selector_hint' ):
-            label = ( label or '' ) + ' ' + as_subdued( row['_selector_hint'] )
+            hint = row['_selector_hint']
+            suffix = ' ' + hint
+            if ( label or '' ).endswith( suffix ):
+                label = label[:-len( suffix )] + ' ' + as_subdued( hint )
 
         if location:
             location = dependency_identity.paint_location(
