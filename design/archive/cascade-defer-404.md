@@ -109,7 +109,7 @@ cuppa -D --rel --toolchains=gcc15 \
 - Full lazy fetch (approach 2)
 - Pre-sconscript cascade without `PublishPackage`
 - Location L3 / `StageLocationDevelop`
-- Slice E prefix migration
+- Slice E prefix migration (**declined** 2026-09-27 — dual inference kept)
 - Changing publisher-root nested lookup heuristics (secondary soak only)
 
 ## Progress snapshot
