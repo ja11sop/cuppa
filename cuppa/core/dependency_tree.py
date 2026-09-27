@@ -46,11 +46,11 @@ TYPE_LABELS = (
 # Operator-facing filter selectors shown muted after each type group label.
 # Order matches reclaim docs (short → preferred → longer); not every SELECTOR_ALIASES spelling.
 TYPE_SELECTOR_HINTS = {
-    'repository': '([vcs],[repo],[repository],[location])',
-    'gitlab': '([gl],[gitlab],[gitlab_package])',
-    'conan': '([cn],[conan],[conan_package])',
-    'archive': '([sa],[source],[archive],[source_archive])',
-    'toolchain': '([tc],[toolchain],[toolchains],[compiler])',
+    'repository': 'select as [vcs],[repo],[repository],[location]',
+    'gitlab': 'select as [gl],[gitlab],[gitlab_package]',
+    'conan': 'select as [cn],[conan],[conan_package]',
+    'archive': 'select as [sa],[source],[archive],[source_archive]',
+    'toolchain': 'select as [tc],[toolchain],[toolchains],[compiler]',
 }
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
@@ -1626,8 +1626,10 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     last_used = as_subdued( last_used )
                 if remark in ( 'develop', 'in use' ):
                     remark = as_info( remark )
-                # [dl]/[dev]/[pub] paths: info like in-use download LOCATION.
-                if dependency_identity.split_location_mark( location )[0]:
+                # LOCATION marks: [pub]/[dl] path info when used; [dev] path stays plain
+                # (local working copy — less “remote badge” than publishers / downloads).
+                mark, _ = dependency_identity.split_location_mark( location )
+                if mark and mark != dependency_identity.WORKING_COPY_DEV_MARK:
                     location_path_colour = as_info
             elif kind == 'version':
                 # Version rollups are secondary to the toolchain / variant leaf.

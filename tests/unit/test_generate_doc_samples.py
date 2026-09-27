@@ -122,8 +122,8 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert 'fnmatch wildcards' in text
     assert 'boost,conan' in text
     assert "[selector]name/qualifier" in text or '[selector]name/qualifier' in text
-    assert '([gl],[gitlab],[gitlab_package])' in text
-    assert '([sa],[source],[archive],[source_archive])' in text
+    assert 'select as [gl],[gitlab],[gitlab_package]' in text
+    assert 'select as [sa],[source],[archive],[source_archive]' in text
     assert '--remove-dependencies' in text
     assert 'To reclaim storage' in text
     assert '/tmp/' not in text

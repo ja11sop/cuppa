@@ -1,14 +1,14 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: alpha
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
       SIZE  LAST USED   REMARK       DEPENDENCY
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
        31K  today       4 total      referenced
                                      │
        24K  today       3 used       ├── dependencies in use
         7K  4 days ago  1 unused     ├── potentially stale dependencies
                                      │
-       31K  today       1 used       └── gitlab packages ([gl],[gitlab],[gitlab_package])
+       31K  today       1 used       └── gitlab packages select as [gl],[gitlab],[gitlab_package]
                                          │
        12K  today                        └── alpha
        12K  today                            └── 1.0.0
@@ -27,7 +27,7 @@ Default dependencies: alpha
         4K  today                                    └── gamma
         4K  today                                        └── 3.0.0
         4K  today       in use                               └── gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
   4 entries, 31K total, 7K unreferenced
 
 To reclaim storage from a referenced dependency use one of:

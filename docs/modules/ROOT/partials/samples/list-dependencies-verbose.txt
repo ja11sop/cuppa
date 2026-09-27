@@ -1,29 +1,29 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: boost_package
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-      SIZE  LAST USED  REMARK   DEPENDENCY                                                      LOCATION
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      SIZE  LAST USED  REMARK   DEPENDENCY                                                              LOCATION
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     299.3M  today      1 total  used
                                 │
     299.3M  today      1 used   ├── dependencies in use
                                 │
-    299.3M  today      1 used   └── gitlab packages ([gl],[gitlab],[gitlab_package])
+    299.3M  today      1 used   └── gitlab packages select as [gl],[gitlab],[gitlab_package]
                                     │
     299.3M  today                   └── boost_package
-    299.3M  today                       └── 1.91                                                https://gitlab.example/api/v4/projects/1/boost/1.91
-    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c                         [dl] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    299.3M  today                       └── 1.91                                                        https://gitlab.example/api/v4/projects/1/boost/1.91
+    299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c                                 [dl] boost_debian_gcc153_rel_x86_64_cxx2c.tar.gz
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
       5.8M  today               unused
                                 │
-      5.8M  today               └── source archives ([sa],[source],[archive],[source_archive])
+      5.8M  today               └── source archives select as [sa],[source],[archive],[source_archive]
                                     │
       2.9M  today                   ├── boost
-      2.9M  today                   │   └── 1.91.0                                              [dl] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
+      2.9M  today                   │   └── 1.91.0                                                      [dl] https://archives.boost.io/release/1.91.0/source/boost_1_91_0.tar.gz
                                     │
       2.9M  today                   └── github.com/fmtlib/fmt
-      1.4M  today                       ├── 11.1.4                                              [dl] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
-      1.5M  today                       └── 12.2.0                                              https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
-  ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+      1.4M  today                       ├── 11.1.4                                                      [dl] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip
+      1.5M  today                       └── 12.2.0                                                      https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   4 entries, 305.1M total, 5.8M unreferenced
 
 [dl] = the archive present under downloads (~/.cuppa/downloads).

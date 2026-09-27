@@ -1,13 +1,13 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: alpha
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
       SIZE  LAST USED   REMARK       DEPENDENCY
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
        24K  today       3 total      used
                                      │
        24K  today       3 used       ├── dependencies in use
                                      │
-       24K  today       1 used       └── gitlab packages ([gl],[gitlab],[gitlab_package])
+       24K  today       1 used       └── gitlab packages select as [gl],[gitlab],[gitlab_package]
                                          │
        12K  today                        └── alpha
        12K  today                            └── 1.0.0
@@ -25,10 +25,10 @@ Default dependencies: alpha
         4K  today                                    └── gamma
         4K  today                                        └── 3.0.0
         4K  today       in use                               └── gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
         7K  4 days ago               unused
                                      │
-        7K  4 days ago               └── gitlab packages ([gl],[gitlab],[gitlab_package])
+        7K  4 days ago               └── gitlab packages select as [gl],[gitlab],[gitlab_package]
                                          │
         7K  4 days ago                   └── beta
         7K  4 days ago                       └── 2.0.0
@@ -36,7 +36,7 @@ Default dependencies: alpha
                                                  │
                                                  └── requires
                         libs: gamma                  └── gamma 3.0.0
-  ---------------------------------------------------------------------------------------
+  -----------------------------------------------------------------------------------------------
   4 entries, 31K total, 7K unreferenced
 
 To reclaim storage from an in use dependency use one of:

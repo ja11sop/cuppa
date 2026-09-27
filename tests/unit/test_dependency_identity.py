@@ -237,14 +237,17 @@ def test_list_location_marks_and_precedence():
 
 
 def test_working_copy_location_path_follows_section_colour():
-    """``[pub]`` / ``[dev]`` paths: info when used, subdued when unused (like ``[dl]``)."""
+    """``[pub]`` path info when used; ``[dev]`` path plain when used; both subdued unused."""
     from cuppa.colourise import as_info, as_subdued, colouriser
-    from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK
+    from cuppa.core.dependency_identity import (
+        WORKING_COPY_DEV_MARK,
+        WORKING_COPY_PUB_MARK,
+    )
 
-    path = '~/.cuppa/publishers/capy'
-    location = '{} {}'.format( WORKING_COPY_PUB_MARK, path )
+    pub_path = '~/.cuppa/publishers/capy'
+    dev_path = '~/coding/capy'
 
-    def tree_for( section ):
+    def tree_for( section, mark, path ):
         return {
             'sections': [
                 {
@@ -258,7 +261,7 @@ def test_working_copy_location_path_follows_section_colour():
                                 {
                                     'kind': 'identity',
                                     'label': 'capy',
-                                    'location': location,
+                                    'location': '{} {}'.format( mark, path ),
                                     'size_bytes': 10,
                                     'last_used_epoch': None,
                                     'children': [],
@@ -273,16 +276,28 @@ def test_working_copy_location_path_follows_section_colour():
     was_colour = colouriser.use_colour
     colouriser.enable()
     try:
-        used = '\n'.join(
-                dependency_tree.render_tree_lines( tree_for( 'used' ), verbose=True )[0]
-        )
-        unused = '\n'.join(
-                dependency_tree.render_tree_lines( tree_for( 'unused' ), verbose=True )[0]
-        )
-        assert as_info( path ) in used
-        assert as_subdued( path ) in unused
-        assert as_info( WORKING_COPY_PUB_MARK ) in used
-        assert as_info( WORKING_COPY_PUB_MARK ) in unused
+        pub_used = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'used', WORKING_COPY_PUB_MARK, pub_path ), verbose=True
+        )[0] )
+        pub_unused = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'unused', WORKING_COPY_PUB_MARK, pub_path ), verbose=True
+        )[0] )
+        dev_used = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'used', WORKING_COPY_DEV_MARK, dev_path ), verbose=True
+        )[0] )
+        dev_unused = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'unused', WORKING_COPY_DEV_MARK, dev_path ), verbose=True
+        )[0] )
+        assert as_info( pub_path ) in pub_used
+        assert as_subdued( pub_path ) in pub_unused
+        assert as_info( WORKING_COPY_PUB_MARK ) in pub_used
+        # Develop path stays plain when referenced (not info-wrapped).
+        assert as_info( dev_path ) not in dev_used
+        assert as_subdued( dev_path ) not in dev_used
+        assert dev_path in dev_used
+        assert as_subdued( dev_path ) in dev_unused
+        assert as_info( WORKING_COPY_DEV_MARK ) in dev_used
+        assert as_info( WORKING_COPY_DEV_MARK ) in dev_unused
     finally:
         colouriser.use_colour = was_colour
 
