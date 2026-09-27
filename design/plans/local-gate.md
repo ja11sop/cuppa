@@ -1,8 +1,8 @@
 # Plan: Local gate orchestrator
 
-- **Status:** proposal
+- **Status:** done
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (Before pushing); [`docs/modules/ROOT/pages/contributing/overview.adoc`](../../docs/modules/ROOT/pages/contributing/overview.adoc); [`integration-parallel-local.md`](integration-parallel-local.md); [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py)
-- **Updated:** 2026-09-23
+- **Updated:** 2026-09-27
 - **Impact:** `none` (contributor / agent tooling; no product CLI)
 
 ## Problem
@@ -97,4 +97,7 @@ expanded commands as the explainer underneath.
 |------|-------|
 | Problem / soak (subprocess `six`) | Captured |
 | Settled shape / refusals | Settled (2026-09-23) |
-| Implementation | Not started |
+| Implementation (`scripts/local_gate.py`) | Done |
+| Unit tests (`tests/unit/test_local_gate.py`) | Done |
+| `AGENTS.md` + Contributing + journey | Done |
+| Design index + ROADMAP `local-gate` | Done on this PR |
