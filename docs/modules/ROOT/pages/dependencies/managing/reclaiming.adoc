@@ -101,8 +101,9 @@ xref:cli/inspect-and-maintain.adoc#dependency-storage-actions[Inspect and mainta
 Publisher working copies under the in-force publisher root
 (`--publisher-root`, else `<storage-root>/publishers`) are a **separate** reclaim
 path: xref:dependencies/publishing/list-publishers.adoc#remove-publishers[`--remove-publishers`]
-/ `--remove-all-publishers` (folder names; list-shaped `would rm` / `removed`
-report). There is no purge or wipe for publishers — see that page.
+/ `--remove-all-publishers` (comma-separated folder names; full forest table with
+`would rm` / `removed` / `skip` REMARK and muted unaffected rows). There is no
+purge or wipe for publishers — see that page for the dry-run sample.
 
 [#which-flag-family]
 == Which flag family
