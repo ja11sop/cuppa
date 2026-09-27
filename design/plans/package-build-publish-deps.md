@@ -27,7 +27,7 @@ consume-only tips, tip ``payload_sha256`` overlay, collect reused/cloned finish,
 |------|----------------|
 | Publisher forest keying by ``package_source`` stem (was open Q4) | [Future feature](#future-feature-publisher-forest-keying-by-package_source-stem) below — deferred until collision evidence + settle table |
 | Soft Phase 4 follow-ons: extract-seed (**1b**), package ``develop=`` polish (**2b**) | Parked; not blockers |
-| Package ``develop=`` prefix → source-tree migration | [`package-develop-local.md`](package-develop-local.md) **Slice E** (separate ROADMAP row; still cites #297) |
+| Package ``develop=`` prefix → source-tree migration | [`package-develop-local.md`](package-develop-local.md) **Slice E declined** — dual inference kept |
 | Opt-in same-version archive re-fetch | [`package-download-refresh.md`](package-download-refresh.md) / [#296](https://github.com/ja11sop/cuppa/issues/296) |
 
 Landing PRs (associate with [#297](https://github.com/ja11sop/cuppa/issues/297)):
@@ -531,7 +531,7 @@ Pattern (unchanged spirit): **enable** + **action**.
 | Tip identity (banners / plan) | Project / ``sconstruct_dir`` basename; version label ``consume`` (not a registry upload identity) |
 | Build-deps-only (no nested **upload**) | **Done** on master via [#339](https://github.com/ja11sop/cuppa/pull/339) — ``--build-cascade-dependencies``. Distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
 | Extract-seed (**1b**) | **Parked follow-on**: omit tip ``package_source`` when an extract’s traveling manifest can supply it |
-| Package ``develop=`` (**2b**) | **Parked follow-on**: with ``--develop``, configured develop publisher tree already wins in resolve. Fuller prefix→source migration is [`package-develop-local.md`](package-develop-local.md) Slice E |
+| Package ``develop=`` (**2b**) | With ``--develop``, configured develop publisher tree already wins in resolve. Prefix→source hard migration (**Slice E**) **declined** — see [`package-develop-local.md`](package-develop-local.md) |
 | Partial coverage | Resolve: develop tree wins under ``--develop``, else ``package_source`` / publisher-root / clone. Collect: clone missing into ``--publisher-root`` (not into operator-owned ``develop=``). Plan/collect must report reused develop vs cloned vs missing source |
 
 ### Nest-deps-only flag — naming (settled)
