@@ -21,7 +21,15 @@ import os
 import sys
 from collections import namedtuple
 
-from cuppa.colourise import as_emphasised, as_error, as_info, as_info_label, as_subdued, as_warning
+from cuppa.colourise import (
+        as_emphasised,
+        as_error,
+        as_info,
+        as_info_label,
+        as_remove_notice,
+        as_subdued,
+        as_warning,
+)
 from cuppa.utility import storage
 from cuppa.utility.storage import (
         WIDEST_PROSE,
@@ -35,8 +43,10 @@ logger = logging.getLogger( __name__ )
 
 INDENT = "  "
 RULE = "-"
+REMARK_WIDTH = 9  # match dependency_removal ("would rm" / "removed")
 
 COLUMNS = ( "STATUS", "SIZE", "PUBLISHER", "BRANCH", "UPSTREAM", "STATE", "PATH" )
+REMOVE_COLUMNS = ( "REMARK", ) + COLUMNS
 
 PublisherEntry = namedtuple(
         'PublisherEntry',
@@ -248,11 +258,11 @@ def collect_publisher_rows( cuppa_env ):
     }
 
 
-def _row_cells( entry: PublisherEntry ):
+def _row_cells( entry: PublisherEntry, remark=None ):
     from cuppa.develop import state_summary
     from cuppa.utility.storage import display_path
     copy = entry.copy
-    return (
+    cells = (
             entry.status,
             entry.size or "-",
             copy.name,
@@ -261,11 +271,25 @@ def _row_cells( entry: PublisherEntry ):
             state_summary( copy ),
             display_path( copy.path ),
     )
+    if remark is None:
+        return cells
+    return ( remark.ljust( REMARK_WIDTH ), ) + cells
 
 
-def _plain_table_lines( entries ):
-    rows = [ COLUMNS ] + [ _row_cells( entry ) for entry in entries ]
-    widths = [ max( len( row[column] ) for row in rows ) for column in range( len( COLUMNS ) ) ]
+def _plain_table_lines( entries, remarks=None ):
+    """Plain table lines. When ``remarks`` is set, leading REMARK column is included."""
+    columns = REMOVE_COLUMNS if remarks is not None else COLUMNS
+    body = []
+    if remarks is not None:
+        for entry, remark in zip( entries, remarks ):
+            body.append( _row_cells( entry, remark=remark ) )
+    else:
+        body = [ _row_cells( entry ) for entry in entries ]
+    rows = [ columns ] + body
+    widths = [
+            max( len( row[column] ) for row in rows )
+            for column in range( len( columns ) )
+    ]
     return [
             INDENT + "  ".join(
                     value.ljust( width ) for value, width in zip( row, widths )
@@ -274,8 +298,10 @@ def _plain_table_lines( entries ):
     ]
 
 
-def _table_width( entries ):
-    return max( len( line ) for line in _plain_table_lines( entries ) )
+def _table_width( entries, remarks=None ):
+    return max(
+            len( line ) for line in _plain_table_lines( entries, remarks=remarks )
+    )
 
 
 def _emphasis( severity, text ):
@@ -290,6 +316,30 @@ def _render_ruled_table( entries ):
     lines = [ rule, rows[0], rule ]
     for entry, row in zip( entries, rows[1:] ):
         lines.append( _emphasis( entry.severity, row ) )
+    lines.append( rule )
+    return lines
+
+
+def _paint_remove_row( remark, line ):
+    """Purple/warn family for actionable rows; warn for develop-linked skips."""
+    if remark in ( 'would rm', 'removed' ):
+        return as_remove_notice( line )
+    if remark == 'skip':
+        return as_warning( line )
+    return line
+
+
+def _render_remove_ruled_table( outcomes ):
+    """``outcomes`` is a list of ``(PublisherEntry, remark)``."""
+    entries = [ entry for entry, _remark in outcomes ]
+    remarks = [ remark for _entry, remark in outcomes ]
+    rows = _plain_table_lines( entries, remarks=remarks )
+    rule = as_subdued(
+            INDENT + RULE * ( _table_width( entries, remarks=remarks ) - len( INDENT ) )
+    )
+    lines = [ rule, rows[0], rule ]
+    for ( _entry, remark ), row in zip( outcomes, rows[1:] ):
+        lines.append( _paint_remove_row( remark, row ) )
     lines.append( rule )
     return lines
 
@@ -439,6 +489,56 @@ def _parse_names( raw ) -> list[str]:
     return [ part.strip() for part in str( raw ).split( ',' ) if part.strip() ]
 
 
+def write_remove_publishers_report( out, root, outcomes, dry_run ):
+    """List-shaped remove report: REMARK-first table + summary.
+
+    ``outcomes`` is a list of ``(PublisherEntry, remark)`` where remark is
+    ``would rm``, ``removed``, or ``skip``.
+    """
+    actionable = [
+            ( entry, remark ) for entry, remark in outcomes
+            if remark in ( 'would rm', 'removed' )
+    ]
+    skipped = [ entry for entry, remark in outcomes if remark == 'skip' ]
+    freed = sum( entry.size_bytes for entry, _remark in actionable )
+    count = len( actionable )
+    unit = "publisher tree" if count == 1 else "publisher trees"
+    size = as_emphasised( as_info( storage.human_size( freed ) ) )
+    root_display = as_info( storage.display_path( root ) ) if root else '-'
+
+    out.write( "\n" )
+    if dry_run:
+        out.write( "Would remove {} {} ({}) under {}\n".format(
+                as_emphasised( str( count ) ), unit, size, root_display,
+        ) )
+        out.write( "(dry run; pass without -n to remove)\n" )
+    else:
+        out.write( "Removed {} {} ({}) under {}\n".format(
+                as_emphasised( str( count ) ), unit, size, root_display,
+        ) )
+
+    if outcomes:
+        out.write( "\n" )
+        for line in _render_remove_ruled_table( outcomes ):
+            out.write( line + "\n" )
+
+    out.write( "\n" )
+    if dry_run:
+        out.write( "Would remove {} {} freeing up {} of disk space.\n".format(
+                as_emphasised( str( count ) ), unit, size,
+        ) )
+    else:
+        out.write( "Removed {} {} freeing up {} of disk space.\n".format(
+                as_emphasised( str( count ) ), unit, size,
+        ) )
+    if skipped:
+        out.write( "{}{} skipped (develop-linked)\n".format(
+                INDENT, len( skipped ),
+        ) )
+    out.write( "\nVerify with --list-publishers:\n\n" )
+    out.write( as_emphasised( "cuppa -Q -D --list-publishers" ) + "\n" )
+
+
 def remove_publishers( construct, cuppa_env, out=None ):
     """``--remove-publishers`` / ``--remove-all-publishers``."""
     del construct
@@ -457,6 +557,9 @@ def remove_publishers( construct, cuppa_env, out=None ):
         ) )
         return 1
     by_name = { row['name']: row for row in ( data.get( 'rows' ) or [] ) }
+    entry_by_name = {
+            entry.copy.name: entry for entry in ( data.get( 'entries' ) or [] )
+    }
 
     if cuppa_env.get( 'remove_all_publishers' ):
         targets = list( data.get( 'rows' ) or [] )
@@ -483,16 +586,7 @@ def remove_publishers( construct, cuppa_env, out=None ):
         ) )
         return 0
 
-    out.write( "\n" )
-    if dry_run:
-        out.write( "{} {}\n".format(
-                as_info_label( "Dry run" ),
-                "showing what --remove-publishers would delete",
-        ) )
-
-    removed = 0
-    skipped = 0
-    freed = 0
+    outcomes = []
     for row in targets:
         path = row['path']
         name = row['name']
@@ -501,35 +595,24 @@ def remove_publishers( construct, cuppa_env, out=None ):
         except storage.StorageError as error:
             out.write( "error: {}\n".format( error ) )
             return 1
-        if row.get( 'develop_linked' ):
-            out.write( "{} skipping [{}] — matches a configured develop= path\n".format(
-                    as_warning( "warn:" ), name,
+        entry = entry_by_name.get( name )
+        if entry is None:
+            out.write( "error: no publisher tree named [{}] under {}\n".format(
+                    name, storage.display_path( root ),
             ) )
-            skipped += 1
+            return 1
+        if row.get( 'develop_linked' ):
+            outcomes.append( ( entry, 'skip' ) )
             continue
-        verb = "Would remove" if dry_run else "Removing"
-        out.write( "{} {} ({}) at {}\n".format(
-                verb,
-                as_emphasised( name ),
-                row.get( 'size' ) or '-',
-                storage.display_path( path ),
-        ) )
-        storage.remove_path( path, dry_run=dry_run )
-        removed += 1
-        freed += int( row.get( 'size_bytes' ) or 0 )
+        remark = 'would rm' if dry_run else 'removed'
+        outcomes.append( ( entry, remark ) )
 
-    out.write( "\n" )
-    out.write( "{}{} publisher {}, {} {}\n".format(
-            INDENT,
-            removed,
-            "tree" if removed == 1 else "trees",
-            storage.human_size( freed ),
-            "would free" if dry_run else "freed",
-    ) )
-    if skipped:
-        out.write( "{}{} skipped (develop-linked)\n".format( INDENT, skipped ) )
-    out.write( "\nVerify with --list-publishers:\n\n" )
-    out.write( as_emphasised( "cuppa -Q -D --list-publishers" ) + "\n" )
+    write_remove_publishers_report( out, root, outcomes, dry_run=dry_run )
+
+    for entry, remark in outcomes:
+        if remark == 'skip':
+            continue
+        storage.remove_path( entry.copy.path, dry_run=dry_run )
     return 0
 
 

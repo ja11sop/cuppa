@@ -669,7 +669,7 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   HTML recipes: `list-builds`, `list-develop`, `list-downloads`,
   `list-dependencies`, `list-dependencies-location`, `list-dependencies-verbose`,
   `list-dependencies-requires`, `list-dependencies-requires-resolve`,
-  `list-publishers`, `list-toolchains`,
+  `list-publishers`, `remove-publishers-dry-run`, `list-toolchains`,
   `list-toolchains-verbose`, `cascade-plan`, `cascade-plan-consume`,
   `cascade-plan-clone`, and the `--remove-builds` / `--remove-all-builds`
   variants, `remove-gitlab-dry-run`, `remove-boost-product-clean`, and

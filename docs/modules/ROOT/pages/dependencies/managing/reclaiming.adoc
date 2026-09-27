@@ -98,6 +98,12 @@ produced those trees.
 CLI summaries also link here from
 xref:cli/inspect-and-maintain.adoc#dependency-storage-actions[Inspect and maintain].
 
+Publisher working copies under the in-force publisher root
+(`--publisher-root`, else `<storage-root>/publishers`) are a **separate** reclaim
+path: xref:dependencies/publishing/list-publishers.adoc#remove-publishers[`--remove-publishers`]
+/ `--remove-all-publishers` (folder names; list-shaped `would rm` / `removed`
+report). There is no purge or wipe for publishers — see that page.
+
 [#which-flag-family]
 == Which flag family
 

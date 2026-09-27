@@ -1,0 +1,16 @@
+Would remove 1 publisher tree (42M) under ~/.cuppa/publishers
+(dry run; pass without -n to remove)
+
+  --------------------------------------------------------------------------------------------------------
+  REMARK     STATUS  SIZE  PUBLISHER  BRANCH   UPSTREAM        STATE            PATH
+  --------------------------------------------------------------------------------------------------------
+  would rm   ok      42M   capy       develop  origin/develop  clean, 1 behind  ~/.cuppa/publishers/capy
+  skip       note    9M    widget     master   origin/master   clean, 2 ahead   ~/.cuppa/publishers/widget
+  --------------------------------------------------------------------------------------------------------
+
+Would remove 1 publisher tree freeing up 42M of disk space.
+  1 skipped (develop-linked)
+
+Verify with --list-publishers:
+
+cuppa -Q -D --list-publishers

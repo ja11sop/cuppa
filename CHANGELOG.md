@@ -49,8 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inspect and reclaim the cascade publisher forest under the in-force root
   (``--publisher-root``, else ``<storage-root>/publishers``). List report matches
   ``--list-develop`` chrome (STATUS / SIZE / judgement tree / update hint).
-  Sibling storage actions to ``--list-downloads``; never delete a develop-linked
-  path. Design: [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Remove reuses that ruled table with a leading REMARK column (``would rm`` /
+  ``removed`` / ``skip``) and ``as_remove_notice`` row paint, plus a size summary —
+  same vocabulary family as ``--remove-dependencies``. Sibling storage actions to
+  ``--list-downloads``; never delete a develop-linked path. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
   question 1a ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Pure-consume cascade (**Phase 4**): a tip with no ``GitlabPackagePublisher`` can

@@ -7,8 +7,9 @@ With planted git-shaped trees under `<storage>/publishers/`, `--list-publishers`
 prints a develop-shaped STATUS / SIZE / PUBLISHER / BRANCH / UPSTREAM / STATE /
 PATH table, a severity summary, and the last-fetch note. `--list-format=json`
 emits `publishers_root`, `tree_count`, and `entries` (including `status` /
-`notes`). `--remove-publishers=NAME` with `-n` leaves the tree; without `-n` it
-deletes the named folder and a follow-up list shows the remaining tree.
+`notes`). `--remove-publishers=NAME` with `-n` prints a list-shaped dry-run (REMARK
+`would rm`) and leaves the tree; without `-n` REMARK is `removed` and the
+named folder is deleted; a follow-up list shows the remaining tree.
 
 == Generated files
 

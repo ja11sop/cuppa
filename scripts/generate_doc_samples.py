@@ -2065,6 +2065,44 @@ def sample_list_publishers_json():
     return _write_sample( 'list-publishers.json', _anonymise_home_paths( text ) )
 
 
+def _remove_publishers_sample_outcomes( dry_run=True ):
+    """Named remove of ``capy`` plus develop-linked ``widget`` skip for samples."""
+    data = _list_publishers_sample_data()
+    by_name = { entry.copy.name: entry for entry in data['entries'] }
+    remark = 'would rm' if dry_run else 'removed'
+    return data['publishers_root'], [
+            ( by_name['capy'], remark ),
+            ( by_name['widget'], 'skip' ),
+    ]
+
+
+def sample_remove_publishers_dry_run():
+    """``-n --remove-publishers=capy`` list-shaped report (REMARK / would rm)."""
+    from cuppa.core.publisher_actions import write_remove_publishers_report
+
+    root, outcomes = _remove_publishers_sample_outcomes( dry_run=True )
+    out = io.StringIO()
+    write_remove_publishers_report( out, root, outcomes, dry_run=True )
+    return _write_sample(
+            'remove-publishers-dry-run.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_remove_publishers_dry_run_html():
+    """Semantic HTML form of the remove-publishers dry-run report."""
+    from cuppa.core.publisher_actions import write_remove_publishers_report
+
+    root, outcomes = _remove_publishers_sample_outcomes( dry_run=True )
+
+    def invoke( stream ):
+        write_remove_publishers_report( stream, root, outcomes, dry_run=True )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'remove-publishers-dry-run.html', text, colouriser )
+
+
 def _cascade_plan_sample_text(
         nodes,
         order,
@@ -2276,6 +2314,8 @@ GENERATORS = tuple(
                 sample_list_publishers,
                 sample_list_publishers_html,
                 sample_list_publishers_json,
+                sample_remove_publishers_dry_run,
+                sample_remove_publishers_dry_run_html,
                 sample_list_toolchains,
                 sample_list_toolchains_html,
                 sample_list_toolchains_verbose,
@@ -2331,6 +2371,8 @@ GENERATORS = tuple(
         sample_list_publishers,
         sample_list_publishers_html,
         sample_list_publishers_json,
+        sample_remove_publishers_dry_run,
+        sample_remove_publishers_dry_run_html,
         sample_list_toolchains,
         sample_list_toolchains_html,
         sample_list_toolchains_verbose,
@@ -2377,6 +2419,7 @@ def main( argv=None ):
                     'list-dependencies-requires',
                     'list-dependencies-requires-resolve',
                     'list-publishers',
+                    'remove-publishers-dry-run',
                     'list-toolchains',
                     'list-toolchains-verbose',
                     'cascade-plan',
@@ -2409,6 +2452,7 @@ def main( argv=None ):
             'list-dependencies-requires': sample_list_dependencies_requires_html,
             'list-dependencies-requires-resolve': sample_list_dependencies_requires_resolve_html,
             'list-publishers': sample_list_publishers_html,
+            'remove-publishers-dry-run': sample_remove_publishers_dry_run_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,
             'cascade-plan': sample_cascade_plan_html,

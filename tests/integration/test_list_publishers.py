@@ -86,6 +86,11 @@ def test_list_and_remove_publishers( tmp_path ):
             extra_env=home,
     )
     assert_success( dry )
+    dry_text = strip_ansi( dry.stdout )
+    assert 'Would remove' in dry_text
+    assert 'would rm' in dry_text
+    assert 'REMARK' in dry_text
+    assert 'capy' in dry_text
     assert ( forest / 'capy' ).is_dir()
 
     removed = run_cuppa(
@@ -96,6 +101,10 @@ def test_list_and_remove_publishers( tmp_path ):
             extra_env=home,
     )
     assert_success( removed )
+    removed_text = strip_ansi( removed.stdout )
+    assert 'Removed' in removed_text
+    assert 'removed' in removed_text
+    assert 'REMARK' in removed_text
     assert not ( forest / 'capy' ).exists()
     assert ( forest / 'corosio' ).is_dir()
 

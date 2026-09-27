@@ -582,13 +582,39 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 
    ### Follow-on: publisher remove UX + docs (not Q3)
 
-   | Topic | Direction |
-   |-------|-----------|
-   | Docs gap | Prose + shell commands for ``--remove-publishers`` exist on ``list-publishers.adoc``; **no** generated dry-run sample (contrast ``remove-gitlab-dry-run``). Add sample + reclaiming-hub cross-link; state purge/wipe N/A for publishers. |
-   | Filter model | Keep **comma-separated folder names** under the in-force publisher root — **not** ``[selector]name[/qualifier]``. Forest has no toolchain leaves or download pairing; selectors would invent a false parallel. |
-   | Align with remove-dependencies? | **Partial only:** shared dry-run (``-n``), containment, develop skip, verify hint. **Do not** adopt typed selectors, version qualifiers, or context-scoped project-used filters. |
-   | ``--list-publishers`` “would remove” preview | **Useful thin polish, not a second remove verb.** Prefer a footer / SIZE-aware reclaim hint naming folder names (parallel to list-deps verify hints), plus ``-n --remove-publishers=…`` sample. Optional later: ``--list-publishers`` annotation of reclaimable rows — **refuse** a fake ``--wipe-publishers``. |
-   | Sequencing | Docs sample + reclaim cross-link can land with or just before Q3; selector-shaped remove and LOCATION-driven wipe stay **out**. |
+   **Settled presentation (2026-09-27):** ``--remove-publishers`` / ``--remove-all-publishers``
+   should reuse the **``--list-publishers`` ruled table**, not a plain “Removing X at path”
+   line list. Match dependency reclaim vocabulary and paint.
+
+   | Topic | Decision |
+   |-------|----------|
+   | Filter model | Keep **comma-separated folder names** under the in-force publisher root — **not** ``[selector]name[/qualifier]``. |
+   | Report shape | Same columns as ``--list-publishers`` (STATUS, SIZE, PUBLISHER, BRANCH, UPSTREAM, STATE, PATH), plus a **REMARK** column as the **first** data column (deps reclaim uses mid-table REMARK; publishers put it first so the action is obvious on a wide git-health table). |
+   | Dry-run (``-n``) | REMARK = ``would rm`` on rows that would delete; paint those rows with **``as_remove_notice``** (same warn/purple family as ``--remove-dependencies``). Header/summary: ``Would remove N publisher tree(s) freeing up SIZE`` (plus dry-run note). |
+   | Apply (no ``-n``) | Same table; REMARK = ``removed``; same ``as_remove_notice`` row paint; summary ``Removed N publisher tree(s) freeing up SIZE``. |
+   | Develop-linked | REMARK = skip (or short skip label); **do not** paint as remove-notice; keep existing warn that develop-linked paths are never deleted. |
+   | Scope of rows | Named remove: only requested names (error if missing). ``--remove-all-publishers``: every forest tree (develop-linked still skipped). Do **not** require a separate ``--list-publishers`` preview mode. |
+   | After report | Keep ``Verify with --list-publishers`` tip. |
+   | Docs | Generated dry-run (+ apply) samples via ``generate_doc_samples``; include on ``list-publishers.adoc``; reclaiming-hub cross-link; purge/wipe N/A. |
+   | Out of scope | Typed selectors; ``--wipe-publishers``; LOCATION-driven wipe; changing ``--list-publishers`` itself to show would-rm (remove owns that table). Optional later: list-publishers footer hint pointing at ``-n --remove-publishers=…``. |
+
+   **Example shape (dry-run):**
+
+   ```text
+   Would remove 1 publisher tree (120M) under ~/.cuppa/publishers
+   (dry run; pass without -n to remove)
+
+     -------------------------------------------------------------------------
+     REMARK     STATUS   SIZE   PUBLISHER  BRANCH  UPSTREAM  STATE  PATH
+     -------------------------------------------------------------------------
+     would rm   clean    120M   capy       master  origin/…  …      ~/.cuppa/…
+     -------------------------------------------------------------------------
+
+   Would remove 1 publisher tree freeing up 120M of disk space.
+
+   Verify with --list-publishers:
+   cuppa -Q -D --list-publishers
+   ```
 
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
@@ -736,7 +762,7 @@ about one tool.
 | ``publishers`` list/remove + develop chrome (Q1a) | ~~Open question **1**~~ **Done** on [#335](https://github.com/ja11sop/cuppa/pull/335) | ``--list-publishers`` / ``--remove-publishers`` |
 | ``--list-location`` LOCATION overlay on ``--list-dependencies`` (Q1b) | ~~Open question **1b**~~ **Done** on [#338](https://github.com/ja11sop/cuppa/pull/338) | ``storage`` / ``publishers`` / ``develop`` / ``active``; ``--develop`` gates precedence; no publishers TYPE section |
 | LOCATION compose with wipe/remove | **Settled refuse** (2026-09-27) | List overlay only; reclaim verbs stay root-specific |
-| ``--remove-publishers`` dry-run sample + reclaim cross-link | Docs follow-on | Folder-name filters only; optional list-publishers reclaim footer; no selectors / no purge |
+| ``--remove-publishers`` list-shaped report (``would rm`` / ``removed``) + samples | Follow-on (before or with Q3) | REMARK first column; ``as_remove_notice`` row paint; folder-name filters; no selectors / no purge |
 | Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Defer until settle table + soak collision evidence; then own PR |
 | Build-deps-only without nested upload | Open question **3** — **next** after Q1b | Proposed ``--build-cascade-dependencies``; settle table then implement; do not document as shipped |
 | Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |
