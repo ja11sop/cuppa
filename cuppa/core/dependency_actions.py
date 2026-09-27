@@ -598,6 +598,16 @@ def add_dependency_action_options( add_option ):
         help="List cached archives under the downloads root (and the trees they feed) and exit",
     )
     add_option(
+        '--refresh-downloads', dest='refresh_downloads', nargs='?',
+        action='store', type='string', const='', default=None, metavar='NAMES',
+        help="Re-fetch GitLab package archives (and re-extract) for this configure so "
+             "same-version registry overwrites are not sticky. Bare flag = all project-used "
+             "GitLab package dependencies; NAMES = comma-separated Cuppa dependency names "
+             "(or registry package names). Refuses --offline. Skips deps using --develop / "
+             "a local stage. Does not delete under -n / --no-exec. Complements "
+             "--purge-dependencies / --wipe-dependencies; does not replace them",
+    )
+    add_option(
         '--list-scope', dest='list_scope',
         choices=( 'all', 'resolve', 'referenced', 'unreferenced', 'compact' ),
         nargs=1, action='store',
@@ -686,6 +696,14 @@ def add_dependency_action_options( add_option ):
 def process_dependency_action_options( cuppa_env ):
     cuppa_env['list_dependencies'] = bool( cuppa_env.get_option( 'list_dependencies' ) )
     cuppa_env['list_downloads'] = bool( cuppa_env.get_option( 'list_downloads' ) )
+    raw_refresh = cuppa_env.get_option( 'refresh_downloads' )
+    if isinstance( raw_refresh, ( list, tuple ) ):
+        raw_refresh = raw_refresh[0] if raw_refresh else None
+    # None = flag absent; '' = bare flag (all packages); 'a,b' = selective.
+    cuppa_env['refresh_downloads'] = raw_refresh
+    if raw_refresh is not None:
+        from cuppa.package_managers.gitlab import begin_refresh_downloads_session
+        begin_refresh_downloads_session( raw_refresh )
     cuppa_env['exact_sizes'] = bool( cuppa_env.get_option( 'exact_sizes' ) )
     cuppa_env['remove_all_dependencies'] = bool( cuppa_env.get_option( 'remove_all_dependencies' ) )
     cuppa_env['purge_all_dependencies'] = bool( cuppa_env.get_option( 'purge_all_dependencies' ) )

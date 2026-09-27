@@ -1,8 +1,8 @@
 # Plan: Refresh package downloads after same-version republish
 
-- **Status:** proposal
-- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [`ROADMAP.md`](../../ROADMAP.md) — storage Planned (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade publish must refresh after each upload); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
-- **Updated:** 2026-09-14
+- **Status:** in progress
+- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [`ROADMAP.md`](../../ROADMAP.md) — storage Planned (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade nest-publish refreshes tip consume after upload — orthogonal); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
+- **Updated:** 2026-09-27
 - **Impact:** `minor` (new opt-in CLI behaviour)
 
 ## Problem
@@ -46,66 +46,50 @@ From `GitlabPackageDependency` construction:
 
 `--develop` with a develop path skips download/extract for that dependency.
 
-Publish-side staging refresh (`staging_tree_needs_refresh` / #209) is **orthogonal**
-— that refreshes publisher staging from a local install prefix, not consume caches.
+Publish-side staging refresh (`staging_tree_needs_refresh` / #209) and cascade tip
+consume refresh after nested **upload** are **orthogonal** — those are not this flag.
 
-## Naming options
+## Settled decisions (2026-09-27)
 
-Working title in conversation: `--refresh-dependent-downloads`. Explore before
-locking CLI help.
-
-| Candidate | Pros | Cons |
-|-----------|------|------|
-| `--refresh-dependent-downloads` | Matches the soak phrasing (“deps of this project”) | “Dependent” is ambiguous (transitive vs “downloads that are dependencies”); long |
-| `--refresh-downloads` | Short; pairs with `--list-downloads` | Might sound like it refreshes **location** HTTP archives too |
-| `--refresh-package-downloads` | Explicit GitLab/package scope | Longer; “package” vs Cuppa dependency **name** |
-| `--refetch-packages` / `--re-download-packages` | Verb is unmistakable (force network) | “Packages” alone may confuse Conan / Boost source |
-| `--update-package-downloads` | Parallel to `--update-develop` | “Update” suggests conditional/smart; we may force-replace |
-| `--invalidate-package-cache` | Describes mechanism | Sounds like wipe-only; does not say “then fetch again” |
-| `--refresh-dependencies` | Short | Collides mentally with remove/purge/wipe family; too broad |
-
-**Provisional preference (settle before first implementation commit):**
-
-- Flag name: **`--refresh-downloads`**
-- Optional value: comma-separated Cuppa dependency **names**
-  (`--refresh-downloads=protobuf,abseil_cpp`), empty/bare = all **project-used
-  GitLab package** dependencies for this configure.
-- Docs subtitle: “re-fetch package archives (and re-extract)”.
-
-Rationale: keep the `--*-downloads` vocabulary next to `--list-downloads`; avoid
-“dependent” jargon; scope in help text and Antora rather than in a longer flag.
-If location-archive refresh is ever wanted, add a separate flag or a
-`--refresh-downloads-scope=packages|locations|all` later — do not overload v1.
-
-Refuse to ship under the provisional name if review prefers
-`--refresh-package-downloads` for disambiguation; renaming before release is cheap.
-
-## Proposed semantics (v1 sketch)
-
-| Topic | Proposal |
+| Topic | Decision |
 |-------|----------|
-| When | Configure-time, before BuildWith uses the package dirs |
-| What | For each selected GitLab package dep: delete (or ignore) matching archive under downloads + matching extract under dependencies_root for the **current toolchain/variant selection**, then download + extract as today |
-| Selection | Bare flag → all project-used GitLab package deps; `=LIST` → those names only (unknown name → clear error) |
-| `--offline` | **Refuse** with a clear message (cannot refresh without network) |
-| `--develop` | Skip refresh for deps that resolve via develop path (local tree is source of truth) |
-| Location deps / Conan | Out of scope for v1 |
-| Conditional vs force | **Force** re-download in v1 (simpler, honest for same-version overwrite). Optional later: HEAD/`Last-Modified` skip if unchanged |
-| Interaction with purge/wipe | Refresh = “ensure currency for this build”; purge/wipe remain storage maintenance. Refresh may reuse the same path deletion helpers wipe already uses |
-| Dry-run | Honour `-n` / dry-run if other storage actions do: report what would be re-fetched |
+| Flag name | **``--refresh-downloads``** (pairs with ``--list-downloads``; scope in help/Antora) |
+| Optional value | ``nargs='?'``: bare / no value → all **project-used GitLab package** deps for this configure; ``=a,b`` → Cuppa dependency **names** only |
+| Unknown names in ``=LIST`` | **Refuse** after sconscript/package construction if any listed name was never seen as a GitLab package dep (actionable Options Error / StopError) |
+| When | Configure-time inside ``GitlabPackageDependency`` construction, before reuse of archive/extract |
+| What | For each selected dep: remove matching archive(s) under the package version cache dir + the extract tree for the **current** toolchain/variant selection, then download + extract as today |
+| ``--offline`` | **Refuse** when the flag applies (cannot refresh without network) |
+| ``--develop`` / prefix develop | **Skip** refresh for that dep (local tree / prefix is source of truth) |
+| Publisher-shaped develop (stage path) | **Skip** when tip consumes local stage (same as develop skip) |
+| Location / Conan / Boost source | Out of scope for v1 |
+| Conditional vs force | **Force** re-download in v1 (no HEAD skip). Later slice: optional If-Modified-Since |
+| Purge / wipe | Unchanged storage maintenance; refresh may reuse path-deletion helpers |
+| ``-n`` / ``--no-exec`` | **Skip** drop+fetch (log that refresh would apply); SCons dry-run still configures — do not delete caches under dry-run |
+| Nested cascade sessions | Nested argv may inherit the tip flag; that is OK (nested tips that consume packages refresh their own caches). No special drop required for v1 |
+| Docs | Antora Managing + CLI; CHANGELOG; warn about same-version republish soaks |
+
+Rejected spellings retained for history: ``--refresh-dependent-downloads``,
+``--refresh-package-downloads``, ``--refetch-packages``, ``--update-package-downloads``,
+``--invalidate-package-cache``, ``--refresh-dependencies``. Prefer renaming to
+``--refresh-package-downloads`` only if review finds ``--refresh-downloads`` too broad
+before the named release — cheap while ``.dev``.
 
 ```mermaid
 flowchart TD
   start[Configure package dep]
   refresh{"--refresh-downloads applies?"}
+  dry{"-n / no-exec?"}
   offline{"--offline?"}
-  develop{"develop path active?"}
+  develop{"develop / local stage?"}
   drop[Remove archive + extract for selection]
   fetch[Download + extract as today]
   reuse[Reuse existing cache]
   start --> refresh
   refresh -->|no| reuse
-  refresh -->|yes| offline
+  refresh -->|yes| dry
+  dry -->|yes| notice[Log would refresh; reuse]
+  notice --> reuse
+  dry -->|no| offline
   offline -->|yes| fail[StopError: cannot refresh offline]
   offline -->|no| develop
   develop -->|yes| reuse
@@ -117,10 +101,10 @@ flowchart TD
 
 | ID | Deliverable | Target |
 |----|-------------|--------|
-| `pkg-dl-refresh-plan` | This plan + design README / ROADMAP pointer | **This change** |
-| `pkg-dl-refresh-names` | Settle flag spelling + `=LIST` grammar in plan table | Before impl |
-| `pkg-dl-refresh-impl` | Option + GitlabPackageDependency hook; unit tests | `minor` |
-| `pkg-dl-refresh-docs` | Antora Managing / CLI inspect-and-maintain; soak note in cmake-package-prefix | Same PR as impl |
+| `pkg-dl-refresh-plan` | Plan + ROADMAP / design index | Done |
+| `pkg-dl-refresh-names` | Settle flag spelling + `=LIST` grammar | **Settled** 2026-09-27 |
+| `pkg-dl-refresh-impl` | Option + GitlabPackageDependency hook; unit tests; unknown-name audit | This branch |
+| `pkg-dl-refresh-docs` | Antora Managing / CLI; CHANGELOG | Same PR as impl |
 | `pkg-dl-refresh-conditional` | Optional If-Modified-Since / skip unchanged | Later |
 
 ## Acceptance
@@ -140,3 +124,4 @@ flowchart TD
 - Auto-refresh on every online build.
 - Content-addressed archive filenames (would also fix the pain; larger change).
 - Publish-side “bump version on every rebuild” policy (operator choice).
+- Location HTTP archive refresh (separate flag or scope later).

@@ -131,7 +131,9 @@ class base(object):
             package = None
 
             if package_manager == "gitlab":
-                package = GitlabPackageDependency( env, **package_args )
+                package = GitlabPackageDependency(
+                        env, dependency_name=cls._name, **package_args
+                )
 
             if package:
                 cls._cached_packages[package_id] = package

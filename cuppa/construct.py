@@ -1057,6 +1057,11 @@ class Construct(object):
                 print( "cuppa: Nothing to be done. Exiting." )
                 SCons.Script.Exit()
 
+            # Selective --refresh-downloads=LIST: refuse unknown names once every
+            # project-used GitLab package has had a chance to construct.
+            from cuppa.package_managers.gitlab import audit_refresh_downloads
+            audit_refresh_downloads( cuppa_env )
+
             # Cascade plan/collect resolve as each tip publisher is constructed, so
             # the exit waits for the read to finish and report every tip. Consume-only
             # tips (no GitlabPackagePublisher) seed from package factories here.
