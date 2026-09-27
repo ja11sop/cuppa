@@ -3680,12 +3680,13 @@ def test_stage_develop_plan_lists_unstaged_after_leaf_first_stage_order( tmp_pat
 
     present = tmp_path / "present"
     present.mkdir()
+    # Long path so wrap may split "project" from "[path] is missing." (CI tmp roots).
+    missing = tmp_path / ( "nested-" * 6 ) / "ghost"
     ( present / "sconstruct" ).write_text(
             "Missing = cuppa.location_dependency('ghost', develop={!r})\n"
-            .format( str( tmp_path / "ghost" ) ),
+            .format( str( missing ) ),
             encoding="utf-8",
     )
-    missing = tmp_path / "ghost"
 
     class _Loc:
         _package_manager = None
@@ -3722,7 +3723,10 @@ def test_stage_develop_plan_lists_unstaged_after_leaf_first_stage_order( tmp_pat
     visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
     assert "unstaged" in visible
     assert "1 of 1" in visible
-    assert "project [" in visible and "is missing" in visible
+    # Wrap may put "project" and "[path] is missing." on separate lines when the
+    # develop path is long (GitHub Actions pytest tmp paths).
+    assert "is missing" in visible
+    assert re.search( r"project\s*\[", visible )
     assert "1 error" in visible
     assert "[1 error]" in visible
     assert "Use " in visible and "clone-develop" in visible

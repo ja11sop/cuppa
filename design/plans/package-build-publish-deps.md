@@ -492,7 +492,7 @@ Pattern (unchanged spirit): **enable** + **action**.
 | Dual graph | Consume tip SoT = registered package factories (+ versions). Publisher tip SoT remains ``publisher._dependencies``. No merge invents edges the tip did not declare as direct package deps |
 | Entry timing | After the tip sconscript read, when cascade is on and no publisher tip already ran cascade for this ``sconstruct_dir`` (publisher tips still enter from ``GitlabPackagePublisher`` construction). Pre-sconscript ``BuildWith`` continues to rely on Slice F deferral when the registry pin is missing |
 | Tip identity (banners / plan) | Project / ``sconstruct_dir`` basename; version label ``consume`` (not a registry upload identity) |
-| Build-deps-only (no nested **upload**) | **Out of MVP** (open Q3) — distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
+| Build-deps-only (no nested **upload**) | **Open Q3** — next slice after Q1b; proposed flag ``--build-cascade-dependencies`` (see open question 3 table). Distinct from ``--publish-cascade-dependencies``, which **does** nested registry upload |
 | Extract-seed (**1b**) | **Follow-on**: omit tip ``package_source`` when an extract’s traveling manifest can supply it |
 | Package ``develop=`` (**2b**) | **Follow-on / likely partial today**: with ``--develop``, configured develop publisher tree already wins in resolve. Do not require ``develop=`` for packages in MVP |
 | Partial coverage | Resolve: develop tree wins under ``--develop``, else ``package_source`` / publisher-root / clone. Collect: clone missing into ``--publisher-root`` (not into operator-owned ``develop=``). Plan/collect must report reused develop vs cloned vs missing source |
@@ -571,10 +571,42 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
    cuppa -Q -D --list-dependencies --list-format=verbose --list-location=active --develop
    ```
 
+   ### Settled decisions (LOCATION vs dependency reclaim — 2026-09-27)
+
+   | Topic | Decision |
+   |-------|----------|
+   | Compose ``--list-location`` with remove/purge/wipe/force-wipe | **Refuse as a delete path** — LOCATION is a **list overlay only**. Reclaim never reads ``list_location`` today; do not teach wipe to delete ``[pub]`` / ``[dev]`` paths. |
+   | Why | Different containment roots (``dependencies_root`` / downloads vs ``publisher_lookup_root`` vs operator ``develop=``). Q1a: never route publishers through ``--remove-dependencies``. Develop must stay undeletable via dependency reclaim. Wipe means extract+download clean-slate, not ``rm`` a git WC. |
+   | Operator pathway | List with ``--list-location`` → then the matching verb: ``--wipe-dependencies`` / ``--remove-dependencies`` for storage; ``--remove-publishers=foldername`` for forest; develop via ``--list-develop`` / ``--update-develop`` (never wipe). |
+   | Silent ignore today | ``--list-location!=storage`` with reclaim flags is stored but ignored. Optional later: **warn + ignore** (prefer over hard refuse so scripts do not break) with a hint toward ``--remove-publishers``. |
+
+   ### Follow-on: publisher remove UX + docs (not Q3)
+
+   | Topic | Direction |
+   |-------|-----------|
+   | Docs gap | Prose + shell commands for ``--remove-publishers`` exist on ``list-publishers.adoc``; **no** generated dry-run sample (contrast ``remove-gitlab-dry-run``). Add sample + reclaiming-hub cross-link; state purge/wipe N/A for publishers. |
+   | Filter model | Keep **comma-separated folder names** under the in-force publisher root — **not** ``[selector]name[/qualifier]``. Forest has no toolchain leaves or download pairing; selectors would invent a false parallel. |
+   | Align with remove-dependencies? | **Partial only:** shared dry-run (``-n``), containment, develop skip, verify hint. **Do not** adopt typed selectors, version qualifiers, or context-scoped project-used filters. |
+   | ``--list-publishers`` “would remove” preview | **Useful thin polish, not a second remove verb.** Prefer a footer / SIZE-aware reclaim hint naming folder names (parallel to list-deps verify hints), plus ``-n --remove-publishers=…`` sample. Optional later: ``--list-publishers`` annotation of reclaimable rows — **refuse** a fake ``--wipe-publishers``. |
+   | Sequencing | Docs sample + reclaim cross-link can land with or just before Q3; selector-shaped remove and LOCATION-driven wipe stay **out**. |
+
 2. ~~File convergence to a single traveling manifest~~ — settled under Phase 2d (``cuppa-publish.json`` only)
 3. Flag without `--publish-package` for **build**-deps-only (local build, **no**
    nested registry upload) — distinct from `--cascade-plan` / `--collect-cascade`
-   and from Phase 4 **nest-deps-only** (which **does** nested upload). Still open.
+   and from Phase 4 **nest-deps-only** (which **does** nested upload). **Next
+   implementation slice** after Q1b ([#338](https://github.com/ja11sop/cuppa/pull/338)).
+
+   ### Proposed settled decisions (question 3 — build-deps-only) — write before code
+
+   | Topic | Proposed decision |
+   |-------|-------------------|
+   | Flag name | **``--build-cascade-dependencies``** (dependencies-noun family; parallel to ``--publish-cascade-dependencies``) |
+   | What runs | Nested ``cuppa`` sessions **build only** (same clean/build path as nest today); **no** ``PublishPackage`` / registry upload; tip **build only** |
+   | Compose | **Refuse** with ``--publish-package`` and with ``--publish-cascade-dependencies`` (pick one end state); keep ``--cascade-plan`` / ``--collect-cascade`` review/collect-only where nest already refuses |
+   | Skip-if-current | Keep local extract/archive freshness that does not need registry HEAD; no new skip story |
+   | Invalidate / refresh | No post-upload tip wipe (no nested upload); document that |
+   | Docs | Antora cascade companion table + CLI; do not claim shipped until the flag exists |
+   | Out of scope | Q4 forest keying; ``--list-location`` behaviour beyond incidental wording |
 4. **Publisher forest layout / keying** (was “richer `--publisher-root` layout”).
 
    Today (2b): destination is ``{root}/{name}`` (dependency name), with a refuse
@@ -663,7 +695,7 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
 | Phase 4 pure-consume settled decisions (1a+2a; park 1b/2b) | **Settled** (2026-09-23) — ``--publish-cascade-dependencies``; refuse bare cascade / tip-type inference |
 | Phase 4 implementation | **Done** on master via [#330](https://github.com/ja11sop/cuppa/pull/330) — consume-tip entry, ``--publish-cascade-dependencies``, project **B** soak hardenings (``registry: same``, tip package toolchain/arch/abi, ``--publish-modified``, extract-only skip-if-current, tag force-fetch, finish-line **to run** vs **make executable**, **(this project)**); not yet in a named release |
 | Follow-on: tip no-op after metadata-only dependency refresh | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) (question 11; corosio→capy soak) — not yet in a named release |
-| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b settled + implemented** (``--list-location`` LOCATION overlay); question **4** still open (stem keying) |
+| Follow-on: publishers visibility + layout | Question **1a done** on [#335](https://github.com/ja11sop/cuppa/pull/335) (list/remove + develop chrome); **1b** on [#338](https://github.com/ja11sop/cuppa/pull/338) (``--list-location``); LOCATION≠reclaim settled 2026-09-27; publisher remove docs/UX follow-on noted; **Q3** next; **Q4** stem keying still open |
 | Antora cascade docs (enable+action, run/refresh, cold start, agnostic framing) | **Done** on master via [#333](https://github.com/ja11sop/cuppa/pull/333) — see [Antora documentation](#antora-documentation-297) |
 | Collect finish: reused vs newly cloned | **Done** on master via [#334](https://github.com/ja11sop/cuppa/pull/334) (question 7) |
 
@@ -702,9 +734,11 @@ about one tool.
 |------|------------|--------|
 | Collect finish: **reused** vs **cloned** in plan/collect copy | ~~Open question **7**~~ **Done** — Antora `#collect-cascade` + CLI `--collect-cascade` ([#334](https://github.com/ja11sop/cuppa/pull/334)) |
 | ``publishers`` list/remove + develop chrome (Q1a) | ~~Open question **1**~~ **Done** on [#335](https://github.com/ja11sop/cuppa/pull/335) | ``--list-publishers`` / ``--remove-publishers`` |
-| ``--list-location`` LOCATION overlay on ``--list-dependencies`` (Q1b) | ~~Open question **1b**~~ **Done** (settled 2026-09-26; implemented this PR) | ``storage`` / ``publishers`` / ``develop`` / ``active``; ``--develop`` gates precedence; no publishers TYPE section |
-| Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Update resolve/clone destination tables and cold-start paths in the same change |
-| Build-deps-only without nested upload | Open question **3** (still open) | Do not document as if shipped |
+| ``--list-location`` LOCATION overlay on ``--list-dependencies`` (Q1b) | ~~Open question **1b**~~ **Done** on [#338](https://github.com/ja11sop/cuppa/pull/338) | ``storage`` / ``publishers`` / ``develop`` / ``active``; ``--develop`` gates precedence; no publishers TYPE section |
+| LOCATION compose with wipe/remove | **Settled refuse** (2026-09-27) | List overlay only; reclaim verbs stay root-specific |
+| ``--remove-publishers`` dry-run sample + reclaim cross-link | Docs follow-on | Folder-name filters only; optional list-publishers reclaim footer; no selectors / no purge |
+| Forest keying by ``package_source`` stem (if flipped) | Open question **4** | Defer until settle table + soak collision evidence; then own PR |
+| Build-deps-only without nested upload | Open question **3** — **next** after Q1b | Proposed ``--build-cascade-dependencies``; settle table then implement; do not document as shipped |
 | Issue **#297** body refresh (Phase 4 + Q11 summary) | Housekeeping when closing or after Q1 | Keep issue summary aligned with Antora; optional |
 
 ### Editorial rules (ongoing)
