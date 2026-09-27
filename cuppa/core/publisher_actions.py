@@ -560,9 +560,6 @@ def remove_publishers( construct, cuppa_env, out=None ):
         ) )
         return 1
     by_name = { row['name']: row for row in ( data.get( 'rows' ) or [] ) }
-    entry_by_name = {
-            entry.copy.name: entry for entry in ( data.get( 'entries' ) or [] )
-    }
 
     if cuppa_env.get( 'remove_all_publishers' ):
         targets = list( data.get( 'rows' ) or [] )
