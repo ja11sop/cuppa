@@ -8,7 +8,7 @@ Default dependencies: alpha
        24K  today       3 used       ├── dependencies in use
         7K  4 days ago  1 unused     ├── potentially stale dependencies
                                      │
-       31K  today       1 used       └── gitlab packages
+       31K  today       1 used       └── gitlab packages [gl]
                                          │
        12K  today                        └── alpha
        12K  today                            └── 1.0.0
@@ -30,8 +30,24 @@ Default dependencies: alpha
   --------------------------------------------------------------------------------------
   4 entries, 31K total, 7K unreferenced
 
-Review unreferenced trees, then clear them with:
+To reclaim storage from a referenced dependency use one of:
+│
+├── cuppa -Q -D -n --remove-dependencies=<filter>
+│   └── delete this context's build products (or the selected package tree); downloads stay
+├── cuppa -Q -D -n --purge-dependencies=<filter>
+│   └── same as remove, and delete the matching download archive (extract stays)
+└── cuppa -Q -D -n --wipe-dependencies=<filter>
+    └── delete the whole extract and its download (next online build re-fetches)
 
-cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+To reclaim storage from an unreferenced dependency use one of:
+│
+├── cuppa -Q -D -n --force-wipe-dependencies=<filter>
+│   └── wipe named list-tree leaves (including unused siblings under a used identity)
+└── cuppa -Q -D -n --force-wipe-unreferenced-dependencies
+    └── orphan sweep for every unreferenced leaf this resolve sees (prefer named filters above)
+
+Note: <filter> is a comma-separated list of name, [selector]name, name/qualifier, [selector]name/qualifier
+      ├── fnmatch wildcards (*,?,[...]) are supported for name and qualifier; quote wildcards for the shell
+      └── e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or '[source]boost/[4-9].*'
 
 Drop -n and re-run after confirming.

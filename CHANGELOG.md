@@ -9,6 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--list-location=storage|publishers|develop|active`` on ``--list-dependencies`` —
+  overlays working-copy paths marked ``[dev]`` / ``[pub]`` (publisher forest under
+  ``--publisher-root``, configured ``develop=``, or ``active`` with ``--develop``
+  gating develop-over-publisher precedence). Orthogonal to ``--list-format`` and
+  ``--list-scope``: compact text puts a plain mark and subdued path on the identity
+  DEPENDENCY label (including nest ``requires`` identities; replacing bracket detail
+  or appending when none); verbose keeps a LOCATION column with info marks. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  question 1b ([#297](https://github.com/ja11sop/cuppa/issues/297)).
+
+- Verbose LOCATION download mark renamed from ``[D]`` to ``[dl]`` (download /
+  archive), aligned with ``[dev]`` / ``[pub]``. Marks are info-coloured; paths
+  follow the row. Legend footer names ``--purge-dependencies`` and real publisher /
+  downloads roots.
+
+- ``--list-dependencies`` reclaim footer lists remove / purge / wipe and named
+  ``--force-wipe-dependencies`` before the orphan sweep, with used/unused vs
+  referenced/unreferenced wording matched to ``--list-scope``. Command lines use
+  a shared ``<filter>`` placeholder (comma-separated ``[selector]name/qualifier``;
+  not ``[]`` alone, which is list-tree selector syntax); reclaim flags are
+  emphasised info; detail lines are subdued. Wording distinguishes build-product
+  clean (remove), same plus download with extract staying (purge), and whole
+  extract plus download (wipe). The footer Note lists the four filter forms and
+  a short fnmatch / examples tree; type group rows show muted selector aliases
+  (compact ``[gl]``; verbose ``select as [gl], [gitlab] or [gitlab_package]``).
+  Verbose ``[pub]`` LOCATION paths follow ``[dl]`` colour (info when used,
+  subdued when unused); ``[dev]`` paths stay plain when used and subdued when
+  unused. The reclaim footer Note wraps like judgement-tree prose.
+
 - ``--list-dependencies`` nests the traveling-manifest **package closure** of tip-selected
   GitLab extracts under each tip version’s ``requires`` group as sized package trees
   (versions → toolchains). Closure-only packages leave the top-level unreferenced list and
@@ -20,8 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inspect and reclaim the cascade publisher forest under the in-force root
   (``--publisher-root``, else ``<storage-root>/publishers``). List report matches
   ``--list-develop`` chrome (STATUS / SIZE / judgement tree / update hint).
-  Sibling storage actions to ``--list-downloads``; never delete a develop-linked
-  path. Design: [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Remove reuses that ruled table with a leading REMARK column (``would rm`` /
+  ``removed`` / ``skip``) and ``as_remove_notice`` row paint, plus a size summary —
+  same vocabulary family as ``--remove-dependencies``. Sibling storage actions to
+  ``--list-downloads``; never delete a develop-linked path. Design:
+  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
   question 1a ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Pure-consume cascade (**Phase 4**): a tip with no ``GitlabPackagePublisher`` can
@@ -146,6 +178,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md).
 
 ### Fixed
+
+- ``--remove-dependencies`` unknown-name hint tree keeps the default ``used``
+  section (and ``referenced`` under identity grouping). Filtering only for
+  ``referenced`` left a header-only empty table after ``build_tree`` switched to
+  usage grouping.
+
+- ``storage.wrapped`` protects bracketed spans with same-length placeholders so
+  wrap width matches the restored text. Longer fixed placeholders made follow-on
+  Note lines (for example the reclaim footer ``e.g. …`` branch) wrap earlier than
+  sibling prose of similar length.
 
 - ``--list-dependencies`` mutes label-only ``requires`` edges under the **unused**
   / **unreferenced** sections the same way as under used / referenced (structural

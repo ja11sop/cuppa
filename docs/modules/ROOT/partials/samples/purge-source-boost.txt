@@ -1,0 +1,30 @@
+Removing 2 dependency trees and 1 download (552.3M) under ~/.cuppa/dependencies / ~/.cuppa/downloads
+
+  -------------------------------------------------------------------------------------------------
+      SIZE  LAST USED      REMARK     DEPENDENCY
+  -------------------------------------------------------------------------------------------------
+      2.2G  yesterday                 related dependencies for boost
+                                      │
+    552.3M                            ├── removed
+      1.7G  yesterday                 ├── remaining
+                                      │
+      2.2G  yesterday                 └── source archives
+                                          │
+      2.2G  yesterday                     └── -✔- boost
+                                              │
+      2.2G  yesterday                         └── -✔- 1.91.0
+      140M  -              removed                ├── ✔ boost_1_91_0.tar.gz
+      2.1G  yesterday                             └── -✔- [E] boost_1_91_0
+      1.7G  yesterday                                 ├── - source assets
+    113.9M  -              removed                    ├── ✔ clean/bin.c++2c [gcc-15*/debug]
+    298.4M  -              removed                    └── ✔ clean/build.c++2c [gcc153/debug/x86_64]
+  -------------------------------------------------------------------------------------------------
+
+[E] = dependency extracted from the download above
+
+Removed 2 trees and 1 download freeing up 552.3M of disk space leaving a final archive size of 1.7G.
+
+Verify with:
+
+cuppa -Q -D --list-downloads
+(archive product clean leaves source assets; --list-dependencies still useful there)

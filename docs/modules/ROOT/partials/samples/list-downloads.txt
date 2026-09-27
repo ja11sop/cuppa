@@ -5,13 +5,13 @@ Default dependencies: boost, boost_package
   -----------------------------------------------------------------------------
       180M  today      2 total  used downloads
                                 │
-       38M  today      1 used   ├── gitlab packages
+       38M  today      1 used   ├── gitlab packages [gl]
                                 │   │
        38M  today               │   └── boost_package
        38M  today               │       └── 1.91
        38M  today      in use   │           └── boost_…_gcc153_rel_….tar.gz
     299.3M  today      in use   │               └── [E] gcc153_rel_x86_64_cxx2c
-      142M  today      1 used   └── source archives
+      142M  today      1 used   └── source archives [sa]
                                     │
       142M  today                   └── boost
       142M  today      in use           └── boost_1_91_0.tar.bz2
@@ -19,7 +19,7 @@ Default dependencies: boost, boost_package
   -----------------------------------------------------------------------------
        36M  today               unused downloads
                                 │
-       36M  today               └── gitlab packages
+       36M  today               └── gitlab packages [gl]
                                     │
        36M  today                   └── fmt_package
        36M  today                       └── 11.1.4

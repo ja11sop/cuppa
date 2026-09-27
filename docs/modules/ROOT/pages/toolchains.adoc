@@ -210,7 +210,7 @@ prefer xref:toolchains.adoc#list-toolchains[`--list-toolchains`].
 
 Which management flags apply:
 
-* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=<...>` (or auto-select via archive/root flags), that extract or registration is marked **referenced** / `in use`. Other cached installs stay unreferenced. Verbose LOCATION shows `[D]` when the matching archive still exists under `downloads_root/toolchains/<...>`.
+* `--list-dependencies` / `--list-downloads` — yes. When you pass `--toolchains=<...>` (or auto-select via archive/root flags), that extract or registration is marked **referenced** / `in use`. Other cached installs stay unreferenced. Verbose LOCATION shows `[dl]` when the matching archive still exists under `downloads_root/toolchains/<...>`.
 * `--force-wipe-dependencies=[toolchain]clang/profiles_*`,
   `--force-wipe-dependencies=[toolchain]gcc/gcc_snapshot_*`, or the session name
   (`[toolchain]clang24_profiles_<...>` / `[toolchain]gcc16_<...>`) — yes.

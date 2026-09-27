@@ -862,6 +862,7 @@ def _build_downloads_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_label,
+            'type_key': type_key,
             'size_bytes': _sum_archive_node_sizes( items ),
             'last_used_epoch': epoch,
             'remark': dependency_tree._remark_count( used, 'used' ),
@@ -875,6 +876,7 @@ def _build_downloads_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_key,
+            'type_key': type_key,
             'size_bytes': _sum_archive_node_sizes( items ),
             'last_used_epoch': epoch,
             'remark': '',

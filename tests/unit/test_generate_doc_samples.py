@@ -98,11 +98,28 @@ def test_list_downloads_html_sample_colours_intro_and_extract_mark():
     assert '\x1b[' not in text
 
 
+def test_list_dependencies_location_sample_is_compact_with_pub_on_label():
+    path = samples.sample_list_dependencies_location()
+    text = path.read_text( encoding='utf-8' )
+    header = next(
+            line for line in text.splitlines()
+            if 'DEPENDENCY' in line and 'SIZE' in line
+    )
+    assert 'LOCATION' not in header
+    assert '[pub]' in text
+    assert 'boost_package' in text
+    assert 'publishers/boost' in text.replace( '\\', '/' )
+    assert 'in-force publisher root' in text or 'publisher root' in text
+    assert '[dl]' not in text  # compact has no LOCATION / download marks
+
+
 def test_list_dependencies_verbose_sample_has_location_and_download_mark():
     path = samples.sample_list_dependencies_verbose()
     text = path.read_text( encoding='utf-8' )
     assert 'LOCATION' in text
-    assert '[D]' in text
+    assert '[dl]' in text
+    assert '[pub]' in text
+    assert 'publishers/boost' in text.replace( '\\', '/' )
     assert 'archive present under downloads' in text
     assert 'today' in text
     assert ' days ago' not in text
@@ -114,7 +131,20 @@ def test_list_dependencies_html_sample_colours_paths_and_wipe_hint():
     assert text.startswith( '<pre class="cuppa-output"><code>' )
     assert 'cuppa-info' in text
     assert 'cuppa-emphasised' in text
+    assert '--force-wipe-dependencies' in text
     assert 'force-wipe-unreferenced-dependencies' in text
+    assert '--remove-dependencies' in text
+    assert '&lt;filter&gt;' in text or '<filter>' in text
+    assert 'Note:' in text
+    assert 'fnmatch wildcards' in text
+    assert 'boost,conan' in text
+    assert "[selector]name/qualifier" in text or '[selector]name/qualifier' in text
+    # Compact list: short selector aliases only.
+    assert '[gl]' in text
+    assert '[sa]' in text
+    assert 'select as [gl]' not in text
+    assert '--remove-dependencies' in text
+    assert 'To reclaim storage' in text
     assert '/tmp/' not in text
     assert '/home/' not in text
     assert '\x1b[' not in text
@@ -126,10 +156,29 @@ def test_list_dependencies_verbose_html_sample_colours_download_mark():
     )
 
     assert 'LOCATION' in text
-    assert '[D]' in text
+    assert '[dl]' in text
+    assert '[pub]' in text
+    assert 'publishers/boost' in text.replace( '\\', '/' )
     assert 'cuppa-info' in text
     assert 'archive present under downloads' in text
+    assert 'select as [gl], [gitlab] or [gitlab_package]' in text
+    assert 'select as [sa], [source], [archive] or [source_archive]' in text
     assert '/home/' not in text
+    assert '\x1b[' not in text
+
+
+def test_list_dependencies_location_html_sample_has_plain_pub_mark():
+    text = samples.sample_list_dependencies_location_html().read_text(
+            encoding='utf-8'
+    )
+    assert '[pub]' in text
+    assert 'boost_package' in text
+    assert 'publishers/boost' in text.replace( '\\', '/' )
+    assert 'LOCATION' not in text or 'LOCATION' not in [
+            line for line in text.splitlines() if 'SIZE' in line
+    ][0]
+    # Compact: mark is plain (no cuppa-info on [pub]); path is subdued.
+    assert 'cuppa-subdued' in text
     assert '\x1b[' not in text
 
 

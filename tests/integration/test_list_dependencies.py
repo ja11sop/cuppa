@@ -362,7 +362,9 @@ cuppa.run(
     all_plain = strip_ansi(as_all.stdout)
     assert "1.90" in all_plain
     assert "unused" in all_plain
-    assert "Review unreferenced trees" in all_plain or "force-wipe-unreferenced" in all_plain
+    assert "To reclaim storage from an unused dependency" in all_plain
+    assert "--force-wipe-dependencies=" in all_plain
+    assert "--remove-dependencies=" in all_plain
 
 
 def test_list_dependencies_scope_compact_is_used_without_siblings(tmp_path):
@@ -409,7 +411,10 @@ cuppa.run(
     assert "1.91" in plain
     assert "1.90" not in plain
     assert re.search( r"\bentries, .* compact\b", plain )
-    assert "Review unreferenced trees" not in plain
+    assert "To reclaim storage from an unused dependency" not in plain
+    assert "force-wipe-unreferenced-dependencies" not in plain
+    assert "To reclaim storage from an in use dependency" in plain
+    assert "--remove-dependencies=" in plain
     assert not re.search( r"(?m)^\s*unreferenced\s*$", plain )
     assert not re.search( r"(?m)^\s*unused\s*$", plain )
 
@@ -474,9 +479,10 @@ cuppa.run(
     plain = strip_ansi(listed.stdout)
     assert "unreferenced" in plain
     assert "fmt" in plain or "github.com" in plain or "boost" in plain
-    assert "Review unreferenced trees" in plain
-    # [D] footer is verbose-only even when regenerating archives exist.
-    assert "[D] = archive present under downloads" not in plain
+    assert "To reclaim storage from an unreferenced dependency" in plain
+    assert "--force-wipe-dependencies=" in plain
+    # [dl] footer is verbose-only even when regenerating archives exist.
+    assert "[dl] = the archive present under downloads" not in plain
     assert "corrupt archive" not in plain
 
 
@@ -522,7 +528,7 @@ cuppa.run(
 
 
 def test_list_dependencies_verbose_archives_and_download_mark(tmp_path):
-    """Verbose LOCATION groups GitHub/Boost archives and marks cached downloads with [D]."""
+    """Verbose LOCATION groups GitHub/Boost archives and marks cached downloads with [dl]."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     planted = plant_archives_and_downloads(storage)
@@ -566,19 +572,20 @@ cuppa.run(
     assert "https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
     assert "https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" in plain
     # Only the tag with a downloads-root file is marked.
-    assert "[D] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
-    assert "[D] https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" not in plain
+    assert "[dl] https://github.com/fmtlib/fmt/archive/refs/tags/11.1.4.zip" in plain
+    assert "[dl] https://github.com/fmtlib/fmt/archive/refs/tags/12.2.0.zip" not in plain
 
     assert re.search(r"\bboost\b", plain)
     assert "1.91.0" in plain or "boost_1_91_0" in plain or "archives.boost.io" in plain
-    assert "[D] {}".format(planted["boost_url"]) in plain
+    assert "[dl] {}".format(planted["boost_url"]) in plain
 
-    # GitLab: registry URL on the version row without [D]; archive leaf with [D].
+    # GitLab: registry URL on the version row without [dl]; archive leaf with [dl].
     assert "gitlab.example/api/v4/projects/1/boost/1.91" in plain
-    assert "[D] https://gitlab.example/api/v4/projects/1/boost/1.91" not in plain
-    assert "[D] {}".format(planted["gitlab_archive"]) in plain
+    assert "[dl] https://gitlab.example/api/v4/projects/1/boost/1.91" not in plain
+    assert "[dl] {}".format(planted["gitlab_archive"]) in plain
 
-    assert "[D] = archive present under downloads" in plain
+    assert "[dl] = the archive present under downloads" in plain
+    assert "--purge-dependencies=" in plain or "purge-dependencies" in plain
     assert "corrupt archive" in plain
 
     as_json = run_cuppa(
@@ -826,3 +833,103 @@ def test_list_dependencies_shows_declared_requires_chain( tmp_path ):
     assert alpha_entries
     requires = alpha_entries[0].get( "requires" ) or []
     assert any( item.get( "name" ) == "beta" for item in requires )
+
+
+def test_list_dependencies_list_location_publishers( tmp_path ):
+    """Verbose LOCATION can overlay [pub] paths from the publisher forest."""
+    project = copy_dummy_project( tmp_path )
+    storage = tmp_path / "storage"
+    planted = plant_archives_and_downloads( storage )
+    forest = storage / "publishers" / "boost"
+    forest.mkdir( parents=True )
+    ( forest / "sconstruct" ).write_text( "# publisher\n", encoding="utf-8" )
+    ( forest / ".git" ).mkdir()
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-format=verbose",
+        "--list-location=publishers",
+        "--storage-root={}".format( storage ),
+        extra_env=own_home( tmp_path ),
+    )
+    assert_success( listed )
+    plain = strip_ansi( listed.stdout )
+    assert "LOCATION" in plain
+    assert "[pub]" in plain
+    assert "publishers/boost" in plain.replace( "\\", "/" )
+    assert "in-force publisher root" in plain
+    assert "[dl]" in plain
+    assert "--purge-dependencies=" in plain or "purge-dependencies" in plain
+    assert planted["gitlab_archive"]  # planted layout still present on disk
+
+
+def test_list_dependencies_list_location_compact_does_not_force_verbose( tmp_path ):
+    """Non-storage --list-location stays compact: mark+path on DEPENDENCY, no LOCATION."""
+    project = copy_dummy_project( tmp_path )
+    storage = tmp_path / "storage"
+    plant_archives_and_downloads( storage )
+    forest = storage / "publishers" / "boost"
+    forest.mkdir( parents=True )
+    ( forest / "sconstruct" ).write_text( "# publisher\n", encoding="utf-8" )
+    ( forest / ".git" ).mkdir()
+    write_sconstruct(
+        project,
+        body="""\
+import cuppa
+
+Boost = cuppa.package_dependency(
+    'boost_package',
+    package_manager='gitlab',
+    registry='https://gitlab.example/api/v4/projects/1',
+    package='boost',
+    version='1.91',
+)
+
+cuppa.run(
+    default_variants=['dbg'],
+    dependencies=[Boost],
+    default_dependencies=['boost_package'],
+)
+""",
+    )
+    listed = run_cuppa(
+        project,
+        "--offline",
+        "--list-dependencies",
+        "--list-location=publishers",
+        "--storage-root={}".format( storage ),
+        extra_env=own_home( tmp_path ),
+    )
+    assert_success( listed )
+    plain = strip_ansi( listed.stdout )
+    header_lines = [
+            line for line in plain.splitlines()
+            if "DEPENDENCY" in line and "SIZE" in line
+    ]
+    assert header_lines
+    assert "LOCATION" not in header_lines[0]
+    assert "[pub]" in plain
+    assert "publishers/boost" in plain.replace( "\\", "/" )
+    assert "boost_package" in plain
+    assert "in-force publisher root" in plain or "publisher root" in plain

@@ -1,7 +1,7 @@
 = Force-wiping dependencies
 :description: --force-wipe-dependencies and --force-wipe-unreferenced-dependencies — named leaves and orphans
 
-For the flag map, tokens, shared inventory, and glance table, see
+For the flag map, filters, shared inventory, and glance table, see
 xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
 
 Force-wipe is the
@@ -29,21 +29,21 @@ cuppa -Q -D -n --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 cuppa -Q -D --force-wipe-dependencies=boost/1.86.0,boost/1.87.0
 ----
 
-Tokens are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
-tree — see xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
+Filters are `[selector]name` or `[selector]name/qualifier` (selector optional) as shown in the
+tree — see xref:dependencies/managing/reclaiming.adoc#dependency-filters[Dependency filters] and
 xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples]. Examples: `boost/1.86.0`,
 `[source]boost/1.8*`, `fmt/@11.1.1`, `widget/@` (unqualified stem — listed as
 `@master (unqualified)`). Bare project-used identity names belong on
 `--wipe-dependencies`. Matching downloads are wiped too. Referenced /
 unreferenced / `in use` do **not** block the wipe — the long flag name is the acknowledgement.
 Inventory `used_by` naming another project prints a warning and still proceeds.
-A token with no matching leaf (or a matched path that is already gone) does **not** abort the
-rest of the list: other tokens still wipe, and each miss appears in the judgement tree (warning
-on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard tokens still fail hard.
+A filter with no matching leaf (or a matched path that is already gone) does **not** abort the
+rest of the list: other filters still wipe, and each miss appears in the judgement tree (warning
+on dry-run, past-tense note after a real wipe). Ambiguous non-wildcard filters still fail hard.
 
 When both an unqualified stem and `stem@<default>` exist, dependency-management commands
 (list / remove / purge / wipe) note the pair at debug log level. Those commands also print a
-dry-run `--force-wipe-dependencies=` hint with `name/@` tokens after the report footer
+dry-run `--force-wipe-dependencies=` hint with `name/@` filters after the report footer
 (except `--list-dependencies`, which colours the unused `@<default> (unqualified)` leaf with
 the remove accent and ends with that hint in its footer). Under `--list-scope=compact` the
 sibling is hidden, so Location notices and wipe candidates for it are omitted — use
@@ -55,7 +55,7 @@ notice is a warning in the present tense so you can still abort; after a real wi
 past-tense note (`wiped...`, `removing the copy was safe`) and explains that proceeding was safe
 when the canonical folder is present.
 
-Exact tokens must resolve to exactly one leaf (zero or multiple → error with candidates).
+Exact filters must resolve to exactly one leaf (zero or multiple → error with candidates).
 Shell / `fnmatch` wildcards (`*`, `?`, `[<...>]`) on either side wipe **all** matching leaves —
 useful for a version series:
 
@@ -65,7 +65,7 @@ cuppa -Q -D -n --force-wipe-dependencies='boost/1.8*'
 cuppa -Q -D --force-wipe-dependencies='boost/1.8*'
 ----
 
-Quote the token in the shell so `*` is not expanded by the shell before cuppa sees it.
+Quote the filter in the shell so `*` is not expanded by the shell before cuppa sees it.
 Dry-run (`-n`) lists every matched path and size before you drop `-n`. Same-identity
 siblings that are **not** matched (for example `boost/1.90.0` when wiping `boost/1.8*`)
 stay in the report without a remove remark, so the identity parent is not marked as fully

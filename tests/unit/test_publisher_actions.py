@@ -116,7 +116,12 @@ def test_remove_publishers_skips_develop_linked( tmp_path, monkeypatch ):
     out = io.StringIO()
     assert publisher_actions.remove_publishers( None, env, out=out ) == 0
     text = out.getvalue()
-    assert 'skipping [capy]' in text
+    assert 'REMARK' in text
+    assert 'skip' in text
+    assert 'capy' in text
+    assert 'removed' in text
+    assert 'corosio' in text
+    assert 'skipped (develop-linked)' in text
     assert capy.is_dir()
     assert not other.exists()
 
@@ -125,14 +130,42 @@ def test_remove_publishers_dry_run_leaves_trees( tmp_path, monkeypatch ):
     storage = tmp_path / 'cuppa'
     forest = storage / 'publishers'
     tree = _plant_tree( forest, 'capy' )
+    other = _plant_tree( forest, 'corosio' )
     monkeypatch.setattr(
             publisher_actions, '_develop_realpaths', lambda _env: set()
     )
     env = _env( storage, remove_publishers='capy', no_exec=True )
     out = io.StringIO()
     assert publisher_actions.remove_publishers( None, env, out=out ) == 0
-    assert 'Would remove' in out.getvalue()
+    text = out.getvalue()
+    assert 'Would remove' in text
+    assert 'would rm' in text
+    assert 'REMARK' in text
+    assert 'STATUS' in text
+    assert 'capy' in text
+    assert 'corosio' in text  # full forest; unaffected row muted
+    assert text.count( 'would rm' ) == 1
+    assert 'dry run' in text
+    assert 'Verify with --list-publishers' in text
     assert tree.is_dir()
+    assert other.is_dir()
+
+
+def test_remove_publishers_apply_marks_removed( tmp_path, monkeypatch ):
+    storage = tmp_path / 'cuppa'
+    forest = storage / 'publishers'
+    tree = _plant_tree( forest, 'capy' )
+    monkeypatch.setattr(
+            publisher_actions, '_develop_realpaths', lambda _env: set()
+    )
+    env = _env( storage, remove_publishers='capy' )
+    out = io.StringIO()
+    assert publisher_actions.remove_publishers( None, env, out=out ) == 0
+    text = out.getvalue()
+    assert text.startswith( '\nRemoved' ) or 'Removed' in text
+    assert 'removed' in text
+    assert 'would rm' not in text
+    assert not tree.exists()
 
 
 def test_remove_publishers_unknown_name_errors( tmp_path, monkeypatch ):

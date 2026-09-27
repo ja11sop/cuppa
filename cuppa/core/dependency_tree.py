@@ -21,6 +21,7 @@ from cuppa.colourise import (
     as_subdued,
 )
 from cuppa.core import dependency_inventory
+from cuppa.core import dependency_identity
 from cuppa.core.dependency_identity import (
     display_qualifier,
     gitlab_archive_name,
@@ -41,6 +42,35 @@ TYPE_LABELS = (
     ( 'archive', 'source archives' ),
     ( 'toolchain', 'toolchains' ),
 )
+
+# Operator-facing filter selectors after each type group label.
+# Compact: short alias only. Verbose: full "select as … or …" list.
+# Order matches reclaim docs (short → preferred → longer); not every SELECTOR_ALIASES spelling.
+TYPE_SELECTOR_HINTS_SHORT = {
+    'repository': '[vcs]',
+    'gitlab': '[gl]',
+    'conan': '[cn]',
+    'archive': '[sa]',
+    'toolchain': '[tc]',
+}
+
+TYPE_SELECTOR_HINTS_VERBOSE = {
+    'repository': 'select as [vcs], [repo], [repository] or [location]',
+    'gitlab': 'select as [gl], [gitlab] or [gitlab_package]',
+    'conan': 'select as [cn], [conan] or [conan_package]',
+    'archive': 'select as [sa], [source], [archive] or [source_archive]',
+    'toolchain': 'select as [tc], [toolchain], [toolchains] or [compiler]',
+}
+
+# Back-compat alias for callers that still import the verbose map name.
+TYPE_SELECTOR_HINTS = TYPE_SELECTOR_HINTS_VERBOSE
+
+
+def type_selector_hint( type_key, verbose=False ):
+    """Muted selector hint for a type group row (short, or verbose ``select as``)."""
+    if verbose:
+        return TYPE_SELECTOR_HINTS_VERBOSE.get( type_key )
+    return TYPE_SELECTOR_HINTS_SHORT.get( type_key )
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
 
@@ -571,6 +601,7 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
         'label_detail': detail_part,
         'registry_name': registry,
         'short_name': short,
+        'family_key': group.get( 'family_key' ),
         'size_bytes': None if missing_only else size_bytes,
         'last_used_epoch': None if missing_only else epoch,
         'remark': remark,
@@ -687,7 +718,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
             'size_bytes': None if missing_only else size_bytes,
             'last_used_epoch': None if missing_only else epoch,
             'remark': remark,
-            # Registry URL is not a downloads-root archive — [D] belongs on toolchain leaves.
+            # Registry URL is not a downloads-root archive — [dl] belongs on toolchain leaves.
             'location': version_location,
             'has_download': version_has_download,
             'missing': missing_only,
@@ -1103,6 +1134,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_label,
+            'type_key': type_key,
             'size_bytes': None,  # filled from leaves below (includes nested requires)
             'last_used_epoch': epoch,
             'remark': _remark_count( used, 'used' ),
@@ -1116,6 +1148,7 @@ def _build_section( name, identities ):
         type_nodes.append( {
             'kind': 'type',
             'label': type_key,
+            'type_key': type_key,
             'size_bytes': None,
             'last_used_epoch': epoch,
             'remark': '',
@@ -1340,8 +1373,6 @@ def _mute_row_fields( label, size, last_used, remark, location ):
         last_used = as_subdued( last_used )
     if remark:
         remark = as_subdued( remark )
-    if location:
-        location = as_subdued( location )
     return label, size, last_used, remark, location
 
 
@@ -1354,6 +1385,31 @@ def _colour_identity_label( name, detail, accent, detail_accent=None ):
         detail_fn = detail_accent or as_subdued
         return coloured_name + detail_fn( ' [{}]'.format( detail ) )
     return coloured_name
+
+
+def _colour_identity_label_or_wc(
+        name, detail, accent, compact_wc=None, path_colour=None, detail_accent=None,
+):
+    """Identity label: optional compact ``[dev]|[pub] path`` instead of bracket detail.
+
+    Compact: mark is plain, path is subdued; the dependency name keeps ``accent``.
+    Verbose LOCATION keeps info marks via ``paint_location`` defaults.
+    """
+    if not name and not compact_wc:
+        return ''
+    if compact_wc:
+        coloured_name = accent( name ) if name else ''
+        painted_wc = dependency_identity.paint_location(
+                compact_wc,
+                path_colour=path_colour or as_subdued,
+                mark_colour='plain',
+        )
+        if coloured_name and painted_wc:
+            return coloured_name + ' ' + painted_wc
+        return coloured_name or painted_wc
+    return _colour_identity_label(
+            name, detail, accent, detail_accent=detail_accent,
+    )
 
 
 def _emphasised_info( text ):
@@ -1377,8 +1433,6 @@ def _remove_row_fields( label, size, last_used, remark, location ):
         last_used = as_remove_notice( last_used )
     if remark:
         remark = as_remove_notice( remark )
-    if location:
-        location = as_remove_notice( location )
     return label, size, last_used, remark, location
 
 
@@ -1391,8 +1445,8 @@ def _error_row_fields( label, size, last_used, remark, location, mute_location=F
         last_used = as_error( last_used )
     if remark:
         remark = as_error( remark )
-    if location:
-        location = as_subdued( location ) if mute_location else as_error( location )
+    # LOCATION is painted once at the end of the row so marks stay info-coloured.
+    _ = mute_location
     return label, size, last_used, remark, location
 
 
@@ -1452,6 +1506,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             branch = elbow if is_last else tee
             stem = prefix + branch
             label = node.get( 'label' ) or ''
+        # Include selector hint in the plain label before width calculation; paint later.
+        selector_hint = None
+        if kind == 'type':
+            selector_hint = type_selector_hint(
+                    node.get( 'type_key' ), verbose=verbose,
+            )
+            if selector_hint:
+                label = ( label + ' ' + selector_hint ).rstrip()
         size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
         if state == 'missing' or remark == 'missing' or missing_identity:
             last_used = '-'
@@ -1478,10 +1540,12 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_section': section,
             '_label_name': node.get( 'label_name' ),
             '_label_detail': node.get( 'label_detail' ),
+            '_compact_wc_location': node.get( 'compact_wc_location' ),
             '_missing_identity': missing_identity,
             '_missing_version': missing_version,
             '_leaf_missing': leaf_missing,
             '_removal_candidate': node.get( 'removal_candidate' ),
+            '_selector_hint': selector_hint,
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
@@ -1535,6 +1599,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         section = row.get( '_section' )
         label_name = row.get( '_label_name' )
         label_detail = row.get( '_label_detail' )
+        compact_wc = row.get( '_compact_wc_location' )
 
         if kind == 'spacer':
             dependency = as_subdued( stem ) if stem else ''
@@ -1547,12 +1612,16 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             } )
             continue
 
+        location_path_colour = None
+
         if row.get( '_missing_identity' ):
             # Missing dependency name: emphasised error; registry URL detail/LOCATION muted
             # so the gap (missing leaf) stays the visual focus.
-            if label_name:
-                label = _colour_identity_label(
-                        label_name, label_detail, _emphasised_error, detail_accent=as_subdued
+            if label_name or compact_wc:
+                label = _colour_identity_label_or_wc(
+                        label_name, label_detail, _emphasised_error,
+                        compact_wc=compact_wc, path_colour=as_subdued,
+                        detail_accent=as_subdued,
                 )
             else:
                 label = _emphasised_error( label ) if label else label
@@ -1560,31 +1629,37 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 size = as_error( size )
             if last_used:
                 last_used = as_error( last_used )
-            if location:
-                location = as_subdued( location )
+            location_path_colour = as_subdued
         elif row.get( '_missing_version' ):
             # Version that contains a missing toolchain leaf: error on the version row only;
             # mute registry LOCATION; sibling toolchains paint normally.
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location, mute_location=True
             )
+            location_path_colour = as_subdued
         elif row.get( '_leaf_missing' ) or remark == 'missing' or row.get( '_state' ) == 'missing':
             # The missing leaf itself (and any other row that is itself missing).
             label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location
             )
+            location_path_colour = as_error
         elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
-                if label_name:
-                    label = _colour_identity_label(
-                            label_name, label_detail, _emphasised_normal
+                if label_name or compact_wc:
+                    label = _colour_identity_label_or_wc(
+                            label_name, label_detail, _emphasised_normal,
+                            compact_wc=compact_wc, path_colour=as_subdued,
                     )
                 else:
                     label = _emphasised_normal( label ) if label else label
+                # [dl]/[dev]/[pub] paths: mute like unused download LOCATION.
+                if dependency_identity.split_location_mark( location )[0]:
+                    location_path_colour = as_subdued
             elif kind == 'leaf':
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
             elif kind == 'requires':
                 # Structural heading — normal (non-muted) paint, same as used.
                 pass
@@ -1593,11 +1668,25 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
         elif section in ( 'referenced', 'used' ):
             if kind == 'identity':
-                if label_name:
-                    label = _colour_identity_label(
-                            label_name, label_detail, _emphasised_info
+                # Compact WC paths are always subdued (mark stays info). Verbose
+                # LOCATION: [pub]/[dl] path info when used; [dev] path stays plain.
+                if compact_wc:
+                    wc_path_colour = as_subdued
+                else:
+                    wc_mark = dependency_identity.split_location_mark( location )[0]
+                    wc_path_colour = None
+                    if (
+                            wc_mark
+                            and wc_mark != dependency_identity.WORKING_COPY_DEV_MARK
+                    ):
+                        wc_path_colour = as_info
+                if label_name or compact_wc:
+                    label = _colour_identity_label_or_wc(
+                            label_name, label_detail, _emphasised_info,
+                            compact_wc=compact_wc, path_colour=wc_path_colour,
                     )
                 else:
                     label = _emphasised_info( label ) if label else label
@@ -1608,6 +1697,9 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     last_used = as_subdued( last_used )
                 if remark in ( 'develop', 'in use' ):
                     remark = as_info( remark )
+                mark, _ = dependency_identity.split_location_mark( location )
+                if mark and mark != dependency_identity.WORKING_COPY_DEV_MARK:
+                    location_path_colour = as_info
             elif kind == 'version':
                 # Version rollups are secondary to the toolchain / variant leaf.
                 if size.strip():
@@ -1621,17 +1713,18 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 label, size, last_used, remark, location = _mute_row_fields(
                         label, size, last_used, remark, location
                 )
+                location_path_colour = as_subdued
             elif kind == 'summary' or remark == 'in use':
                 if kind == 'summary' and 'stale' in ( label or '' ):
                     label, size, last_used, remark, location = _mute_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_subdued
                 else:
                     label = as_info( label ) if label else label
                     if remark:
                         remark = as_info( remark )
-                    if location:
-                        location = as_info( location )
+                    location_path_colour = as_info
                     if kind == 'summary' and size.strip():
                         size = as_info( size )
             elif kind == 'leaf':
@@ -1639,11 +1732,25 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                     label, size, last_used, remark, location = _remove_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_remove_notice
                 else:
                     label, size, last_used, remark, location = _mute_row_fields(
                             label, size, last_used, remark, location
                     )
+                    location_path_colour = as_subdued
             # section / type: normal colour (layout structure).
+
+        # Type group rows: mute the "select as …" hint (already in the plain label).
+        if kind == 'type' and row.get( '_selector_hint' ):
+            hint = row['_selector_hint']
+            suffix = ' ' + hint
+            if ( label or '' ).endswith( suffix ):
+                label = label[:-len( suffix )] + ' ' + as_subdued( hint )
+
+        if location:
+            location = dependency_identity.paint_location(
+                    location, path_colour=location_path_colour
+            )
 
         # Tree glyphs stay muted regardless of row accent (same as --list-builds).
         dependency = ( as_subdued( stem ) if stem else '' ) + label

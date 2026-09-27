@@ -41,8 +41,10 @@ from cuppa.core import (
         storage_actions,
         toolchain_actions,
 )
+import cuppa.core.dependency_actions as dependency_actions
 from cuppa.core.dependency_actions import (
         _format_age_epoch,
+        apply_list_location_overlay,
         apply_list_scope,
         write_list_dependencies_report,
         write_list_downloads_report,
@@ -497,6 +499,115 @@ def sample_remove_boost_product_clean_html():
     return _write_html_sample( 'remove-boost-product-clean.html', text, colouriser )
 
 
+def _purge_boost_fixture( name ):
+    """Source Boost purge: build-product clean + matching download; extract stays."""
+    root = _work_root( name )
+    deps = root / 'dependencies'
+    downloads = root / 'downloads'
+    downloads.mkdir( parents=True )
+    extract = deps / 'boost_1_91_0'
+    stage = extract / 'clean' / 'build.c++2c' / 'gcc153' / 'debug' / 'x86_64'
+    bindir = extract / 'clean' / 'bin.c++2c' / 'boost' / 'bin.v2'
+    _touch_dir( stage, NOW - DAY )
+    _touch_dir( bindir, NOW - DAY )
+    _touch_dir( extract / 'clean' / 'boost', NOW - DAY )
+
+    archive_path = downloads / 'boost_1_91_0.tar.gz'
+    archive_path.write_bytes( b'x' * int( 140 * 1024 * 1024 ) )
+    os.utime( archive_path, ( NOW - DAY, NOW - DAY ) )
+
+    archives = [ {
+        'dependency': 'boost',
+        'extract': str( extract ),
+        'extract_bytes': int( 2.1 * 1024 ** 3 ),
+        'source_bytes': int( 1.7 * 1024 ** 3 ),
+        'qualifier': '1.91.0',
+        'storage_type': 'archive',
+        'age_text': 'yesterday',
+        'age_epoch': NOW - DAY,
+    } ]
+    targets = [
+        dependency_removal.RemovalTarget(
+                dependency='boost',
+                path=str( stage ),
+                qualifier='1.91.0',
+                tool_variant='gcc153/debug/x86_64',
+                storage_type='archive',
+                size_bytes=int( 298.4 * 1024 * 1024 ),
+                label='clean/build.c++2c [gcc153/debug/x86_64]',
+                extra_paths=(),
+        ),
+        dependency_removal.RemovalTarget(
+                dependency='boost',
+                path=str( bindir ),
+                qualifier='1.91.0',
+                tool_variant='gcc-15*/debug',
+                storage_type='archive',
+                size_bytes=int( 113.9 * 1024 * 1024 ),
+                label='clean/bin.c++2c [gcc-15*/debug]',
+                extra_paths=(),
+        ),
+    ]
+    download_targets = [
+        dependency_removal.DownloadTarget(
+                dependency='boost',
+                path=str( archive_path ),
+                qualifier='1.91.0',
+                tool_variant=None,
+                storage_type='archive',
+                size_bytes=int( 140 * 1024 * 1024 ),
+                label=archive_path.name,
+                missing=False,
+        ),
+    ]
+    env = _FakeEnv(
+            purge_dependencies='boost',
+            default_dependencies=[ 'boost' ],
+            dependencies_root=str( deps ),
+            downloads_root=str( downloads ),
+            sconstruct_dir=str( root ),
+            no_exec=False,
+    )
+    plan = {
+        'targets': targets,
+        'leftovers': [],
+        'archives': archives,
+        'develop_skips': [],
+        'owned': [],
+    }
+    purge_plan = ( download_targets, [], str( downloads ) )
+    return env, plan, purge_plan, deps, downloads
+
+
+def _render_purge_boost( name, colouriser=None ):
+    env, plan, purge_plan, deps, downloads = _purge_boost_fixture( name )
+    out = io.StringIO()
+    _run_dependency_removal( out, env, plan, purge_plan=purge_plan )
+    return _rewrite_removal_roots(
+            out.getvalue(), colouriser,
+            [
+                ( deps, '~/.cuppa/dependencies' ),
+                ( downloads, '~/.cuppa/downloads' ),
+            ],
+    )
+
+
+def sample_purge_source_boost():
+    """`--purge-dependencies=boost` build products + download (extract stays)."""
+    return _write_sample(
+            'purge-source-boost.txt',
+            _render_purge_boost( 'purge-boost-text' ),
+    )
+
+
+def sample_purge_source_boost_html():
+    """Semantic HTML form of the source Boost purge report."""
+    colouriser = HtmlColouriser()
+    with cuppa.colourise.using_colouriser( colouriser ):
+        text = _render_purge_boost( 'purge-boost-html', colouriser )
+    return _write_html_sample( 'purge-source-boost.html', text, colouriser )
+
+
 def _purge_gitlab_fixture( name ):
     root = _work_root( name )
     deps = root / 'dependencies'
@@ -716,13 +827,71 @@ def sample_list_dependencies_html():
     return _write_html_sample( 'list-dependencies.html', text, colouriser )
 
 
-def sample_list_dependencies_verbose():
-    """`--list-dependencies --list-format=verbose` with LOCATION / `[D]`."""
+def _list_dependencies_with_location( mode, compact ):
+    """Scoped list-deps data with a fake publisher/develop working-copy index."""
+    data = _list_dependencies_data()
+    env = _list_dependencies_env()
+    env['list_location'] = mode
+    home = Path.home()
+    pub = str( home / '.cuppa' / 'publishers' / 'boost' )
+    develop = str( home / 'coding' / 'boost' )
+    if mode == 'develop':
+        index = {
+            'boost': { 'dev': develop, 'pub': None },
+            'boost_package': { 'dev': develop, 'pub': None },
+        }
+    else:
+        index = {
+            'boost': { 'dev': None, 'pub': pub },
+            'boost_package': { 'dev': None, 'pub': pub },
+        }
+
+    original = dependency_actions._working_copy_index
+    dependency_actions._working_copy_index = lambda cuppa_env: index
+    try:
+        tree = data.get( 'tree' ) or dependency_tree.build_tree( data['rows'] )
+        painted, painted_dev, painted_pub = apply_list_location_overlay(
+                tree, env, compact=compact,
+        )
+        data['tree'] = tree
+        data['has_working_copy_marks'] = painted
+        data['has_dev_marks'] = painted_dev
+        data['has_pub_marks'] = painted_pub
+        data['list_location'] = mode
+    finally:
+        dependency_actions._working_copy_index = original
+    return data, env
+
+
+def sample_list_dependencies_location():
+    """`--list-dependencies --list-location=publishers` (compact: mark+path on label)."""
+    data, env = _list_dependencies_with_location( 'publishers', compact=True )
     out = io.StringIO()
-    write_list_dependencies_report(
-            out, _list_dependencies_data(), _list_dependencies_env(),
-            verbose=True,
+    write_list_dependencies_report( out, data, env, verbose=False )
+    return _write_sample(
+            'list-dependencies-location.txt',
+            _rewrite_sample_home( out.getvalue() ),
     )
+
+
+def sample_list_dependencies_location_html():
+    """Semantic HTML form of compact ``--list-location=publishers``."""
+    def invoke( out ):
+        data, env = _list_dependencies_with_location( 'publishers', compact=True )
+        write_list_dependencies_report( out, data, env, verbose=False )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample(
+            'list-dependencies-location.html', text, colouriser,
+    )
+
+
+def sample_list_dependencies_verbose():
+    """`--list-dependencies --list-format=verbose --list-location=publishers`."""
+    data, env = _list_dependencies_with_location( 'publishers', compact=False )
+    out = io.StringIO()
+    write_list_dependencies_report( out, data, env, verbose=True )
     return _write_sample(
             'list-dependencies-verbose.txt',
             _rewrite_sample_home( out.getvalue() ),
@@ -730,12 +899,10 @@ def sample_list_dependencies_verbose():
 
 
 def sample_list_dependencies_verbose_html():
-    """Semantic HTML form of verbose `--list-dependencies`."""
+    """Semantic HTML form of verbose list-deps with ``[pub]`` LOCATION overlay."""
     def invoke( out ):
-        write_list_dependencies_report(
-                out, _list_dependencies_data(), _list_dependencies_env(),
-                verbose=True,
-        )
+        data, env = _list_dependencies_with_location( 'publishers', compact=False )
+        write_list_dependencies_report( out, data, env, verbose=True )
 
     text, colouriser = _capture_html( invoke )
     text = _rewrite_sample_home( text, colouriser )
@@ -1898,6 +2065,50 @@ def sample_list_publishers_json():
     return _write_sample( 'list-publishers.json', _anonymise_home_paths( text ) )
 
 
+def _remove_publishers_sample_outcomes( dry_run=True ):
+    """Full forest: ``capy`` actionable, ``widget`` develop-skip, ``corosio`` muted."""
+    data = _list_publishers_sample_data()
+    remark = 'would rm' if dry_run else 'removed'
+    targeted = { 'capy', 'widget' }
+    outcomes = []
+    for entry in data['entries']:
+        name = entry.copy.name
+        if name not in targeted:
+            outcomes.append( ( entry, '' ) )
+        elif entry.develop_linked:
+            outcomes.append( ( entry, 'skip' ) )
+        else:
+            outcomes.append( ( entry, remark ) )
+    return data['publishers_root'], outcomes
+
+
+def sample_remove_publishers_dry_run():
+    """``-n --remove-publishers=capy`` list-shaped report (REMARK / would rm)."""
+    from cuppa.core.publisher_actions import write_remove_publishers_report
+
+    root, outcomes = _remove_publishers_sample_outcomes( dry_run=True )
+    out = io.StringIO()
+    write_remove_publishers_report( out, root, outcomes, dry_run=True )
+    return _write_sample(
+            'remove-publishers-dry-run.txt',
+            _rewrite_sample_home( out.getvalue() ),
+    )
+
+
+def sample_remove_publishers_dry_run_html():
+    """Semantic HTML form of the remove-publishers dry-run report."""
+    from cuppa.core.publisher_actions import write_remove_publishers_report
+
+    root, outcomes = _remove_publishers_sample_outcomes( dry_run=True )
+
+    def invoke( stream ):
+        write_remove_publishers_report( stream, root, outcomes, dry_run=True )
+
+    text, colouriser = _capture_html( invoke )
+    text = _rewrite_sample_home( text, colouriser )
+    return _write_html_sample( 'remove-publishers-dry-run.html', text, colouriser )
+
+
 def _cascade_plan_sample_text(
         nodes,
         order,
@@ -2092,6 +2303,8 @@ GENERATORS = tuple(
                 sample_list_downloads_json,
                 sample_list_dependencies,
                 sample_list_dependencies_html,
+                sample_list_dependencies_location,
+                sample_list_dependencies_location_html,
                 sample_list_dependencies_verbose,
                 sample_list_dependencies_verbose_html,
                 sample_list_dependencies_json,
@@ -2107,6 +2320,8 @@ GENERATORS = tuple(
                 sample_list_publishers,
                 sample_list_publishers_html,
                 sample_list_publishers_json,
+                sample_remove_publishers_dry_run,
+                sample_remove_publishers_dry_run_html,
                 sample_list_toolchains,
                 sample_list_toolchains_html,
                 sample_list_toolchains_verbose,
@@ -2131,6 +2346,8 @@ GENERATORS = tuple(
                 sample_remove_gitlab_dry_run_html,
                 sample_remove_boost_product_clean,
                 sample_remove_boost_product_clean_html,
+                sample_purge_source_boost,
+                sample_purge_source_boost_html,
                 sample_purge_gitlab,
                 sample_purge_gitlab_html,
         )
@@ -2143,6 +2360,8 @@ GENERATORS = tuple(
         sample_list_downloads_json,
         sample_list_dependencies,
         sample_list_dependencies_html,
+        sample_list_dependencies_location,
+        sample_list_dependencies_location_html,
         sample_list_dependencies_verbose,
         sample_list_dependencies_verbose_html,
         sample_list_dependencies_json,
@@ -2158,6 +2377,8 @@ GENERATORS = tuple(
         sample_list_publishers,
         sample_list_publishers_html,
         sample_list_publishers_json,
+        sample_remove_publishers_dry_run,
+        sample_remove_publishers_dry_run_html,
         sample_list_toolchains,
         sample_list_toolchains_html,
         sample_list_toolchains_verbose,
@@ -2182,6 +2403,8 @@ GENERATORS = tuple(
         sample_remove_gitlab_dry_run_html,
         sample_remove_boost_product_clean,
         sample_remove_boost_product_clean_html,
+        sample_purge_source_boost,
+        sample_purge_source_boost_html,
         sample_purge_gitlab,
         sample_purge_gitlab_html,
 ) = GENERATORS
@@ -2197,10 +2420,12 @@ def main( argv=None ):
                     'list-develop',
                     'list-downloads',
                     'list-dependencies',
+                    'list-dependencies-location',
                     'list-dependencies-verbose',
                     'list-dependencies-requires',
                     'list-dependencies-requires-resolve',
                     'list-publishers',
+                    'remove-publishers-dry-run',
                     'list-toolchains',
                     'list-toolchains-verbose',
                     'cascade-plan',
@@ -2211,6 +2436,7 @@ def main( argv=None ):
                     'remove-all-builds-dry-run',
                     'remove-gitlab-dry-run',
                     'remove-boost-product-clean',
+                    'purge-source-boost',
                     'purge-gitlab',
             ),
             help='generate one semantic HTML recipe (default: all checked-in samples)',
@@ -2227,10 +2453,12 @@ def main( argv=None ):
             'list-develop': sample_list_develop_html,
             'list-downloads': sample_list_downloads_html,
             'list-dependencies': sample_list_dependencies_html,
+            'list-dependencies-location': sample_list_dependencies_location_html,
             'list-dependencies-verbose': sample_list_dependencies_verbose_html,
             'list-dependencies-requires': sample_list_dependencies_requires_html,
             'list-dependencies-requires-resolve': sample_list_dependencies_requires_resolve_html,
             'list-publishers': sample_list_publishers_html,
+            'remove-publishers-dry-run': sample_remove_publishers_dry_run_html,
             'list-toolchains': sample_list_toolchains_html,
             'list-toolchains-verbose': sample_list_toolchains_verbose_html,
             'cascade-plan': sample_cascade_plan_html,
@@ -2241,6 +2469,7 @@ def main( argv=None ):
             'remove-all-builds-dry-run': sample_remove_all_builds_dry_run_html,
             'remove-gitlab-dry-run': sample_remove_gitlab_dry_run_html,
             'remove-boost-product-clean': sample_remove_boost_product_clean_html,
+            'purge-source-boost': sample_purge_source_boost_html,
             'purge-gitlab': sample_purge_gitlab_html,
         }
         generators = [ recipes[name] for name in arguments.sample ]

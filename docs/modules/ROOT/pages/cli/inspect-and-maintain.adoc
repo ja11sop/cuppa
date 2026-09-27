@@ -24,7 +24,7 @@ cuppa -D -Q --list-dependencies
 
 | `--list-dependencies`
 | Retrieved dependency identities and leaves under the dependencies root
-| `--list-format`, `--list-scope`, `--exact-sizes`; omit `--develop` for normal storage inspection
+| `--list-format`, `--list-scope`, `--list-location`, `--exact-sizes`; omit `--develop` for normal storage inspection
 
 | `--list-downloads`
 | Cached archives plus extract/package leaves under the downloads root
@@ -32,7 +32,7 @@ cuppa -D -Q --list-dependencies
 
 | `--list-publishers`
 | Publisher working copies under the in-force cascade forest (develop-shaped STATUS report + SIZE)
-| `--list-format`, `--publisher-root`; reclaim with `--remove-publishers` / `--remove-all-publishers`
+| `--list-format`, `--publisher-root`; reclaim with `--remove-publishers` / `--remove-all-publishers` (folder names; full-table `would rm` / `removed` report — see xref:dependencies/publishing/list-publishers.adoc#remove-publishers[Removing publisher trees])
 
 | `--list-toolchains`
 | Discovered PATH drivers and registered managed toolchains
@@ -77,6 +77,13 @@ xref:dependencies/managing.adoc#which-listing[Managing dependencies].
 
 `--list-scope=SCOPE` applies to `--list-dependencies` and `--list-downloads`. It is ignored by
 build and develop listings. `--list-dependencies-scope` is a deprecated compatibility alias.
+
+`--list-location=MODE` overlays working-copy paths on `--list-dependencies` (orthogonal to
+`--list-format`): compact text puts a plain `[dev]` / `[pub]` mark and subdued path on the
+identity DEPENDENCY label; verbose keeps a LOCATION column with info-coloured marks.
+Values: `storage` (default), `publishers` (`[pub]`), `develop` (`[dev]`), `active`
+(develop when `--develop` is on, else publishers, else storage). See
+xref:dependencies/managing/list-dependencies.adoc#working-copy-location-list-location[Working-copy location].
 
 [cols="2,8"]
 |===
@@ -151,9 +158,16 @@ The dependency actions are:
 
 Do not combine remove, purge, and wipe modes in one command.
 
-=== Dependency tokens
+Publisher forest reclaim is separate: `--remove-publishers=NAME` /
+`--remove-all-publishers` (comma-separated folder names under the in-force
+publisher root). Dry-run with `-n` prints the full `--list-publishers` table
+with a leading REMARK (`would rm` / `skip` / blank muted rows). See
+xref:dependencies/publishing/list-publishers.adoc#remove-publishers[Removing publisher trees].
+There is no purge or wipe for publishers.
 
-Removal tokens use `[selector]name[/qualifier]`. Selectors identify storage kinds; qualifiers
+=== Dependency filters
+
+Removal filters use `[selector]name[/qualifier]`. Selectors identify storage kinds; qualifiers
 select versions, branches, package stems, or toolchain archive leaves. They accept fnmatch
 patterns where the detailed workflow permits them.
 
@@ -178,9 +192,9 @@ patterns where the detailed workflow permits them.
 | Useful when the list tree displays an empty qualifier
 |===
 
-See xref:dependencies/managing/reclaiming.adoc#dependency-tokens[Dependency tokens] and
+See xref:dependencies/managing/reclaiming.adoc#dependency-filters[Dependency filters] and
 xref:dependencies/managing/reclaiming.adoc#filter-examples[Filter examples]
-before using force-wipe; those pages define every selector, show how tokens map to the
+before using force-wipe; those pages define every selector, show how filters map to the
 inventory tree, and give a full remove / purge / wipe example table.
 
 == Previewing maintenance

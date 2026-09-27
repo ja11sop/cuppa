@@ -2886,7 +2886,11 @@ def test_unused_develop_with_no_other_tree_is_notes_not_a_false_error():
     assert "to use this existing tree" in visible
     assert "--develop" in visible
     assert "--clone-publishers" in visible
-    assert "to clone into" in visible or "to fetch it" in visible
+    # Wrap may split "to clone into" across lines; require both halves.
+    assert (
+            ( "to clone" in visible and "into [" in visible )
+            or "to fetch it" in visible
+    )
     assert "use --publisher-root" in visible
     assert "filesystem package_source" not in visible
     assert "error:" not in visible
@@ -3479,20 +3483,38 @@ def test_wrapped_keeps_bracketed_values_whole_for_colouring():
             "depends on [application, baa, common_types, moo, protocols, "
             "session_protocol, system, transport_layer]"
     )
+    # Width 60 is shorter than the line: wrap before the bracket, never inside it.
     pieces = storage_util.wrapped( long_deps, 60 )
-    assert len( pieces ) == 1
-    assert pieces[0] == long_deps
+    assert pieces == [
+            "depends on",
+            "[application, baa, common_types, moo, protocols, "
+            "session_protocol, system, transport_layer]",
+    ]
 
     was = colouriser.use_colour
     colouriser.enable()
     try:
-        highlighted = storage_util.highlight_values( pieces[0], as_info )
+        highlighted = storage_util.highlight_values( pieces[1], as_info )
         assert as_info(
                 "application, baa, common_types, moo, protocols, "
                 "session_protocol, system, transport_layer"
         ) in highlighted
     finally:
         colouriser.use_colour = was
+
+
+def test_wrapped_placeholder_length_matches_bracket_span():
+    """Placeholders must not inflate width or short lines wrap too early."""
+    from cuppa.utility import storage as storage_util
+
+    # Visible length 76; fits in 100. Old long placeholders forced a wrap.
+    examples = (
+            "e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or "
+            "'[source]boost/[4-9].*'"
+    )
+    assert len( examples ) == 76
+    pieces = storage_util.wrapped( examples, 100 )
+    assert pieces == [ examples ]
 
 
 def test_stage_repo_hint_reads_location_id_from_dependency_class():
@@ -3658,12 +3680,13 @@ def test_stage_develop_plan_lists_unstaged_after_leaf_first_stage_order( tmp_pat
 
     present = tmp_path / "present"
     present.mkdir()
+    # Long path so wrap may split "project" from "[path] is missing." (CI tmp roots).
+    missing = tmp_path / ( "nested-" * 6 ) / "ghost"
     ( present / "sconstruct" ).write_text(
             "Missing = cuppa.location_dependency('ghost', develop={!r})\n"
-            .format( str( tmp_path / "ghost" ) ),
+            .format( str( missing ) ),
             encoding="utf-8",
     )
-    missing = tmp_path / "ghost"
 
     class _Loc:
         _package_manager = None
@@ -3700,7 +3723,10 @@ def test_stage_develop_plan_lists_unstaged_after_leaf_first_stage_order( tmp_pat
     visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
     assert "unstaged" in visible
     assert "1 of 1" in visible
-    assert "project [" in visible and "is missing" in visible
+    # Wrap may put "project" and "[path] is missing." on separate lines when the
+    # develop path is long (GitHub Actions pytest tmp paths).
+    assert "is missing" in visible
+    assert re.search( r"project\s*\[", visible )
     assert "1 error" in visible
     assert "[1 error]" in visible
     assert "Use " in visible and "clone-develop" in visible

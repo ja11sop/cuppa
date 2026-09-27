@@ -13,6 +13,7 @@ Listings and removals run instead of a build. Report body goes to stdout (mode b
 """
 
 import os
+import re
 import sys
 
 from cuppa.colourise import (
@@ -178,6 +179,181 @@ def write_unqualified_duplicate_wipe_hint( out, tokens, see_earlier_warnings=Fal
     )
     out.write( as_emphasised( command ) + "\n\n" )
     out.write( "Drop -n and re-run after confirming.\n" )
+
+
+def _working_copy_index( cuppa_env ):
+    """Map dependency aliases to configured develop= and publisher-forest paths."""
+    from cuppa import develop
+    from cuppa.package_managers import package_cascade
+
+    index = {}
+
+    def remember( key, kind, path ):
+        if not key or not path:
+            return
+        token = str( key ).strip()
+        if not token:
+            return
+        slot = index.setdefault( token, { 'dev': None, 'pub': None } )
+        if not slot.get( kind ):
+            slot[kind] = path
+
+    try:
+        for name in sorted( cuppa_env.get( 'dependencies' ) or {} ):
+            factory = cuppa_env['dependencies'][name]
+            dependency = getattr( factory, '__self__', factory )
+            path = develop.configured_develop( dependency, cuppa_env )
+            if not path or not os.path.isdir( path ):
+                continue
+            remember( name, 'dev', path )
+            package = getattr( dependency, '_package', None )
+            if package:
+                remember( package, 'dev', path )
+            short = getattr( dependency, '_name', None )
+            if short:
+                remember( short, 'dev', path )
+    except Exception:
+        pass
+
+    try:
+        root = package_cascade.publisher_lookup_root( cuppa_env )
+    except Exception:
+        root = None
+    if root and os.path.isdir( root ):
+        try:
+            names = sorted( os.listdir( root ) )
+        except OSError:
+            names = []
+        for name in names:
+            if name.startswith( '.' ):
+                continue
+            path = os.path.join( root, name )
+            if package_cascade._looks_like_publisher_tree( path ):
+                remember( name, 'pub', path )
+                # Meet nest / registry aliases that differ only by - vs _.
+                remember( name.replace( '-', '_' ), 'pub', path )
+                remember( name.replace( '_', '-' ), 'pub', path )
+
+    return index
+
+
+def _aliases_for_identity_node( node ):
+    """Names that may match a develop / publisher index entry for one identity.
+
+    Includes hyphen/underscore package variants so nest ``requires`` identities
+    (``google_cloud_cpp``) meet publisher folders (``google-cloud-cpp``).
+    """
+    aliases = []
+    for key in (
+            node.get( 'registry_name' ),
+            node.get( 'short_name' ),
+            node.get( 'label_name' ),
+            node.get( 'family_key' ),
+            node.get( 'label' ),
+    ):
+        if not key:
+            continue
+        text = str( key ).strip()
+        # Drop compact mark+path suffixes if label was already rewritten.
+        if text.startswith( '[' ) or ' [' in text:
+            text = text.split( ' [', 1 )[0].strip()
+        if not text or text in aliases:
+            continue
+        aliases.append( text )
+    expanded = []
+    for alias in aliases:
+        for variant in (
+                alias,
+                alias.replace( '-', '_' ),
+                alias.replace( '_', '-' ),
+        ):
+            if variant and variant not in expanded:
+                expanded.append( variant )
+    return expanded
+
+
+def _lookup_working_copies( index, aliases ):
+    develop_path = None
+    publisher_path = None
+    for alias in aliases:
+        slot = index.get( alias ) or {}
+        if not develop_path and slot.get( 'dev' ):
+            develop_path = slot['dev']
+        if not publisher_path and slot.get( 'pub' ):
+            publisher_path = slot['pub']
+        if develop_path and publisher_path:
+            break
+    return develop_path, publisher_path
+
+
+def apply_list_location_overlay( tree, cuppa_env, compact=False ):
+    """Overlay working-copy paths for ``--list-location`` (non-storage).
+
+    Verbose (``compact=False``): replace identity LOCATION with
+    ``[dev]|[pub] <path>``. Compact: rewrite the DEPENDENCY identity label to
+    ``name [dev]|[pub] <path>`` (replacing bracket detail, or appending when
+    there was none) and leave LOCATION empty so the column stays unused.
+
+    Returns ``(painted, painted_dev, painted_pub)``. No-op for
+    ``--list-location=storage`` (default).
+    """
+    mode = dependency_identity.normalise_list_location(
+            cuppa_env.get( 'list_location' )
+    )
+    if mode == 'storage' or not tree:
+        return False, False, False
+
+    develop_enabled = bool( cuppa_env.get( 'develop' ) )
+    index = _working_copy_index( cuppa_env )
+    painted = False
+    painted_dev = False
+    painted_pub = False
+
+    def walk( node ):
+        nonlocal painted, painted_dev, painted_pub
+        if not isinstance( node, dict ):
+            return
+        if node.get( 'kind' ) == 'identity':
+            develop_path, publisher_path = _lookup_working_copies(
+                    index, _aliases_for_identity_node( node )
+            )
+            path, kind = dependency_identity.choose_working_copy_location(
+                    mode, develop_path, publisher_path, develop_enabled,
+            )
+            if path and kind:
+                display = storage.display_path( path )
+                marked = dependency_identity.with_working_copy_mark(
+                        display, kind
+                )
+                node['working_copy_kind'] = kind
+                node['working_copy_path'] = path
+                if compact:
+                    name = (
+                            node.get( 'label_name' )
+                            or node.get( 'registry_name' )
+                            or node.get( 'short_name' )
+                            or node.get( 'label' )
+                            or ''
+                    )
+                    node['label'] = '{} {}'.format( name, marked ).strip()
+                    node['label_name'] = name
+                    node['label_detail'] = None
+                    node['compact_wc_location'] = marked
+                    node['location'] = ''
+                else:
+                    node['location'] = marked
+                    node.pop( 'compact_wc_location', None )
+                painted = True
+                if kind == 'dev':
+                    painted_dev = True
+                else:
+                    painted_pub = True
+        for child in node.get( 'children' ) or []:
+            walk( child )
+
+    for section in tree.get( 'sections' ) or tree.get( 'children' ) or []:
+        walk( section )
+    return painted, painted_dev, painted_pub
 
 
 def emit_location_unqualified_duplicate_hints( out=None ):
@@ -429,8 +605,20 @@ def add_dependency_action_options( add_option ):
              "used then unused); resolve (referenced then unreferenced, unused siblings "
              "stay under referenced identities); referenced / unreferenced (resolve-"
              "identity sections only); compact (used-only: resolve-bound leaves). "
-             "Orthogonal to --list-format. "
+             "Orthogonal to --list-format and --list-location. "
              "Ignored by --list-builds and --list-develop",
+    )
+    add_option(
+        '--list-location', dest='list_location',
+        choices=dependency_identity.LIST_LOCATION_CHOICES,
+        nargs=1, action='store', default='storage',
+        help="Working-copy overlay for --list-dependencies: storage (default: registry / "
+             "URL / extract LOCATION when verbose), publishers ([pub] forest path under "
+             "--publisher-root), develop ([dev] configured develop= path), or active "
+             "(develop when --develop is on, else publishers, else storage). Compact "
+             "text puts the mark and path on the identity DEPENDENCY label; verbose "
+             "keeps a LOCATION column. Orthogonal to --list-format and --list-scope. "
+             "Ignored by --list-downloads and other list reports",
     )
     add_option(
         '--list-dependencies-scope', dest='list_dependencies_scope',
@@ -534,6 +722,9 @@ def process_dependency_action_options( cuppa_env ):
     )
     cuppa_env['list_scope'] = scope
     cuppa_env['list_dependencies_scope'] = scope
+    cuppa_env['list_location'] = dependency_identity.normalise_list_location(
+            _scope_option( 'list_location' )
+    )
 
 
 def wants_dependency_action( cuppa_env ):
@@ -1260,11 +1451,15 @@ def _render_skip_tree( skips ):
 
 
 def _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' ):
-    """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``."""
+    """Write a ruled SIZE / LAST USED / REMARK / DEPENDENCY table for ``tree``.
+
+    Returns False when there is nothing to show (no lines, or header only).
+    """
     lines, _columns = dependency_tree.render_tree_lines(
             tree, verbose=verbose, tree_header=tree_header,
     )
-    if not lines:
+    # Header-only means empty sections — treat as no tree so callers can fall back.
+    if len( lines ) <= 1:
         return False
     width = max( storage.visible_len( line ) for line in lines )
     rule = as_subdued( INDENT + RULE * width )
@@ -1322,17 +1517,223 @@ def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
             if row.get( 'state' ) in _REMOVAL_HINT_STATES
             and row.get( 'dependency' ) in project_set
     ]
+    # Default build_tree grouping is usage (used/unused); identity grouping uses
+    # referenced/unreferenced. Keep the primary in-use section either way.
     tree = dependency_tree.build_tree( hint_rows )
-    # Removable hint: referenced section only (no unreferenced leftovers).
     tree = {
         'sections': [
                 section for section in tree.get( 'sections' ) or []
-                if section.get( 'label' ) == 'referenced' and section.get( 'children' )
+                if section.get( 'label' ) in ( 'used', 'referenced' )
+                and section.get( 'children' )
         ],
     }
     if not _write_ruled_tree( out, tree ):
         out.write( "  {}\n".format( ', '.join( project_used ) ) )
     emit_location_unqualified_duplicate_hints( out=out )
+
+
+def _paint_cli_advice( text ):
+    """Paint ``--flags`` as emphasised info and ``<placeholders>`` as info.
+
+    Angle-bracket placeholders avoid clashing with list-tree ``[selector]`` syntax.
+    ``--flag=<value>`` / ``--flag=literal`` paint the flag emphasised and the
+    value info (same pattern as cascade plan banners).
+    """
+    pattern = re.compile(
+            r'(--[a-zA-Z][\w-]*(?:=(?:<[^>\s]+>|[^\s]+))?|<[^>\s]+>)'
+    )
+    parts = []
+    last = 0
+    for match in pattern.finditer( text ):
+        if match.start() > last:
+            parts.append( text[last:match.start()] )
+        token = match.group( 1 )
+        if token.startswith( '--' ):
+            if '=' in token:
+                flag, _, value = token.partition( '=' )
+                parts.append(
+                        as_emphasised( as_info( flag ) ) + '=' + as_info( value )
+                )
+            else:
+                parts.append( as_emphasised( as_info( token ) ) )
+        else:
+            parts.append( as_info( token ) )
+        last = match.end()
+    parts.append( text[last:] )
+    return ''.join( parts )
+
+
+def _reclaim_vocab( scope ):
+    """Section words matching ``--list-scope`` grouping (usage vs resolve-identity)."""
+    scope = normalise_list_scope( scope )
+    if scope in ( 'all', 'compact' ):
+        return 'in use', 'unused'
+    return 'referenced', 'unreferenced'
+
+
+def write_reclaim_storage_hint( out, data ):
+    """Scope-aware reclaim tree after ``--list-dependencies``.
+
+    Prefer named remove/purge/wipe and ``--force-wipe-dependencies`` over the
+    orphan sweep. Vocabulary tracks the report: used/unused vs referenced /
+    unreferenced. Only emits sections for leaf kinds present in ``data['rows']``.
+    """
+    rows = data.get( 'rows' ) or []
+    scope = data.get( 'scope' ) or 'all'
+    has_bound = any(
+            row.get( 'state' ) in dependency_tree.REFERENCED_STATES for row in rows
+    )
+    has_orphan = any( row.get( 'state' ) == 'unreferenced' for row in rows )
+    if not has_bound and not has_orphan:
+        return
+
+    bound_word, orphan_word = _reclaim_vocab( scope )
+    tee, elbow, pipe, gap = storage.glyphs()
+
+    def write_intro( word ):
+        article = 'an' if word[0].lower() in 'aeiou' or word.startswith( 'in ' ) else 'a'
+        out.write( "\nTo reclaim storage from {} {} dependency use one of:\n".format(
+                article, word
+        ) )
+        out.write( as_subdued( pipe.rstrip() ) + "\n" )
+
+    def write_option( branch, command, detail, last=False ):
+        out.write( as_subdued( branch ) )
+        out.write( _paint_cli_advice( command ) + "\n" )
+        under = gap if last else pipe
+        out.write( as_subdued( under + elbow ) )
+        out.write( as_subdued( detail ) + "\n" )
+
+    if has_bound:
+        write_intro( bound_word )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --remove-dependencies=<filter>",
+                "delete this context's build products (or the selected package "
+                "tree); downloads stay",
+        )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --purge-dependencies=<filter>",
+                "same as remove, and delete the matching download archive "
+                "(extract stays)",
+        )
+        write_option(
+                elbow,
+                "cuppa -Q -D -n --wipe-dependencies=<filter>",
+                "delete the whole extract and its download "
+                "(next online build re-fetches)",
+                last=True,
+        )
+
+    if has_orphan:
+        write_intro( orphan_word )
+        write_option(
+                tee,
+                "cuppa -Q -D -n --force-wipe-dependencies=<filter>",
+                "wipe named list-tree leaves (including unused siblings under "
+                "a used identity)",
+        )
+        write_option(
+                elbow,
+                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies",
+                "orphan sweep for every unreferenced leaf this resolve sees "
+                "(prefer named filters above)",
+                last=True,
+        )
+
+    out.write( "\n" )
+    _write_filter_note( out )
+    out.write( "\nDrop -n and re-run after confirming.\n" )
+
+
+def _paint_fnmatch_note_detail( text ):
+    """Subdue fnmatch prose; keep ``name`` / ``qualifier`` as info."""
+    pattern = re.compile( r'\b(name|qualifier)\b' )
+    parts = []
+    last = 0
+    for match in pattern.finditer( text ):
+        if match.start() > last:
+            parts.append( as_subdued( text[last:match.start()] ) )
+        parts.append( as_info( match.group( 1 ) ) )
+        last = match.end()
+    if last < len( text ):
+        parts.append( as_subdued( text[last:] ) )
+    return ''.join( parts )
+
+
+def _paint_filter_examples_detail( text ):
+    """Paint an ``e.g. …`` wrap piece: subdued connectives, plain example tokens."""
+    if text.startswith( 'e.g. ' ):
+        out = as_subdued( 'e.g. ' )
+        rest = text[len( 'e.g. ' ):]
+    else:
+        out = ''
+        rest = text
+
+    # Split on subdued connectives while keeping boost,conan as one token.
+    # Tokens are either quoted ('…') or unquoted runs without ', ' / ' or '.
+    pattern = re.compile( r"(, | or )" )
+    parts = pattern.split( rest )
+    for part in parts:
+        if part in ( ', ', ' or ' ):
+            out += as_subdued( part )
+        else:
+            out += part
+    return out
+
+
+def _write_filter_note( out, width=None ):
+    """Footer note: filter forms (info), then a wrapped fnmatch / examples tree."""
+    forms = (
+            'name',
+            '[selector]name',
+            'name/qualifier',
+            '[selector]name/qualifier',
+    )
+    examples_text = (
+            "e.g. boost, boost,conan, boost/1.86, 'boost/1.8*' or "
+            "'[source]boost/[4-9].*'"
+    )
+    fnmatch_text = (
+            "fnmatch wildcards (*,?,[...]) are supported for name and qualifier; "
+            "quote wildcards for the shell"
+    )
+    tee, elbow, pipe, gap = storage.glyphs()
+    note_indent = '      '
+    prose_width = storage.WIDEST_PROSE if width is None else width
+
+    # Same wrap width for every sibling branch (tee and elbow are equal length).
+    branch_width = len( note_indent + tee )
+    wrap_width = max( prose_width - branch_width, storage.NARROWEST_PROSE )
+
+    def write_wrapped( first_branch, carried_branch, text, paint ):
+        branch = first_branch
+        for piece in storage.wrapped( text, wrap_width ):
+            out.write( as_subdued( branch ) )
+            out.write( paint( piece ) + "\n" )
+            branch = carried_branch
+
+    out.write( "Note: " )
+    out.write( as_info( "<filter>" ) )
+    out.write( as_subdued( " is a comma-separated list of " ) )
+    for index, form in enumerate( forms ):
+        if index:
+            out.write( as_subdued( ", " ) )
+        out.write( as_info( form ) )
+    out.write( "\n" )
+    write_wrapped(
+            note_indent + tee,
+            note_indent + pipe,
+            fnmatch_text,
+            _paint_fnmatch_note_detail,
+    )
+    write_wrapped(
+            note_indent + elbow,
+            note_indent + gap,
+            examples_text,
+            _paint_filter_examples_detail,
+    )
 
 
 def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
@@ -1394,31 +1795,59 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
     if verbose and data.get( 'has_download_marks' ):
         downloads_root = data.get( 'downloads_root' ) or cuppa_env.get( 'downloads_root' )
         out.write( "\n" )
-        out.write(
-            "{} = archive present under downloads".format(
-                    as_info( dependency_identity.DOWNLOAD_MARK )
-            )
-        )
+        out.write( "{} = the archive present under downloads".format(
+                as_info( dependency_identity.DOWNLOAD_MARK )
+        ) )
         if downloads_root:
             out.write( " ({})".format(
                     as_info( storage.display_path( downloads_root ) )
             ) )
         out.write( ".\n" )
-        out.write(
-            "If re-extracting a dependency fails, remove the corrupt archive there - "
-            "deleting only the dependency tree is not enough.\n"
-        )
+        out.write( "        If re-extracting a dependency fails, remove the corrupt "
+                   "archive there using\n" )
+        out.write( "        {}\n".format(
+                _paint_cli_advice( "--purge-dependencies=<filter>" )
+        ) )
 
-    if (
-            scope in ( 'all', 'resolve', 'referenced', 'unreferenced' )
-            and any( row['state'] == 'unreferenced' for row in rows )
-    ):
-        out.write( "\n" )
-        out.write( "Review unreferenced trees, then clear them with:\n\n" )
-        out.write( as_emphasised(
-                "cuppa -Q -D -n --force-wipe-unreferenced-dependencies"
-        ) + "\n" )
-        out.write( "\nDrop -n and re-run after confirming.\n" )
+    if data.get( 'has_dev_marks' ) or data.get( 'has_pub_marks' ):
+        if data.get( 'has_dev_marks' ):
+            out.write( "\n" )
+            out.write( "{} = the configured develop={} working copy\n".format(
+                    as_info( dependency_identity.WORKING_COPY_DEV_MARK ),
+                    as_info( "<path>" ),
+            ) )
+        if data.get( 'has_pub_marks' ):
+            from cuppa.package_managers import package_cascade
+            try:
+                publisher_root = package_cascade.publisher_lookup_root( cuppa_env )
+            except Exception:
+                publisher_root = None
+            out.write( "\n" )
+            out.write( "{} = the {} under the in-force publisher root\n".format(
+                    as_info( dependency_identity.WORKING_COPY_PUB_MARK ),
+                    as_info( "<publisher_path>" ),
+            ) )
+            if publisher_root:
+                out.write( "        (as provided by {}, otherwise {}).\n".format(
+                        _paint_cli_advice( "--publisher-root" ),
+                        as_info( storage.display_path( publisher_root ) ),
+                ) )
+            else:
+                out.write( "        (as provided by {}, otherwise {}).\n".format(
+                        _paint_cli_advice( "--publisher-root" ),
+                        as_info( "<storage-root>/publishers" ),
+                ) )
+        mode = dependency_identity.normalise_list_location(
+                cuppa_env.get( 'list_location' )
+        )
+        if mode == 'active':
+            out.write( "With {}, develop wins only when {} is "
+                       "on (same precedence as cascade resolve).\n".format(
+                    _paint_cli_advice( "--list-location=active" ),
+                    _paint_cli_advice( "--develop" ),
+            ) )
+
+    write_reclaim_storage_hint( out, data )
 
     tokens = list( data.get( 'unqualified_duplicate_tokens' ) or [] )
     from cuppa.location import Location
@@ -1525,11 +1954,30 @@ def list_dependencies( construct, cuppa_env, out=None ):
     rows = data['rows']
     tree = data.get( 'tree' ) or dependency_tree.build_tree( rows )
     verbose = list_format == 'verbose'
+    list_location = dependency_identity.normalise_list_location(
+            cuppa_env.get( 'list_location' )
+    )
+    painted = False
+    painted_dev = False
+    painted_pub = False
+    if list_location != 'storage':
+        # Compact text: mark+path on the identity DEPENDENCY label.
+        # Verbose / JSON: LOCATION field (JSON has no column layout).
+        use_compact_label = ( list_format == 'text' )
+        painted, painted_dev, painted_pub = apply_list_location_overlay(
+                tree, cuppa_env, compact=use_compact_label,
+        )
+    data['tree'] = tree
+    data['list_location'] = list_location
+    data['has_working_copy_marks'] = painted
+    data['has_dev_marks'] = painted_dev
+    data['has_pub_marks'] = painted_pub
 
     if list_format == 'json':
         payload = {
             'dependencies_root': root,
             'scope': data.get( 'scope' ) or 'all',
+            'list_location': list_location,
             'tree': dependency_tree.tree_to_json( tree ),
             'entries': [
                 {

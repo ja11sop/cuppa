@@ -1,7 +1,7 @@
 = Purging dependencies
 :description: --purge-dependencies — remove plus matching downloads
 
-For the flag map, tokens, shared inventory, and glance table, see
+For the flag map, filters, shared inventory, and glance table, see
 xref:dependencies/managing/reclaiming.adoc[Reclaiming storage].
 Purge is the second step on the
 xref:dependencies/managing/reclaiming.adoc#two-reclaim-paths[context-scoped ladder]
@@ -21,16 +21,17 @@ not merged). Unknown names use the same hint tree as remove. A missing download 
 remove still runs and the report notes there was no archive to delete. Develop working copies are
 never deleted; downloads for that name may still be purged. SCons `-n` is a dry run.
 
-Source Boost with `storage_clean` still leaves the extract (headers / `b2` / the other patch home);
-the **download file** is deleted. That reclaims download space; the next build keeps using the
-extract. For a full clear-down of the extract (and matching downloads) so the next build
-re-downloads and re-extracts, use xref:dependencies/managing/wiping.adoc#wipe-dependencies[`--wipe-dependencies`].
+For source Boost, purge still leaves the extract (headers / `b2` / the other patch home); only the
+**download file** is deleted on top of the build-product clean. That reclaims download space; the
+next build keeps using the extract (**no re-fetch**). For a full clear-down of the extract (and
+matching downloads) so the next build re-downloads and re-extracts, use
+xref:dependencies/managing/wiping.adoc#wipe-dependencies[`--wipe-dependencies`].
 
-The report nests download → `[E]` → source assets and products (the same pairing as
+The report nests download → `[E]` → source assets and build products (the same pairing as
 `--list-downloads`). `[E]` uses a partial mark when the extract stays. Remove-without-purge uses
 the same `[E]` subtree directly under the identity. Leftover other-context extracts **and**
 leftover downloads are called out like today’s leftover trees. Freed space includes download
-bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when archive-clean left
+bytes. Verify with `cuppa -Q -D --list-downloads` (a subdued note remains when a purge left
 source assets — `--list-dependencies` is still useful there).
 
 [source,shell]
@@ -82,6 +83,38 @@ include::partial$cli-examples/purge-gitlab-selected.html[]
 
 ++++
 include::partial$samples/purge-gitlab.html[]
+++++
+
+[#ex-purge-used-source]
+=== Purge used source-archive build products + download (extract stays)
+
+Unlike
+xref:dependencies/managing/removing.adoc#ex-remove-used-source[remove of used source build products],
+purge also deletes the matching download archive. The **extract stays** (headers / `b2`), so the
+next build does **not** re-fetch. Compare with
+xref:dependencies/managing/wiping.adoc#ex-wipe-used-source[wipe], which deletes the whole extract.
+
+Same project-used inventory as the remove / wipe source-Boost examples:
+
+.Inventory for this example (`boost` project-used)
+++++
+include::partial$samples/selection-inventory-source-boost-used.html[]
+++++
+
+++++
+include::partial$cli-examples/purge-boost.html[]
+++++
+
+Matches (this inventory):
+
+[.cuppa-cli-matches]
+* used build products under `[source]boost/1.91.0` for the active context
+* matching download archive under `--downloads-root`
+
+Dry-run / live report shape (extract stays; download gone; `[E]` partial because source assets remain):
+
+++++
+include::partial$samples/purge-source-boost.html[]
 ++++
 
 

@@ -488,20 +488,88 @@ def gitlab_archive_name( package, tool_variant, system=None, extension=None, omi
 
 
 # Verbose LOCATION prefix when a regenerating archive exists under downloads_root.
-DOWNLOAD_MARK = '[D]'
+DOWNLOAD_MARK = '[dl]'
 
 # Extract / expanded tree under dependencies_root (used by --list-downloads).
 EXTRACT_MARK = '[E]'
 
+# Verbose LOCATION prefixes when --list-location overlays a working-copy path.
+WORKING_COPY_DEV_MARK = '[dev]'
+WORKING_COPY_PUB_MARK = '[pub]'
+
+LIST_LOCATION_CHOICES = ( 'storage', 'publishers', 'develop', 'active' )
+
+_LOCATION_MARKS = (
+    WORKING_COPY_DEV_MARK,
+    WORKING_COPY_PUB_MARK,
+    DOWNLOAD_MARK,
+)
+
+
+def split_location_mark( location ):
+    """Return ``(mark, rest)`` when LOCATION starts with a known mark, else ``(None, text)``."""
+    text = str( location or '' )
+    for mark in _LOCATION_MARKS:
+        prefix = mark + ' '
+        if text.startswith( prefix ):
+            return mark, text[len( prefix ):]
+        if text == mark:
+            return mark, ''
+    return None, text
+
+
+def paint_location( location, path_colour=None, mark_colour=None ):
+    """Colour ``[dl]`` / ``[dev]`` / ``[pub]``; optional styles for mark and path.
+
+    Default mark colour is ``as_info`` so badges still scan on verbose LOCATION
+    rows (even when the path is subdued or error-coloured). Pass
+    ``mark_colour`` as a callable to restyle the mark, or the string
+    ``'plain'`` to leave the mark uncoloured (compact DEPENDENCY overlays).
+    """
+    from cuppa.colourise import as_info
+
+    if not location:
+        return location or ''
+    mark, rest = split_location_mark( location )
+    if not mark:
+        return path_colour( location ) if path_colour else location
+    if mark_colour == 'plain':
+        painted = mark
+    elif mark_colour is not None:
+        painted = mark_colour( mark )
+    else:
+        painted = as_info( mark )
+    if rest:
+        painted += ' ' + ( path_colour( rest ) if path_colour else rest )
+    return painted
+
 
 def with_download_mark( location, has_download ):
-    """Prefix LOCATION with ``[D]`` when a downloads-root archive is present."""
+    """Prefix LOCATION with ``[dl]`` when a downloads-root archive is present."""
     if not location or not has_download:
         return location or ''
     text = str( location )
     prefix = DOWNLOAD_MARK + ' '
     if text.startswith( prefix ) or text.startswith( DOWNLOAD_MARK ):
         return text
+    return prefix + text
+
+
+def with_working_copy_mark( location, kind ):
+    """Prefix LOCATION with ``[dev]`` or ``[pub]`` for a working-copy path."""
+    if not location:
+        return location or ''
+    mark = WORKING_COPY_DEV_MARK if kind == 'dev' else WORKING_COPY_PUB_MARK
+    text = str( location )
+    prefix = mark + ' '
+    if text.startswith( prefix ) or text.startswith( mark ):
+        return text
+    # Drop a prior location-mark prefix — working-copy overlay replaces storage LOCATION.
+    for other in _LOCATION_MARKS:
+        other_prefix = other + ' '
+        if text.startswith( other_prefix ):
+            text = text[len( other_prefix ):]
+            break
     return prefix + text
 
 
@@ -514,6 +582,37 @@ def with_extract_mark( label ):
     if text.startswith( prefix ) or text.startswith( EXTRACT_MARK ):
         return text
     return prefix + text
+
+
+def normalise_list_location( value ):
+    """Return a valid ``--list-location`` choice, defaulting to ``storage``."""
+    if isinstance( value, ( list, tuple ) ):
+        value = value[0] if value else None
+    text = str( value or 'storage' ).strip().lower()
+    if text in LIST_LOCATION_CHOICES:
+        return text
+    return 'storage'
+
+
+def choose_working_copy_location( mode, develop_path, publisher_path, develop_enabled ):
+    """Pick which working-copy path (if any) ``--list-location`` should show.
+
+    Returns ``(path, kind)`` where ``kind`` is ``'dev'`` or ``'pub'``, or
+    ``(None, None)`` to keep storage LOCATION.
+    """
+    mode = normalise_list_location( mode )
+    if mode == 'storage':
+        return None, None
+    if mode == 'develop':
+        return ( develop_path, 'dev' ) if develop_path else ( None, None )
+    if mode == 'publishers':
+        return ( publisher_path, 'pub' ) if publisher_path else ( None, None )
+    # active: match cascade resolve — develop wins only when --develop is on.
+    if develop_enabled and develop_path:
+        return develop_path, 'dev'
+    if publisher_path:
+        return publisher_path, 'pub'
+    return None, None
 
 
 def find_cached_download(

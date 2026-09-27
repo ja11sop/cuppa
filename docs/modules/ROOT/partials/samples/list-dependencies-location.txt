@@ -1,30 +1,33 @@
 Dependencies in ~/.cuppa/dependencies
 Default dependencies: boost_package
-  ---------------------------------------------------------------------
+  -----------------------------------------------------------------------------------
       SIZE  LAST USED  REMARK   DEPENDENCY
-  ---------------------------------------------------------------------
+  -----------------------------------------------------------------------------------
     299.3M  today      1 total  used
                                 │
     299.3M  today      1 used   ├── dependencies in use
                                 │
     299.3M  today      1 used   └── gitlab packages [gl]
                                     │
-    299.3M  today                   └── boost_package
+    299.3M  today                   └── boost_package [pub] ~/.cuppa/publishers/boost
     299.3M  today                       └── 1.91
     299.3M  today      in use               └── gcc153_rel_x86_64_cxx2c
-  ---------------------------------------------------------------------
+  -----------------------------------------------------------------------------------
       5.8M  today               unused
                                 │
       5.8M  today               └── source archives [sa]
                                     │
-      2.9M  today                   ├── boost
+      2.9M  today                   ├── boost [pub] ~/.cuppa/publishers/boost
       2.9M  today                   │   └── 1.91.0
                                     │
       2.9M  today                   └── github.com/fmtlib/fmt
       1.4M  today                       ├── 11.1.4
       1.5M  today                       └── 12.2.0
-  ---------------------------------------------------------------------
+  -----------------------------------------------------------------------------------
   4 entries, 305.1M total, 5.8M unreferenced
+
+[pub] = the <publisher_path> under the in-force publisher root
+        (as provided by --publisher-root, otherwise ~/.cuppa/publishers).
 
 To reclaim storage from an in use dependency use one of:
 │

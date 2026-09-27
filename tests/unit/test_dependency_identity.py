@@ -197,6 +197,387 @@ def test_with_download_mark_and_find_cached_download( tmp_path ):
     assert found == str( tc_dir / tc_archive )
 
 
+def test_list_location_marks_and_precedence():
+    from cuppa.core.dependency_identity import (
+        DOWNLOAD_MARK,
+        WORKING_COPY_DEV_MARK,
+        WORKING_COPY_PUB_MARK,
+        choose_working_copy_location,
+        normalise_list_location,
+        with_working_copy_mark,
+    )
+    assert with_working_copy_mark( '/wc/capy', 'dev' ) == \
+        '{} /wc/capy'.format( WORKING_COPY_DEV_MARK )
+    assert with_working_copy_mark( '/wc/capy', 'pub' ) == \
+        '{} /wc/capy'.format( WORKING_COPY_PUB_MARK )
+    assert with_working_copy_mark(
+            '{} /wc/capy'.format( DOWNLOAD_MARK ), 'pub'
+    ) == '{} /wc/capy'.format( WORKING_COPY_PUB_MARK )
+    assert normalise_list_location( None ) == 'storage'
+    assert normalise_list_location( 'active' ) == 'active'
+    assert normalise_list_location( ['publishers'] ) == 'publishers'
+    assert choose_working_copy_location(
+            'develop', '/dev', '/pub', False
+    ) == ( '/dev', 'dev' )
+    assert choose_working_copy_location(
+            'publishers', '/dev', '/pub', True
+    ) == ( '/pub', 'pub' )
+    assert choose_working_copy_location(
+            'active', '/dev', '/pub', False
+    ) == ( '/pub', 'pub' )
+    assert choose_working_copy_location(
+            'active', '/dev', '/pub', True
+    ) == ( '/dev', 'dev' )
+    assert choose_working_copy_location(
+            'active', '/dev', None, False
+    ) == ( None, None )
+    assert choose_working_copy_location(
+            'storage', '/dev', '/pub', True
+    ) == ( None, None )
+
+
+def test_working_copy_location_path_follows_section_colour():
+    """Verbose LOCATION: ``[pub]`` path info when used; ``[dev]`` plain; both subdued unused.
+
+    Compact DEPENDENCY WC paths (``[dev]`` and ``[pub]``) are always subdued.
+    """
+    from cuppa.colourise import as_info, as_subdued, colouriser
+    from cuppa.core.dependency_identity import (
+        WORKING_COPY_DEV_MARK,
+        WORKING_COPY_PUB_MARK,
+    )
+
+    pub_path = '~/.cuppa/publishers/capy'
+    dev_path = '~/coding/capy'
+
+    def tree_for( section, mark, path, compact=False ):
+        identity = {
+            'kind': 'identity',
+            'label': 'capy',
+            'label_name': 'capy',
+            'size_bytes': 10,
+            'last_used_epoch': None,
+            'children': [],
+        }
+        marked = '{} {}'.format( mark, path )
+        if compact:
+            identity['compact_wc_location'] = marked
+            identity['location'] = ''
+        else:
+            identity['location'] = marked
+        return {
+            'sections': [
+                {
+                    'kind': 'section',
+                    'label': section,
+                    'children': [
+                        {
+                            'kind': 'type',
+                            'label': 'gitlab packages',
+                            'children': [ identity ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        pub_used = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'used', WORKING_COPY_PUB_MARK, pub_path ), verbose=True
+        )[0] )
+        pub_unused = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'unused', WORKING_COPY_PUB_MARK, pub_path ), verbose=True
+        )[0] )
+        dev_used = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'used', WORKING_COPY_DEV_MARK, dev_path ), verbose=True
+        )[0] )
+        dev_unused = '\n'.join( dependency_tree.render_tree_lines(
+                tree_for( 'unused', WORKING_COPY_DEV_MARK, dev_path ), verbose=True
+        )[0] )
+        assert as_info( pub_path ) in pub_used
+        assert as_subdued( pub_path ) in pub_unused
+        assert as_info( WORKING_COPY_PUB_MARK ) in pub_used
+        # Develop path stays plain when referenced (not info-wrapped).
+        assert as_info( dev_path ) not in dev_used
+        assert as_subdued( dev_path ) not in dev_used
+        assert dev_path in dev_used
+        assert as_subdued( dev_path ) in dev_unused
+        assert as_info( WORKING_COPY_DEV_MARK ) in dev_used
+        assert as_info( WORKING_COPY_DEV_MARK ) in dev_unused
+
+        # Compact: mark plain, path subdued; name stays accented.
+        for mark, path in (
+                ( WORKING_COPY_PUB_MARK, pub_path ),
+                ( WORKING_COPY_DEV_MARK, dev_path ),
+        ):
+            compact_used = '\n'.join( dependency_tree.render_tree_lines(
+                    tree_for( 'used', mark, path, compact=True ), verbose=False
+            )[0] )
+            assert as_subdued( path ) in compact_used
+            assert as_info( path ) not in compact_used
+            assert as_info( mark ) not in compact_used
+            assert as_subdued( mark ) not in compact_used
+            assert mark in compact_used
+    finally:
+        colouriser.use_colour = was_colour
+
+
+def test_apply_list_location_overlay_paints_identity( tmp_path ):
+    from cuppa.core import dependency_actions
+    from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK
+
+    forest = tmp_path / 'storage' / 'publishers'
+    tree_path = forest / 'widget'
+    tree_path.mkdir( parents=True )
+    ( tree_path / 'sconstruct' ).write_text( '# pub\n', encoding='utf-8' )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return self.get( name, default )
+
+    env = _Env( {
+        'dependencies': {},
+        'storage_root': str( tmp_path / 'storage' ),
+        'list_location': 'publishers',
+        'develop': False,
+    } )
+    tree = {
+        'sections': [
+            {
+                'kind': 'section',
+                'label': 'used',
+                'children': [
+                    {
+                        'kind': 'type',
+                        'label': 'gitlab packages',
+                        'children': [
+                            {
+                                'kind': 'identity',
+                                'registry_name': 'widget',
+                                'short_name': 'widget',
+                                'label': 'widget',
+                                'location': 'https://gitlab.example/api/v4/projects/1/widget/1.0',
+                                'children': [],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    painted, painted_dev, painted_pub = dependency_actions.apply_list_location_overlay( tree, env )
+    assert painted is True
+    assert painted_dev is False
+    assert painted_pub is True
+    identity = tree['sections'][0]['children'][0]['children'][0]
+    assert identity['location'].startswith( WORKING_COPY_PUB_MARK + ' ' )
+    assert str( tree_path ) in identity['location'] or 'publishers/widget' in identity['location']
+
+
+def test_apply_list_location_overlay_compact_rewrites_identity_label( tmp_path ):
+    """Compact mode: mark+path on DEPENDENCY label; no LOCATION column payload."""
+    from cuppa.core import dependency_actions, dependency_tree
+    from cuppa.core.dependency_identity import (
+        WORKING_COPY_DEV_MARK,
+        WORKING_COPY_PUB_MARK,
+    )
+
+    forest = tmp_path / 'storage' / 'publishers'
+    pub_path = forest / 'boost'
+    pub_path.mkdir( parents=True )
+    ( pub_path / 'sconstruct' ).write_text( '# pub\n', encoding='utf-8' )
+    develop_path = tmp_path / 'coding' / 'application'
+    develop_path.mkdir( parents=True )
+    ( develop_path / 'sconstruct' ).write_text( '# dev\n', encoding='utf-8' )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return self.get( name, default )
+
+    def _identity( **fields ):
+        node = {
+            'kind': 'identity',
+            'children': [],
+            'location': '',
+        }
+        node.update( fields )
+        return node
+
+    # Append when there is no bracket detail (gitlab-style bare name).
+    pub_tree = {
+        'sections': [ {
+            'kind': 'section',
+            'label': 'used',
+            'children': [ {
+                'kind': 'type',
+                'label': 'gitlab packages',
+                'children': [
+                    _identity(
+                            registry_name='boost_package',
+                            short_name='boost',
+                            label='boost_package',
+                            label_name='boost_package',
+                            label_detail=None,
+                    ),
+                ],
+            } ],
+        } ],
+    }
+    env_pub = _Env( {
+        'dependencies': {},
+        'storage_root': str( tmp_path / 'storage' ),
+        'list_location': 'publishers',
+        'develop': False,
+    } )
+    painted, _, painted_pub = dependency_actions.apply_list_location_overlay(
+            pub_tree, env_pub, compact=True,
+    )
+    assert painted and painted_pub
+    pub_id = pub_tree['sections'][0]['children'][0]['children'][0]
+    assert pub_id['location'] == ''
+    assert pub_id['label_detail'] is None
+    assert pub_id['label'].startswith( 'boost_package ' + WORKING_COPY_PUB_MARK + ' ' )
+    assert pub_id['compact_wc_location'].startswith( WORKING_COPY_PUB_MARK + ' ' )
+    lines, columns = dependency_tree.render_tree_lines( pub_tree, verbose=False )
+    plain = '\n'.join( lines )
+    assert 'LOCATION' not in [ c[1] for c in columns ]
+    assert WORKING_COPY_PUB_MARK in plain
+    assert 'boost_package' in plain
+
+    # Replace bracket detail (repository host path).
+    class _Dep( object ):
+        _name = 'application'
+
+        def location_id( self, env ):
+            return ( 'application', str( develop_path ) )
+
+    env_dev = _Env( {
+        'dependencies': { 'application': _Dep() },
+        'storage_root': str( tmp_path / 'storage' ),
+        'sconstruct_dir': str( tmp_path ),
+        'list_location': 'develop',
+        'develop': False,
+    } )
+    vcs_tree = {
+        'sections': [ {
+            'kind': 'section',
+            'label': 'used',
+            'children': [ {
+                'kind': 'type',
+                'label': 'repository dependencies',
+                'children': [
+                    _identity(
+                            registry_name='application',
+                            short_name='application',
+                            label='application [git.example/org/application]',
+                            label_name='application',
+                            label_detail='git.example/org/application',
+                            location='git+https://git.example/org/application',
+                    ),
+                ],
+            } ],
+        } ],
+    }
+    painted, painted_dev, _ = dependency_actions.apply_list_location_overlay(
+            vcs_tree, env_dev, compact=True,
+    )
+    assert painted and painted_dev
+    vcs_id = vcs_tree['sections'][0]['children'][0]['children'][0]
+    assert vcs_id['location'] == ''
+    assert vcs_id['label_detail'] is None
+    assert 'git.example' not in vcs_id['label']
+    assert vcs_id['label'].startswith( 'application ' + WORKING_COPY_DEV_MARK + ' ' )
+    assert 'application' in vcs_id['compact_wc_location']
+
+    # Compact: mark plain, path subdued (verbose LOCATION keeps [dev] path plain).
+    from cuppa.colourise import as_info, as_subdued, colouriser
+    was_colour = colouriser.use_colour
+    colouriser.enable()
+    try:
+        compact_lines = '\n'.join( dependency_tree.render_tree_lines(
+                vcs_tree, verbose=False
+        )[0] )
+        display = vcs_id['compact_wc_location'].split( ' ', 1 )[1]
+        assert as_subdued( display ) in compact_lines
+        assert WORKING_COPY_DEV_MARK in compact_lines
+        assert as_info( WORKING_COPY_DEV_MARK ) not in compact_lines
+        assert as_subdued( WORKING_COPY_DEV_MARK ) not in compact_lines
+        assert as_info( display ) not in compact_lines
+    finally:
+        colouriser.use_colour = was_colour
+
+
+def test_list_location_overlay_reaches_nested_requires_identities( tmp_path ):
+    """Nest requires identities get [pub]/[dev] when a working copy exists."""
+    from cuppa.core import dependency_actions
+    from cuppa.core.dependency_identity import WORKING_COPY_PUB_MARK
+
+    forest = tmp_path / 'storage' / 'publishers'
+    grpc_pub = forest / 'grpc'
+    grpc_pub.mkdir( parents=True )
+    ( grpc_pub / 'sconstruct' ).write_text( '# pub\n', encoding='utf-8' )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return self.get( name, default )
+
+    env = _Env( {
+        'dependencies': {},
+        'storage_root': str( tmp_path / 'storage' ),
+        'list_location': 'publishers',
+        'develop': False,
+    } )
+    tree = {
+        'sections': [ {
+            'kind': 'section',
+            'label': 'used',
+            'children': [ {
+                'kind': 'type',
+                'label': 'gitlab packages',
+                'children': [ {
+                    'kind': 'identity',
+                    'registry_name': 'google_cloud_cpp',
+                    'short_name': 'google_cloud_cpp',
+                    'label': 'google_cloud_cpp',
+                    'label_name': 'google_cloud_cpp',
+                    'children': [ {
+                        'kind': 'version',
+                        'label': '3.9.0',
+                        'children': [ {
+                            'kind': 'requires',
+                            'label': 'requires',
+                            'children': [ {
+                                'kind': 'identity',
+                                'registry_name': 'grpc',
+                                'short_name': 'grpc',
+                                'family_key': 'grpc',
+                                'label': 'grpc',
+                                'label_name': 'grpc',
+                                'label_detail': None,
+                                'location': '',
+                                'children': [],
+                            } ],
+                        } ],
+                    } ],
+                } ],
+            } ],
+        } ],
+    }
+    painted, _, painted_pub = dependency_actions.apply_list_location_overlay(
+            tree, env, compact=True,
+    )
+    assert painted and painted_pub
+    nested = (
+            tree['sections'][0]['children'][0]['children'][0]
+            ['children'][0]['children'][0]['children'][0]
+    )
+    assert nested['kind'] == 'identity'
+    assert nested['label'].startswith( 'grpc ' + WORKING_COPY_PUB_MARK + ' ' )
+    assert nested['compact_wc_location'].startswith( WORKING_COPY_PUB_MARK + ' ' )
+
+
 def test_archive_tree_marks_download_on_location():
     leaves = [
         {
@@ -892,7 +1273,7 @@ def test_gitlab_verbose_locations_on_version_and_archive_leaf():
     version = next(
             child for child in identity['children'] if child.get( 'kind' ) == 'version'
     )
-    # Registry URL is not a downloads-root file — no [D] on the version row.
+    # Registry URL is not a downloads-root file — no [dl] on the version row.
     assert version['location'] == 'https://git.example/api/v4/projects/1/boost/1.91'
     leaf = version['children'][0]
     from cuppa.core.dependency_identity import DOWNLOAD_MARK
