@@ -321,16 +321,19 @@ def _render_ruled_table( entries ):
 
 
 def _paint_remove_row( remark, line ):
-    """Purple/warn family for actionable rows; warn for develop-linked skips."""
+    """Purple/warn for actionable rows; warn for develop skips; mute the rest."""
     if remark in ( 'would rm', 'removed' ):
         return as_remove_notice( line )
     if remark == 'skip':
         return as_warning( line )
-    return line
+    return as_subdued( line )
 
 
 def _render_remove_ruled_table( outcomes ):
-    """``outcomes`` is a list of ``(PublisherEntry, remark)``."""
+    """``outcomes`` is a list of ``(PublisherEntry, remark)`` for the full forest.
+
+    Remark is ``would rm``, ``removed``, ``skip``, or ``''`` (unaffected / muted).
+    """
     entries = [ entry for entry, _remark in outcomes ]
     remarks = [ remark for _entry, remark in outcomes ]
     rows = _plain_table_lines( entries, remarks=remarks )
@@ -586,31 +589,32 @@ def remove_publishers( construct, cuppa_env, out=None ):
         ) )
         return 0
 
-    outcomes = []
+    target_names = { row['name'] for row in targets }
     for row in targets:
-        path = row['path']
-        name = row['name']
         try:
-            storage.ensure_contained( path, root, what="publisher tree" )
+            storage.ensure_contained( row['path'], root, what="publisher tree" )
         except storage.StorageError as error:
             out.write( "error: {}\n".format( error ) )
             return 1
-        entry = entry_by_name.get( name )
-        if entry is None:
-            out.write( "error: no publisher tree named [{}] under {}\n".format(
-                    name, storage.display_path( root ),
-            ) )
-            return 1
+
+    # Full forest table: actionable / skip remarks on targets; others blank + muted.
+    action_remark = 'would rm' if dry_run else 'removed'
+    outcomes = []
+    for entry in ( data.get( 'entries' ) or [] ):
+        name = entry.copy.name
+        if name not in target_names:
+            outcomes.append( ( entry, '' ) )
+            continue
+        row = by_name[name]
         if row.get( 'develop_linked' ):
             outcomes.append( ( entry, 'skip' ) )
-            continue
-        remark = 'would rm' if dry_run else 'removed'
-        outcomes.append( ( entry, remark ) )
+        else:
+            outcomes.append( ( entry, action_remark ) )
 
     write_remove_publishers_report( out, root, outcomes, dry_run=dry_run )
 
     for entry, remark in outcomes:
-        if remark == 'skip':
+        if remark not in ( 'would rm', 'removed' ):
             continue
         storage.remove_path( entry.copy.path, dry_run=dry_run )
     return 0

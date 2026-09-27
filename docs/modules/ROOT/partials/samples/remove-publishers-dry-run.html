@@ -2,12 +2,13 @@
 Would remove <span class="cuppa-emphasised">1</span> publisher tree (<span class="cuppa-emphasised"><span class="cuppa-info">42M</span></span>) under <span class="cuppa-info">~/.cuppa/publishers</span>
 (dry run; pass without -n to remove)
 
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------------------------</span>
-  REMARK     STATUS  SIZE  PUBLISHER  BRANCH   UPSTREAM        STATE            PATH
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------------------------</span>
-<span class="cuppa-remove-notice">  would rm   ok      42M   capy       develop  origin/develop  clean, 1 behind  ~/.cuppa/publishers/capy</span>
-<span class="cuppa-warning">  skip       note    9M    widget     master   origin/master   clean, 2 ahead   ~/.cuppa/publishers/widget</span>
-<span class="cuppa-subdued">  --------------------------------------------------------------------------------------------------------</span>
+<span class="cuppa-subdued">  -----------------------------------------------------------------------------------------------------------------------</span>
+  REMARK     STATUS  SIZE  PUBLISHER  BRANCH          UPSTREAM               STATE            PATH
+<span class="cuppa-subdued">  -----------------------------------------------------------------------------------------------------------------------</span>
+<span class="cuppa-remove-notice">  would rm   ok      42M   capy       develop         origin/develop         clean, 1 behind  ~/.cuppa/publishers/capy</span>
+<span class="cuppa-subdued">             warn    18M   corosio    feature_orders  origin/feature_orders  clean            ~/.cuppa/publishers/corosio</span>
+<span class="cuppa-warning">  skip       note    9M    widget     master          origin/master          clean, 2 ahead   ~/.cuppa/publishers/widget</span>
+<span class="cuppa-subdued">  -----------------------------------------------------------------------------------------------------------------------</span>
 
 Would remove <span class="cuppa-emphasised">1</span> publisher tree freeing up <span class="cuppa-emphasised"><span class="cuppa-info">42M</span></span> of disk space.
   1 skipped (develop-linked)

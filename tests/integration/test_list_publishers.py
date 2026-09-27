@@ -91,6 +91,8 @@ def test_list_and_remove_publishers( tmp_path ):
     assert 'would rm' in dry_text
     assert 'REMARK' in dry_text
     assert 'capy' in dry_text
+    assert 'corosio' in dry_text  # full table; unaffected row muted
+    assert dry_text.count( 'would rm' ) == 1
     assert ( forest / 'capy' ).is_dir()
 
     removed = run_cuppa(

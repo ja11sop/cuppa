@@ -51,12 +51,13 @@ tree there. Both honour `-n` / `--no-exec` for a dry run, refuse suspicious
 roots, contain each path under the publisher root, and never delete a
 develop-linked path.
 
-The report reuses the `--list-publishers` ruled table with a leading **REMARK**
-column: `would rm` on dry run, `removed` when applied, and `skip` for
-develop-linked rows. Actionable rows use the same purple / warn paint as
-`--remove-dependencies`. A summary underneath states how many trees and how
-much disk would free or freed. There is no `--purge-publishers` or wipe ladder
-(publisher trees have no download pairing).
+The report reuses the full `--list-publishers` ruled table with a leading
+**REMARK** column: `would rm` on dry run, `removed` when applied, and `skip`
+for develop-linked targets. Actionable rows use the same purple / warn paint as
+`--remove-dependencies`; rows not in the remove set stay in the table with a
+blank REMARK and muted paint. A summary underneath states how many trees and
+how much disk would free or freed. There is no `--purge-publishers` or wipe
+ladder (publisher trees have no download pairing).
 
 [source,shell]
 ----

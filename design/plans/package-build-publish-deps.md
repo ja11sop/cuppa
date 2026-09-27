@@ -593,7 +593,7 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
    | Dry-run (``-n``) | REMARK = ``would rm`` on rows that would delete; paint those rows with **``as_remove_notice``** (same warn/purple family as ``--remove-dependencies``). Header/summary: ``Would remove N publisher tree(s) freeing up SIZE`` (plus dry-run note). |
    | Apply (no ``-n``) | Same table; REMARK = ``removed``; same ``as_remove_notice`` row paint; summary ``Removed N publisher tree(s) freeing up SIZE``. |
    | Develop-linked | REMARK = skip (or short skip label); **do not** paint as remove-notice; keep existing warn that develop-linked paths are never deleted. |
-   | Scope of rows | Named remove: only requested names (error if missing). ``--remove-all-publishers``: every forest tree (develop-linked still skipped). Do **not** require a separate ``--list-publishers`` preview mode. |
+   | Scope of rows | Always show the **full** forest table. Named targets get ``would rm`` / ``removed`` / ``skip``; unaffected rows keep a blank REMARK and are **muted** (``as_subdued``). Unknown names still error. Do **not** require a separate ``--list-publishers`` preview mode. |
    | After report | Keep ``Verify with --list-publishers`` tip. |
    | Docs | Generated dry-run (+ apply) samples via ``generate_doc_samples``; include on ``list-publishers.adoc``; reclaiming-hub cross-link; purge/wipe N/A. |
    | Out of scope | Typed selectors; ``--wipe-publishers``; LOCATION-driven wipe; changing ``--list-publishers`` itself to show would-rm (remove owns that table). Optional later: list-publishers footer hint pointing at ``-n --remove-publishers=…``. |

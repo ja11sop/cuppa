@@ -2066,14 +2066,20 @@ def sample_list_publishers_json():
 
 
 def _remove_publishers_sample_outcomes( dry_run=True ):
-    """Named remove of ``capy`` plus develop-linked ``widget`` skip for samples."""
+    """Full forest: ``capy`` actionable, ``widget`` develop-skip, ``corosio`` muted."""
     data = _list_publishers_sample_data()
-    by_name = { entry.copy.name: entry for entry in data['entries'] }
     remark = 'would rm' if dry_run else 'removed'
-    return data['publishers_root'], [
-            ( by_name['capy'], remark ),
-            ( by_name['widget'], 'skip' ),
-    ]
+    targeted = { 'capy', 'widget' }
+    outcomes = []
+    for entry in data['entries']:
+        name = entry.copy.name
+        if name not in targeted:
+            outcomes.append( ( entry, '' ) )
+        elif entry.develop_linked:
+            outcomes.append( ( entry, 'skip' ) )
+        else:
+            outcomes.append( ( entry, remark ) )
+    return data['publishers_root'], outcomes
 
 
 def sample_remove_publishers_dry_run():

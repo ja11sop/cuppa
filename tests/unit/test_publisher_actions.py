@@ -130,6 +130,7 @@ def test_remove_publishers_dry_run_leaves_trees( tmp_path, monkeypatch ):
     storage = tmp_path / 'cuppa'
     forest = storage / 'publishers'
     tree = _plant_tree( forest, 'capy' )
+    other = _plant_tree( forest, 'corosio' )
     monkeypatch.setattr(
             publisher_actions, '_develop_realpaths', lambda _env: set()
     )
@@ -142,9 +143,12 @@ def test_remove_publishers_dry_run_leaves_trees( tmp_path, monkeypatch ):
     assert 'REMARK' in text
     assert 'STATUS' in text
     assert 'capy' in text
+    assert 'corosio' in text  # full forest; unaffected row muted
+    assert text.count( 'would rm' ) == 1
     assert 'dry run' in text
     assert 'Verify with --list-publishers' in text
     assert tree.is_dir()
+    assert other.is_dir()
 
 
 def test_remove_publishers_apply_marks_removed( tmp_path, monkeypatch ):
