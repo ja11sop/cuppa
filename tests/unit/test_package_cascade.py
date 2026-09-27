@@ -261,6 +261,87 @@ def test_maybe_run_cascade_refuses_publish_cascade_deps_with_publish_package():
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
+def test_maybe_run_cascade_accepts_build_cascade_dependencies():
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "build-cascade-dependencies",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    cascade.maybe_run_cascade( _Env(), tip )  # must not raise
+
+
+def test_maybe_run_cascade_refuses_build_cascade_with_publish_package():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "build-cascade-dependencies",
+                    "publish-package",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_maybe_run_cascade_refuses_build_and_publish_cascade_together():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "build-cascade-dependencies",
+                    "publish-cascade-dependencies",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_tip_forward_args_drops_build_cascade_dependencies():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--build-cascade-dependencies",
+            "--build-and-publish-dependencies",
+    ] )
+    assert "--build-cascade-dependencies" not in forwarded
+    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--publish-package" in forwarded
+
+
+def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
+    forwarded = cascade.tip_forward_args(
+            [ "scons", "-D", "--rel", "--publish-package" ],
+            project_only=True,
+    )
+    assert "--publish-package" not in forwarded
+    assert cascade.argv_for_nested_build( [ "scons", "-D", "--rel" ] )[-1] != (
+            "--publish-package"
+    )
+    assert "--publish-package" not in cascade.argv_for_nested_build(
+            [ "scons", "-D", "--rel", "--publish-package" ]
+    )
+
+
 def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
     """Consume tips use the same enable+action gate as publisher tips."""
     cascade.reset_plan_reports()
@@ -879,7 +960,10 @@ def test_finish_plan_only_exit_status_follows_resolution():
         # Summary through the semicolon is the info-label chip; remedy tree + detail follow.
         assert as_info_label( "--cascade-plan: 1 package planned" ) in text
         assert "to run this plan" in visible
-        assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+        assert (
+                "pass one of --build-cascade-dependencies, "
+                "--publish-cascade-dependencies, or --publish-package"
+        ) in visible
         assert "; nothing was built" not in visible
 
         cascade.record_plan_report( "widget", "1.2", 2 )
@@ -1172,6 +1256,73 @@ def test_maybe_run_cascade_runs_nested_graph_once( monkeypatch ):
     cascade.maybe_run_cascade( env, publisher )
     cascade.maybe_run_cascade( env, publisher )
     assert runs == [ "nested" ]
+
+
+def test_maybe_run_cascade_build_deps_uses_nested_build_not_publish( monkeypatch ):
+    calls = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self, sconstruct_dir="/tip" )
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "build-cascade-dependencies",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr(
+            cascade, "package_pin_is_current",
+            lambda *a, **k: calls.append( "current" ) or True,
+    )
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: calls.append( "build" ),
+    )
+    monkeypatch.setattr(
+            cascade, "run_nested_publish",
+            lambda *a, **k: calls.append( "publish" ),
+    )
+    monkeypatch.setattr(
+            cascade, "refresh_package_consume_cache",
+            lambda *a, **k: calls.append( "refresh" ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    monkeypatch.setattr(
+            cascade, "audit_deferred_cascade_fetches",
+            lambda *a, **k: calls.append( "audit" ),
+    )
+    cascade.reset_cascade_nested_done()
+    cascade.reset_deferred_cascade_fetches()
+    cascade.register_deferred_cascade_fetch( "capy", "develop", "/missing" )
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert calls == [ "build" ]
+    assert cascade.deferred_cascade_fetches() == {}
 
 
 def test_maybe_run_cascade_refreshes_only_after_upload( monkeypatch ):
@@ -2522,7 +2673,8 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
     assert status == 0
     assert "2 publisher trees to clone first" in report
-    assert "pass --clone-publishers along with either" in report
+    assert "pass --clone-publishers along with one of" in report
+    assert "--build-cascade-dependencies" in report
     assert "--publish-cascade-dependencies" in report
     assert "--publish-package" in report
     assert "to make this plan executable" in report
@@ -2538,7 +2690,10 @@ def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
 
     assert status == 1
     assert "--clone-publishers" in report
-    assert "Then re-run with either --publish-cascade-dependencies or --publish-package to execute" in report
+    assert (
+            "Then re-run with one of --build-cascade-dependencies, "
+            "--publish-cascade-dependencies, or --publish-package to execute"
+    ) in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -3062,8 +3217,9 @@ def test_finish_plan_only_names_opt_in_flags_when_the_plan_is_only_blocked_by_wa
     assert status == 0
     assert "1 package planned" in visible
     assert "pass either:" in visible
-    assert "--clone-publishers along with either" in visible
-    assert "--develop along with either" in visible
+    assert "--clone-publishers along with one of" in visible
+    assert "--develop along with one of" in visible
+    assert "--build-cascade-dependencies" in visible
     assert "--publish-cascade-dependencies" in visible
     assert "--publish-package" in visible
     assert "to make this plan executable" in visible
@@ -3085,8 +3241,14 @@ def test_finish_plan_only_omits_publish_package_for_a_consume_tip():
 
     assert status == 0
     assert "pass either:" in visible
-    assert "--develop along with --publish-cascade-dependencies" in visible
-    assert "--clone-publishers along with --publish-cascade-dependencies" in visible
+    assert (
+            "--develop along with either --build-cascade-dependencies or "
+            "--publish-cascade-dependencies"
+    ) in visible
+    assert (
+            "--clone-publishers along with either --build-cascade-dependencies or "
+            "--publish-cascade-dependencies"
+    ) in visible
     assert "--publish-package" not in visible
     assert "to make this plan executable" in visible
 
@@ -3100,7 +3262,8 @@ def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
 
     assert status == 0
     assert "1 publisher tree to clone first" in visible
-    assert "pass --clone-publishers along with either" in visible
+    assert "pass --clone-publishers along with one of" in visible
+    assert "--build-cascade-dependencies" in visible
     assert "--publish-cascade-dependencies" in visible
     assert "--publish-package" in visible
     assert "to make this plan executable" in visible
@@ -3120,7 +3283,10 @@ def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():
 
     assert status == 0
     assert "1 package planned" in visible
-    assert "pass --publish-cascade-dependencies" in visible
+    assert (
+            "pass either --build-cascade-dependencies or "
+            "--publish-cascade-dependencies"
+    ) in visible
     assert "optionally also pass --develop" in visible
     assert "where set" in visible
     assert "listed publisher paths" in visible
@@ -3158,7 +3324,10 @@ def test_finish_plan_only_clean_plan_still_names_how_to_run():
 
     assert status == 0
     assert "1 package planned" in visible
-    assert "pass either --publish-cascade-dependencies or --publish-package" in visible
+    assert (
+            "pass one of --build-cascade-dependencies, "
+            "--publish-cascade-dependencies, or --publish-package"
+    ) in visible
     assert "to run this plan" in visible
     assert "to make this plan executable" not in visible
     assert "optionally also pass --develop" not in visible

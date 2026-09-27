@@ -56,6 +56,7 @@ CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
 PUBLISH_CASCADE_DEPENDENCIES_OPTION = "publish-cascade-dependencies"
+BUILD_CASCADE_DEPENDENCIES_OPTION = "build-cascade-dependencies"
 FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
@@ -82,6 +83,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+        "--" + BUILD_CASCADE_DEPENDENCIES_OPTION,
         "--" + FORCE_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
@@ -203,6 +205,14 @@ def publish_cascade_dependencies_enabled( env ) -> bool:
     return bool( getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ) )
 
 
+def build_cascade_dependencies_enabled( env ) -> bool:
+    """``--build-cascade-dependencies``: nest-build DAG; no registry upload; tip build only."""
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( BUILD_CASCADE_DEPENDENCIES_OPTION ) )
+
+
 def cascade_force_enabled( env ) -> bool:
     """``--force``: rebuild+upload every resolved node even when registry-current."""
     getter = getattr( env, "get_option", None )
@@ -236,7 +246,11 @@ def cascade_stop_before_build( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if not callable( getter ):
         return True
-    if getter( "publish-package" ) or getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION ):
+    if (
+            getter( "publish-package" )
+            or getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+            or getter( BUILD_CASCADE_DEPENDENCIES_OPTION )
+    ):
         return False
     return True
 
@@ -1583,11 +1597,14 @@ def _footer_flag( option: str ) -> str:
 
 
 def _publish_action_phrase( consume_tip: bool ) -> str:
-    """How a plan finish line names the companion publish action(s)."""
+    """How a plan finish line names the companion nest / tip action(s)."""
+    build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
-        return nest
-    return "either {} or {}".format( nest, _footer_flag( "publish-package" ) )
+        return "either {} or {}".format( build, nest )
+    return "one of {}, {}, or {}".format(
+            build, nest, _footer_flag( "publish-package" ),
+    )
 
 
 def _plan_executable_remedy_lines(
@@ -2202,16 +2219,20 @@ def session_skipped_lines(
 
 def sessions_complete_lines(
         total, tip_package, tip_version, width=None, clean=False,
-        skipped: int = 0, uploaded: int = 0,
+        skipped: int = 0, uploaded: int = 0, build_only: bool = False,
 ) -> list[str]:
     """Banner handing the console back to this package's build (or clean)."""
+    nest_singular = "nested build" if build_only else "nested publish"
+    nest_plural = "nested builds" if build_only else "nested publishes"
+    skip_singular = "skipped build" if build_only else "skipped publish"
+    skip_plural = "skipped builds" if build_only else "skipped publishes"
     if clean:
         nested = storage.emphasised_count_phrase(
                 total, "nested clean", "nested cleans",
         )
     elif skipped and skipped == total:
         nested = storage.emphasised_count_phrase(
-                total, "skipped publish", "skipped publishes",
+                total, skip_singular, skip_plural,
         )
     elif skipped or uploaded:
         parts = []
@@ -2222,18 +2243,18 @@ def sessions_complete_lines(
             ) )
         elif ran:
             parts.append( storage.emphasised_count_phrase(
-                    ran, "nested publish", "nested publishes",
+                    ran, nest_singular, nest_plural,
             ) )
         if skipped:
             parts.append( storage.emphasised_count_phrase(
                     skipped, "skipped", "skipped",
             ) )
         nested = "; ".join( parts ) if parts else storage.emphasised_count_phrase(
-                total, "nested publish", "nested publishes",
+                total, nest_singular, nest_plural,
         )
     else:
         nested = storage.emphasised_count_phrase(
-                total, "nested publish", "nested publishes",
+                total, nest_singular, nest_plural,
         )
     resume = "resuming clean of this package" if clean else "resuming this package"
     return [
@@ -2584,6 +2605,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+        "--" + BUILD_CASCADE_DEPENDENCIES_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_PUBLISH_OPTION,
@@ -2746,6 +2768,11 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
     return [
             sys.executable, "-m", "cuppa"
     ] + tip_forward_args( argv, env=env, project_only=True )
+
+
+def argv_for_nested_build( argv=None, env=None ) -> list[str]:
+    """Full subprocess argv for cascade build-deps-only (no nested upload)."""
+    return argv_for_nested_project( argv=argv, env=env )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:
@@ -3797,6 +3824,46 @@ def run_nested_location_project(
     sys.stdout.flush()
 
 
+def run_nested_build(
+        env,
+        publisher_dir: str,
+        label: str,
+        ordinal: int = 1,
+        total: int = 1,
+) -> None:
+    """Nested cuppa session that builds or cleans without registry upload."""
+    argv = argv_for_nested_build( env=env )
+    nested_env = _nested_session_env( env )
+    kind = "nested build"
+
+    write_lines( session_begin_lines(
+            ordinal, total, label, publisher_dir, " ".join( argv ),
+            kind=kind,
+    ) )
+    sys.stdout.flush()
+    session_timer = timer.Timer()
+    completion = subprocess.run(
+            argv,
+            cwd=publisher_dir,
+            env=nested_env,
+    )
+    session_timer.stop()
+    if completion.returncode != 0:
+        verb = "clean" if _clean_enabled( env ) else "build"
+        raise SCons.Errors.StopError(
+                "cascade session {} of {} — {} of [{}] failed with return "
+                "code [{}] (cwd={})"
+                .format(
+                        ordinal, total, verb, label,
+                        completion.returncode, publisher_dir,
+                )
+        )
+    write_lines( session_end_lines(
+            ordinal, total, label, session_timer.elapsed().wall, kind=kind
+    ) )
+    sys.stdout.flush()
+
+
 _DEVELOP_KWARG_RE = re.compile(
         r"""(?<![\w.])develop\s*=\s*(?:r|u|f|rf|fr|ur|ru)?(?P<q>['"])(?P<path>(?:(?!(?P=q)).)+)(?P=q)"""
 )
@@ -4539,17 +4606,19 @@ def maybe_run_cascade( env, publisher ) -> None:
     publisher trees (and may stop, or continue into nested publish when
     ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
     ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
-    (no tip upload). ``construct.py`` exits after the sconscript read for
-    stop-before-build modes.
+    (no tip upload). ``--build-cascade-dependencies`` nest-builds the DAG with
+    no registry upload, then tip-builds. ``construct.py`` exits after the
+    sconscript read for stop-before-build modes.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
     update_publishers = cascade_update_enabled( env )
     publish = bool( env.get_option( "publish-package" ) )
     publish_cascade_deps = publish_cascade_dependencies_enabled( env )
-    publish_action = publish or publish_cascade_deps
-    # Stop before nested build when plan/collect, or update without a publish action.
-    stop_only = plan_only or collect_only or ( update_publishers and not publish_action )
+    build_cascade_deps = build_cascade_dependencies_enabled( env )
+    nest_action = publish or publish_cascade_deps or build_cascade_deps
+    # Stop before nested work when plan/collect, or update without a nest action.
+    stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
 
     if plan_only and collect_only:
         raise SCons.Errors.StopError(
@@ -4581,11 +4650,31 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
         )
+    if build_cascade_deps and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( BUILD_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
+        )
     if publish and publish_cascade_deps:
         raise SCons.Errors.StopError(
                 "--{} and --publish-package cannot be combined; choose tip "
                 "build-only or tip upload"
                 .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+        )
+    if publish and build_cascade_deps:
+        raise SCons.Errors.StopError(
+                "--{} and --publish-package cannot be combined; choose nest "
+                "build-only or tip upload"
+                .format( BUILD_CASCADE_DEPENDENCIES_OPTION )
+        )
+    if publish_cascade_deps and build_cascade_deps:
+        raise SCons.Errors.StopError(
+                "--{} and --{} cannot be combined; choose nest-publish or "
+                "nest-build"
+                .format(
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                )
         )
     if not cascade_enabled( env ):
         return
@@ -4600,15 +4689,17 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_version = str( getattr( publisher, "_version", "" ) )
     nested_key = _cascade_nested_key( env, publisher )
 
-    # Plan, collect, and update-without-publish do not need a publish action.
-    # Real nest-publish needs --publish-package (tip upload) or
-    # --publish-cascade-dependencies (tip build only).
-    if not stop_only and not publish_action:
+    # Plan, collect, and update-without-nest do not need a nest action.
+    # Real nest needs --publish-package, --publish-cascade-dependencies, or
+    # --build-cascade-dependencies.
+    if not stop_only and not nest_action:
         raise SCons.Errors.StopError(
-                "--{} requires --publish-package, --{}, --{}, --{}, or --{}"
+                "--{} requires --publish-package, --{}, --{}, --{}, --{}, "
+                "or --{}"
                 .format(
                         CASCADE_OPTION,
                         PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
                         CASCADE_PLAN_OPTION,
                         COLLECT_CASCADE_OPTION,
                         UPDATE_PUBLISHERS_OPTION,
@@ -4779,6 +4870,16 @@ def maybe_run_cascade( env, publisher ) -> None:
     for ordinal, key in enumerate( order, start=1 ):
         entry = nodes[key]
         label = node_label( entry )
+        if build_cascade_deps:
+            # Registry HEAD skip is nest-publish only; build-deps always nests.
+            run_nested_build(
+                    env,
+                    entry["_publisher_dir"],
+                    label,
+                    ordinal=ordinal,
+                    total=total,
+            )
+            continue
         if (
                 not cleaning
                 and not force
@@ -4823,7 +4924,11 @@ def maybe_run_cascade( env, publisher ) -> None:
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
             skipped=skipped, uploaded=uploaded_count,
+            build_only=build_cascade_deps,
     ) )
     _cascade_nested_done.add( nested_key )
-    if not cleaning:
+    if build_cascade_deps:
+        # No nested upload — tip must not fail waiting on registry artefacts.
+        reset_deferred_cascade_fetches()
+    elif not cleaning:
         audit_deferred_cascade_fetches( env )
