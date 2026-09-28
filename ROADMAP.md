@@ -555,7 +555,8 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `--minimal-output` (errors/warnings only after classification) | Yes |
 | `--ignore-duplicates` | Yes |
 | `NotifyProgress` begin/start/finish/end chain | Yes |
-| `python -m scripts.local_gate` (venv re-exec, subprocess smoke, flake8 / pylint / unit / integration) | Yes — done on master ([`local-gate.md`](design/plans/local-gate.md); contributor tooling, `impact:none`) |
+| `python -m scripts.local_gate` (venv re-exec, subprocess smoke, flake8 / pylint / unit / integration) | Yes — done on master [#343](https://github.com/ja11sop/cuppa/pull/343) ([`local-gate.md`](design/plans/local-gate.md); contributor tooling, `impact:none`) |
+| Modest pytest-xdist for local integration (`-n` ≤4 `--dist=loadfile`) via `local_gate`; per-test HOME isolation | Yes — this PR ([`integration-parallel-local.md`](design/plans/integration-parallel-local.md); `impact:none`) |
 
 ### Planned / potential
 
@@ -565,7 +566,6 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.11.0** |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.11.0** |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | CMake/Ninja job-count fix (serial default + explicit affinity-sized `--parallel N`) on [#319](https://github.com/ja11sop/cuppa/pull/319) / [#318](https://github.com/ja11sop/cuppa/issues/318) — **live soak done** 2026-09-21. `--parallel=N` CLI remains [#298](https://github.com/ja11sop/cuppa/issues/298). Design: [`parallel-job-count.md`](design/plans/parallel-job-count.md). |
-| `integration-parallel-local` | Modest pytest-xdist for local integration gate (~2–3 min vs 8–10); isolate `HOME` first | Medium | Contributor tooling only; [`integration-parallel-local.md`](design/plans/integration-parallel-local.md). Builds on `local-gate`. |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.11.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 

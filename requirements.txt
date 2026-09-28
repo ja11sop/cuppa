@@ -19,3 +19,4 @@ twine
 
 # for testing
 pytest
+pytest-xdist
