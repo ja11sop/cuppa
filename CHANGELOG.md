@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.11.0] - unreleased
+## [1.11.0] - 2026-09-28
 
 ### Changed
 
@@ -781,8 +781,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keyed ``env.Toolchain(name)`` — prefer ``env.Toolchain()`` for the active toolchain or
   ``env.HasToolchain(name)`` for registry checks (removed in cuppa 2.0).
 
-### Removed
-
 ### Fixed
 
 - Cascade nested ``--publish-package`` now forwards the tip's live argv
@@ -858,8 +856,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``working/.archive_members/<lib>/`` when compile outputs share a basename, so ``ar`` /
   the MSVC librarian no longer silently drop nested same-basename objects after the #213
   ``working/`` mirror ([#287](https://github.com/ja11sop/cuppa/issues/287)).
-
-### Security
 
 ## [1.10.0] - 2026-09-05
 
@@ -2015,7 +2011,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...HEAD
+[1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/ja11sop/cuppa/compare/v1.8.2...v1.9.0
