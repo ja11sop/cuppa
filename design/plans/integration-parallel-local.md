@@ -1,8 +1,8 @@
 # Plan: Parallel local integration tests
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `integration-parallel-local`; [`AGENTS.md`](../../AGENTS.md) local gate; [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py); [`parallel-job-count.md`](parallel-job-count.md) (Cuppa build `--parallel=N` — different concern)
-- **Updated:** 2026-09-14
+- **Status:** done
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `integration-parallel-local`; [`AGENTS.md`](../../AGENTS.md) local gate; [`local-gate.md`](local-gate.md); [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py); [`parallel-job-count.md`](parallel-job-count.md) (Cuppa build `--parallel=N` — different concern)
+- **Updated:** 2026-09-27
 - **Impact:** `none` (contributor / local gate tooling; no product CLI)
 
 ## Problem
@@ -90,5 +90,15 @@ at once (order of **3–4 workers**), without thrashing the machine or flaking.
 |------|-------|
 | Problem / target wall time | Captured |
 | Settled shape (isolation → modest xdist → no nested parallel) | Captured |
-| Implementation | Not started |
-| Issue filed | Not yet |
+| HOME isolation (`tests/integration/conftest.py` + `tests/helpers/home.py`) | Done |
+| `pytest-xdist` in `requirements.txt`; `local_gate` default `-n ≤4 --dist=loadfile` | Done |
+| `--serial-integration` escape hatch | Done |
+| Measured before/after wall time | See below (this PR) |
+| Issue filed | Not required (`impact:none`; tracked via ROADMAP) |
+
+### Measured wall time (this host, 2026-09-27)
+
+| Mode | Wall time | Notes |
+|------|-----------|-------|
+| Serial `pytest -m integration` (HOME isolation on) | **8m20s** (500s) | 200 passed / 13 skipped |
+| Parallel `local_gate --integration` (`-n 4 --dist=loadfile`) | **3m01s** (182s) | Same suite; meets the ~2–3 min target |

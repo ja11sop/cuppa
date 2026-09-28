@@ -77,8 +77,9 @@ expanded commands as the explainer underneath.
 
 ## Couples with
 
-- **After:** [`integration-parallel-local.md`](integration-parallel-local.md) can add
-  `local_gate --integration --parallel` once HOME isolation + xdist are trusted
+- **Follow-on (done):** [`integration-parallel-local.md`](integration-parallel-local.md)
+  — HOME isolation + modest xdist as the `local_gate` integration default
+  (`--serial-integration` escape hatch)
 - **Process:** append a bullet to [`agent-workflow-journey.md`](../process/agent-workflow-journey.md)
   when agents are told to prefer `scripts.local_gate` over hand-rolled checklists
 
@@ -100,4 +101,4 @@ expanded commands as the explainer underneath.
 | Implementation (`scripts/local_gate.py`) | Done |
 | Unit tests (`tests/unit/test_local_gate.py`) | Done |
 | `AGENTS.md` + Contributing + journey | Done |
-| Design index + ROADMAP `local-gate` | Done on this PR |
+| Design index + ROADMAP `local-gate` | Done on master [#343](https://github.com/ja11sop/cuppa/pull/343) |

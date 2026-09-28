@@ -348,6 +348,8 @@ pip install -e .                  # so `import cuppa` works without PYTHONPATH=
 
 python -m scripts.local_gate
 # Modes: --unit | --integration | --preflight-only | --skip-integration
+# Integration defaults to modest pytest-xdist (-n ≤4 --dist=loadfile); use
+# --serial-integration to bisect. See design/plans/integration-parallel-local.md.
 ```
 
 Exit codes: `0` ok, `1` a flake8/pylint/pytest step failed, `2` environment broken (fix

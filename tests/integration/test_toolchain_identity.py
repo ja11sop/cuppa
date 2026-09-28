@@ -70,7 +70,7 @@ def _coarsened_base( base ):
 def test_toolchain_identity_full_and_major_layout( tmp_path ):
     project = copy_dummy_project( tmp_path / 'project' )
     home = tmp_path / 'home'
-    home.mkdir()
+    home.mkdir( exist_ok=True )
     _write_build_scripts( project )
     env = _identity_env( home )
 
@@ -91,7 +91,7 @@ def test_toolchain_identity_full_and_major_layout( tmp_path ):
 def test_missing_global_conf_persists_major( tmp_path ):
     project = copy_dummy_project( tmp_path / 'project' )
     home = tmp_path / 'home'
-    home.mkdir()
+    home.mkdir( exist_ok=True )
     _write_build_scripts( project )
     result = run_cuppa( project, '--dbg', extra_env=_identity_env( home ) )
     assert_success( result )
@@ -103,7 +103,7 @@ def test_missing_global_conf_persists_major( tmp_path ):
 def test_existing_global_conf_grandfathers_full( tmp_path ):
     project = copy_dummy_project( tmp_path / 'project' )
     home = tmp_path / 'home'
-    home.mkdir()
+    home.mkdir( exist_ok=True )
     ( home / '.cuppaconfig' ).write_text( 'offline = True\n', encoding='utf-8' )
     _write_build_scripts( project )
     result = run_cuppa( project, '--dbg', extra_env=_identity_env( home ) )
@@ -116,7 +116,7 @@ def test_existing_global_conf_grandfathers_full( tmp_path ):
 def test_list_toolchains_keeps_reported_version_under_major( tmp_path ):
     project = copy_dummy_project( tmp_path / 'project' )
     home = tmp_path / 'home'
-    home.mkdir()
+    home.mkdir( exist_ok=True )
     write_sconstruct( project )
     write_sconscript( project, "Import('env')\n" )
     result = run_cuppa(

@@ -215,11 +215,36 @@ def _run_step( label: str, cmd: list[str] ) -> int:
     return EXIT_OK
 
 
+def integration_worker_count() -> int:
+    """Modest xdist width: enough for ~2–3 min, not ``-n auto``."""
+    cpus = os.cpu_count() or 1
+    return min( 4, max( 1, cpus // 2 ) )
+
+
+def xdist_available() -> bool:
+    try:
+        import xdist  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def integration_pytest_cmd( *, serial: bool ) -> list[str]:
+    """Build the ``pytest -m integration`` command (parallel by default)."""
+    cmd = [ sys.executable, '-m', 'pytest', '-m', 'integration' ]
+    if serial or not xdist_available():
+        return cmd
+    workers = integration_worker_count()
+    cmd.extend( [ '-n', str( workers ), '--dist=loadfile' ] )
+    return cmd
+
+
 def run_gate(
         *,
         unit: bool,
         integration: bool,
         lint: bool,
+        serial_integration: bool = False,
 ) -> int:
     if lint:
         code = _run_step( 'flake8 cuppa', [ sys.executable, '-m', 'flake8', 'cuppa' ] )
@@ -239,10 +264,15 @@ def run_gate(
         if code != EXIT_OK:
             return code
     if integration:
-        code = _run_step(
-                'pytest -m integration',
-                [ sys.executable, '-m', 'pytest', '-m', 'integration' ],
-        )
+        cmd = integration_pytest_cmd( serial=serial_integration )
+        label = 'pytest -m integration'
+        if '-n' in cmd:
+            label = '{} -n {} --dist=loadfile'.format(
+                    label, cmd[ cmd.index( '-n' ) + 1 ]
+            )
+        elif serial_integration:
+            label = '{} (serial)'.format( label )
+        code = _run_step( label, cmd )
         if code != EXIT_OK:
             return code
     print( 'local_gate: ok' )
@@ -279,6 +309,14 @@ def build_parser() -> argparse.ArgumentParser:
             help='Preflight → lint → unit (skip integration)',
     )
     parser.add_argument(
+            '--serial-integration',
+            action='store_true',
+            help=(
+                    'Run pytest -m integration without xdist '
+                    '(bisect / debug; default is modest -n --dist=loadfile)'
+            ),
+    )
+    parser.add_argument(
             '--no-reexec',
             action='store_true',
             help=argparse.SUPPRESS,
@@ -309,11 +347,22 @@ def main( argv: list[str] | None = None ) -> int:
     if args.preflight_only:
         return EXIT_OK
 
+    serial = bool( args.serial_integration )
     if args.integration:
-        return run_gate( unit=False, integration=True, lint=False )
+        return run_gate(
+                unit=False,
+                integration=True,
+                lint=False,
+                serial_integration=serial,
+        )
     if args.unit or args.skip_integration:
         return run_gate( unit=True, integration=False, lint=True )
-    return run_gate( unit=True, integration=True, lint=True )
+    return run_gate(
+            unit=True,
+            integration=True,
+            lint=True,
+            serial_integration=serial,
+    )
 
 
 if __name__ == '__main__':

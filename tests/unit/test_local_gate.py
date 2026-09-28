@@ -132,8 +132,8 @@ def test_main_unit_runs_lint_and_unit( monkeypatch ):
         seen['cxx'] = need_cxx
         return local_gate.EXIT_OK
 
-    def fake_gate( *, unit, integration, lint ):
-        seen['gate'] = ( unit, integration, lint )
+    def fake_gate( *, unit, integration, lint, serial_integration=False ):
+        seen['gate'] = ( unit, integration, lint, serial_integration )
         return local_gate.EXIT_OK
 
     monkeypatch.setattr( local_gate, 'preflight', fake_preflight )
@@ -141,7 +141,7 @@ def test_main_unit_runs_lint_and_unit( monkeypatch ):
     code = local_gate.main( ['local_gate', '--unit', '--no-reexec'] )
     assert code == local_gate.EXIT_OK
     assert seen['cxx'] is False
-    assert seen['gate'] == ( True, False, True )
+    assert seen['gate'] == ( True, False, True, False )
 
 
 def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
@@ -153,8 +153,8 @@ def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
         seen['cxx'] = need_cxx
         return local_gate.EXIT_OK
 
-    def fake_gate( *, unit, integration, lint ):
-        seen['gate'] = ( unit, integration, lint )
+    def fake_gate( *, unit, integration, lint, serial_integration=False ):
+        seen['gate'] = ( unit, integration, lint, serial_integration )
         return local_gate.EXIT_OK
 
     monkeypatch.setattr( local_gate, 'preflight', fake_preflight )
@@ -162,4 +162,49 @@ def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
     code = local_gate.main( ['local_gate', '--no-reexec'] )
     assert code == local_gate.EXIT_OK
     assert seen['cxx'] is True
-    assert seen['gate'] == ( True, True, True )
+    assert seen['gate'] == ( True, True, True, False )
+
+
+def test_main_serial_integration_flag( monkeypatch ):
+    seen = {}
+
+    monkeypatch.setattr( local_gate, 'maybe_reexec_into_venv', lambda argv: None )
+    monkeypatch.setattr(
+            local_gate, 'preflight', lambda need_cxx: local_gate.EXIT_OK
+    )
+
+    def fake_gate( *, unit, integration, lint, serial_integration=False ):
+        seen['serial'] = serial_integration
+        return local_gate.EXIT_OK
+
+    monkeypatch.setattr( local_gate, 'run_gate', fake_gate )
+    code = local_gate.main(
+            ['local_gate', '--integration', '--serial-integration', '--no-reexec']
+    )
+    assert code == local_gate.EXIT_OK
+    assert seen['serial'] is True
+
+
+def test_integration_pytest_cmd_parallel_when_xdist( monkeypatch ):
+    monkeypatch.setattr( local_gate, 'xdist_available', lambda: True )
+    monkeypatch.setattr( local_gate, 'integration_worker_count', lambda: 4 )
+    cmd = local_gate.integration_pytest_cmd( serial=False )
+    assert '-m' in cmd and 'integration' in cmd
+    assert cmd[ cmd.index( '-n' ) + 1 ] == '4'
+    assert '--dist=loadfile' in cmd
+
+
+def test_integration_pytest_cmd_serial_skips_xdist( monkeypatch ):
+    monkeypatch.setattr( local_gate, 'xdist_available', lambda: True )
+    cmd = local_gate.integration_pytest_cmd( serial=True )
+    assert '-n' not in cmd
+    assert cmd[-2:] == [ '-m', 'integration' ]
+
+
+def test_integration_worker_count_caps_at_four( monkeypatch ):
+    monkeypatch.setattr( local_gate.os, 'cpu_count', lambda: 32 )
+    assert local_gate.integration_worker_count() == 4
+    monkeypatch.setattr( local_gate.os, 'cpu_count', lambda: 2 )
+    assert local_gate.integration_worker_count() == 1
+    monkeypatch.setattr( local_gate.os, 'cpu_count', lambda: 6 )
+    assert local_gate.integration_worker_count() == 3

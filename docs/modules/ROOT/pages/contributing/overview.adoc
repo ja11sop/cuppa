@@ -33,6 +33,9 @@ python -m scripts.local_gate
 ----
 
 Useful modes: `--unit`, `--integration`, `--preflight-only`, `--skip-integration`.
+Integration defaults to a modest `pytest-xdist` run (`-n` at most 4,
+`--dist=loadfile`) once `pytest-xdist` is installed from `requirements.txt`.
+Pass `--serial-integration` to bisect without workers.
 
 The expanded checklist (same steps) is still valid when diagnosing a single tool:
 

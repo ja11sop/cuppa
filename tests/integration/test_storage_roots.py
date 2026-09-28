@@ -24,7 +24,7 @@ def own_home(tmp_path):
     whatever that machine happens to have.
     """
     home = tmp_path / "home"
-    home.mkdir()
+    home.mkdir(exist_ok=True)
     return {"HOME": str(home), "USERPROFILE": str(home)}
 
 

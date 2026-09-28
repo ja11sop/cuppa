@@ -327,6 +327,12 @@ These are recommendations for the next project, not self-flagellation.
     unit / integration; exit `2` = env broken). Encoded in `AGENTS.md`, Contributing overview,
     and [`local-gate.md`](../plans/local-gate.md).
 
+20. **Isolate integration `HOME` before enabling pytest-xdist.**  
+    Shared `~/.cuppa` is the main flake risk under workers. Autouse per-test
+    `HOME` / `USERPROFILE` under `tmp_path`, then modest `-n` ≤4 `--dist=loadfile`
+    as the `local_gate` default (`--serial-integration` to bisect). Encoded in
+    [`integration-parallel-local.md`](../plans/integration-parallel-local.md).
+
 ---
 
 ## 6. Patterns worth stealing (short list)

@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--integration``, ``--preflight-only``, ``--skip-integration``. Design:
   [`local-gate`](design/plans/local-gate.md).
 
+- Local integration gate parallelism — per-test ``HOME`` / ``USERPROFILE``
+  isolation under ``tmp_path``, ``pytest-xdist`` in ``requirements.txt``, and
+  ``local_gate`` defaulting integration to modest ``-n`` (at most 4)
+  ``--dist=loadfile``. ``--serial-integration`` keeps the serial spelling for
+  bisect. Design:
+  [`integration-parallel-local`](design/plans/integration-parallel-local.md).
+
 - ``--refresh-downloads`` / ``--refresh-downloads=NAMES`` — opt-in configure-time
   re-fetch of GitLab package archives (and re-extract) so same-version registry
   overwrites are not sticky. Bare flag refreshes all project-used GitLab package
