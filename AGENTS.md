@@ -334,23 +334,29 @@ that story.
 **Always run the full local Python test gate before `git push`.** Waiting for CI to report a unit
 or integration failure wastes a long Actions cycle and rate-limited status polls.
 
-**Use a Python virtualenv for the gate.** Distro / user-site `flake8` / `pylint` shims are often
-broken (for example `ModuleNotFoundError: No module named 'flake8'` when a `~/.local/bin` wrapper
-points at a missing install), and system Python may lack Cuppa’s test extras (`grip`, and so on).
-Prefer an existing repo venv if present (commonly `venv/` at the repository root — gitignored as
-`venv*/`); otherwise create one and install from `requirements.txt`:
+**Preferred:** one orchestrator that re-execs into the checkout `venv/`, fails fast on env
+breaks (including nested `python -m cuppa` import failures), then runs the same sequence CI
+expects:
 
 ```sh
-# Prefer an existing checkout venv when it already has the tools:
-source venv/bin/activate          # Windows: venv\Scripts\activate
-
-# Or create one (once per machine / checkout):
+# Once per machine / checkout if venv/ is missing:
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -U pip
 pip install -r requirements.txt
 pip install -e .                  # so `import cuppa` works without PYTHONPATH=
 
+python -m scripts.local_gate
+# Modes: --unit | --integration | --preflight-only | --skip-integration
+```
+
+Exit codes: `0` ok, `1` a flake8/pylint/pytest step failed, `2` environment broken (fix
+preflight before burning the suite). See [`design/plans/local-gate.md`](design/plans/local-gate.md).
+
+**Expanded checklist** (same steps the orchestrator runs; useful when diagnosing a single tool):
+
+```sh
+source venv/bin/activate
 flake8 cuppa
 pylint -E cuppa
 pytest -m unit
@@ -359,7 +365,7 @@ python -m scripts.check_docs_urls   # versionless /cuppa/<page> links + placehol
 ```
 
 If you cannot activate the venv in the current shell, call the venv binaries by path
-(`venv/bin/flake8 cuppa`, `venv/bin/pylint -E cuppa`, `venv/bin/pytest -m unit`). Do **not**
+(`venv/bin/python -m scripts.local_gate`, or `venv/bin/flake8 cuppa`, …). Do **not**
 treat a broken host `flake8` / `pylint` as “lint skipped” — fix the environment first.
 
 On hosts with `/etc/pip.conf` `user = true` (workstation soft policy), `pip install --target`
@@ -617,7 +623,14 @@ Run this **before every push** to a pull-request branch (see
 than learning about a failed unit or integration test from CI.
 
 Activate the checkout’s Python virtualenv first (existing `venv/`, or create one and
-`pip install -r requirements.txt` plus `pip install -e .` — details in that section). Then:
+`pip install -r requirements.txt` plus `pip install -e .` — details in that section). Prefer:
+
+```sh
+python -m scripts.local_gate
+# or: python -m scripts.local_gate --unit
+```
+
+Expanded equivalent (and optional toolchain overrides for integration):
 
 ```sh
 flake8 cuppa

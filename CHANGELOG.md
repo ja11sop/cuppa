@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``python -m scripts.local_gate`` — contributor pre-push orchestrator (venv re-exec,
+  subprocess ``cuppa`` smoke, then flake8 / pylint / unit / integration). Exit ``2``
+  means environment broken; ``1`` means a gate step failed. Modes: ``--unit``,
+  ``--integration``, ``--preflight-only``, ``--skip-integration``. Design:
+  [`local-gate`](design/plans/local-gate.md).
+
 - ``--refresh-downloads`` / ``--refresh-downloads=NAMES`` — opt-in configure-time
   re-fetch of GitLab package archives (and re-extract) so same-version registry
   overwrites are not sticky. Bare flag refreshes all project-used GitLab package

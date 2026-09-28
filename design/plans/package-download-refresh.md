@@ -1,7 +1,7 @@
 # Plan: Refresh package downloads after same-version republish
 
-- **Status:** in progress
-- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [`ROADMAP.md`](../../ROADMAP.md) — storage Planned (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade nest-publish refreshes tip consume after upload — orthogonal); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
+- **Status:** done
+- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [#342](https://github.com/ja11sop/cuppa/pull/342); [`ROADMAP.md`](../../ROADMAP.md) — storage (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade nest-publish refreshes tip consume after upload — orthogonal); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
 - **Updated:** 2026-09-27
 - **Impact:** `minor` (new opt-in CLI behaviour)
 
@@ -103,8 +103,8 @@ flowchart TD
 |----|-------------|--------|
 | `pkg-dl-refresh-plan` | Plan + ROADMAP / design index | Done |
 | `pkg-dl-refresh-names` | Settle flag spelling + `=LIST` grammar | **Settled** 2026-09-27 |
-| `pkg-dl-refresh-impl` | Option + GitlabPackageDependency hook; unit tests; unknown-name audit | This branch |
-| `pkg-dl-refresh-docs` | Antora Managing / CLI; CHANGELOG | Same PR as impl |
+| `pkg-dl-refresh-impl` | Option + GitlabPackageDependency hook; unit tests; unknown-name audit | Done on master [#342](https://github.com/ja11sop/cuppa/pull/342) |
+| `pkg-dl-refresh-docs` | Antora Managing / CLI; CHANGELOG | Done on master [#342](https://github.com/ja11sop/cuppa/pull/342) |
 | `pkg-dl-refresh-conditional` | Optional If-Modified-Since / skip unchanged | Later |
 
 ## Acceptance

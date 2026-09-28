@@ -17,7 +17,24 @@ and links to versioning, report conventions, releases, linting, and integration 
 
 == Running the local gate
 
-Run the complete Python gate before pushing:
+Prefer the orchestrator. It re-execs into the checkout `venv/` when needed, fails fast on
+environment breaks (exit `2`), then runs flake8, pylint `-E`, unit tests, and integration
+tests (exit `1` if a step fails):
+
+[source,sh]
+----
+# Once per checkout if venv/ is missing:
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
+
+python -m scripts.local_gate
+----
+
+Useful modes: `--unit`, `--integration`, `--preflight-only`, `--skip-integration`.
+
+The expanded checklist (same steps) is still valid when diagnosing a single tool:
 
 [source,sh]
 ----

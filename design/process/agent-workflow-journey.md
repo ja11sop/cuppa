@@ -2,7 +2,7 @@
 
 - **Status:** living
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (agent ops); Antora Contributing (human versioning/release)
-- **Updated:** 2026-09-21
+- **Updated:** 2026-09-27
 - **Maintainer:** primary author of this journey; others append only (see `AGENTS.md`)
 - **Privacy:** obey the private-projects rule; never copy names from `INTERNAL_PROJECTS.local.md`
 - **Source:** Cursor sessions spanning roughly mid-July → 2026-08-07 on cuppa
@@ -320,6 +320,13 @@ These are recommendations for the next project, not self-flagellation.
     message) — not status theatre. Encoded in `AGENTS.md` § Working documents, `design/README.md`,
     and Contributing versioning.
 
+19. **Orchestrate the local gate; do not hand-roll the checklist every session.**  
+    Agents burned full integration runs on nested `python -m cuppa` import failures (`six`)
+    while in-process imports in the venv looked fine. Prefer
+    `python -m scripts.local_gate` (venv re-exec, subprocess smoke, then flake8 / pylint /
+    unit / integration; exit `2` = env broken). Encoded in `AGENTS.md`, Contributing overview,
+    and [`local-gate.md`](../plans/local-gate.md).
+
 ---
 
 ## 6. Patterns worth stealing (short list)
@@ -343,6 +350,7 @@ These are recommendations for the next project, not self-flagellation.
 | Environment approval on `pypi` | Human gate without long-lived Twine tokens |
 | Contributing Antora + `release.txt` + `AGENTS.md` | Humans get diagrams; agents get ops; checklist stays short |
 | Local gate via checkout `venv/` + `requirements.txt` | Avoids broken host flake8/pylint shims and missing test extras |
+| `python -m scripts.local_gate` as the preferred pre-push command | Re-exec into venv; subprocess smoke catches nested import breaks before the suite; exit `2` vs `1` |
 | `generate_doc_samples` + partial includes | Listing docs cannot drift from CLI trees / JSON |
 | Hub + family topic pages (Dependencies, Toolchains) | Agents know which AsciiDoc file owns defaults vs inventory |
 | `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
