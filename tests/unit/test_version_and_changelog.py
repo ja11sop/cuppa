@@ -166,12 +166,19 @@ def test_a_failed_label_read_is_reported_rather_than_guessed( monkeypatch ):
 
 
 def test_the_gate_falls_back_to_payload_labels_when_the_api_is_unreachable( monkeypatch, capsys ):
-    """A flaky API must not turn the gate into a coin toss."""
+    """A flaky API must not turn the gate into a coin toss.
+
+    Pin the working-tree version and changelog too: ``main`` reads those from
+    disk, so a finish_release tree (no ``.dev``, dated section) would otherwise
+    fail this test for reasons unrelated to the payload fallback.
+    """
     def _unreachable( number, repository=None ):
         raise OSError( 'connection refused' )
 
     monkeypatch.setattr( check_version_bump, 'labels_from_api', _unreachable )
-    monkeypatch.setattr( check_version_bump, 'version_at', lambda ref: '1.11.0.dev' )
+    monkeypatch.setattr( check_version_bump, 'version_at', lambda ref: '1.3.2' )
+    monkeypatch.setattr( changelog, 'read_version', lambda: '1.4.0.dev' )
+    monkeypatch.setattr( changelog, 'read_changelog', lambda: IN_PROGRESS )
 
     exit_status = check_version_bump.main( [
         '--base-ref', 'origin/master',
