@@ -12,7 +12,7 @@
 A publisher seed / tip ``cuppa-publish.json`` may keep ``"version": "latest"``
 (matching source Boost / ``boost_package`` consume). The staged archive and
 registry upload always record a concrete pin. See open question 10 in
-``design/plans/package-build-publish-deps.md``.
+``design/archive/package-build-publish-deps.md``.
 """
 
 from __future__ import annotations

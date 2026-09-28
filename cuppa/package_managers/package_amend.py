@@ -9,7 +9,7 @@
 
 """Helpers for ``--amend-package-manifest`` (rewrite traveling metadata, retar).
 
-See ``design/plans/package-metadata-amend.md``.
+See ``design/archive/package-metadata-amend.md``.
 """
 
 import os

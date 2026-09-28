@@ -1,8 +1,8 @@
 # Plan: Cascade build-and-publish of package dependencies
 
-- **Status:** done
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
-- **Updated:** 2026-09-27
+- **Status:** shipped
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
+- **Updated:** 2026-09-28
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
 ## Outcome (done on master — 2026-09-27)
@@ -173,7 +173,7 @@ field, root derivation, or CLI/config map).
 
 #### Relation to `cuppa-dependency.json`
 
-[`gitlab-package-transitive.md`](gitlab-package-transitive.md) already ships
+[`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) already ships
 `cuppa-dependency.json` for **consume** / `BuildWith` closure. Rebuild metadata
 must not fork a second incompatible dependency list.
 
@@ -340,7 +340,7 @@ nothing to a registry; **2b** (clone) and **2c** (skip-if-current) do.
 | `--cascade-plan` without `--publish-package` | **Allowed** — this is the one relaxation. Nothing is built and nothing is uploaded, so demanding the publish flag to *inspect* a plan is ceremony. The Phase 1 refusal (cascade requires `--publish-package`) still holds for every real run. |
 | Where plan mode stops | Resolve during tip publisher construction, report, then stop after the sconscript read — the `--dump` pattern (`construct.py`), because the DAG is only known once the publisher is constructed. Plan mode must not `Exit()` mid-read, or a multi-toolchain / multi-sconscript run reports only its first tip. |
 | Unresolved publisher trees in plan mode | **Collect, do not fail fast.** A real run keeps the Phase 1 StopError on the first unresolvable node; plan mode gathers every unresolved node as a judgement **error** row so one command lists all the trees to plant. Exit non-zero when any error row is present. |
-| Plan report shape | Judgement-intro conventions from [`console-report-patterns.md`](../archive/console-report-patterns.md): announce line, then `Cascade plan: {pkg} [{version}] (this package \| this project) with {N} package dependencies: [N errors][N warnings][N notes]`, then publish order (leaf-first, numbered `n of N`). Each **package** is a primary node; errors / warnings / notes hang beneath it as severity groups (heading coloured; only `[bracketed]` values coloured in prose) — not a severity-first judgement tree, which would destroy publish order. Unresolved nodes carry their reason under an error group. Publisher tips say **this package**; consume-only tips say **this project** (not “tip” in console copy). |
+| Plan report shape | Judgement-intro conventions from [`console-report-patterns.md`](console-report-patterns.md): announce line, then `Cascade plan: {pkg} [{version}] (this package \| this project) with {N} package dependencies: [N errors][N warnings][N notes]`, then publish order (leaf-first, numbered `n of N`). Each **package** is a primary node; errors / warnings / notes hang beneath it as severity groups (heading coloured; only `[bracketed]` values coloured in prose) — not a severity-first judgement tree, which would destroy publish order. Unresolved nodes carry their reason under an error group. Publisher tips say **this package**; consume-only tips say **this project** (not “tip” in console copy). |
 | Finish-line remedy | Always a short tree under `--cascade-plan: N planned;`. **Executable** (every node has a publisher tree): companion publish action + **to run this plan**; unused develop with listed publisher paths may add **optionally also pass `--develop`** (partial coverage: **where set**; other dependencies still use the listed publisher paths). **Blocked** (clone opt-in / soft unused develop / planned clones): `--develop` and/or `--clone-publishers` along with the publish action + **to make this plan executable**. Do not require `--develop` merely because unused-develop notes exist when publisher paths already resolve. Do not suggest `--clone-develop` for partial develop *coverage* (that flag only fills configured paths missing on disk). |
 | Real runs print the plan too | **Yes** — the same report precedes the first nested session, so the operator sees the whole sequence before anything uploads. |
 | Nested session banners | Each nested publish gets a begin and end banner carrying **ordinal / total**, label, publisher tree, and (on end) elapsed time and exit status; a closing banner says the tip is resuming. This answers “more than one `scons` ran” without the operator counting `Cascade:` lines. |
@@ -700,7 +700,7 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
     **Related (do not conflate):** floating / non-exact package pins more
     generally — e.g. consume or traveling-manifest language for a **minimum**
     (`>=1.28.0`) versus an **exact** pin (`1.28.0` / `==1.28.0`). That sits with
-    [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP is
+    [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) (MVP is
     concrete versions only; ranges / backtracking refused). Boost publish-seed
     ``latest`` is a **named floating token** that resolves once to a concrete
     archive identity; it is a stepping stone toward richer constraint spelling,
@@ -766,7 +766,7 @@ canonical forest.
 
 ### Explicit non-goals (for this future feature)
 
-- Constraint solving / version ranges ([`gitlab-package-transitive.md`](gitlab-package-transitive.md))
+- Constraint solving / version ranges ([`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md))
 - Same-version consume re-fetch ([#296](https://github.com/ja11sop/cuppa/issues/296))
 - Changing nest companion flags or tip end states
 

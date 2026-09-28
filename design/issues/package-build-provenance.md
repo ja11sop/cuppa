@@ -1,7 +1,7 @@
 # A published package should record what it was built from
 
 - **Status:** issue draft
-- **Related:** [`plans/package-develop-local.md`](../plans/package-develop-local.md) (`package_source`, `--clone-develop` for packages); [`plans/package-build-publish-deps.md`](../plans/package-build-publish-deps.md) (cascade, `--clone-publishers`); [`cuppa_publish_manifest.py`](../../cuppa/package_managers/cuppa_publish_manifest.py); [`cuppa_dependency_manifest.py`](../../cuppa/package_managers/cuppa_dependency_manifest.py); [#297](https://github.com/ja11sop/cuppa/issues/297)
+- **Related:** [`archive/package-develop-local.md`](../archive/package-develop-local.md) (`package_source`, `--clone-develop` for packages); [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md) (cascade, `--clone-publishers`); [`cuppa_publish_manifest.py`](../../cuppa/package_managers/cuppa_publish_manifest.py); [`cuppa_dependency_manifest.py`](../../cuppa/package_managers/cuppa_dependency_manifest.py); [#297](https://github.com/ja11sop/cuppa/issues/297)
 - **Updated:** 2026-09-17
 - **Impact:** minor — new manifest fields and a report of them; consuming a package is unchanged, and nothing new is required of a publisher
 

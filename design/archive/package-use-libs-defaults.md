@@ -1,8 +1,8 @@
 # Plan: Default and shared-aware `use_libs` for GitLab packages
 
-- **Status:** in progress
-- **Related:** [#294](https://github.com/ja11sop/cuppa/pull/294); [`ROADMAP.md`](../../ROADMAP.md) — `package-use-libs-defaults`; [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (edge `use_libs`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (`cuppa-publish.json`); [`package-metadata-amend.md`](package-metadata-amend.md) (metadata-only republish); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); project **D** / `business_rules` fmt+date soak
-- **Updated:** 2026-09-14
+- **Status:** shipped
+- **Related:** [#294](https://github.com/ja11sop/cuppa/pull/294); [`ROADMAP.md`](../../ROADMAP.md) — `package-use-libs-defaults`; [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) (edge `use_libs`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (`cuppa-publish.json`); [`package-metadata-amend.md`](package-metadata-amend.md) (metadata-only republish); [`package-runtime-paths.md`](package-runtime-paths.md); project **D** / `business_rules` fmt+date soak
+- **Updated:** 2026-09-28
 - **Impact:** `minor` (link behaviour for auto-enable / `use_libs`; opt-in metadata)
 
 ## Problem

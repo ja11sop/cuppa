@@ -1,8 +1,8 @@
 # Plan: `cuppa.run` accepts dependency objects in `default_dependencies`
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [#276](https://github.com/ja11sop/cuppa/issues/276); [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](../archive/dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/core/run_list_names.py`
-- **Updated:** 2026-09-05
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [#276](https://github.com/ja11sop/cuppa/issues/276); [`gitlab-package-latest.md`](gitlab-package-latest.md) (motivating consume ergonomics); [`dependency-resolve.md`](dependency-resolve.md) (BuildWith tokens remain strings); `cuppa/core/run_list_names.py`
+- **Updated:** 2026-09-28
 - **Impact:** minor — accept dependency factories/classes where names are required today; strings stay valid
 
 ## Why
@@ -79,7 +79,7 @@ and keep rename options in open questions — do not block object normalisation 
 
 ## Non-goals
 
-- Changing BuildWith resolve / type selectors ([`dependency-resolve.md`](../archive/dependency-resolve.md)).
+- Changing BuildWith resolve / type selectors ([`dependency-resolve.md`](dependency-resolve.md)).
 - Requiring objects everywhere (strings remain first-class).
 - Auto-adding every `dependencies=` entry to `default_dependencies` (explicit default list stays).
 - Removing legacy `dependencies` / `default_dependencies` aliases (keep indefinitely for now).

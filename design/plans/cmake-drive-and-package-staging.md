@@ -520,9 +520,9 @@ a higher-level Option C (`env.CMake*`) — and what that method would need to ab
 | `package-archive-progress` | Progress / heartbeat while creating large `.tar.gz` / `.zip` | Later (`patch`/`minor`) — project C pain |
 | `package-variant-match` | Document dbg→rel default; opt-in strict/exact | Later (`minor`) |
 | `package-publish-cli` | Namespace-scoped **publish** CLI (e.g. version pin) — see below | Later (`minor`) — not Option C |
-| `package-build-publish-deps` | Cascade build+publish of package deps from a tip — [`package-build-publish-deps.md`](package-build-publish-deps.md) | Later (`minor`) — not Option C; needs publisher-home map |
+| `package-build-publish-deps` | Cascade build+publish of package deps from a tip — [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) | Later (`minor`) — not Option C; needs publisher-home map |
 | `cmake-pkg-dep-wire` | Antora: package dep + project-include / `extra_defines` pattern (Corosio-shaped) | Later (docs from smoke) |
-| `cmake-pkg-cloud-soak` | Prove Option B/C + prefixes + RPATH on the **google-cloud-cpp** stack (bottom-up Cuppa packages) — detail in [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; private work in **project D** | **Done** for tip **3.9.0** (manual bottom-up publish); cascade publish deferred — [`package-build-publish-deps.md`](package-build-publish-deps.md) |
+| `cmake-pkg-cloud-soak` | Prove Option B/C + prefixes + RPATH on the **google-cloud-cpp** stack (bottom-up Cuppa packages) — detail in [`cmake-package-prefix.md`](../archive/cmake-package-prefix.md) § Prove-out soak; private work in **project D** | **Done** for tip **3.9.0** (manual bottom-up publish); cascade publish deferred — [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) |
 | `cmake-pkg-stage-inplace` | Opt-in no-double-copy packaging (E) — large install-prefix | Side quest when disk/time friction appears |
 | (later) Option C polish | MSVC multi-config escape hatch | After lean C |
 

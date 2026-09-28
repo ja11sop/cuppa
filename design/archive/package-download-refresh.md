@@ -1,8 +1,8 @@
 # Plan: Refresh package downloads after same-version republish
 
-- **Status:** done
-- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [#342](https://github.com/ja11sop/cuppa/pull/342); [`ROADMAP.md`](../../ROADMAP.md) — storage (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade nest-publish refreshes tip consume after upload — orthogonal); [`removal-options.md`](removal-options.md) (purge/wipe vocabulary); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
-- **Updated:** 2026-09-27
+- **Status:** shipped
+- **Related:** [#296](https://github.com/ja11sop/cuppa/issues/296); [#342](https://github.com/ja11sop/cuppa/pull/342); [`ROADMAP.md`](../../ROADMAP.md) — storage (`package-download-refresh`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade nest-publish refreshes tip consume after upload — orthogonal); [`removal-options.md`](../plans/removal-options.md) (purge/wipe vocabulary); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackageDependency`
+- **Updated:** 2026-09-28
 - **Impact:** `minor` (new opt-in CLI behaviour)
 
 ## Problem

@@ -1,7 +1,7 @@
 # Plan: Cascade defer-404 for first publish (§6 / Slice F)
 
 - **Status:** shipped
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [#316](https://github.com/ja11sop/cuppa/pull/316); parent [`../plans/package-develop-local.md`](../plans/package-develop-local.md) §6; cascade [`../plans/package-build-publish-deps.md`](../plans/package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [#316](https://github.com/ja11sop/cuppa/pull/316); parent [`package-develop-local.md`](package-develop-local.md) §6; cascade [`package-build-publish-deps.md`](package-build-publish-deps.md); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`
 - **Updated:** 2026-09-21
 - **Impact:** `minor`
 

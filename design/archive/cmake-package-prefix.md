@@ -1,7 +1,7 @@
 # CMake package prefixes and publisher API ergonomics
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); [`package-runtime-paths.md`](package-runtime-paths.md); [`download-extract.md`](download-extract.md); transitive manifests [`../plans/gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md); run object lists [`../plans/run-default-dependency-objects.md`](../plans/run-default-dependency-objects.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); [`package-runtime-paths.md`](package-runtime-paths.md); [`download-extract.md`](download-extract.md); transitive manifests [`../plans/gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md); run object lists [`run-default-dependency-objects.md`](run-default-dependency-objects.md)
 - **Updated:** 2026-09-14
 - **Impact:** `minor`
 
@@ -173,7 +173,7 @@ Leave as system: OpenSSL, zlib, curl (≥ **8.7.1** for cloud-cpp 3.9), nghttp2,
 | google-cloud-cpp → Cuppa Abseil / nlohmann-json | Done (**3.9.0** built and published; manual bottom-up) |
 | Small compiled leaves (`fmt`, `date`) as final Option C soak | Done — publishers built/published (`12.2.0` / `3.0.5`); `business_rules` switched to `package_dependency` |
 | Cuppa PR [#294](https://github.com/ja11sop/cuppa/pull/294) (helpers this soak uses) | Open / green |
-| Cascade `--build-and-publish-dependencies` | Deferred — [`package-build-publish-deps.md`](../plans/package-build-publish-deps.md) |
+| Cascade `--build-and-publish-dependencies` | Deferred — [`package-build-publish-deps.md`](package-build-publish-deps.md) |
 
 **Soak friction noted:** gRPC’s in-tree `grpc_cpp_plugin` needs
 `CMAKE_BUILD_WITH_INSTALL_RPATH=OFF` so build RPATH keeps `$ORIGIN` next to
@@ -183,7 +183,7 @@ from the install prefix (e.g. protobuf `protoc`).
 
 **Soak friction noted:** same-version package republish does not invalidate the
 local archive/extract cache (existence-only). Until
-[`package-download-refresh.md`](../plans/package-download-refresh.md) ships,
+[`package-download-refresh.md`](package-download-refresh.md) ships,
 purge/wipe (or plant) after each republish before rebuilding dependents.
 
 Slice id on the drive plan: `cmake-pkg-cloud-soak`.

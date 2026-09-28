@@ -349,11 +349,11 @@ pip install -e .                  # so `import cuppa` works without PYTHONPATH=
 python -m scripts.local_gate
 # Modes: --unit | --integration | --preflight-only | --skip-integration
 # Integration defaults to modest pytest-xdist (-n ≤4 --dist=loadfile); use
-# --serial-integration to bisect. See design/plans/integration-parallel-local.md.
+# --serial-integration to bisect. See design/archive/integration-parallel-local.md.
 ```
 
 Exit codes: `0` ok, `1` a flake8/pylint/pytest step failed, `2` environment broken (fix
-preflight before burning the suite). See [`design/plans/local-gate.md`](design/plans/local-gate.md).
+preflight before burning the suite). See [`design/archive/local-gate.md`](design/archive/local-gate.md).
 
 **Expanded checklist** (same steps the orchestrator runs; useful when diagnosing a single tool):
 
@@ -750,7 +750,7 @@ Update `docs/modules/ROOT/nav.adoc` when adding a new top-level page or nesting 
 ### Documentation partitioning (rules of thumb)
 
 Use these when splitting or placing dependency (and similar) docs — same principles as
-[`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md) and §7.1 of the
+[`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) and §7.1 of the
 removal-options plan:
 
 - **Four job hubs under Dependencies.** Using (consume + tip usability), Managing (storage),

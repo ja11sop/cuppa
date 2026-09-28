@@ -1,8 +1,8 @@
 # Plan: `--stage-develop` for location dependencies
 
-- **Status:** in progress
+- **Status:** shipped
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `stage-develop-locations`; [`package-develop-local.md`](package-develop-local.md) (package half of `--stage-develop`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade plan / topo precedent); [`build_with_location.py`](../../cuppa/build_with_location.py); [`develop.py`](../../cuppa/develop.py); [`location.py`](../../cuppa/location.py)
-- **Updated:** 2026-09-20
+- **Updated:** 2026-09-28
 - **Impact:** `minor` — new behaviour under an existing opt-in flag; location `--develop` alone unchanged
 
 ## Problem
@@ -367,9 +367,9 @@ docs/asset artefact consume; per-dependency opt-out flags.
 | L0 | Plan + ROADMAP | none — **shipped** |
 | L1 | Nest location develops; survey + `N of M` | `minor` — **shipped** in [#313](https://github.com/ja11sop/cuppa/pull/313) |
 | L2 | Nest `-c`; docs; unbuffered nested output | `minor` — **shipped** with L1 in [#313](https://github.com/ja11sop/cuppa/pull/313) |
-| L3 | Tip consumes package-shaped location stage (`include/`+`lib/`+optional `modules/`) | `minor` — **baseline on this branch** |
-| L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **this branch** / [#315](https://github.com/ja11sop/cuppa/pull/315) |
-| L4b | Plan report UX: execute-order tree, `unstaged` judgements, stage=nest vocab | `minor` — **this branch** |
+| L3 | Tip consumes package-shaped location stage (`include/`+`lib/`+optional `modules/`) | `minor` — **baseline on master** |
+| L4 | `--stage-develop-plan` + leaf-first ordered stage builds | `minor` — **done on master** / [#315](https://github.com/ja11sop/cuppa/pull/315) |
+| L4b | Plan report UX: execute-order tree, `unstaged` judgements, stage=nest vocab | `minor` — **done on master** |
 
 ## Success criterion (L4)
 

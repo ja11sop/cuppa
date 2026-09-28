@@ -1,8 +1,8 @@
 # Plan: Selection / filter examples for remove and wipe docs
 
-- **Status:** done
-- **Related:** [`dependencies-docs-four-hubs.md`](dependencies-docs-four-hubs.md); [`list-deps-requires-closure.md`](list-deps-requires-closure.md); ROADMAP Documentation tooling; [`removal-options.md`](removal-options.md) § tokens
-- **Updated:** 2026-09-26
+- **Status:** shipped
+- **Related:** [`dependencies-docs-four-hubs.md`](dependencies-docs-four-hubs.md); [`list-deps-requires-closure.md`](list-deps-requires-closure.md); ROADMAP Documentation tooling; [`removal-options.md`](../plans/removal-options.md) § tokens
+- **Updated:** 2026-09-28
 - **Impact:** none — documentation and supplemental CSS/JS only
 
 ## Problem

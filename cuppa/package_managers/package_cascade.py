@@ -11,7 +11,7 @@
 
 Supports publisher tips (``GitlabPackagePublisher``) and consume-only tips that
 seed from tip ``package_dependency`` factories. See
-``design/plans/package-build-publish-deps.md``.
+``design/archive/package-build-publish-deps.md``.
 """
 
 from __future__ import annotations
