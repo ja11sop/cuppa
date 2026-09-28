@@ -1,8 +1,8 @@
 # Plan: Local gate orchestrator
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** [`AGENTS.md`](../../AGENTS.md) (Before pushing); [`docs/modules/ROOT/pages/contributing/overview.adoc`](../../docs/modules/ROOT/pages/contributing/overview.adoc); [`integration-parallel-local.md`](integration-parallel-local.md); [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py)
-- **Updated:** 2026-09-27
+- **Updated:** 2026-09-28
 - **Impact:** `none` (contributor / agent tooling; no product CLI)
 
 ## Problem

@@ -11,25 +11,30 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-10
+**As of:** 2026-09-28
 
 ---
 
-## 1.11.0 cycle focus (open)
+## 1.11.0 cycle focus (ready to cut)
 
-Minor cycle after **1.10.0**. Prefer work that changes opt-in toolchain or package behaviour
-(`impact:minor`) over parking it in another patch.
+Minor cycle after **1.10.0**. Package workflow + contributor gate are on master;
+design plans for that work are promoted to **`shipped`** / `design/archive/` in the
+housekeeping pass. Remaining cycle-focus items below are **deferred to the next
+cycle** (open after `finish_release` / `start_release`).
 
-| Area | Intent in 1.11.0 |
+| Area | Status in 1.11.0 |
 |------|------------------|
-| `cuppa.run` default_dependencies objects | [`run-default-dependency-objects.md`](design/plans/run-default-dependency-objects.md) — objects in both lists; teach register vs auto-apply; optional clearer names later |
-| Transitive GitLab packages | [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) — consume + label `requires` shipped; listing closure: [`list-deps-requires-closure.md`](design/plans/list-deps-requires-closure.md) (**pass A + B done**) |
-| Sconscript exports / sharing | [`sconscript-exports.md`](design/archive/sconscript-exports.md) — #282 / #283 shipped; remaining: dynamic `Import(name)`, MSVC `/Fd` under `--parallel` |
-| Static lib archive members | [`static-lib-archive-members.md`](design/archive/static-lib-archive-members.md) — #287 / #288 shipped (collide-only); always-flatten deferred to 2.0 |
-| GitLab CMake staging | [#209](https://github.com/ja11sop/cuppa/issues/209) — docs + min refresh + accessors shipped; **Option B** (`cmake_configure_args`) on [#294](https://github.com/ja11sop/cuppa/pull/294); **Option C** (`CMakeConfigure` / `CMakeBuild` / `CMakeInstall`) in progress; E / archive-progress later: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md); runtime lib ENV + RPATH: [`package-runtime-paths.md`](design/archive/package-runtime-paths.md); acquire: [`download-extract.md`](design/archive/download-extract.md); publisher prefix helpers: [`cmake-package-prefix.md`](design/archive/cmake-package-prefix.md) |
-| Artefact removal design | [#135](https://github.com/ja11sop/cuppa/issues/135) |
-| Console bundle | `--terse-output`, log hygiene, `cuppa --info` |
-| Boost package identity | [`boost-updates.md`](design/plans/boost-updates.md) (`-patched` / `-clean`) |
+| Package cascade / develop-local / refresh-downloads / amend / use_libs defaults | **Shipping** — see Storage Planned rows (promote notes); plans under [`design/archive/`](design/archive/) |
+| Location `--stage-develop` + plan | **Shipping** — [#313](https://github.com/ja11sop/cuppa/pull/313) / [#315](https://github.com/ja11sop/cuppa/pull/315); [`stage-develop-locations.md`](design/archive/stage-develop-locations.md) |
+| `cuppa.run` import/auto_enable objects + preferred names | **Shipping** — [#276](https://github.com/ja11sop/cuppa/issues/276); [`run-default-dependency-objects.md`](design/archive/run-default-dependency-objects.md) |
+| List-deps requires closure + Option A scopes + docs hubs | **Shipping** — [`list-deps-requires-closure.md`](design/archive/list-deps-requires-closure.md) / [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
+| `scripts.local_gate` + modest xdist | **Shipping** — [#343](https://github.com/ja11sop/cuppa/pull/343) / [#344](https://github.com/ja11sop/cuppa/pull/344) |
+| Transitive GitLab packages (deeper graph) | **Partial** — consume + `requires` + listing closure shipped; umbrella [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) remains in progress |
+| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers on master; E / archive-progress / publish-cli later: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Deferred** — next cycle |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — next cycle |
+| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** — next cycle |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** — next cycle |
 
 Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on ([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.11.0 gate.
 
@@ -453,13 +458,13 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*`, `--wipe-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closed by [#144](https://github.com/ja11sop/cuppa/pull/144). Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Phase 3 polish [#145](https://github.com/ja11sop/cuppa/issues/145). Wipe [#146](https://github.com/ja11sop/cuppa/issues/146) closed by [#150](https://github.com/ja11sop/cuppa/pull/150). Remaining from this family: [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). |
-| `package-download-refresh` | Opt-in re-fetch of GitLab package archives (and re-extract) after same-version registry overwrite | Medium | **Done on master** [#342](https://github.com/ja11sop/cuppa/pull/342) (`--refresh-downloads` / `=NAMES`; refuse offline; skip develop). Promote to shipped at named release. Design: [`package-download-refresh.md`](design/plans/package-download-refresh.md). [#296](https://github.com/ja11sop/cuppa/issues/296). |
-| `package-build-publish-deps` | Opt-in cascade: tip publisher **or consume-only tip**; nest-publish or nest-build GitLab package DAG then tip upload / tip build only | Medium | **Done on master** ([#302](https://github.com/ja11sop/cuppa/pull/302)–[#339](https://github.com/ja11sop/cuppa/pull/339)): companions (`--publish-package`, `--publish-cascade-dependencies`, `--build-cascade-dependencies`), plan/collect/clone/update, skip-if-current, `cuppa-publish.json`, consume-site `package_source`, tip `payload_sha256` overlay, list-publishers / list-location. Forest keying by `package_source` stem deferred as future feature in the plan. Promote to shipped at named release. Design: [`package-build-publish-deps.md`](design/plans/package-build-publish-deps.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
-| `package-develop-local` | `--develop` on a package dependency means its **source tree**: discover (or opt-in stage) a local package and consume it, with cascade and `--clone-develop` honouring the same path | Medium | **Done on master**: A–D [#311](https://github.com/ja11sop/cuppa/pull/311); Slice F [#316](https://github.com/ja11sop/cuppa/pull/316). Slice E (prefix migration) **declined** — dual inference kept. Promote to shipped at named release. Design: [`package-develop-local.md`](design/plans/package-develop-local.md) / [`cascade-defer-404.md`](design/archive/cascade-defer-404.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
-| `publish-package-parallel` | Declare package archive as SCons `SideEffect` of `.packaged` so `--publish-package --parallel` cannot race `.published` | Medium | **Done** on master [#319](https://github.com/ja11sop/cuppa/pull/319) ([#317](https://github.com/ja11sop/cuppa/issues/317) / [#318](https://github.com/ja11sop/cuppa/issues/318)); live soak 2026-09-21. Promote to shipped at next named release. Design: [`publish-package-parallel-side-effect.md`](design/plans/publish-package-parallel-side-effect.md). |
-| `stage-develop-locations` | Extend `--stage-develop` to **location** develop trees that are Cuppa projects (nest build/clean); L3 tip consumes package-shaped stage when present | Medium | L1/L2 shipped in [#313](https://github.com/ja11sop/cuppa/pull/313). L3 (include/lib/modules tip consume) + L4 (`--stage-develop-plan`, leaf-first) on [#315](https://github.com/ja11sop/cuppa/pull/315). Design: [`stage-develop-locations.md`](design/plans/stage-develop-locations.md). |
-| `package-use-libs-defaults` | Shared-aware `use_libs` + manifest `default_use_libs` so auto-enable can link small packages; explicit `use_libs` overrides (no link-the-world for fat packages) | Medium | On [#294](https://github.com/ja11sop/cuppa/pull/294) — shared-aware link + defaults + heuristic; design: [`package-use-libs-defaults.md`](design/plans/package-use-libs-defaults.md). |
-| `package-metadata-amend` | Amend `cuppa-publish.json` (and retar/publish) without rebuilding package binaries | Medium | **Done** on master ([#300](https://github.com/ja11sop/cuppa/pull/300)); Phase 2d makes amend write the single traveling file and drop the legacy dependency twin. Design: [`package-metadata-amend.md`](design/plans/package-metadata-amend.md). [#299](https://github.com/ja11sop/cuppa/issues/299). |
+| `package-download-refresh` | Opt-in re-fetch of GitLab package archives (and re-extract) after same-version registry overwrite | Medium | **Shipped in 1.11.0** [#342](https://github.com/ja11sop/cuppa/pull/342). Design: [`package-download-refresh.md`](design/archive/package-download-refresh.md). [#296](https://github.com/ja11sop/cuppa/issues/296). |
+| `package-build-publish-deps` | Opt-in cascade: tip publisher **or consume-only tip**; nest-publish or nest-build GitLab package DAG then tip upload / tip build only | Medium | **Shipped in 1.11.0** ([#302](https://github.com/ja11sop/cuppa/pull/302)–[#339](https://github.com/ja11sop/cuppa/pull/339)). Forest stem keying deferred. Design: [`package-build-publish-deps.md`](design/archive/package-build-publish-deps.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
+| `package-develop-local` | `--develop` on a package dependency means its **source tree**: discover (or opt-in stage) a local package and consume it, with cascade and `--clone-develop` honouring the same path | Medium | **Shipped in 1.11.0** (A–D [#311](https://github.com/ja11sop/cuppa/pull/311); Slice F [#316](https://github.com/ja11sop/cuppa/pull/316); Slice E declined). Design: [`package-develop-local.md`](design/archive/package-develop-local.md) / [`cascade-defer-404.md`](design/archive/cascade-defer-404.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
+| `publish-package-parallel` | Declare package archive as SCons `SideEffect` of `.packaged` so `--publish-package --parallel` cannot race `.published` | Medium | **Shipped in 1.11.0** [#319](https://github.com/ja11sop/cuppa/pull/319). Design: [`publish-package-parallel-side-effect.md`](design/archive/publish-package-parallel-side-effect.md). |
+| `stage-develop-locations` | Extend `--stage-develop` to **location** develop trees that are Cuppa projects (nest build/clean); L3 tip consumes package-shaped stage when present | Medium | **Shipped in 1.11.0** — L1/L2 [#313](https://github.com/ja11sop/cuppa/pull/313); L3/L4 [#315](https://github.com/ja11sop/cuppa/pull/315). Design: [`stage-develop-locations.md`](design/archive/stage-develop-locations.md). |
+| `package-use-libs-defaults` | Shared-aware `use_libs` + manifest `default_use_libs` so auto-enable can link small packages; explicit `use_libs` overrides (no link-the-world for fat packages) | Medium | **Shipped in 1.11.0** [#294](https://github.com/ja11sop/cuppa/pull/294). Design: [`package-use-libs-defaults.md`](design/archive/package-use-libs-defaults.md). |
+| `package-metadata-amend` | Amend `cuppa-publish.json` (and retar/publish) without rebuilding package binaries | Medium | **Shipped in 1.11.0** [#300](https://github.com/ja11sop/cuppa/pull/300). Design: [`package-metadata-amend.md`](design/archive/package-metadata-amend.md). [#299](https://github.com/ja11sop/cuppa/issues/299). |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135). Prefer implementing via `deep-clean` rather than a parallel story. |
 | `deep-clean` | `--deep-clean` modifier on `-c` / `--clean` (path Clean and/or native tool clean; Boost `b2 --clean` first) | Medium | Does not delete extracts. Distinct from `--remove-dependencies`. Design: [`deep-clean.md`](design/plans/deep-clean.md) (naming, gap assessment, Boost use case). Related [#135](https://github.com/ja11sop/cuppa/issues/135); stage Clean on [#326](https://github.com/ja11sop/cuppa/pull/326). |
 | `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing/report-patterns.adoc`](docs/modules/ROOT/pages/contributing/report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
@@ -555,8 +560,8 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 | `--minimal-output` (errors/warnings only after classification) | Yes |
 | `--ignore-duplicates` | Yes |
 | `NotifyProgress` begin/start/finish/end chain | Yes |
-| `python -m scripts.local_gate` (venv re-exec, subprocess smoke, flake8 / pylint / unit / integration) | Yes — done on master [#343](https://github.com/ja11sop/cuppa/pull/343) ([`local-gate.md`](design/plans/local-gate.md); contributor tooling, `impact:none`) |
-| Modest pytest-xdist for local integration (`-n` ≤4 `--dist=loadfile`) via `local_gate`; per-test HOME isolation | Yes — this PR ([`integration-parallel-local.md`](design/plans/integration-parallel-local.md); `impact:none`) |
+| `python -m scripts.local_gate` (venv re-exec, subprocess smoke, flake8 / pylint / unit / integration) | Yes — done on master [#343](https://github.com/ja11sop/cuppa/pull/343) ([`local-gate.md`](design/archive/local-gate.md); contributor tooling, `impact:none`) |
+| Modest pytest-xdist for local integration (`-n` ≤4 `--dist=loadfile`) via `local_gate`; per-test HOME isolation | Yes — done on master [#344](https://github.com/ja11sop/cuppa/pull/344) ([`integration-parallel-local.md`](design/archive/integration-parallel-local.md); `impact:none`) |
 
 ### Planned / potential
 
@@ -636,7 +641,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | **Shipped** [#253](https://github.com/ja11sop/cuppa/pull/253) / [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/archive/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |
-| `doc-deps-four-hubs` | Dependencies: Using / Managing / Publishing / Authoring; Using-first usability | Medium | [`dependencies-docs-four-hubs.md`](design/plans/dependencies-docs-four-hubs.md) — **done** on [#337](https://github.com/ja11sop/cuppa/pull/337): four hubs, Publishing split, placeholder guidance, remove/wipe selection examples |
+| `doc-deps-four-hubs` | Dependencies: Using / Managing / Publishing / Authoring; Using-first usability | Medium | **Shipped in 1.11.0** [#337](https://github.com/ja11sop/cuppa/pull/337); [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
 | `doc-mermaid-theme` | Custom Mermaid theme matching site CSS | Low | After or with UI bundle |
 
 ### Out of scope (docs tooling)

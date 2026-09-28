@@ -5,7 +5,7 @@
 
 """Resolve static and shared library artefacts under a GitLab package ``lib/``.
 
-See ``design/plans/package-use-libs-defaults.md``.
+See ``design/archive/package-use-libs-defaults.md``.
 """
 
 from __future__ import annotations

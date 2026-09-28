@@ -1,8 +1,8 @@
 # Plan: Dependencies docs — Using / Managing / Publishing / Authoring
 
-- **Status:** done
-- **Related:** [`list-deps-requires-closure.md`](list-deps-requires-closure.md) (Option A list scopes + requires samples); [`selection-filter-examples-docs.md`](selection-filter-examples-docs.md) (remove/wipe selection UX); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade); [`archive/doc-folder-layout.md`](../archive/doc-folder-layout.md); [`removal-options.md`](removal-options.md) §7.1; [`methods-pages-split.md`](methods-pages-split.md); ROADMAP Documentation tooling (`doc-deps-four-hubs`)
-- **Updated:** 2026-09-26
+- **Status:** shipped
+- **Related:** [`list-deps-requires-closure.md`](list-deps-requires-closure.md) (Option A list scopes + requires samples); [`selection-filter-examples-docs.md`](selection-filter-examples-docs.md) (remove/wipe selection UX); [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade); [`archive/doc-folder-layout.md`](doc-folder-layout.md); [`removal-options.md`](../plans/removal-options.md) §7.1; [`methods-pages-split.md`](../plans/methods-pages-split.md); ROADMAP Documentation tooling (`doc-deps-four-hubs`)
+- **Updated:** 2026-09-28
 - **Impact:** none — Antora nav, page moves, xref updates, and docs writing conventions only; no product behaviour
 
 

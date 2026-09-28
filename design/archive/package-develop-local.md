@@ -1,8 +1,8 @@
 # Plan: Develop a package dependency from its own source tree
 
-- **Status:** done
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) (Slice F detail + soak, shipped [#316](https://github.com/ja11sop/cuppa/pull/316)); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
-- **Updated:** 2026-09-27
+- **Status:** shipped
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-develop-local`; [`package-build-publish-deps.md`](package-build-publish-deps.md) (cascade resolution, `package_source`, `--clone-publishers`); [`cascade-defer-404.md`](cascade-defer-404.md) (Slice F detail + soak, shipped [#316](https://github.com/ja11sop/cuppa/pull/316)); [`issues/package-build-provenance.md`](../issues/package-build-provenance.md) (what a published package records about its own origin); [`package-download-refresh.md`](package-download-refresh.md) (same-version currency); [`develop.py`](../../cuppa/develop.py) (`configured_develop`, `survey`, `clone_develop`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`GitlabPackageDependency`, `_using_develop`); [`build_with_location.py`](../../cuppa/build_with_location.py) (`develop_location`)
+- **Updated:** 2026-09-28
 - **Impact:** `minor` (slices A–D + F shipped; Slice E declined)
 
 ## Outcome (done on master — 2026-09-27)
@@ -232,7 +232,7 @@ cache after each nested publish; the gap was the early fatal 404.
 
 #### Soak (project D)
 
-Detail and command recipes: [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md).
+Detail and command recipes: [`cascade-defer-404.md`](cascade-defer-404.md).
 
 Default cold-start path (not a pre-planted `--publisher-root` forest):
 

@@ -7,20 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.11.0] - unreleased
 
+### Changed
+
+- Design housekeeping for the 1.11.0 cut: promote completed package-workflow,
+  list-deps, docs-hub, stage-develop, run-list, and local-gate plans to
+  ``shipped`` under ``design/archive/``; refresh ROADMAP cycle focus for what
+  ships vs defers to the next cycle.
+
 ### Added
 
 - ``python -m scripts.local_gate`` — contributor pre-push orchestrator (venv re-exec,
   subprocess ``cuppa`` smoke, then flake8 / pylint / unit / integration). Exit ``2``
   means environment broken; ``1`` means a gate step failed. Modes: ``--unit``,
   ``--integration``, ``--preflight-only``, ``--skip-integration``. Design:
-  [`local-gate`](design/plans/local-gate.md).
+  [`local-gate`](design/archive/local-gate.md).
 
 - Local integration gate parallelism — per-test ``HOME`` / ``USERPROFILE``
   isolation under ``tmp_path``, ``pytest-xdist`` in ``requirements.txt``, and
   ``local_gate`` defaulting integration to modest ``-n`` (at most 4)
   ``--dist=loadfile``. ``--serial-integration`` keeps the serial spelling for
   bisect. Design:
-  [`integration-parallel-local`](design/plans/integration-parallel-local.md).
+  [`integration-parallel-local`](design/archive/integration-parallel-local.md).
 
 - ``--refresh-downloads`` / ``--refresh-downloads=NAMES`` — opt-in configure-time
   re-fetch of GitLab package archives (and re-extract) so same-version registry
@@ -28,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependencies; ``=NAMES`` selects by Cuppa dependency or registry package name.
   Refuses ``--offline``; skips ``--develop`` / local stage; skips drop under
   ``-n`` / ``--no-exec``. Complements purge/wipe. Design:
-  [`package-download-refresh`](design/plans/package-download-refresh.md)
+  [`package-download-refresh`](design/archive/package-download-refresh.md)
   ([#296](https://github.com/ja11sop/cuppa/issues/296)).
 
 - ``--build-cascade-dependencies`` with ``--build-and-publish-dependencies`` —
@@ -37,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--publish-package``). Cannot combine with ``--publish-package`` or
   ``--publish-cascade-dependencies``. Registry HEAD skip-if-current does not
   apply on this path. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``--list-location=storage|publishers|develop|active`` on ``--list-dependencies`` —
@@ -47,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--list-scope``: compact text puts a plain mark and subdued path on the identity
   DEPENDENCY label (including nest ``requires`` identities; replacing bracket detail
   or appending when none); verbose keeps a LOCATION column with info marks. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 1b ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Verbose LOCATION download mark renamed from ``[D]`` to ``[dl]`` (download /
@@ -74,7 +81,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (versions → toolchains). Closure-only packages leave the top-level unreferenced list and
   stay protected from ``--force-wipe-unreferenced-dependencies``. Nested ``requires`` under
   those packages remain label edges. Design:
-  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md) (pass A).
+  [`list-deps-requires-closure`](design/archive/list-deps-requires-closure.md) (pass A).
 
 - ``--list-publishers`` / ``--remove-publishers`` / ``--remove-all-publishers`` —
   inspect and reclaim the cascade publisher forest under the in-force root
@@ -84,7 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``removed`` / ``skip``) and ``as_remove_notice`` row paint, plus a size summary —
   same vocabulary family as ``--remove-dependencies``. Sibling storage actions to
   ``--list-downloads``; never delete a develop-linked path. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 1a ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Pure-consume cascade (**Phase 4**): a tip with no ``GitlabPackagePublisher`` can
@@ -95,13 +102,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consume-only and publisher tips) or ``--publish-package`` (nested publish + tip
   upload). Bare cascade alone is refused; the two publish actions cannot be
   combined. Stop modes still work without a tip publisher. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   Phase 4 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``boost_package.define(..., package_source=…)`` forwards the same consume-site
   publisher URL metadata as ``package_dependency`` (for ``--clone-develop`` /
   cascade). Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   Phase 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``GitlabPackagePublisher`` accepts ``version="latest"`` (or ``"current"`` /
@@ -111,7 +118,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``boost``, or registry latest). General facility for any GitLab package
   publisher; Boost is the common workflow that needs the floating seed today
   (see Publishing packages — Publisher ``version="latest"``). Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 10 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Cascade Phase **2c**: ``--force`` with ``--build-and-publish-dependencies``
@@ -119,7 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   archive already matches the registry. Nested sessions that are current are
   skipped with a ``skipped (current)`` banner; end banners report ``uploaded``
   or ``no registry upload``. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - Under ``--build-and-publish-dependencies``, tip package deps that cascade can
@@ -128,24 +135,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   consume cache (package-develop-local Slice F). Ineligible registry-only deps
   still fail immediately. Design:
   [`cascade-defer-404`](design/archive/cascade-defer-404.md)
-  ([`package-develop-local`](design/plans/package-develop-local.md) §6).
+  ([`package-develop-local`](design/archive/package-develop-local.md) §6).
 
 - ``--stage-develop-plan`` (requires ``--develop``) prints the leaf-first order of
   location ``develop=`` trees that ``--stage-develop`` would nest-build, then
   exits without nesting. Location ``--stage-develop`` itself now nests in that
   order when edges among candidates are known (``develop=`` in each tree's
   sconstruct / ``cuppa-publish.json``). Design:
-  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4.
+  [`stage-develop-locations`](design/archive/stage-develop-locations.md) L4.
 
 - ``--stage-develop`` also nest-builds (and nest-cleans) **location** ``develop=``
   trees that have an ``sconstruct`` — a normal nested project session, then the tip
   still uses the develop path. Location ``--develop`` alone stays a path swap with
-  no nest. Design: [`stage-develop-locations`](design/plans/stage-develop-locations.md).
+  no nest. Design: [`stage-develop-locations`](design/archive/stage-develop-locations.md).
 
 - ``--develop`` on a **publisher-shaped** package ``develop=`` path (tree with an
   ``sconstruct``) **discovers** a local stage under
   ``_build/.../final/<package>/<version>/`` and links it — no registry round trip
-  ([`package-develop-local`](design/plans/package-develop-local.md) slice D).
+  ([`package-develop-local`](design/archive/package-develop-local.md) slice D).
   Pass ``--stage-develop`` (requires ``--develop``) to nest-build that stage
   (``--stage-package``, no upload) and to nest ``-c`` into those trees. A missing
   stage without ``--stage-develop`` stops with a hint. Prefix-shaped ``develop=``
@@ -158,13 +165,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SIZE, UPSTREAM, severity paint, judgement tree, last-fetch note, and an
   ``--update-publishers`` fast-forward hint. Question 1a on the cascade plan;
   a publishers section on ``--list-dependencies`` remains open as question 1b.
-  Design: [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  Design: [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``--collect-cascade`` finish lines name **newly cloned** vs **reused** publisher
   trees when a collect run mixes forest reuse and clones (for example
   ``2 publisher trees collected, 1 newly cloned, 1 reused``). Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 7 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 - ``--cascade-plan`` node judgements keep remedies local (``pass --develop to use
@@ -206,7 +213,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``unreferenced`` filter those identity sections; ``compact`` is **used-only**
   (resolve-bound leaves). Leaf bind (``referenced`` / wipe) is unchanged.
   Design:
-  [`list-deps-requires-closure`](design/plans/list-deps-requires-closure.md).
+  [`list-deps-requires-closure`](design/archive/list-deps-requires-closure.md).
 
 ### Fixed
 
@@ -240,7 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the nested tarball after invalidate (relative ``_build/…`` paths were invisible
   from the tip cwd). Antora cascade docs add companion-action tables, mermaid
   diagrams, and build-system-agnostic wording for tip refresh / amend. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   question 11.
 
 - GCC ``_resolve_driver`` no longer maps missing ``gcc-ar`` / ``gcc-ranlib`` onto
@@ -265,7 +272,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--clone-develop`` (CLI override → declaration → tip ``cuppa-publish.json``)
   and stamps the effective source onto plan nodes so ``--cascade-plan`` labels
   stay honest. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   Phase 3 ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 
 ### Changed
@@ -280,8 +287,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inventory; listing docs open with how to read the tree before GitLab ``requires``. Docs
   placeholders prefer ``<name>`` / ``<…>`` over Unicode ellipsis
   (``scripts.check_docs_placeholders``). Design:
-  [`dependencies-docs-four-hubs`](design/plans/dependencies-docs-four-hubs.md),
-  [`selection-filter-examples-docs`](design/plans/selection-filter-examples-docs.md).
+  [`dependencies-docs-four-hubs`](design/archive/dependencies-docs-four-hubs.md),
+  [`selection-filter-examples-docs`](design/archive/selection-filter-examples-docs.md).
 
 - Cascade Phase **2d**: the single traveling package manifest is
   ``cuppa-publish.json`` (identity, deps including ``package_source``,
@@ -289,8 +296,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stop writing ``cuppa-dependency.json`` and remove any leftover twin on retar.
   Consume apply and ``--list-dependencies`` ``requires`` prefer publish and fall
   back to legacy ``cuppa-dependency.json`` for older extracts. Design:
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)
-  Phase 2d; [`package-metadata-amend`](design/plans/package-metadata-amend.md)
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
+  Phase 2d; [`package-metadata-amend`](design/archive/package-metadata-amend.md)
   ([#297](https://github.com/ja11sop/cuppa/issues/297),
   [#299](https://github.com/ja11sop/cuppa/issues/299)).
 
@@ -306,7 +313,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``@branch`` is emphasised info; off-branch warnings list tip, then the tip repo
   default from local ``origin/HEAD`` (else configured / ``master``) as emphasised
   info, then the other of ``main``/``master`` as plain info. Design:
-  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L4b.
+  [`stage-develop-locations`](design/archive/stage-develop-locations.md) L4b.
 
 - Location ``--develop`` tip consume (L3 baseline): when a package-shaped stage
   exists under the develop tree (``final/<name>/<version>/{include,lib}``), tip
@@ -314,7 +321,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``env.StageLocationDevelop`` installs into that layout. Missing stage keeps
   path-swap. Integration covers include/lib consume and a ``--modules`` BMI
   round-trip via nest + tip ``BuildWith``. Design:
-  [`stage-develop-locations`](design/plans/stage-develop-locations.md) L3.
+  [`stage-develop-locations`](design/archive/stage-develop-locations.md) L3.
 
 - Nested session banners use an info-label chip for the jump
   (``cascade session N of M``, ``develop stage N of M``, and
@@ -487,7 +494,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   names the same tree from anywhere in the project, and ``--list-develop`` reports
   the path the build actually substitutes — both the declared path and a
   ``--<name>-<manager>-develop=`` override
-  ([`package-develop-local`](design/plans/package-develop-local.md)).
+  ([`package-develop-local`](design/archive/package-develop-local.md)).
 - The log line announcing a develop package now reports the path the way the
   develop reports do, without the ``..`` segments anchoring left behind.
 
@@ -552,7 +559,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   detached head — and a filesystem ``package_source`` is left alone because it
   names a tree you already have. Cascade reads the same declaration when a
   publisher edge does not carry one, so a consumer need not say it twice
-  ([`package-develop-local`](design/plans/package-develop-local.md)).
+  ([`package-develop-local`](design/archive/package-develop-local.md)).
 - ``package_source`` is now a declarable setting on
   ``cuppa.package_dependency(...)``, naming the repository a package is published
   from. It is metadata — nothing about consuming the package reads it — used by
@@ -571,7 +578,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that ``--develop`` leaves unused is reported in ``--cascade-plan`` rather than
   passed over in silence
   ([#297](https://github.com/ja11sop/cuppa/issues/297);
-  [`package-develop-local`](design/plans/package-develop-local.md)).
+  [`package-develop-local`](design/archive/package-develop-local.md)).
 - ``--publish-modified`` — publish from a publisher tree holding work only this
   machine has. Cascade refuses such a tree by default, because a registry version
   built from uncommitted changes, unpushed commits, or a branch with no upstream
@@ -582,7 +589,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   this flag allows it. A detached head is not refused — publishing version X from
   tag ``vX`` is the normal case — and a develop tree cuppa cannot read as a
   working copy warns rather than stops
-  ([`package-develop-local`](design/plans/package-develop-local.md)).
+  ([`package-develop-local`](design/archive/package-develop-local.md)).
 - ``--clone-publishers`` — let cascade clone a publisher working tree it cannot
   find locally from that dependency's ``package_source`` URL, which may be pinned
   as ``url@branch``, ``url@tag``, or ``url@revision`` (slashy branch names
@@ -596,7 +603,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination is refused, a failed clone removes its own directory, and cloning is
   unavailable with ``--offline``
   ([#297](https://github.com/ja11sop/cuppa/issues/297);
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)).
 - ``--cascade-plan`` — report the resolved cascade publish order and each
   dependency's publisher working tree, then stop without building, publishing, or
   uploading. Requires ``--build-and-publish-dependencies``; does not require
@@ -604,7 +611,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stops at the first tree it cannot place, the plan reports every unresolved tree
   and exits non-zero while any remain
   ([#297](https://github.com/ja11sop/cuppa/issues/297);
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)).
 - ``--build-and-publish-dependencies`` / ``--publisher-root`` — cascade
   publish of GitLab package dependencies before the tip (Phase 1): traveling
   ``cuppa-publish.json`` carries ``package_source``; consume still uses
@@ -612,14 +619,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nested publishes run without re-entering cascade; consume caches for each
   published node are invalidated so the tip sees fresh extracts
   ([#297](https://github.com/ja11sop/cuppa/issues/297);
-  [`package-build-publish-deps`](design/plans/package-build-publish-deps.md)).
+  [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)).
 - ``--amend-package-manifest`` — rewrite ``cuppa-dependency.json`` from
   ``GitlabPackagePublisher`` kwargs and retar/publish without rebuilding package
   binaries. Skips ``DownloadExtract`` / ``RemoveEmptyDirs`` / CMake graph actions;
   uses an existing ``final/<pkg>/<ver>/`` stage, a local archive, or a registry
   download. Pair with ``--publish-package`` to upload
   ([#299](https://github.com/ja11sop/cuppa/issues/299);
-  [`package-metadata-amend`](design/plans/package-metadata-amend.md)).
+  [`package-metadata-amend`](design/archive/package-metadata-amend.md)).
 - GitLab packages: shared-aware ``use_libs`` / ``use_all_libs`` (static ``.a`` or shared
   ``.so`` / versioned sonames → ``STATICLIBS`` or ``LIBPATH``+``SHAREDLIBS``), manifest
   ``default_use_libs`` / ``link`` via ``GitlabPackagePublisher``, applied on primary
@@ -627,7 +634,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``use_libs([])`` clears). Narrow heuristic when metadata is omitted (single stem or
   name match; otherwise link nothing). Non-relocatable upstream ``.pc`` prefixes are
   not rewritten — prefer ``use_libs`` /
-  [`package-use-libs-defaults`](design/plans/package-use-libs-defaults.md).
+  [`package-use-libs-defaults`](design/archive/package-use-libs-defaults.md).
 - ``env.PackageDir`` / ``PackageBin`` / ``PackageLib`` / ``PackageVersion`` and
   ``env.CMakePrefixPathFor`` — BuildWith package layout helpers (name string or
   dependency object). Free functions remain under

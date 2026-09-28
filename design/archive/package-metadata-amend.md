@@ -1,8 +1,8 @@
 # Plan: Metadata-only GitLab package amend / republish
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** [#299](https://github.com/ja11sop/cuppa/issues/299); [`ROADMAP.md`](../../ROADMAP.md) — `package-metadata-amend`; [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-download-refresh.md`](package-download-refresh.md); [`package-build-publish-deps.md`](package-build-publish-deps.md) Phase 2d; project **D** google-cloud-cpp soak
-- **Updated:** 2026-09-21
+- **Updated:** 2026-09-28
 - **Impact:** `minor` (new opt-in amend / republish path; full rebuild unchanged)
 
 ## Problem

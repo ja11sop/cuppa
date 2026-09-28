@@ -1,8 +1,8 @@
 # Plan: Parallel local integration tests
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `integration-parallel-local`; [`AGENTS.md`](../../AGENTS.md) local gate; [`local-gate.md`](local-gate.md); [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py); [`parallel-job-count.md`](parallel-job-count.md) (Cuppa build `--parallel=N` — different concern)
-- **Updated:** 2026-09-27
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `integration-parallel-local`; [`AGENTS.md`](../../AGENTS.md) local gate; [`local-gate.md`](local-gate.md); [`tests/helpers/cuppa_runner.py`](../../tests/helpers/cuppa_runner.py); [`parallel-job-count.md`](../plans/parallel-job-count.md) (Cuppa build `--parallel=N` — different concern)
+- **Updated:** 2026-09-28
 - **Impact:** `none` (contributor / local gate tooling; no product CLI)
 
 ## Problem
@@ -60,15 +60,15 @@ at once (order of **3–4 workers**), without thrashing the machine or flaking.
 | Refuse | Why |
 |--------|-----|
 | Flipping `-n auto` on today’s suite without HOME isolation | Shared `~/.cuppa` races |
-| Treating this as a substitute for Cuppa `--parallel=N` | Different layer; see [`parallel-job-count.md`](parallel-job-count.md) |
+| Treating this as a substitute for Cuppa `--parallel=N` | Different layer; see [`parallel-job-count.md`](../plans/parallel-job-count.md) |
 | Requiring xdist in CI before local proof | Optional dependency; measure flake rate first |
 | Maximising worker count for “raw speed” | Goal is ~2–3 minutes, not saturating the box |
 
 ## Couples with / not
 
-- **Not** [`coverage-parallel.md`](coverage-parallel.md) / `GCOV_PREFIX` — that is
+- **Not** [`coverage-parallel.md`](../plans/coverage-parallel.md) / `GCOV_PREFIX` — that is
   parallel **collection inside one Cuppa cov run**, not pytest workers.
-- **Not** [`parallel-job-count.md`](parallel-job-count.md) — product CLI for
+- **Not** [`parallel-job-count.md`](../plans/parallel-job-count.md) — product CLI for
   one build’s job count.
 - **Related process:** [`AGENTS.md`](../../AGENTS.md) “Before pushing” gate once
   the parallel spelling is trusted.
@@ -93,7 +93,7 @@ at once (order of **3–4 workers**), without thrashing the machine or flaking.
 | HOME isolation (`tests/integration/conftest.py` + `tests/helpers/home.py`) | Done |
 | `pytest-xdist` in `requirements.txt`; `local_gate` default `-n ≤4 --dist=loadfile` | Done |
 | `--serial-integration` escape hatch | Done |
-| Measured before/after wall time | See below (this PR) |
+| Measured before/after wall time | See below (#344) |
 | Issue filed | Not required (`impact:none`; tracked via ROADMAP) |
 
 ### Measured wall time (this host, 2026-09-27)

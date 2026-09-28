@@ -9,7 +9,7 @@
 
 """Read/write ``cuppa-publish.json`` staged beside package include/lib.
 
-See ``design/plans/package-build-publish-deps.md``. This is the single traveling
+See ``design/archive/package-build-publish-deps.md``. This is the single traveling
 package SoT (identity, dependency edges including ``package_source``,
 optional ``default_use_libs`` / ``link``, and optional ``payload_sha256`` for
 tip consume refresh). Legacy ``cuppa-dependency.json`` is read only as a

@@ -1,8 +1,8 @@
 # Plan: `PublishPackage` archive as SCons SideEffect under `--parallel`
 
-- **Status:** done
-- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [#318](https://github.com/ja11sop/cuppa/issues/318); done on master [#319](https://github.com/ja11sop/cuppa/pull/319); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298)); soak context [`../archive/cascade-defer-404.md`](../archive/cascade-defer-404.md) / [#316](https://github.com/ja11sop/cuppa/pull/316)
-- **Updated:** 2026-09-21
+- **Status:** shipped
+- **Related:** [#317](https://github.com/ja11sop/cuppa/issues/317); [#318](https://github.com/ja11sop/cuppa/issues/318); done on master [#319](https://github.com/ja11sop/cuppa/pull/319); [`ROADMAP.md`](../../ROADMAP.md) — `publish-package-parallel`; [`manage_packages.py`](../../cuppa/methods/manage_packages.py) (`PublishPackageMethod`, `publish_package_sources`); [`gitlab.py`](../../cuppa/package_managers/gitlab.py) (`build_package`, `package_archive`); BMI precedent [`cxx_modules.py`](../../cuppa/cpp/cxx_modules.py) / [`gcc.py`](../../cuppa/toolchains/gcc.py); distinct from [`parallel-job-count.md`](../plans/parallel-job-count.md) ([#298](https://github.com/ja11sop/cuppa/issues/298)); soak context [`cascade-defer-404.md`](cascade-defer-404.md) / [#316](https://github.com/ja11sop/cuppa/pull/316)
+- **Updated:** 2026-09-28
 - **Impact:** `patch`
 
 ## Problem

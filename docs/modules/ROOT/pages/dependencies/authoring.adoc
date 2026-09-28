@@ -30,7 +30,7 @@ external CMake). That overlap is real; a follow-on pass will move “how to cons
 dependency factory / plugin” examples firmly under Authoring — including anonymised worked
 examples patterned on large package trees (for example a fat registry package with many
 `use_libs`) — and keep Publishing focused on registry / publisher workflows. See the
-Authoring follow-ons in `design/plans/dependencies-docs-four-hubs.md`.
+Authoring follow-ons in `design/archive/dependencies-docs-four-hubs.md`.
 
 For declaring and consuming existing kinds, see
 xref:dependencies/using.adoc[Using dependencies].
