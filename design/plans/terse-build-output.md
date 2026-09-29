@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-09-29
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Mode note (plan vs agent)
@@ -30,7 +30,7 @@ This is **not** a CMake clone: cuppa keeps SCons graph semantics, variant scopin
 
 **Related (separate plans):** configure-time log noise
 ([`build-log-hygiene.md`](build-log-hygiene.md)); version without a build
-([`cuppa-info.md`](cuppa-info.md)). Those are **1.8.0** targets alongside terse Phase 1 — not
+([`cuppa-info.md`](cuppa-info.md)). Those are **1.12.0** targets alongside terse Phase 1 — not
 slices of this document.
 
 ## Goals

@@ -11,32 +11,52 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-28
+**As of:** 2026-09-29
 
 ---
 
-## 1.11.0 cycle focus (ready to cut)
+## 1.12.0 cycle focus (open)
 
-Minor cycle after **1.10.0**. Package workflow + contributor gate are on master;
-design plans for that work are promoted to **`shipped`** / `design/archive/` in the
-housekeeping pass. Remaining cycle-focus items below are **deferred to the next
-cycle** (open after `finish_release` / `start_release`).
+Minor cycle after **1.11.0**. Primary opener is the **console bundle** (configure log
+hygiene, `cuppa --info`, `--terse-output` Phase 1). Carry-forward package/CMake work
+continues in parallel where it does not block the console slices.
+
+| Area | Status in 1.12.0 |
+|------|------------------|
+| Console: configure log hygiene | **Next** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
+| Console: `cuppa --info` | **Planned** — [`cuppa-info.md`](design/plans/cuppa-info.md) |
+| Console: `--terse-output` Phase 1 | **Planned** — [`terse-build-output.md`](design/plans/terse-build-output.md) |
+| Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |
+| Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — E / archive-progress / publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on
+([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.12.0 gate.
+
+---
+
+## 1.11.0 cycle focus (shipped 2026-09-28)
+
+Minor cycle after **1.10.0**. Package workflow + contributor gate shipped; design plans
+for that work are **`shipped`** under `design/archive/`. Console bundle and other
+deferred rows moved to **1.12.0**.
 
 | Area | Status in 1.11.0 |
 |------|------------------|
-| Package cascade / develop-local / refresh-downloads / amend / use_libs defaults | **Shipping** — see Storage Planned rows (promote notes); plans under [`design/archive/`](design/archive/) |
-| Location `--stage-develop` + plan | **Shipping** — [#313](https://github.com/ja11sop/cuppa/pull/313) / [#315](https://github.com/ja11sop/cuppa/pull/315); [`stage-develop-locations.md`](design/archive/stage-develop-locations.md) |
-| `cuppa.run` import/auto_enable objects + preferred names | **Shipping** — [#276](https://github.com/ja11sop/cuppa/issues/276); [`run-default-dependency-objects.md`](design/archive/run-default-dependency-objects.md) |
-| List-deps requires closure + Option A scopes + docs hubs | **Shipping** — [`list-deps-requires-closure.md`](design/archive/list-deps-requires-closure.md) / [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
-| `scripts.local_gate` + modest xdist | **Shipping** — [#343](https://github.com/ja11sop/cuppa/pull/343) / [#344](https://github.com/ja11sop/cuppa/pull/344) |
-| Transitive GitLab packages (deeper graph) | **Partial** — consume + `requires` + listing closure shipped; umbrella [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) remains in progress |
-| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers on master; E / archive-progress / publish-cli later: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
-| Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Deferred** — next cycle |
-| Boost package identity (`-patched` / `-clean`) | **Deferred** — next cycle |
-| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** — next cycle |
-| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** — next cycle |
-
-Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on ([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.11.0 gate.
+| Package cascade / develop-local / refresh-downloads / amend / use_libs defaults | **Shipped** — plans under [`design/archive/`](design/archive/) |
+| Location `--stage-develop` + plan | **Shipped** — [#313](https://github.com/ja11sop/cuppa/pull/313) / [#315](https://github.com/ja11sop/cuppa/pull/315); [`stage-develop-locations.md`](design/archive/stage-develop-locations.md) |
+| `cuppa.run` import/auto_enable objects + preferred names | **Shipped** — [#276](https://github.com/ja11sop/cuppa/issues/276); [`run-default-dependency-objects.md`](design/archive/run-default-dependency-objects.md) |
+| List-deps requires closure + Option A scopes + docs hubs | **Shipped** — [`list-deps-requires-closure.md`](design/archive/list-deps-requires-closure.md) / [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
+| `scripts.local_gate` + modest xdist | **Shipped** — [#343](https://github.com/ja11sop/cuppa/pull/343) / [#344](https://github.com/ja11sop/cuppa/pull/344) |
+| Transitive GitLab packages (deeper graph) | **Partial** — consume + `requires` + listing closure shipped; umbrella remains for 1.12.0 |
+| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers; E / archive-progress / publish-cli later |
+| Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Deferred to 1.12.0** |
+| Boost package identity (`-patched` / `-clean`) | **Deferred to 1.12.0** |
+| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred to 1.12.0** |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred to 1.12.0** |
 
 ---
 
@@ -567,11 +587,11 @@ Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.11.0** |
-| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.11.0** |
-| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.11.0** |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **1.12.0** |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.12.0** (first console slice) |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.12.0** |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | CMake/Ninja job-count fix (serial default + explicit affinity-sized `--parallel N`) on [#319](https://github.com/ja11sop/cuppa/pull/319) / [#318](https://github.com/ja11sop/cuppa/issues/318) — **live soak done** 2026-09-21. `--parallel=N` CLI remains [#298](https://github.com/ja11sop/cuppa/issues/298). Design: [`parallel-job-count.md`](design/plans/parallel-job-count.md). |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.11.0 |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.12.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)

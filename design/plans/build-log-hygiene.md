@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-log-hygiene`); shipped [`archive/list-toolchains.md`](../archive/list-toolchains.md); companion [`terse-build-output.md`](terse-build-output.md) (action-time output — **not** this plan); [`cuppa-info.md`](cuppa-info.md)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-09-29
 - **Impact:** patch — log levels and message text only; default behaviour unchanged at `--verbosity=info` for most lines **except** the demoted messages (quieter normal builds)
 
 ## Why
@@ -67,7 +67,8 @@ No new CLI flags required.
 | B | Fix dict formatting on variant/action default lines + unit tests |
 | C | Docs + CHANGELOG |
 
-Target: **1.8.0** — small patch; land early in the cycle alongside [`terse-build-output.md`](terse-build-output.md) Phase 1.
+Target: **1.12.0** — small patch; first console slice in the cycle, before
+[`terse-build-output.md`](terse-build-output.md) Phase 1 and [`cuppa-info.md`](cuppa-info.md).
 
 ## Refusal rules
 
@@ -77,15 +78,14 @@ Target: **1.8.0** — small patch; land early in the cycle alongside [`terse-bui
 | Remove `--list-toolchains` because logs are quieter | Refuse — list is the structured inventory |
 | Demote build failures to debug | Refuse |
 
-## 1.8.0 bundle
+## 1.12.0 console bundle
 
-Part of the maintainer **1.8.0 console focus** with:
+Part of the maintainer **1.12.0 console focus** with:
 
 - [`terse-build-output.md`](terse-build-output.md) — Phase 1 (`--terse-output`)
-- [`cxx-profiles-report.md`](cxx-profiles-report.md) — slices A–D
 - [`cuppa-info.md`](cuppa-info.md) — `--info`
 
-[`native-toolchain-output.md`](native-toolchain-output.md) remains optional for 1.8.0 if scope is tight.
+[`native-toolchain-output.md`](native-toolchain-output.md) remains optional for 1.12.0 if scope is tight.
 
 ## Progress snapshot
 

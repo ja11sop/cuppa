@@ -2,7 +2,7 @@
 
 - **Status:** proposal
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — CLI (`cli-info`); [`build-log-hygiene.md`](build-log-hygiene.md); `cuppa/version.py`; companion list modes (`--list-toolchains`, …)
-- **Updated:** 2026-08-11
+- **Updated:** 2026-09-29
 - **Impact:** minor — new opt-in CLI flag; no change to default builds
 
 ## Why
