@@ -1,6 +1,6 @@
 # Plan: `cuppa --info` (version without a build)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — CLI (`cli-info`); [`build-log-hygiene.md`](build-log-hygiene.md); `cuppa/version.py`; companion list modes (`--list-toolchains`, …)
 - **Updated:** 2026-09-29
 - **Impact:** minor — new opt-in CLI flag; no change to default builds
@@ -10,7 +10,7 @@
 Today the installed cuppa version appears only after configure starts a normal invocation:
 
 ```text
-cuppa: version: [info] cuppa: version 1.8.0.dev
+cuppa: version: [info] cuppa: version 1.12.0.dev
 ```
 
 That line comes from `check_current_version()` in `cuppa/version.py`, called from
@@ -35,7 +35,7 @@ version. A cuppa-specific flag avoids fighting SCons semantics.
 - `--version` alias on cuppa (reserved / ambiguous with SCons).
 - Full environment dump (`--dump` already exists for configure debugging).
 
-## Settled behaviour (proposal)
+## Settled behaviour
 
 | Flag | Behaviour |
 |------|-----------|
@@ -43,37 +43,29 @@ version. A cuppa-specific flag avoids fighting SCons semantics.
 | `--info` + `--offline` | Skip PyPI latest-version probe |
 | `--info` + `--list-format=json` | Single JSON object on stdout (see below) |
 
-**Registration:** `cuppa/core/base_options.py` (or a tiny `cuppa/core/info_actions.py` mirroring
-list-toolchain early exits).
+**Primary path:** `cuppa/__main__.py` handles `--info` in the wrapper **before** spawning
+SCons — works with or without `-D`, no project required.
 
-**Early exit hook:** in `cuppa.run()` / `construct.py` immediately after
-`check_current_version( offline )` **or** a lighter `print_version_only()` that shares
-`get_version()` from `cuppa/utility/version.py` — **before** `toolchain_archive.prepare()` and
-`add_toolchains()`. Goal: sub-second response with no project side effects.
+**Fallback:** `cuppa/core/base_options.py` registers `--info`; `construct.py` exits after
+reading offline / list-format if someone invokes `scons --info` through a loaded
+sconstruct (still loads the file, but skips toolchain registration).
 
 ### Text output (default)
 
 ```text
-cuppa 1.8.0.dev
-```
-
-Optional second lines (PR decision — keep minimal):
-
-```text
-scons <embedded version if cheap to read>
-python <sys.version split>
+cuppa 1.12.0.dev
 ```
 
 Do **not** repeat the redundant `cuppa: version` prefix in `--info` text mode (cleaner for scripts);
-normal builds keep today's log line.
+normal builds keep today's log line. No embedded SCons / Python lines in this cut (keep minimal).
 
 ### JSON output (`--list-format=json`)
 
 ```json
 {
-  "cuppa_version": "1.8.0.dev",
-  "pypi_latest": "1.7.0",
-  "offline": false
+  "cuppa_version": "1.12.0.dev",
+  "offline": false,
+  "pypi_latest": "1.11.0"
 }
 ```
 
@@ -84,46 +76,45 @@ Omit `pypi_latest` when offline or probe fails silently (same as `check_current_
 | Area | Touch |
 |------|--------|
 | CLI | `--info` in `base_options.py` |
-| Early exit | `construct.py` or `cuppa/__init__.py` `run()` before heavy configure |
-| Logic | Factor shared helper from `version.py` (`report_version( offline, out, format=… )`) |
-| Tests | Unit: `--info` exits 0 without mock sconstruct; JSON shape; offline skips network |
-| Docs | Antora CLI reference; AGENTS.md one-liner |
-
-**Interaction with `-D`:** `--info` should work **with or without** `-D`; no sconstruct required.
-If both `--info` and `-D` are passed, `--info` wins (document precedence).
+| Wrapper early exit | `cuppa/__main__.py` before `run_scons` |
+| Logic | `report_info` / `probe_pypi_latest` in `version.py` |
+| Fallback | `construct.py` after offline option |
+| Tests | Unit: argv helpers, text/JSON, offline skip, wrapper exit without scons |
+| Docs | Antora inspect CLI; AGENTS.md preferred invocation |
 
 ## Work slices
 
 | Slice | Deliverable |
 |-------|-------------|
-| A | `--info` flag + text output + early exit |
+| A | `--info` flag + text output + wrapper early exit |
 | B | JSON + `--offline` / PyPI probe sharing |
-| C | Docs + integration test |
+| C | Docs + unit tests |
 
-Target: **1.8.0** — small; independent of terse / Profiles report work.
+Target: **1.12.0**.
 
 ## Refusal rules
 
 | Request | Response |
 |---------|----------|
 | Hijack SCons `--version` | Refuse — use `--info` |
-| Load sconstruct for `--info` | Refuse — defeats the purpose |
+| Load sconstruct for `--info` (wrapper path) | Refuse — defeats the purpose |
 | Hide version on normal builds | Refuse — keep configure line unless hygiene plan changes it separately |
 
-## 1.8.0 bundle
+## 1.12.0 console bundle
 
-Listed alongside [`build-log-hygiene.md`](build-log-hygiene.md), [`terse-build-output.md`](terse-build-output.md), and [`cxx-profiles-report.md`](cxx-profiles-report.md) in ROADMAP **1.8.0 focus**.
+Listed alongside [`build-log-hygiene.md`](build-log-hygiene.md) and
+[`terse-build-output.md`](terse-build-output.md).
 
 ## Progress snapshot
 
 | Slice | Status |
 |-------|--------|
 | Plan | **This document** |
-| A — `--info` text | Not started |
-| B — JSON / offline | Not started |
-| C — Docs | Not started |
+| A — `--info` text | **This PR** |
+| B — JSON / offline | **This PR** |
+| C — Docs | **This PR** |
 
 ## Open questions
 
-1. Include embedded **SCons** version in text/json output?
-2. Should CI scripts migrate from grepping configure logs to `cuppa --info` only?
+1. Include embedded **SCons** version in text/json output? — **Deferred** (keep minimal).
+2. Should CI scripts migrate from grepping configure logs to `cuppa --info` only? — encouraged in docs; not forced.

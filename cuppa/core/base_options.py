@@ -54,6 +54,12 @@ def add_base_options():
                             help="Run in offline mode so don't attempt to check the cuppa version or update"
                                  " remote repositories. Useful for running builds on firewalled machines" )
 
+    add_option( '--info', dest='cuppa_info', action='store_true',
+                            help="Print the installed cuppa version and exit without loading the "
+                                 "project sconstruct or running a build. Prefer the cuppa entry "
+                                 "point (works without -D). Use --list-format=json for machine-"
+                                 "readable output; --offline skips the PyPI latest-version probe" )
+
     add_option( '--projects', type='string', nargs=1,
                             action='callback', callback=cuppa.core.options.list_parser( 'projects' ),
                             help="Projects to build (alias for scripts)" )

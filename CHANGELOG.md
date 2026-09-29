@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa --info``: print the installed package version and exit without loading
+  a project ``sconstruct`` (works without ``-D``). Supports ``--offline`` and
+  ``--list-format=json``.
+
 ### Changed
 
 - Quieter configure logs: demote managed-toolchain registration and the full

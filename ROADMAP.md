@@ -24,7 +24,7 @@ continues in parallel where it does not block the console slices.
 | Area | Status in 1.12.0 |
 |------|------------------|
 | Console: configure log hygiene | **Done on master** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
-| Console: `cuppa --info` | **Planned** — [`cuppa-info.md`](design/plans/cuppa-info.md) |
+| Console: `cuppa --info` | **In progress** — [`cuppa-info.md`](design/plans/cuppa-info.md) |
 | Console: `--terse-output` Phase 1 | **Planned** — [`terse-build-output.md`](design/plans/terse-build-output.md) |
 | Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |
 | Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |

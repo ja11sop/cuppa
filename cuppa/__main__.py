@@ -134,7 +134,20 @@ def run_scons( args_list ):
 
 
 def main():
-    sys.exit( run_scons( sys.argv[1:] ) )
+    from cuppa.version import (
+            argv_list_format,
+            argv_offline,
+            argv_wants_info,
+            report_info,
+    )
+    args = sys.argv[1:]
+    if argv_wants_info( args ):
+        report_info(
+                offline=argv_offline( args ),
+                list_format=argv_list_format( args ),
+        )
+        sys.exit( 0 )
+    sys.exit( run_scons( args ) )
 
 
 if __name__ == "__main__":
