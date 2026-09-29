@@ -1,6 +1,6 @@
 # Plan: configure-time build log hygiene
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-log-hygiene`); shipped [`archive/list-toolchains.md`](../archive/list-toolchains.md); companion [`terse-build-output.md`](terse-build-output.md) (action-time output — **not** this plan); [`cuppa-info.md`](cuppa-info.md)
 - **Updated:** 2026-09-29
 - **Impact:** patch — log levels and message text only; default behaviour unchanged at `--verbosity=info` for most lines **except** the demoted messages (quieter normal builds)
@@ -92,6 +92,6 @@ Part of the maintainer **1.12.0 console focus** with:
 | Slice | Status |
 |-------|--------|
 | Plan | **This document** |
-| A — Demote logs | **This PR** — registration + available-toolchains → `logger.debug` |
-| B — Fix dict messages | **This PR** — `_format_active_task_names` (sorted keys) |
-| C — Docs | **This PR** — CLI output + toolchains pages; CHANGELOG under `[1.12.0]` |
+| A — Demote logs | **Done on master** — registration + available-toolchains → `logger.debug` |
+| B — Fix dict messages | **Done on master** — `_format_active_task_names` (sorted keys) |
+| C — Docs | **Done on master** — CLI output + toolchains pages; CHANGELOG under `[1.12.0]` |
