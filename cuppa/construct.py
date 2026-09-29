@@ -158,7 +158,9 @@ class Construct(object):
         logger.trace( "supported toolchains are [{}]".format(
                 colour_items( env["supported_toolchains"] )
         ) )
-        logger.info( "available toolchains are [{}]".format(
+        # Full name dump is noisy on every configure; use --list-toolchains for inventory
+        # and --verbosity=debug when tracing registration.
+        logger.debug( "available toolchains are [{}]".format(
                 colour_items( sorted( env[toolchains].keys(), reverse=True ), as_info )
         ) )
 
@@ -302,6 +304,16 @@ class Construct(object):
     def _normalise_with_defaults( cls, values, default_values, name ):
         from cuppa.core.run_list_names import normalise_with_defaults
         return normalise_with_defaults( values, default_values, name )
+
+
+    @staticmethod
+    def _format_active_task_names( active_tasks ):
+        """Colour-join sorted task names from an active variant/action dict.
+
+        Passing the dict itself to ``colour_items`` stringifies values (e.g.
+        ``Dbg object at 0x…``); callers want the keys only.
+        """
+        return colour_items( sorted( active_tasks.keys() ), as_info )
 
 
     def __init__( self,
@@ -840,10 +852,11 @@ class Construct(object):
         if not active_variants:
             defaults = cuppa_env['default_variants'] or toolchain.default_variants()
             active_variants = get_active_from_defaults( defaults, variants )
+            names = self._format_active_task_names( active_variants )
             if cuppa_env['default_variants']:
-                logger.info( "Default build variants of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+                logger.info( "Default build variants of [{}] being used.".format( names ) )
             else:
-                logger.info( "No active variants specified so toolchain defaults of [{}] being used.".format( colour_items( active_variants, as_info ) ) )
+                logger.info( "No active variants specified so toolchain defaults of [{}] being used.".format( names ) )
 
         # Auto-fill actions from defaults only when neither variants nor actions
         # were selected on the CLI (preserves --dbg-only behaviour).
@@ -851,10 +864,16 @@ class Construct(object):
             defaults = cuppa_env['default_variants'] or toolchain.default_variants()
             active_actions = get_active_from_defaults( defaults, actions )
             if active_actions:
-                logger.info( "Default build actions of [{}] being used.".format( colour_items( active_actions, as_info ) ) )
+                logger.info( "Default build actions of [{}] being used.".format(
+                        self._format_active_task_names( active_actions )
+                ) )
 
-        logger.debug( "Using active_variants = [{}]".format( colour_items( active_variants, as_info ) ) )
-        logger.debug( "Using active_actions = [{}]".format( colour_items( active_actions, as_info ) ) )
+        logger.debug( "Using active_variants = [{}]".format(
+                self._format_active_task_names( active_variants )
+        ) )
+        logger.debug( "Using active_actions = [{}]".format(
+                self._format_active_task_names( active_actions )
+        ) )
 
         build_envs = []
 
