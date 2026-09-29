@@ -24,7 +24,8 @@ continues in parallel where it does not block the console slices.
 | Area | Status in 1.12.0 |
 |------|------------------|
 | Console: configure log hygiene | **Done on master** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
-| Console: `cuppa --info` | **In progress** — [`cuppa-info.md`](design/plans/cuppa-info.md) |
+| Console: `cuppa --info` | **Done on master** — [`cuppa-info.md`](design/plans/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
+| Console: channel map + mode banners | **In progress** — [`console-channels.md`](design/plans/console-channels.md), [`console-mode-banners.md`](design/plans/console-mode-banners.md) |
 | Console: `--terse-output` Phase 1 | **Planned** — [`terse-build-output.md`](design/plans/terse-build-output.md) |
 | Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |
 | Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |
@@ -489,7 +490,8 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `deep-clean` | `--deep-clean` modifier on `-c` / `--clean` (path Clean and/or native tool clean; Boost `b2 --clean` first) | Medium | Does not delete extracts. Distinct from `--remove-dependencies`. Design: [`deep-clean.md`](design/plans/deep-clean.md) (naming, gap assessment, Boost use case). Related [#135](https://github.com/ja11sop/cuppa/issues/135); stage Clean on [#326](https://github.com/ja11sop/cuppa/pull/326). |
 | `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing/report-patterns.adoc`](docs/modules/ROOT/pages/contributing/report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
 | `console-stop-error-reporting` | Normalise Options Error tree + short StopError for surprising refusals | Low | [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md); cascade `-n` first instance |
-| `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as report surface so SCons `-Q` does not hide them | Low | [`console-mode-banners.md`](design/plans/console-mode-banners.md); coordinates with quiet-tty-heartbeat |
+| `console-channels` | Map log / console report / build transcript / heartbeat, and the spawn-mode matrix (`--scons-output` still a gap) | Low | [`console-channels.md`](design/plans/console-channels.md); mode banners are the first slice |
+| `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as console reports so `-Q` / `-s` do not hide them | Low | [`console-mode-banners.md`](design/plans/console-mode-banners.md); coordinates with quiet-tty-heartbeat |
 | `quiet-tty-heartbeat` | Quiet+TTY configure liveness; Phase 0 evaluates logger rewrite vs marked-long vs cherry-pick | Low | [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md); project **B** `-Q --cascade-plan` soak |
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 
@@ -567,7 +569,8 @@ Each new section should follow the same shape: **Today** → **Planned / potenti
 Cuppa wraps SCons spawn to colour and classify toolchain diagnostics (`ToolchainProcessor` in
 `cuppa/output_processor.py`). Progress ordering uses `cuppa.progress.NotifyProgress`. Related docs: [`methods.adoc`](docs/modules/ROOT/pages/methods.adoc) (custom commands section).
 
-Design: [`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
+Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
+[`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
 [`terse-build-output.md`](design/plans/terse-build-output.md).
 
 ### Today

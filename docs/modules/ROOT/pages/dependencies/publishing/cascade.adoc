@@ -434,7 +434,8 @@ further **notes** that name ``--clone-publishers`` when nothing is under the pub
 forest yet; when a tree already exists under the forest, additional **notes** say the
 plan would use that copy instead (and mention ``--publisher-root``). Construct announces
 ``Running in PACKAGE BUILD: CASCADE PLAN mode`` (short info-label chip plus plain
-qualifying text) the same way clone-develop announces itself.
+qualifying text) as a console report, so it stays visible under ``-Q``. Clone-develop
+announces itself the same way.
 
 The finish line hangs a short remedy tree under ``--cascade-plan: N package planned;``.
 When every dependency already has a publisher tree, the plan is **executable**: the

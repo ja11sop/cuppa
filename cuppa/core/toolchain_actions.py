@@ -25,8 +25,8 @@ from cuppa.colourise import (
     as_notice,
     as_subdued,
 )
-from cuppa.log import logger
 from cuppa.utility import storage
+from cuppa.utility.console_report import report_mode_banner
 
 
 SECTION_DISCOVERED = 'discovered'
@@ -918,7 +918,7 @@ def list_toolchains( cuppa_env, out=None ):
 def run( cuppa_env, out=None ):
     out = out or sys.stdout
     if cuppa_env.get( 'list_toolchains' ):
-        logger.info( as_info_label(
-                "Running in LIST TOOLCHAINS mode, no building will be attempted" ) )
+        report_mode_banner( as_info_label(
+                "Running in LIST TOOLCHAINS mode, no building will be attempted" ), out=out )
         return list_toolchains( cuppa_env, out=out )
     return 0

@@ -1,8 +1,8 @@
 # Plan: TTY liveness when info logs are quiet
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); project **B** `-Q --cascade-plan` soak
-- **Updated:** 2026-09-24
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); project **B** `-Q --cascade-plan` soak
+- **Updated:** 2026-09-29
 - **Impact:** `minor` when a quiet+TTY liveness surface ships; `none` while proposal-only / evaluating
 
 ## Problem
@@ -86,9 +86,8 @@ evidence that a later implementation PR does not reopen the ranking.
 | Fallback if primary fails soak | **Open** |
 | When liveness is on | **Open** — TTY + quiet only vs whenever INFO is suppressed |
 | Mode banners / warn / error | Must escape rewrite (clear status line, then emit); coordinate [`console-mode-banners.md`](console-mode-banners.md) |
-| Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees |
-| Non-TTY / CI | Silent |
-| `NO_COLOR` / `--raw-output` | Honour like other report surfaces |
+| Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees, mode banners |
+| Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md) |
 
 Until that table is filled, **do not** start a product implementation PR.
 

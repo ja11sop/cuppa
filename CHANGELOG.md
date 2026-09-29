@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)
+  print on stdout as console reports, so `-Q` and `-s` / `--quiet` no longer hide
+  them. Info logs are unchanged. Channel map: ``design/plans/console-channels.md``.
 - Quieter configure logs: demote managed-toolchain registration and the full
   available-toolchain name dump to `--verbosity=debug`; use `--list-toolchains`
   for inventory. Default variant/action messages now list sorted names instead

@@ -2271,9 +2271,8 @@ def sessions_complete_lines(
 
 def write_lines( lines, out=None ) -> None:
     """Emit report lines unprefixed — tree glyphs do not survive log labels."""
-    stream = out if out is not None else sys.stdout
-    for line in lines:
-        stream.write( line + "\n" )
+    from cuppa.utility.console_report import write_report_lines
+    write_report_lines( lines, out=out )
 
 
 def _raise_options_error( headline, reasons, short_message, encoding=None, out=None ):
