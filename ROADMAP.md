@@ -23,7 +23,7 @@ continues in parallel where it does not block the console slices.
 
 | Area | Status in 1.12.0 |
 |------|------------------|
-| Console: configure log hygiene | **Next** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
+| Console: configure log hygiene | **In progress** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
 | Console: `cuppa --info` | **Planned** — [`cuppa-info.md`](design/plans/cuppa-info.md) |
 | Console: `--terse-output` Phase 1 | **Planned** — [`terse-build-output.md`](design/plans/terse-build-output.md) |
 | Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |

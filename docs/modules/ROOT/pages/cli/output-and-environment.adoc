@@ -113,6 +113,11 @@ this table.
 TIP: If Cuppa fails while reading sconscripts, re-run with `--verbosity=exception`. Use
 `--verbosity=debug` when the option or registration path leading to the exception is unclear.
 
+At the default `info` level, configure no longer prints the full available-toolchain name list
+or each managed-archive registration line. Use
+xref:toolchains.adoc#list-toolchains[`--list-toolchains`] for a structured inventory, and
+`--verbosity=debug` when you need those registration details in the build log.
+
 [[environment-propagation]]
 == Environment propagation
 
