@@ -44,6 +44,7 @@ from cuppa.cpp.coverage_workflow import maybe_warn_parallel_coverage_collection
 
 from cuppa.colourise import as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
 from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
+from cuppa.utility.console_report import report_mode_banner
 from cuppa.utility.entry_points import iter_entry_points
 
 from cuppa.toolchains             import *
@@ -406,7 +407,7 @@ class Construct(object):
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
         if cuppa_env['offline']:
-            logger.info( as_info_label( "Running in OFFLINE mode" ) )
+            report_mode_banner( as_info_label( "Running in OFFLINE mode" ) )
 
         logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
 
@@ -610,7 +611,7 @@ class Construct(object):
             # TODO - default_profile
 
             if cuppa_env['dump']:
-                logger.info( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
+                report_mode_banner( as_info_label( "Running in DUMP mode, no building will be attempted" ) )
                 cuppa_env.dump()
 
             # Unqualified stem notices belong to dependency-management commands
@@ -654,7 +655,7 @@ class Construct(object):
             if develop_actions:
                 exit_status = 0
                 for label, action in develop_actions:
-                    logger.info( as_info_label(
+                    report_mode_banner( as_info_label(
                             "Running in {} mode, no building will be attempted".format( label )
                     ) )
                     result = action( cuppa_env )
@@ -664,18 +665,18 @@ class Construct(object):
 
             from cuppa.package_managers import package_cascade
             if package_cascade.cascade_plan_enabled( cuppa_env ):
-                logger.info( "{} — report only; no clone, build, or publish".format(
+                report_mode_banner( "{} — report only; no clone, build, or publish".format(
                         as_info_label( "Running in PACKAGE BUILD: CASCADE PLAN mode" )
                 ) )
             elif package_cascade.cascade_collect_enabled( cuppa_env ):
-                logger.info( "{} — resolve and clone publisher trees; no build or publish".format(
+                report_mode_banner( "{} — resolve and clone publisher trees; no build or publish".format(
                         as_info_label( "Running in PACKAGE BUILD: CASCADE COLLECT mode" )
                 ) )
             elif (
                     package_cascade.cascade_update_enabled( cuppa_env )
                     and package_cascade.cascade_stop_before_build( cuppa_env )
             ):
-                logger.info( "{} — fetch/fast-forward publisher trees; no build or publish".format(
+                report_mode_banner( "{} — fetch/fast-forward publisher trees; no build or publish".format(
                         as_info_label( "Running in PACKAGE BUILD: CASCADE UPDATE mode" )
                 ) )
 

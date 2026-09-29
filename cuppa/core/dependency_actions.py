@@ -9,7 +9,7 @@
 
 """Opt-in actions that report or remove what cuppa wrote under ``dependencies_root``.
 
-Listings and removals run instead of a build. Report body goes to stdout (mode banner via the logger).
+Listings and removals run instead of a build. Report body and the mode banner go to stdout.
 """
 
 import os
@@ -33,6 +33,7 @@ from cuppa.core import (
     dependency_tree,
 )
 from cuppa.log import logger
+from cuppa.utility.console_report import report_mode_banner
 from cuppa.utility import storage
 
 
@@ -2103,19 +2104,19 @@ def run( construct, cuppa_env, out=None ):
             return 1
 
         if cuppa_env.get( 'force_wipe_unreferenced_dependencies' ):
-            logger.info( as_info_label(
+            report_mode_banner( as_info_label(
                     "Running in FORCE WIPE UNREFERENCED DEPENDENCIES mode, "
                     "no building will be attempted"
-            ) )
+            ), out=out )
             return dependency_removal.force_wipe_unreferenced_dependencies(
                     construct, cuppa_env, out=out
             )
 
         if cuppa_env.get( 'force_wipe_dependencies' ):
-            logger.info( as_info_label(
+            report_mode_banner( as_info_label(
                     "Running in FORCE WIPE DEPENDENCIES mode, "
                     "no building will be attempted"
-            ) )
+            ), out=out )
             return dependency_removal.force_wipe_dependencies(
                     construct, cuppa_env, out=out
             )
@@ -2124,31 +2125,31 @@ def run( construct, cuppa_env, out=None ):
                 cuppa_env.get( 'force_wipe_all_dependencies' )
                 or cuppa_env.get( 'wipe_dependencies' )
         ):
-            logger.info( as_info_label(
-                    "Running in WIPE DEPENDENCIES mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in WIPE DEPENDENCIES mode, no building will be attempted" ), out=out )
             return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
 
         if (
                 cuppa_env.get( 'purge_all_dependencies' )
                 or cuppa_env.get( 'purge_dependencies' )
         ):
-            logger.info( as_info_label(
-                    "Running in PURGE DEPENDENCIES mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in PURGE DEPENDENCIES mode, no building will be attempted" ), out=out )
             return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'remove_all_dependencies' ) or cuppa_env.get( 'remove_dependencies' ):
-            logger.info( as_info_label(
-                    "Running in REMOVE DEPENDENCIES mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in REMOVE DEPENDENCIES mode, no building will be attempted" ), out=out )
             return dependency_removal.remove_dependencies( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_downloads' ):
-            logger.info( as_info_label(
-                    "Running in LIST DOWNLOADS mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in LIST DOWNLOADS mode, no building will be attempted" ), out=out )
             return list_downloads( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_dependencies' ):
-            logger.info( as_info_label(
-                    "Running in LIST DEPENDENCIES mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in LIST DEPENDENCIES mode, no building will be attempted" ), out=out )
             return list_dependencies( construct, cuppa_env, out=out )
     except storage.StorageError as error:
         logger.error( as_error( str( error ) ) )

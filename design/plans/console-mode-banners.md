@@ -1,8 +1,8 @@
 # Plan: Mode banners as report surface (survive quiet)
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); cascade mode chips in [`construct.py`](../../cuppa/construct.py); Antora packages cascade plan docs
-- **Updated:** 2026-09-24
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); [`console-channels.md`](console-channels.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); cascade mode chips in [`construct.py`](../../cuppa/construct.py); Antora packages cascade plan docs
+- **Updated:** 2026-09-29
 - **Impact:** `patch` (presentation); possibly `minor` if a shared “always print” banner API becomes operator-facing
 
 ## Problem
@@ -15,10 +15,11 @@ Running in OFFLINE mode
 Running in LIST DEVELOP mode, no building will be attempted
 ```
 
-are emitted with `logger.info( as_info_label( … ) )`. Under SCons `-Q` / quiet,
-those lines disappear while stdout report bodies (cascade plan trees, develop
-tables) still print. On a large tip, `-Q --cascade-plan` then looks like “no mode
-context, then a plan” — harder to trust what Cuppa thought it was doing.
+are emitted with `logger.info( as_info_label( … ) )`. `-Q` sets the Cuppa logger
+to warn and `-s` / `--quiet` sets it to error, so those info lines disappear
+while stdout report bodies (cascade plan trees, develop tables) still print.
+On a large tip, `-Q --cascade-plan` then looks like “no mode context, then a
+plan” — harder to trust what Cuppa thought it was doing.
 
 Project **B** soak made this obvious: the cascade plan body is visible under `-Q`,
 but the CASCADE PLAN mode chip is not.
@@ -50,9 +51,20 @@ is allowed to drop.
 - Changing what `-Q` does to SCons build chatter.
 - Implementing TTY heartbeat / info rewrite (separate plan).
 
+## Settled inventory
+
+Always print (console report, via `report_mode_banner`): every `Running in … mode`
+chip — OFFLINE, DUMP, develop actions, cascade plan/collect/update, and the
+list/remove/purge/wipe banners in storage, dependency, publisher, and toolchain
+actions.
+
+Stay on the logger: parallel job-count line, "Displaying Options/Methods",
+package "Using …", location "Updating …", and the GitLab missing-archive
+`logger.error` (already visible at warn and error).
+
 ## Progress
 
 | Item | Status |
 |------|--------|
-| Problem / inventory intent | Settled in this proposal |
-| Implementation | Not started |
+| Problem / inventory | Settled — see above, and the channel map in [`console-channels.md`](console-channels.md) |
+| Implementation | **This pull request** |

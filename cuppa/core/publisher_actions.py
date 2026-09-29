@@ -31,6 +31,7 @@ from cuppa.colourise import (
         as_warning,
 )
 from cuppa.utility import storage
+from cuppa.utility.console_report import report_mode_banner
 from cuppa.utility.storage import (
         WIDEST_PROSE,
         emphasised_count_phrase,
@@ -622,15 +623,15 @@ def run( construct, cuppa_env, out=None ):
     out = out or sys.stdout
     try:
         if cuppa_env.get( 'remove_all_publishers' ) or cuppa_env.get( 'remove_publishers' ):
-            logger.info( as_info_label(
+            report_mode_banner( as_info_label(
                     "Running in REMOVE PUBLISHERS mode, no building will be attempted"
-            ) )
+            ), out=out )
             return remove_publishers( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_publishers' ):
-            logger.info( as_info_label(
+            report_mode_banner( as_info_label(
                     "Running in LIST PUBLISHERS mode, no building will be attempted"
-            ) )
+            ), out=out )
             return list_publishers( construct, cuppa_env, out=out )
     except storage.StorageError as error:
         logger.error( as_error( str( error ) ) )

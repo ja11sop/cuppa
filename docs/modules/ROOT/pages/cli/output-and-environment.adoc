@@ -18,13 +18,14 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--suppress-process-output` | Suppress stdout and stderr from invoked processes
 | `--enable-thirdparty-logging` | Allow logs from third-party modules such as pip
 | `--dump` | Dump the default construction environment and exit
-| `-Q` | Suppress SCons reading/building progress, but keep commands and Cuppa output
-| `-s` / `--silent` | Suppress SCons progress and command lines
+| `-Q` | Suppress SCons reading/building progress and Cuppa info logs. Warnings, commands, and console reports stay
+| `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay
 |===
 
-`-Q` is usually the right companion for `--list-*`: it removes SCons framing while leaving the
-inventory intact. `--minimal-output` serves a different purpose; it filters Cuppa's processed
-messages.
+`-Q` is usually the right companion for `--list-*`: it removes SCons framing and info logs while
+leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode` are console
+reports, not info logs, so they stay. `--verbosity=LEVEL` overrides the level `-Q` or `-s` would
+set. `--minimal-output` serves a different purpose; it filters Cuppa's processed build messages.
 
 [[cuppa-mode]]
 == The `cuppa` wrapper and `--cuppa-mode`

@@ -1,7 +1,7 @@
 # Plan: native coloured toolchain output (`--native-output`)
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); companion [`terse-build-output.md`](terse-build-output.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); issue to file when work starts
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); issue to file when work starts
 - **Updated:** 2026-08-11
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 

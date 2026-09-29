@@ -34,6 +34,7 @@ from cuppa.colourise import (
 from cuppa.core import build_layout
 from cuppa.log import logger
 from cuppa.utility import storage
+from cuppa.utility.console_report import report_mode_banner
 
 
 INDENT = '  '
@@ -1523,25 +1524,25 @@ def run( construct, cuppa_env, out=None ):
             ) )
 
         if cuppa_env.get( 'remove_all_builds' ):
-            logger.info( as_info_label(
-                    "Running in REMOVE ALL BUILDS mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in REMOVE ALL BUILDS mode, no building will be attempted" ), out=out )
             return remove_all_builds( cuppa_env, out=out )
 
         if cuppa_env.get( 'remove_builds' ):
-            logger.info( as_info_label(
-                    "Running in REMOVE BUILDS mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in REMOVE BUILDS mode, no building will be attempted" ), out=out )
             return remove_builds( construct, cuppa_env, out=out )
 
         if cuppa_env.get( 'list_available_reports' ):
-            logger.info( as_info_label(
-                    "Running in LIST AVAILABLE REPORTS mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in LIST AVAILABLE REPORTS mode, no building will be attempted" ), out=out )
             from cuppa.reports.list_available_reports import list_available_reports
 
             return list_available_reports( cuppa_env, out=out )
 
         if cuppa_env.get( 'list_builds' ):
-            logger.info( as_info_label(
-                    "Running in LIST BUILDS mode, no building will be attempted" ) )
+            report_mode_banner( as_info_label(
+                    "Running in LIST BUILDS mode, no building will be attempted" ), out=out )
             return list_builds( construct, cuppa_env, out=out )
 
         from cuppa.core import publisher_actions

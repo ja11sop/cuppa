@@ -1,6 +1,6 @@
 # Plan: `cuppa --info` (version without a build)
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — CLI (`cli-info`); [`build-log-hygiene.md`](build-log-hygiene.md); `cuppa/version.py`; companion list modes (`--list-toolchains`, …)
 - **Updated:** 2026-09-29
 - **Impact:** minor — new opt-in CLI flag; no change to default builds
@@ -110,9 +110,9 @@ Listed alongside [`build-log-hygiene.md`](build-log-hygiene.md) and
 | Slice | Status |
 |-------|--------|
 | Plan | **This document** |
-| A — `--info` text | **This PR** |
-| B — JSON / offline | **This PR** |
-| C — Docs | **This PR** |
+| A — `--info` text | **Done on master** — [#350](https://github.com/ja11sop/cuppa/pull/350) |
+| B — JSON / offline | **Done on master** — [#350](https://github.com/ja11sop/cuppa/pull/350) |
+| C — Docs | **Done on master** — [#350](https://github.com/ja11sop/cuppa/pull/350) |
 
 ## Open questions
 
