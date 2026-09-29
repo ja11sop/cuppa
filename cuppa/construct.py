@@ -393,6 +393,16 @@ class Construct(object):
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
+        if cuppa_env.get_option( 'cuppa_info' ):
+            list_format = cuppa_env.get_option( 'list_format', default='text' )
+            if isinstance( list_format, ( list, tuple ) ):
+                list_format = list_format[0] if list_format else 'text'
+            cuppa.version.report_info(
+                    offline=cuppa_env['offline'],
+                    list_format=list_format or 'text',
+            )
+            raise SystemExit( 0 )
+
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
         if cuppa_env['offline']:

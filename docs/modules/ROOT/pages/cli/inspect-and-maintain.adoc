@@ -12,11 +12,37 @@ Start with a listing and add `-Q` so SCons framing does not obscure the inventor
 cuppa -D -Q --list-dependencies
 ----
 
+== Package identity
+
+`--info` prints the installed cuppa package version and exits without loading a
+project `sconstruct` or running a build. Prefer the `cuppa` entry point; it works
+with or without `-D` (when both are passed, `--info` wins in the wrapper and never
+starts SCons).
+
+[source,sh]
+----
+cuppa --info
+cuppa --info --offline
+cuppa --info --list-format=json
+----
+
+Text output is a single line (`cuppa <version>`). JSON includes `cuppa_version`,
+`offline`, and `pypi_latest` when a PyPI probe succeeds (omitted when `--offline`
+or the probe fails). SCons `--version` remains reserved for compiler / build-tool
+version strings — do not treat it as the cuppa package version.
+
+Normal builds still emit the familiar configure log line from
+`check_current_version()`.
+
 == Listing commands
 
 [cols="3,4,3"]
 |===
 | Option | Reports | Useful modifiers
+
+| `--info`
+| Installed cuppa package version (no project / build)
+| `--offline`, `--list-format=json`
 
 | `--list-builds`
 | Build-root summary, toolchain → variant tree, and sconscript tree

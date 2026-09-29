@@ -516,6 +516,8 @@ mint a new token and seal it again.
 ## Preferred invocation
 
 ```sh
+cuppa --info
+cuppa --info --list-format=json
 cuppa -D --dbg
 cuppa -D --dbg --test --show-test-output
 cuppa -D --rel
@@ -529,6 +531,10 @@ cuppa -D --dbg --remove-builds -n
 cuppa -D -h
 ```
 
+`cuppa --info` prints the installed package version and exits without loading a
+project `sconstruct` (works without `-D`). Prefer it over grepping configure logs
+for the version line. SCons `--version` remains the compiler/build-tool version
+strings, not cuppa's.
 `cuppa` wraps `scons`: it appends `--cuppa-mode` as a session marker, intercepts stdout/stderr to mask `*TOKEN*` env values, may inject `-i` for Profiles inventory, and may restrict CPU affinity with `--parallel`. `--cuppa-mode` itself is not the intercept; prefer the `cuppa` entry point in CI. See `docs/modules/ROOT/pages/cli/output-and-environment.adoc`.
 
 Equivalent: `scons -D <...>` when the project's `sconstruct` already imports cuppa.
