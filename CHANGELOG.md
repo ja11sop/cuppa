@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Quieter configure logs: demote managed-toolchain registration and the full
+  available-toolchain name dump to `--verbosity=debug`; use `--list-toolchains`
+  for inventory. Default variant/action messages now list sorted names instead
+  of stringified objects.
+
 ### Deprecated
 
 ### Removed

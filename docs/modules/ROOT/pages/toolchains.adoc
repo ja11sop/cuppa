@@ -48,7 +48,9 @@ Layout and package stems use `toolchain.name()` / `package_name()`, which follow
 `--toolchain-identity=` (`full` keeps `gcc153`; `major` uses `gcc15`). Selection aliases are
 unchanged. See xref:toolchains/overview.adoc#toolchain-identity[Build and package identity].
 
-When debugging detection, use `--verbosity=debug` and `--dump`.
+When debugging detection, use `--verbosity=debug` and `--dump`. Ordinary configure at
+`info` does not dump every registered name or archive registration line; prefer
+`--list-toolchains` for that inventory.
 
 [#list-toolchains]
 == Listing toolchains
