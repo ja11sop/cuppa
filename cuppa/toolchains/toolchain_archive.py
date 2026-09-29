@@ -726,7 +726,7 @@ def _register_clang_entries(
         add_toolchain( name, toolchain )
         existing[ name ] = toolchain
         names.append( name )
-        logger.info(
+        logger.debug(
             "Registered toolchain [{}] from [{}] at [{}] (clang {})".format(
                 as_info( name ),
                 as_notice( entry['source'] ),
@@ -777,7 +777,7 @@ def _register_gcc_entries(
         add_toolchain( name, toolchain )
         existing[ name ] = toolchain
         names.append( name )
-        logger.info(
+        logger.debug(
             "Registered toolchain [{}] from [{}] at [{}] (gcc {})".format(
                 as_info( name ),
                 as_notice( entry['source'] ),
