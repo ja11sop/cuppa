@@ -153,13 +153,35 @@ class AsciidocToHtmlRunner(object):
             command = self._command_template.format( html_target.abspath, str(html_asciidoc_source) )
             logger.debug( "Creating HTML files using command [{}] in working directory [{}]".format( as_notice( command ), as_notice(working_dir) ) )
 
+            terse = bool( env.get( 'terse_output' ) )
+            captured = []
+
+            def _stdout( line, _captured=captured, _terse=terse ):
+                if _terse:
+                    _captured.append( line )
+                    return None
+                return process_stdout( line )
+
+            def _stderr( line, _captured=captured, _terse=terse ):
+                if _terse:
+                    _captured.append( line )
+                    return None
+                return process_stderr( line )
+
             try:
                 return_code = IncrementalSubProcess.Popen2(
-                        process_stdout,
-                        process_stderr,
+                        _stdout,
+                        _stderr,
                         shlex.split( command ),
-                        cwd=working_dir
+                        cwd=working_dir,
+                        suppress_output=terse,
                 )
+                if terse:
+                    cuppa.progress.note_terse_child(
+                            command,
+                            captured,
+                            failed=bool( return_code ),
+                    )
 
                 if return_code < 0:
                     logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( command ), as_error( str(-return_code) ) ) )
@@ -327,7 +349,7 @@ class AsciidoctorToHtmlMethod(object):
         } )
 
         html = env.AsciidocToHtml( target, source )
-
+        cuppa.progress.label_terse_action( html, "asciidoc" )
         cuppa.progress.NotifyProgress.add( env, html )
         return html
 

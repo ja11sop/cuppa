@@ -230,6 +230,7 @@ def progress_action( label, event, sconscript, variant, env ):
 
 
 _terse_command = threading.local()
+_terse_children = threading.local()
 _pending_lock = threading.Lock()
 # Commands stashed by a job thread and not yet consumed by a spawn. A Python
 # action prints before it runs and never spawns, so the next print on that
@@ -244,11 +245,6 @@ def terse_counts_prefix():
 
 def _is_progress_command( cmd ):
     return bool( cmd ) and cmd.lstrip().startswith( "Progress(" )
-
-
-_OBJECT_SUFFIXES = ( ".o", ".obj", ".os" )
-_ARCHIVE_SUFFIXES = ( ".a", ".lib" )
-_SHARED_SUFFIXES = ( ".so", ".dll", ".dylib" )
 
 
 def _env_get( env, key, default=None ):
@@ -281,42 +277,86 @@ def _node_basename( nodes ):
     return os.path.basename( text ) or text
 
 
-def _command_tokens( command ):
-    if not command:
+def _iter_nodes( nodes ):
+    if nodes is None or isinstance( nodes, ( str, bytes ) ):
         return []
-    return command.replace( "\n", " " ).split()
+    if hasattr( nodes, "attributes" ):
+        return [ nodes ]
+    if isinstance( nodes, ( list, tuple ) ):
+        return list( nodes )
+    try:
+        return list( nodes )
+    except TypeError:
+        return [ nodes ]
 
 
-def _tool_tail( command ):
-    tokens = _command_tokens( command )
-    if not tokens:
-        return ""
-    tool = os.path.basename( tokens[0].strip( "'\"" ) )
-    if tool.lower().endswith( ".exe" ):
-        tool = tool[:-4]
-    return tool.lower().split( "-" )[-1]
+def label_terse_action( nodes, action, paths=None ):
+    """Remember ``action`` on each product node. A later status line reads it.
+
+    Do not label a node that has more than one tool action. A static library is
+    both ``archive`` and ``index``; the toolchain tells those apart from the
+    command. One label would hide that.
+
+    ``paths="transfer"`` prints ``source → dest`` even when the action word is
+    shared with a single-file action (``run`` is both a program and a redirect).
+    """
+    if not action:
+        return nodes
+    for node in _iter_nodes( nodes ):
+        attributes = getattr( node, "attributes", None )
+        if attributes is None:
+            continue
+        try:
+            attributes.cuppa_terse_action = action
+            if paths:
+                attributes.cuppa_terse_paths = paths
+        except Exception:
+            continue
+    return nodes
 
 
-def spell_terse_action( command, target ):
+def _explicit_terse_action( target ):
+    """The method label, from whichever target carries it.
+
+    An emitter often puts an intermediate file first. The label may be on a
+    later product node in the same action.
+    """
+    for node in _iter_nodes( target ):
+        attributes = getattr( node, "attributes", None )
+        if attributes is None:
+            continue
+        label = str( getattr( attributes, "cuppa_terse_action", "" ) or "" )
+        if label:
+            return label
+    return ""
+
+
+def spell_terse_action( command, target, env=None ):
     """Short action word for one tool run. Not the Cuppa method name.
 
-    ``CompileStatic`` and ``BuildStaticLibrary`` fan out into several processes,
-    and the spawn does not carry the method name. The tool and the target do.
+    A method label wins, then the active toolchain, then the shared tool
+    speller. Anything else is ``run``. ``link`` is only a compiler driver
+    producing a program.
     """
-    tail = _tool_tail( command )
-    tokens = [ token.lower() for token in _command_tokens( command ) ]
-    name = _node_basename( target ).lower()
-    if tail == "ranlib":
-        return "index"
-    if "-c" in tokens or "/c" in tokens:
-        return "compile"
-    if name.endswith( _SHARED_SUFFIXES ) or ".so." in name:
-        return "link-shared"
-    if tail in ( "ar", "lib" ) or name.endswith( _ARCHIVE_SUFFIXES ):
-        return "archive"
-    if name.endswith( _OBJECT_SUFFIXES ):
-        return "compile"
-    return "link"
+    label = _explicit_terse_action( target )
+    if label:
+        return label
+    toolchain = _env_get( env, "toolchain" )
+    spell = getattr( toolchain, "spell_terse_action", None )
+    if callable( spell ):
+        word = spell( command, target )
+        if word:
+            return word
+    from cuppa.toolchains.terse_actions import spell_tool_command
+    return spell_tool_command( command, target ) or "run"
+
+
+def _coloured_sconscript( label ):
+    """Mute the directory. The leaf is info, not notice, beside ``[ok]``."""
+    if "/" not in label:
+        return as_info( label )
+    directory, leaf = label.rsplit( "/", 1 )
+    return as_subdued( directory + "/" ) + as_info( leaf )
 
 
 def _sconscript_label( env ):
@@ -355,39 +395,173 @@ def _variant_cell( env ):
     return "_".join( parts )
 
 
-def _sconscript_dir( env ):
-    path = str( _env_get( env, "sconscript_file", "" ) or "" ).replace( "\\", "/" )
-    if path.startswith( "./" ):
-        path = path[2:]
-    return os.path.dirname( path )
+def _coloured_variant_cell( env ):
+    """Mute the build cell, but leave ``dbg`` / ``rel`` / ``cov`` plain."""
+    cell = _variant_cell( env )
+    name = _variant_name( env )
+    if not cell:
+        return ""
+    if not name:
+        return as_subdued( cell )
+    if cell == name:
+        return name
+    token = "_" + name + "_"
+    if token in cell:
+        before, after = cell.split( token, 1 )
+        return as_subdued( before + "_" ) + name + as_subdued( "_" + after )
+    if cell.startswith( name + "_" ):
+        return name + as_subdued( cell[ len( name ): ] )
+    if cell.endswith( "_" + name ):
+        return as_subdued( cell[ : -len( name ) ] ) + name
+    return as_subdued( cell )
+
+
+def _slash( path ):
+    return os.path.normpath( str( path ) ).replace( "\\", "/" )
+
+
+def _under( path, root ):
+    """True when ``path`` is ``root`` or a file inside it. No ``..`` climb."""
+    if not path or not root:
+        return False
+    path = os.path.normcase( os.path.normpath( path ) )
+    root = os.path.normcase( os.path.normpath( root ) )
+    if path == root:
+        return True
+    return path.startswith( root + os.sep )
+
+
+def _to_abs( raw, env ):
+    """Absolute path. Relative node paths are from the project root, as SCons stores them."""
+    if os.path.isabs( raw ):
+        return os.path.normpath( raw )
+    anchor = _env_get( env, "base_path" ) or os.getcwd()
+    return os.path.normpath( os.path.join( anchor, raw ) )
+
+
+def _home_display( abs_path ):
+    """``~/...`` with ``/`` separators on every platform. Absolute when not under home."""
+    home = os.path.normpath( os.path.expanduser( "~" ) )
+    path = os.path.normpath( abs_path )
+    if not home or home == "~":
+        return path.replace( "\\", "/" )
+    if os.path.normcase( path ) == os.path.normcase( home ):
+        return "~"
+    prefix = home + os.sep
+    if os.path.normcase( path ).startswith( os.path.normcase( prefix ) ):
+        return ( "~" + path[ len( home ): ] ).replace( "\\", "/" )
+    return path.replace( "\\", "/" )
+
+
+def _project_display( abs_path, env ):
+    base = _env_get( env, "base_path", "" ) or ""
+    if not base:
+        return ""
+    base = os.path.normpath( base )
+    path = os.path.normpath( abs_path )
+    if not _under( path, base ) or os.path.normcase( path ) == os.path.normcase( base ):
+        return ""
+    try:
+        return os.path.relpath( path, base ).replace( "\\", "/" )
+    except ValueError:
+        return ""
+
+
+def _is_file( path, env ):
+    if not path:
+        return False
+    candidate = path if os.path.isabs( path ) else _to_abs( path, env )
+    return os.path.isfile( candidate )
+
+
+def _origin_path( node, env ):
+    """Source-tree path when the file exists there, not only as a variant copy."""
+    raw = _node_path( node )
+    srcnode = getattr( node, "srcnode", None )
+    if callable( srcnode ):
+        try:
+            origin = srcnode()
+        except Exception:
+            origin = None
+        if origin is not None and origin is not node:
+            origin_path = _node_path( origin )
+            if (
+                    origin_path
+                    and not _is_variant_working_path( origin_path, env )
+                    and _is_file( origin_path, env )
+            ):
+                return origin_path
+    stripped = _strip_variant_working( raw, env )
+    if stripped and _is_file( stripped, env ):
+        return stripped
+    return raw
+
+
+def _is_variant_working_path( raw, env ):
+    text = _slash( raw )
+    tool = _slash( _env_get( env, "tool_variant_dir", "" ) or "" ).strip( "/" )
+    if tool and ( "/" + tool + "/working/" ) in ( "/" + text ):
+        return True
+    build_dir = _env_get( env, "build_dir", "" ) or ""
+    if not build_dir:
+        return False
+    return _under( _to_abs( raw, env ), _to_abs( build_dir, env ) )
+
+
+def _strip_variant_working( raw, env ):
+    """``.../<tool>/<variant>/<arch>/<abi>/working/<file>`` → source-tree path."""
+    if not raw:
+        return ""
+    text = _slash( raw )
+    tool = _slash( _env_get( env, "tool_variant_dir", "" ) or "" ).strip( "/" )
+    needle = "/" + tool + "/working/" if tool else ""
+    rest = ""
+    if needle and needle in ( "/" + text ):
+        rest = ( "/" + text ).split( needle, 1 )[1]
+    else:
+        build_dir = _env_get( env, "build_dir", "" ) or ""
+        if build_dir:
+            abs_raw = _to_abs( raw, env )
+            abs_dir = _to_abs( build_dir, env )
+            if _under( abs_raw, abs_dir ):
+                rest = os.path.relpath( abs_raw, abs_dir ).replace( "\\", "/" )
+    if not rest or rest == ".":
+        return ""
+    script = _sconscript_label( env )
+    if script:
+        return script + "/" + rest
+    return rest
+
+
+def _display_source_path( raw, env ):
+    """Project-relative, else ``~/...``, else absolute. Never a ``../`` climb."""
+    if not raw:
+        return ""
+    text = str( raw ).replace( "\\", "/" )
+    if text.startswith( "~/" ) or text == "~":
+        return text
+    climbs = text == ".." or text.startswith( "../" )
+    if not os.path.isabs( raw ) and not climbs:
+        shown = _slash( raw )
+        return "" if shown in ( "", "." ) else shown
+    abs_path = _to_abs( raw, env )
+    shown = _project_display( abs_path, env ) or _home_display( abs_path )
+    if shown in ( "", "." ):
+        return ""
+    return shown
 
 
 def _compile_file_parts( source, env ):
-    """Source path relative to the sconscript directory, as ``(directory, filename)``."""
-    raw = _node_path( _first_node( source ) ).replace( "\\", "/" )
-    if not raw:
+    """Source location in the project tree, or ``~/...`` when it lives outside."""
+    node = _first_node( source )
+    raw = _origin_path( node, env ) if node is not None else ""
+    shown = _display_source_path( raw, env )
+    if not shown:
         return "", ""
-    anchor = str(
-            _env_get( env, "abs_sconscript_dir", "" )
-            or _env_get( env, "sconscript_dir", "" )
-            or ""
-    ).replace( "\\", "/" )
-    if os.path.isabs( raw ) and anchor and os.path.isabs( anchor ):
-        try:
-            raw = os.path.relpath( raw, anchor ).replace( "\\", "/" )
-        except ValueError:
-            raw = os.path.basename( raw )
-    else:
-        script_dir = _sconscript_dir( env )
-        prefix = script_dir + "/" if script_dir else ""
-        if prefix and raw.startswith( prefix ):
-            raw = raw[ len( prefix ): ]
-    if raw in ( "", "." ):
-        return "", ""
-    directory, filename = os.path.split( raw )
+    directory, filename = os.path.split( shown )
     if directory in ( "", "." ):
         directory = ""
-    return directory, filename or raw
+    return directory, filename or shown
 
 
 def _coloured_file( directory, filename ):
@@ -398,8 +572,129 @@ def _coloured_file( directory, filename ):
     return as_emphasised( filename )
 
 
+def _rel_inside( abs_path, root ):
+    """Path of ``abs_path`` inside ``root``, or ``None`` when it is not inside."""
+    root = os.path.normpath( root )
+    path = os.path.normpath( abs_path )
+    if not _under( path, root ):
+        return None
+    if os.path.normcase( path ) == os.path.normcase( root ):
+        return ""
+    try:
+        return os.path.relpath( path, root ).replace( "\\", "/" )
+    except ValueError:
+        return None
+
+
+def _strip_artifact_folder( relative, env ):
+    """Drop the ``<sconscript>_<variant>`` directory already named on the line."""
+    flat = str( _env_get( env, "flat_build_base", "" ) or "" ).replace( "\\", "/" ).strip( "/" )
+    relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+    if not flat or not relative:
+        return relative
+    head, _sep, tail = relative.partition( "/" )
+    if os.path.normcase( head ) == os.path.normcase( flat ):
+        return tail
+    return relative
+
+
+def _locate( raw, env ):
+    """``(root, relative)`` for a path on a status line.
+
+    ``root`` is ``working`` or ``final`` for this variant's build, or
+    ``artifacts`` for this variant's folder under the artefacts root. Any
+    other path there is a normal project path. Otherwise ``relative`` is the
+    project path, ``~/...``, or an absolute path.
+    """
+    if not raw:
+        return "", ""
+    text = str( raw ).replace( "\\", "/" )
+    if text.startswith( "~/" ) or text == "~":
+        return "", text
+    abs_path = _to_abs( raw, env )
+    roots = (
+            ( "final", "abs_final_dir" ),
+            ( "working", "abs_build_dir" ),
+            ( "artifacts", "abs_artefacts_root" ),
+    )
+    for token, key in roots:
+        root = _env_get( env, key, "" ) or ""
+        if token == "artifacts" and not root:
+            root = _env_get( env, "abs_artifacts_root", "" ) or ""
+        if not root:
+            continue
+        root_abs = root if os.path.isabs( root ) else _to_abs( root, env )
+        relative = _rel_inside( abs_path, root_abs )
+        if relative is None:
+            continue
+        if token == "artifacts":
+            # ``<artifacts>`` is this variant's folder, not the artefacts root.
+            # ``_artifacts/documentation/...`` is a real path and stays as-is.
+            variant_relative = _strip_artifact_folder( relative, env )
+            if variant_relative == relative:
+                continue
+            return token, variant_relative
+        return token, relative
+    return "", _display_source_path( raw, env )
+
+
+def _coloured_transfer_end( token, relative, dest ):
+    """One side of ``source → dest``.
+
+    The source is entirely subdued. The destination directory is subdued and
+    its filename is info-coloured and bold, not the info highlight.
+    ``<working>``, ``<final>``, and
+    ``<artifacts>`` mark build locations so they are not read as project paths.
+    """
+    relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+    directory, filename = os.path.split( relative ) if relative else ( "", "" )
+    if directory in ( "", "." ):
+        directory = ""
+    prefix = ( "<" + token + ">/" ) if token else ""
+    if dest:
+        head = prefix + ( directory + "/" if directory else "" )
+        shown = as_subdued( head ) if head else ""
+        if filename:
+            shown += as_emphasised( as_info( filename ) )
+        elif token:
+            shown = as_subdued( "<" + token + ">" )
+        return shown
+    if token and relative:
+        return as_subdued( prefix + relative )
+    if token:
+        return as_subdued( "<" + token + ">" )
+    return as_subdued( relative ) if relative else ""
+
+
+def _transfer_field( target, source, env ):
+    source_token, source_path = _locate( _node_path( _first_node( source ) ), env )
+    dest_token, dest_path = _locate( _node_path( _first_node( target ) ), env )
+    source_text = _coloured_transfer_end( source_token, source_path, dest=False )
+    dest_text = _coloured_transfer_end( dest_token, dest_path, dest=True )
+    if source_text and dest_text:
+        return source_text + " " + as_subdued( "→" ) + " " + dest_text
+    return source_text or dest_text
+
+
+def _paths_style( nodes ):
+    for node in _iter_nodes( nodes ):
+        attributes = getattr( node, "attributes", None )
+        if attributes is None:
+            continue
+        style = str( getattr( attributes, "cuppa_terse_paths", "" ) or "" )
+        if style:
+            return style
+    return ""
+
+
+_TRANSFER_ACTIONS = ( "copy", "expand", "render" )
+_SOURCE_ACTIONS = ( "markdown", "asciidoc" )
+
+
 def _file_field( action, target, source, env ):
-    if action == "compile":
+    if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
+        return _transfer_field( target, source, env )
+    if action == "compile" or str( action ).startswith( "compile-" ) or action in _SOURCE_ACTIONS:
         directory, filename = _compile_file_parts( source, env )
         if filename:
             return _coloured_file( directory, filename )
@@ -415,7 +710,7 @@ def _status_marker( status ):
 
 
 def format_terse_line( status, command, target, source, env ):
-    """``[status] sconscript · variant · action file``. Counts prefix stays empty until Phase 2."""
+    """``[status] sconscript · variant · action · file``. Counts prefix stays empty until Phase 2."""
     parts = []
     prefix = terse_counts_prefix()
     if prefix:
@@ -425,16 +720,15 @@ def format_terse_line( status, command, target, source, env ):
     fields = []
     script = _sconscript_label( env )
     if script:
-        fields.append( as_subdued( script ) )
-    cell = _variant_cell( env )
+        fields.append( _coloured_sconscript( script ) )
+    cell = _coloured_variant_cell( env )
     if cell:
-        fields.append( as_subdued( cell ) )
-    action = spell_terse_action( command, target )
-    action_text = as_notice( action )
+        fields.append( cell )
+    action = spell_terse_action( command, target, env )
+    fields.append( action )
     file_text = _file_field( action, target, source, env )
     if file_text:
-        action_text = action_text + " " + file_text
-    fields.append( action_text )
+        fields.append( file_text )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
     return " ".join( parts )
@@ -451,6 +745,44 @@ def stash_terse_command( cmd, target, source, env ):
     _terse_command.env = env
     with _pending_lock:
         _pending_commands[ threading.get_ident() ] = ( cmd, target, source, env )
+
+
+def note_terse_child( command, lines, failed=False ):
+    """Remember a tool this Python action started, for the status line.
+
+    The action calls this instead of printing the command. A clean tool is
+    dropped. A warning, an error line, or a non-zero exit is printed before
+    the summary. Safe under ``-j`` because the note stays on this job thread.
+    """
+    children = getattr( _terse_children, "items", None )
+    if children is None:
+        children = []
+        _terse_children.items = children
+    children.append( ( command, list( lines or [] ), bool( failed ) ) )
+
+
+def take_terse_children():
+    """Return and clear child tools noted on this job thread."""
+    children = list( getattr( _terse_children, "items", None ) or [] )
+    _terse_children.items = []
+    return children
+
+
+def _output_severity( lines ):
+    """``error`` if any line is an error, else ``warn``, else ``ok``.
+
+    Asciidoctor writes ``asciidoctor: ERROR:`` and still exits 0. The status
+    line should say what the tool said. The action's own return code is
+    unchanged, so SCons still decides whether the build failed.
+    """
+    severity = "ok"
+    for line in lines or []:
+        folded = str( line ).lower()
+        if ": error:" in folded or folded.startswith( "error:" ):
+            return "error"
+        if ": warning:" in folded or folded.startswith( "warning:" ):
+            severity = "warn"
+    return severity
 
 
 def take_terse_command():
@@ -529,8 +861,8 @@ def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, t
     """Lines to print after a terse tool run.
 
     A clean exit with no warnings is one success line. A warning or failure
-    prints the same shape of status line first, then the command, the processed
-    output, and the summary.
+    prints the command and the processed output first, then the status line
+    as the summary.
     """
     if not returncode and not errors and not warnings:
         status = "ok"
@@ -538,15 +870,171 @@ def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, t
         status = "error"
     else:
         status = "warn"
-    lines = [ format_terse_line( status, command, target, source, env ) ]
+    status_line = format_terse_line( status, command, target, source, env )
     if status == "ok":
-        return lines
+        return [ status_line ]
+    lines = []
     if command:
         lines.append( command )
     for chunk in buffered_lines or []:
         lines.extend( _chunk_lines( chunk ) )
     lines.extend( _chunk_lines( summary ) )
+    lines.append( status_line )
     return lines
+
+
+class _TersePythonCallable( object ):
+    """Run a Python action, then print its terse status line.
+
+    Installed only on environments that asked for ``--terse-output``. A shared
+    builder still used without that flag calls the original and stops.
+    """
+
+    def __init__( self, original ):
+        self._original = original
+        name = getattr( original, "__name__", None ) or original.__class__.__name__
+        self.__name__ = name
+        inner = getattr( original, "strfunction", None )
+        if callable( inner ):
+            self.strfunction = inner
+
+    def __call__( self, target, source, env, **ignored ):
+        if not _env_get( env, "terse_output" ):
+            return self._original( target=target, source=source, env=env )
+        try:
+            result = self._original( target=target, source=source, env=env )
+        except ( KeyboardInterrupt, SystemExit ):
+            raise
+        except Exception:
+            _report_python_action( target, source, env, failed=True )
+            raise
+        _report_python_action( target, source, env, failed=bool( result ) )
+        return result
+
+
+def _report_python_action( target, source, env, failed ):
+    """Consume the stashed description. A clean run is one line.
+
+    A warning or failure prints the tool command and its output first, then
+    the status line. A child noted with ``note_terse_child`` is that tool.
+    Otherwise the SCons description is used.
+    """
+    command, stashed_target, stashed_source, stashed_env = take_terse_command()
+    children = take_terse_children()
+    use_target = target or stashed_target
+    use_source = source or stashed_source
+    use_env = env or stashed_env or {}
+    severity = "error" if failed else "ok"
+    for _child_command, lines, child_failed in children:
+        if child_failed:
+            severity = "error"
+            continue
+        child_severity = _output_severity( lines )
+        if child_severity == "error":
+            severity = "error"
+        elif child_severity == "warn" and severity == "ok":
+            severity = "warn"
+    spell_command = command or ""
+    if children and not _explicit_terse_action( use_target ):
+        spell_command = children[0][0]
+    status_line = format_terse_line(
+            severity,
+            spell_command,
+            use_target,
+            use_source,
+            use_env,
+    )
+    if severity != "ok":
+        if children:
+            for child_command, lines, _child_failed in children:
+                _write_command( child_command )
+                for line in lines:
+                    _write_command( line )
+        elif command:
+            _write_command( command )
+    sys.stdout.write( status_line + "\n" )
+    sys.stdout.flush()
+
+
+def _wrap_action( action ):
+    """Replace a ``FunctionAction`` body without changing its build signature.
+
+    ``FunctionAction`` stores the signature at construction. Swapping
+    ``execfunction`` afterwards leaves that signature alone. Command actions
+    stay on the spawn path. ``Progress`` actions stay quiet.
+    """
+    if action is None:
+        return
+    list_action = getattr( action, "list", None )
+    if list_action is not None and not hasattr( action, "execfunction" ):
+        for child in list_action:
+            _wrap_action( child )
+        return
+    original = getattr( action, "execfunction", None )
+    if original is None or getattr( action, "_cuppa_terse_wrapped", False ):
+        return
+    if isinstance( original, Progress ) or isinstance( original, _TersePythonCallable ):
+        return
+    action.execfunction = _TersePythonCallable( original )
+    action._cuppa_terse_wrapped = True
+
+
+def _wrap_builder( builder ):
+    try:
+        action = getattr( builder, "action", None )
+    except Exception:
+        return
+    _wrap_action( action )
+
+
+def _wrap_nodes( nodes ):
+    for node in _iter_nodes( nodes ):
+        executor = getattr( node, "executor", None )
+        if executor is None:
+            continue
+        getter = getattr( executor, "get_action_list", None )
+        actions = getter() if callable( getter ) else ()
+        for action in actions:
+            _wrap_action( action )
+
+
+def _wrap_factory( env, name, after ):
+    current = getattr( env, name, None )
+    if current is None or getattr( current, "_cuppa_terse_factory", False ):
+        return
+
+    def factory( *args, **kwargs ):
+        result = current( *args, **kwargs )
+        after( result )
+        return result
+
+    factory._cuppa_terse_factory = True
+    setattr( env, name, factory )
+
+
+def enable_terse_python_actions( env ):
+    """Give Python actions a terse status line. No effect unless ``--terse-output``."""
+    if not _env_get( env, "terse_output" ):
+        return
+    if getattr( env, "_cuppa_terse_python_actions", False ):
+        return
+    try:
+        env._cuppa_terse_python_actions = True
+    except Exception:
+        return
+    builders = _env_get( env, "BUILDERS" ) or {}
+    try:
+        values = builders.values()
+    except AttributeError:
+        values = ()
+    for builder in values:
+        _wrap_builder( builder )
+    _wrap_factory( env, "Builder", _wrap_builder )
+    _wrap_factory( env, "Command", _wrap_nodes )
+    # SCons keeps one process-wide install action. Wrapping ``env.Install``
+    # reaches it. The printed ``Install file:`` line is then a ``copy`` status.
+    for name in ( "Install", "InstallAs", "InstallVersionedLib" ):
+        _wrap_factory( env, name, _wrap_nodes )
 
 
 

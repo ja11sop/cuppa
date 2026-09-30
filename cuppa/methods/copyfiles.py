@@ -12,6 +12,7 @@ import os.path
 
 from SCons.Node import Node
 
+import cuppa.progress
 from cuppa.utility.filter import filter_nodes
 
 from cuppa.colourise import colour_items
@@ -34,7 +35,8 @@ class CopyFilesMethod:
 
             # Progress comes from MethodWithProgress wrapping Install on the
             # sconscript env — do not NotifyProgress.add again here.
-            return env.Install( destination, filtered_nodes )
+            copied = env.Install( destination, filtered_nodes )
+            return cuppa.progress.label_terse_action( copied, "copy" )
         return []
 
     @classmethod

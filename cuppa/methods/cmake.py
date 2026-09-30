@@ -51,8 +51,9 @@ def cmake_build_tree_path( working_dir, build_dir ):
     return os.path.join( _node_abspath( working_dir ), build_dir )
 
 
-def _command_nodes( env, target, source, command, working_dir, clean_paths=None ):
+def _command_nodes( env, target, source, command, working_dir, clean_paths=None, terse_action=None ):
     nodes = env.Command( target, source, run( command, working_dir=working_dir ) )
+    cuppa.progress.label_terse_action( nodes, terse_action )
     if clean_paths:
         for path in clean_paths:
             if path:
@@ -111,6 +112,7 @@ class CMakeConfigureMethod(object):
                 command,
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
+                terse_action='cmake-configure',
         )
 
     @classmethod
@@ -155,6 +157,7 @@ class CMakeBuildMethod(object):
                 command,
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
+                terse_action='cmake-build',
         )
 
     @classmethod
@@ -200,6 +203,7 @@ class CMakeInstallMethod(object):
                 command,
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
+                terse_action='cmake-install',
         )
 
     @classmethod

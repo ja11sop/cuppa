@@ -399,6 +399,16 @@ class Clang(object):
         )
 
 
+    def spell_terse_action( self, command, target ):
+        """Status-line verb for a clang, ``llvm-ar*``, or ``llvm-ranlib*`` run.
+
+        Empty when this command is not one of those tools, so the generic
+        fallback can say ``run``.
+        """
+        from cuppa.toolchains.terse_actions import spell_tool_command
+        return spell_tool_command( command, target )
+
+
     def package_name( self ):
         return self.name()
 

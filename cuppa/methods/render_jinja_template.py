@@ -138,6 +138,7 @@ class RenderJinjaTemplateMethod(object):
             source.append( variables_file )
 
         rendered_templates = env.RenderJinjaTemplateBuilder( target, source )
+        cuppa.progress.label_terse_action( rendered_templates, "render" )
         cuppa.progress.NotifyProgress.add( env, rendered_templates )
         return rendered_templates
 

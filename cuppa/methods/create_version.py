@@ -8,6 +8,9 @@
 #   CreateVersionMethod
 #-------------------------------------------------------------------------------
 
+import cuppa.progress
+
+
 class CreateVersionMethod:
 
     def __init__( self ):
@@ -26,7 +29,8 @@ class CreateVersionMethod:
             'CreateVersionFile' : env.Builder( action=create_version_file_builder, emitter=create_version_file_emitter )
         } )
 
-        return env.CreateVersionFile( target, source )
+        version_file = env.CreateVersionFile( target, source )
+        return cuppa.progress.label_terse_action( version_file, "version" )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

@@ -84,6 +84,7 @@ class CompileScssMethod(object):
         source = Flatten( source )
 
         css_files = env.CompileScssBuilder( target, source )
+        cuppa.progress.label_terse_action( css_files, "compile-scss" )
         cuppa.progress.NotifyProgress.add( env, css_files )
         return css_files
 

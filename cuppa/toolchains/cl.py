@@ -405,6 +405,16 @@ class Cl(object):
         return self.name()
 
 
+    def spell_terse_action( self, command, target ):
+        """Status-line verb for ``cl``, ``lib``, and ``link``.
+
+        Empty when this command is not one of those tools, so the generic
+        fallback can say ``run``.
+        """
+        from cuppa.toolchains.terse_actions import spell_tool_command
+        return spell_tool_command( command, target )
+
+
     def family( self ):
         return "cl"
 

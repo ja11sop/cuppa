@@ -85,6 +85,7 @@ class RunAndRedirectToFileMethod(object):
         } )
 
         output = env.RunAndRedirectToFile( target, source )
+        cuppa.progress.label_terse_action( output, "run", paths="transfer" )
         cuppa.progress.NotifyProgress.add( env, output )
         return output
 

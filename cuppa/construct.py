@@ -1242,6 +1242,7 @@ class Construct(object):
             ] )
 
             cuppa.core.environment.EnvironmentMethods.add_progress_tracking( sconscript_env )
+            cuppa.progress.enable_terse_python_actions( sconscript_env )
             cuppa.core.sconscript_coupling.install_methods( sconscript_env )
 
             cuppa.progress.NotifyProgress.notify_sconscript_env_ready( sconscript_env )

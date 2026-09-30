@@ -63,6 +63,7 @@ class TestMethod(object):
             sources = with_depends( source, depends_on, data )
 
             test = env.TestBuilder( [], sources )
+            cuppa.progress.label_terse_action( test, "test" )
             if 'force_test' in env['variant_actions'].keys():
                 test = env.AlwaysBuild( test )
 

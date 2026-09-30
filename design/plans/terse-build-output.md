@@ -70,8 +70,8 @@ improvement.
 | Event | Terse output |
 |-------|----------------|
 | Clean tool run | `[ok] sconscript · variant · action file`. Optional `{counts}` prefix stays empty until Phase 2 |
-| Tool run fails | `[error]` line of the same shape, then the command, processed output, and summary |
-| Warning in tool output | `[warn]` line of the same shape, then the command and warning lines |
+| Tool run fails | The command, processed output, and summary, then the `[error]` line. The status line is the summary of the failure |
+| Warning in tool output | The command and warning lines, then the `[warn]` line |
 | Sconstruct / sconscript begin/end | Hidden under `--terse-output`. Printed again with `--terse-output-notify-progress` |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
@@ -84,22 +84,83 @@ improvement.
 | Field | Spelling | Colour |
 |-------|----------|--------|
 | Status | `[ok]`, `[warn]`, or `[error]` | success / warning / error |
-| Sconscript | Script path with a leading `./` removed. A trailing `/sconscript` is dropped (`./test/orders/sconscript` → `test/orders`). A named script keeps its stem (`widget/tests.sconscript` → `widget/tests`). Empty when the script is the project-root `sconscript` | subdued |
-| Variant | `toolchain_variant_arch_abi` (`gcc16_dbg_x86_64_cxx2c`). `dbg` alone is ambiguous across sconscripts | subdued |
-| Action | See the table below. Plain colour, not bold | notice |
-| File | `compile`: source relative to the sconscript directory. The directory is subdued and the filename is emphasised. Other actions: the product basename, emphasised | subdued directory, emphasised name |
+| Sconscript | Script path with a leading `./` removed. A trailing `/sconscript` is dropped (`./test/orders/sconscript` → `test/orders`). A named script keeps its stem (`widget/tests.sconscript` → `widget/tests`). Empty when the script is the project-root `sconscript`. Only the leaf is coloured (`orders` in `test/orders`); any leading path is subdued | subdued path, info leaf |
+| Variant | `toolchain_variant_arch_abi` (`gcc16_dbg_x86_64_cxx2c`). `dbg` alone is ambiguous across sconscripts. The variant name (`dbg` / `rel` / `cov`) stays plain; the rest of the cell is subdued | subdued, variant name plain |
+| Action | See the table below. Uncoloured | plain |
+| File | A `·` separates the action from the path. `compile`, `compile-*`, `markdown`, and `asciidoc`: the source in the project tree, not the variant `working/` copy. Only files that exist in the source tree — products and intermediates stay basenames. A source outside the project is `~/...` when it is under the home directory (forward slashes on Linux and Windows), otherwise absolute. Never a `../` climb. The directory is subdued and the filename is emphasised. `copy`, `expand`, `render`, and a redirected `run`: `source → dest`. The source path is subdued. The destination directory is subdued and its filename is info and bold. `<working>/` and `<final>/` mark this variant's build locations. `<artifacts>/` is only this variant's folder under the artefacts root (`_artifacts/<sconscript>_<variant>/...`); any other path there is written as itself (`_artifacts/documentation/...`). A real project path has no such prefix. Link, archive, index, and a program `run` stay the product basename, emphasised | see the cell |
 
-The action word comes from the tool and the target, not the Cuppa method name. `CompileStatic` and `BuildStaticLibrary` fan out into several processes, and the spawn does not carry the method name.
+A compile shows the source, not the object, so `database.cpp` is not confused with another sconscript's `database.o`. Link, archive, and index show the product name, because the inputs already had their own lines. A `compile-*` label (for example `compile-scss`) shows the source the same way. `markdown` and `asciidoc` do too. `copy`, `expand`, `render`, and a redirected `run` show `source → dest`.
+
+### How an action word is chosen
+
+`CompileStatic` and `BuildStaticLibrary` fan out into several processes. The spawn does not carry the Cuppa method name. Spell each line in this order:
+
+1. **Explicit label** on the product node (`node.attributes.cuppa_terse_action`), set by the method that created that one action. Do not put a label on a node that has two tool actions. A static library is both `archive` and `index`; one label would hide the second.
+2. **The active toolchain** — `spell_terse_action(command, target)` on `Gcc`, `Clang`, and `cl`. Empty means "not my tool". Gcc and Clang share `cuppa/toolchains/terse_actions.py` because `gcc-ar-16` / `gcc-ranlib-16` and `llvm-ar` / `llvm-ranlib` are the same kinds of name. `cl` uses the same helper for `cl`, `lib`, and `link`.
+3. **Generic fallback** — the same tool speller when the toolchain has no method, then `run`.
+
+`run` is the fallback, not `link`. An unrecognised command used to become `link`, so `pysassc`, Python, and CMake would all look like links.
 
 | Spelling | When |
 |----------|------|
 | `compile` | `-c` / `/c`, or an object target (`.o`, `.obj`, `.os`) |
-| `archive` | `ar` or `lib` writing a `.a` / `.lib` |
-| `index` | `ranlib` on that archive (the second line for one `.a`) |
-| `link` | Compiler driver producing a program |
-| `link-shared` | A `.so`, `.dylib`, or `.dll` |
+| `archive` | `ar`, `lib`, `gcc-ar`, `gcc-ar-16`, `llvm-ar`, or any `*-ar` / `*-ar-<version>`, writing a `.a` / `.lib` |
+| `index` | The tool name contains `ranlib` (`ranlib`, `gcc-ranlib-16`, `llvm-ranlib`). This is the second line for one `.a`. The version suffix must not win: taking only the text after the last hyphen turned `gcc-ranlib-16` into `16`, and the `.a` suffix then said `archive` |
+| `link` | Compiler driver (`g++`, `g++-16`, `clang++`, `cl`, `link`) producing a program |
+| `link-shared` | A `.so`, `.dylib`, or `.dll`, or `-shared` / `/dll` |
+| `run` | Anything else that nobody named |
 
-A compile shows the source, not the object, so `database.cpp` is not confused with another sconscript's `database.o`. Link, archive, and index show the product name, because the inputs already had their own lines.
+### Method labels
+
+Toolchain children stay unlabelled. `Compile`, `CompileStatic`, `CompileShared`, `Build`, `BuildLib`, `BuildTest`, `BuildBenchmark`, `HeaderUnit`, `Module`, and `ImportModules` create objects, archives, and programs. The toolchain spells those processes.
+
+These methods do not create an action node, so they have no status line: `BuildWith`, `BuildProfile`, `CxxProfiles`, `CxxLto`, `CxxErrorLimit`, `StdCpp`, `ReplaceFlags`, `RemoveFlags`, `Variant`, `Toolchain`, `HasToolchain`, `Use`, `HasDependency`, `TargetFrom`, `PackageDir` / `PackageBin` / `PackageLib` / `PackageVersion` / `CMakePrefixPathFor`, `Filter`, `Glob` / `RecursiveGlob`, `Modules`, `CollateCxxProfilesIndex`, `Reports`.
+
+| Method | Label | Notes |
+|--------|-------|-------|
+| `CompileScss` | `compile-scss` | Source path, same as `compile` |
+| `Run` | `run`, `test`, or `benchmark` | Whichever variant action is selected |
+| `Test` | `test` | |
+| `Benchmark` | `benchmark` | |
+| `RunAndRedirectToFile` | `run` | `program → output`. A plain `Run` stays the program name |
+| `CopyFiles`, `CopyFilesAs`, `StageLocationDevelop` | `copy` | `source → dest`, with `<working>`, `<final>`, or `<artifacts>` |
+| `MarkdownToHtml` | `markdown` | Source path, same as `compile` |
+| `AsciidocToHtml` | `asciidoc` | Source path, same as `compile` |
+| `RenderJinjaTemplate` | `render` | `source → dest` |
+| `ExpandTemplateFile` | `expand` | `source → dest` |
+| `CreateVersion` | `version` | The generated file, not the later compile of it |
+| `CMakeConfigure` | `cmake-configure` | |
+| `CMakeBuild` | `cmake-build` | |
+| `CMakeInstall` | `cmake-install` | |
+| `DownloadExtract` | `download` | |
+| `RemoveEmptyDirs` | `remove-empty` | |
+| `Coverage` | `coverage` | |
+| `CollateCoverageFiles` | `collate-coverage` | |
+| `CollateCoverageIndex` | `coverage-index` | Not `index` — that word is the archiver |
+| `PublishPackage` | `package`, then `publish` when uploading | Two nodes |
+| `InstallPackage` | `install` | |
+
+The label is stored on the product node. A spawned tool reads it when the child exits.
+
+### Python actions
+
+SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionAction`s. They do not go through the spawn processor. SCons prints their description, then calls them, and only then knows the return value. Their own `print` and log lines appear while they run. Buffering that output globally is unsafe under `-j`, so it stays live.
+
+`--terse-output` installs a wrapper on those actions (`enable_terse_python_actions`). Any other mode does not: the original callable runs and the wrapper is not consulted. The wrapper swaps `execfunction` after SCons has stored the action signature, so turning the flag on does not rebuild the tree.
+
+| Result | What is printed |
+|--------|-----------------|
+| Success | `[ok]` line only. The SCons description stays hidden |
+| Failure or exception | Whatever the action already wrote, then its description, then the `[error]` line |
+| Clean child tool | Hidden. The action notes the command and its lines; a clean note is dropped |
+| Child warning or error | The child command and its lines, then `[warn]` or `[error]`. A line containing `: ERROR:` is an error even when the tool exits 0. The action's return code is unchanged |
+| `Install file:` / `Install directory:` | `copy`, and hidden on success. `env.Install` is wrapped so the sentence is not flushed later |
+| `Progress(...)` | Still hidden. The wrapper does not touch those actions |
+| Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
+
+Text the action prints itself still appears as it happens. Only a child handed to `note_terse_child` is held back. `asciidoctor` does that. An unlabelled `asciidoctor` command is spelled `asciidoc`.
+
+`None`, `0`, and any other falsy return are success, matching SCons. A truthy return or an exception is failure. `KeyboardInterrupt` and `SystemExit` propagate with no status line.
 
 **Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
 `--minimal-output`. Combining both should be documented (likely: terse success lines + minimal

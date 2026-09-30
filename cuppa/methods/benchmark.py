@@ -61,6 +61,7 @@ class BenchmarkMethod(object):
             sources = with_depends( source, depends_on, data )
 
             benchmark = env.BenchmarkBuilder( [], sources )
+            cuppa.progress.label_terse_action( benchmark, "benchmark" )
             if 'force_benchmark' in env['variant_actions'].keys():
                 benchmark = env.AlwaysBuild( benchmark )
 

@@ -10,8 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - ``cuppa --terse-output``: one status line per tool run,
-  ``[ok|warn|error] sconscript · variant · action file``. A warning or failure
-  prints that line before the command and the processed output. Hides SCons
+  ``[ok|warn|error] sconscript · variant · action file``. A compile names the
+  source in the project tree, or ``~/...`` when the file lives under the home
+  directory. ``gcc-ranlib-16`` and ``llvm-ranlib`` are ``index``, not a second
+  ``archive``. An unrecognised command is ``run``. A warning or failure prints
+  the command and its output, then that line as the summary. Python actions
+  (copy, SCSS, CMake, run, and the other labelled methods) get the same line.
+  A clean ``Install file:`` is ``copy``, shown as ``source → dest`` with
+  ``<working>``, ``<final>``, or ``<artifacts>`` (only that variant's artefact
+  folder). A clean tool such as ``asciidoctor``
+  stays hidden; a warning or error from that tool is printed before the
+  summary. Without ``--terse-output`` they are left alone. Hides SCons
   ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
   ``--raw-output`` or ``--scons-output``.
 - ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print

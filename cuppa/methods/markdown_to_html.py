@@ -53,6 +53,7 @@ class MarkdownToHtmlMethod(object):
         } )
 
         html = env.Grip( [], source )
+        cuppa.progress.label_terse_action( html, "markdown" )
         cuppa.progress.NotifyProgress.add( env, html )
         return html
 
