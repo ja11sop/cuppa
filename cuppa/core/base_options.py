@@ -39,13 +39,21 @@ def add_base_options():
                                  "in build output" )
 
     add_option( '--raw-output', dest='raw_output', action='store_true',
-                            help="Disable output processing like colourisation of output" )
+                            help="Disable Cuppa colour and do not install the spawn processor. "
+                                 "Use --scons-output to skip only the processor and keep colour" )
+
+    add_option( '--scons-output', dest='scons_output', action='store_true',
+                            help="Do not install Cuppa's spawn processor, so SCons launches "
+                                 "child processes itself. Cuppa colour on logs and reports stays. "
+                                 "Progress nodes and the cuppa token mask still apply. "
+                                 "Do not combine with --minimal-output" )
 
     add_option( '--standard-output', dest='standard_output', action='store_true',
                             help="Perform standard output processing but not colourisation of output" )
 
     add_option( '--minimal-output', dest='minimal_output', action='store_true',
-                            help="Show only errors and warnings in the output" )
+                            help="Show only errors and warnings in the output. Requires Cuppa's "
+                                 "spawn processor; refused with --raw-output or --scons-output" )
 
     add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
                             help="Do not show repeated errors or warnings" )

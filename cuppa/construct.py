@@ -231,6 +231,7 @@ class Construct(object):
     def print_construct_variables( self, env ):
         keys = {
                 'raw_output',
+                'scons_output',
                 'standard_output',
                 'minimal_output',
                 'offline',
@@ -291,10 +292,30 @@ class Construct(object):
             set_logging_level( verbosity )
 
 
+    @staticmethod
+    def _skips_spawn_processor( cuppa_env ):
+        """True when SCons' own SPAWN must stay in place."""
+        return bool( cuppa_env.get( 'raw_output' ) or cuppa_env.get( 'scons_output' ) )
+
+
     @classmethod
     def _set_output_format( cls, cuppa_env ):
         cuppa_env['raw_output']      = cuppa_env.get_option( 'raw_output' ) and True or False
+        cuppa_env['scons_output']    = cuppa_env.get_option( 'scons_output' ) and True or False
         cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
+        cuppa_env['minimal_output']  = cuppa_env.get_option( 'minimal_output' ) and True or False
+
+        if cuppa_env['minimal_output'] and cls._skips_spawn_processor( cuppa_env ):
+            blockers = []
+            if cuppa_env['raw_output']:
+                blockers.append( '--raw-output' )
+            if cuppa_env['scons_output']:
+                blockers.append( '--scons-output' )
+            raise SCons.Errors.StopError(
+                    "Invalid option combination (--minimal-output and {})".format(
+                            " and ".join( blockers )
+                    )
+            )
 
         if not cuppa_env['raw_output'] and not cuppa_env['standard_output']:
             cuppa_env.colouriser().enable()
@@ -914,7 +935,7 @@ class Construct(object):
                         'raw_abi': toolchain.abi( env ),
                         'env': env } )
 
-                    if not cuppa_env['raw_output']:
+                    if not self._skips_spawn_processor( cuppa_env ):
                         cuppa.output_processor.Processor.install( env )
 
                     env['toolchain']       = toolchain

@@ -74,7 +74,7 @@ env.Command(marker, tool, Action(shell_cmd))
 
 NOTE: The #14 failure mode is specifically **colourised POSIX `SPAWN`** (`posix_spawn` → `IncrementalSubProcess` argv).
 It is *not* “Windows lacks colourisation”.
-Windows colourised `SPAWN` wraps native `PSPAWN`, so shell-style strings may succeed there; `--raw-output` on POSIX also restores shell behaviour.
+Windows colourised `SPAWN` wraps native `PSPAWN`, so shell-style strings may succeed there; `--raw-output` and `--scons-output` on POSIX also restore shell behaviour.
 Prefer `working_dir` / `cuppa.utility.command.run` in portable projects.
 
 == Commands

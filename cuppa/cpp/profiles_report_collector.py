@@ -391,7 +391,9 @@ class ProfilesDiagnosticCollector(object):
     def _rebind_spawn_processor( cls, env ):
         if not hasattr( env, 'get' ):
             return
-        if hasattr( env, 'get_option' ) and env.get_option( 'raw_output' ):
+        if hasattr( env, 'get_option' ) and (
+                env.get_option( 'raw_output' ) or env.get_option( 'scons_output' )
+        ):
             return
         # Construction envs always have SPAWN/PSPAWN; unit-test dicts do not.
         if env.get( 'SPAWN' ) is None and env.get( 'PSPAWN' ) is None:
