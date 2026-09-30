@@ -11,6 +11,7 @@
 import atexit
 import logging
 import os.path
+import signal
 import sys
 import threading
 
@@ -18,6 +19,119 @@ from cuppa.colourise import as_colour, as_emphasised, as_info, as_notice, as_sub
 from cuppa.log import logger
 
 from SCons.Script import Action
+
+
+_interrupt_announced = False
+_interrupt_lock = threading.Lock()
+_terse_activity_seen = False
+_terse_activity_lock = threading.Lock()
+
+
+def reset_terse_build_activity():
+    """Start a build with no tool or Python action reported yet."""
+    global _terse_activity_seen
+    with _terse_activity_lock:
+        _terse_activity_seen = False
+
+
+def note_terse_build_activity():
+    """Remember that this build emitted at least one terse action line."""
+    global _terse_activity_seen
+    with _terse_activity_lock:
+        _terse_activity_seen = True
+
+
+def terse_build_had_activity():
+    with _terse_activity_lock:
+        return _terse_activity_seen
+
+
+def write_terse_build_completion( env ):
+    """Finish a successful terse build, including a no-op build under ``-Q``."""
+    if not _env_get( env, "terse_output" ) or _interrupt_announced:
+        return
+    outcome = "succeeded" if terse_build_had_activity() else "up to date"
+    sys.stdout.write( as_colour( "success", "[done]" ) + " build " + outcome + "\n" )
+    sys.stdout.flush()
+
+
+def reset_build_interrupted():
+    """Allow another build in this process to report Ctrl-C once."""
+    global _interrupt_announced
+    with _interrupt_lock:
+        _interrupt_announced = False
+
+
+def is_interrupt_returncode( returncode ):
+    """True when a child died from Ctrl-C (SIGINT), not from its own failure."""
+    try:
+        code = int( returncode )
+    except ( TypeError, ValueError ):
+        return False
+    interrupted = signal.SIGINT
+    return code in ( -interrupted, 128 + interrupted )
+
+
+def note_build_interrupted():
+    """Print one ``interrupted`` line. Further calls in this build do nothing."""
+    global _interrupt_announced
+    with _interrupt_lock:
+        if _interrupt_announced:
+            return
+        _interrupt_announced = True
+    stream = sys.stderr
+    while isinstance( stream, _TerseInterruptStream ):
+        stream = stream._real
+    stream.write( as_subdued( "interrupted" ) + "\n" )
+    stream.flush()
+
+
+def _is_interrupt_noise( text ):
+    """Per-target SCons lines for a Ctrl-C, and the error summary that follows."""
+    line = str( text or "" ).strip()
+    if not line:
+        return False
+    if line == "scons: Build interrupted.":
+        return True
+    if line.startswith( "scons: *** [" ):
+        errstr = line.rsplit( "] ", 1 )[-1]
+        if errstr in ( "Build interrupted.", "Error {}".format( -signal.SIGINT ), "Error {}".format( 128 + signal.SIGINT ) ):
+            return True
+    if _interrupt_announced and line in (
+            "scons: building terminated because of errors.",
+            "scons: cleaning terminated because of errors.",
+    ):
+        return True
+    return False
+
+
+class _TerseInterruptStream:
+    """Drop the per-job ``Error -2`` lines Ctrl-C produces under ``-j``."""
+
+    def __init__( self, real ):
+        self._real = real
+
+    def write( self, text ):
+        if _is_interrupt_noise( text ):
+            note_build_interrupted()
+            return
+        return self._real.write( text )
+
+    def flush( self ):
+        return self._real.flush()
+
+    def __getattr__( self, name ):
+        return getattr( self._real, name )
+
+
+def install_terse_interrupt_filter():
+    """Hide the Ctrl-C job list. One ``interrupted`` line remains."""
+    reset_build_interrupted()
+    reset_terse_build_activity()
+    if not isinstance( sys.stderr, _TerseInterruptStream ):
+        sys.stderr = _TerseInterruptStream( sys.stderr )
+    if not isinstance( sys.stdout, _TerseInterruptStream ):
+        sys.stdout = _TerseInterruptStream( sys.stdout )
 
 
 class NotifyProgress(object):
@@ -203,6 +317,8 @@ class Progress(object):
 
     def __call__( self, target, source, env ):
         NotifyProgress.call_callbacks( self._event, self._file, self._variant, self._env, target, source )
+        if self._event == "sconstruct_end":
+            write_terse_build_completion( self._env )
         return None
 
 
@@ -568,8 +684,8 @@ def _coloured_file( directory, filename ):
     if not filename:
         return ""
     if directory:
-        return as_subdued( directory + "/" ) + as_emphasised( filename )
-    return as_emphasised( filename )
+        return as_subdued( directory + "/" ) + as_emphasised( as_info( filename ) )
+    return as_emphasised( as_info( filename ) )
 
 
 def _rel_inside( abs_path, root ):
@@ -587,14 +703,33 @@ def _rel_inside( abs_path, root ):
 
 
 def _strip_artifact_folder( relative, env ):
-    """Drop the ``<sconscript>_<variant>`` directory already named on the line."""
-    flat = str( _env_get( env, "flat_build_base", "" ) or "" ).replace( "\\", "/" ).strip( "/" )
+    """Drop this variant's artefact directory. The line already names the sconscript.
+
+    Install uses one flat folder, ``<sconscript>_<variant>``, as the first
+    directory under the artefacts root. Reports use
+    ``flat_tool_variant_dir_offset`` (``gcc16_dbg_x86_64_cxx2c/test/cycle_events``)
+    nested under a prefix such as ``test/``. Either way the remainder is the
+    file. A path that is neither stays unchanged.
+    """
     relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
-    if not flat or not relative:
+    if not relative:
         return relative
-    head, _sep, tail = relative.partition( "/" )
-    if os.path.normcase( head ) == os.path.normcase( flat ):
-        return tail
+    flat = str( _env_get( env, "flat_build_base", "" ) or "" ).replace( "\\", "/" ).strip( "/" )
+    if flat:
+        head, _sep, tail = relative.partition( "/" )
+        if os.path.normcase( head ) == os.path.normcase( flat ):
+            return tail
+    offset = str( _env_get( env, "flat_tool_variant_dir_offset", "" ) or "" ).replace( "\\", "/" ).strip( "/" )
+    if not offset or offset in ( ".", "/" ):
+        return relative
+    parts = relative.split( "/" )
+    offset_parts = offset.split( "/" )
+    width = len( offset_parts )
+    folded = [ os.path.normcase( part ) for part in parts ]
+    needle = [ os.path.normcase( part ) for part in offset_parts ]
+    for index in range( 0, len( parts ) - width + 1 ):
+        if folded[ index : index + width ] == needle:
+            return "/".join( parts[ index + width : ] )
     return relative
 
 
@@ -687,7 +822,7 @@ def _paths_style( nodes ):
     return ""
 
 
-_TRANSFER_ACTIONS = ( "copy", "expand", "render" )
+_TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
 _SOURCE_ACTIONS = ( "markdown", "asciidoc" )
 
 
@@ -698,6 +833,9 @@ def _file_field( action, target, source, env ):
         directory, filename = _compile_file_parts( source, env )
         if filename:
             return _coloured_file( directory, filename )
+    # A test's targets are the logs. The program is the source.
+    if action == "test":
+        return _coloured_file( "", _node_basename( source ) or _node_basename( target ) )
     return _coloured_file( "", _node_basename( target ) )
 
 
@@ -707,6 +845,73 @@ def _status_marker( status ):
     if status == "error":
         return as_colour( "error", "[error]" )
     return as_colour( "success", "[ok]" )
+
+
+def _test_status_marker( status ):
+    """Test markers stay the same width family as ``[ok]``, without a highlight badge."""
+    if status == "fail":
+        return as_colour( "error", "[fail]" )
+    if status == "skip":
+        return as_subdued( "[skip]" )
+    if status == "xfail":
+        return as_colour( "expected_failure", "[xfail]" )
+    if status == "xpass":
+        return as_colour( "unexpected_success", "[xpass]" )
+    return as_colour( "success", "[pass]" )
+
+
+def format_terse_duration( nanos ):
+    """A short elapsed time: ``4 ms``, ``1.2 s``, or ``12 s``."""
+    try:
+        nanos = int( nanos )
+    except ( TypeError, ValueError ):
+        return ""
+    if nanos < 0:
+        return ""
+    if nanos < 1000000000:
+        return "{} ms".format( int( round( nanos / 1000000.0 ) ) )
+    seconds = nanos / 1000000000.0
+    if seconds < 10:
+        return "{:.1f} s".format( seconds )
+    return "{:.0f} s".format( seconds )
+
+
+def format_terse_result_line( status, env, action, name, duration="", detail="" ):
+    """``[status] sconscript · variant · action · duration · name — detail``."""
+    fields = []
+    script = _sconscript_label( env )
+    if script:
+        fields.append( _coloured_sconscript( script ) )
+    cell = _coloured_variant_cell( env )
+    if cell:
+        fields.append( cell )
+    fields.append( action )
+    if duration:
+        fields.append( as_subdued( duration ) )
+    tail = name or ""
+    if detail:
+        tail = ( tail + " — " + detail ).strip()
+    if tail:
+        fields.append( tail )
+    line = _test_status_marker( status )
+    if fields:
+        line += " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
+    return line
+
+
+_terse_status_emitted = threading.local()
+
+
+def note_terse_status_emitted():
+    """The action printed its own status line. Skip the generic ``[ok]``."""
+    note_terse_build_activity()
+    _terse_status_emitted.done = True
+
+
+def take_terse_status_emitted():
+    done = bool( getattr( _terse_status_emitted, "done", False ) )
+    _terse_status_emitted.done = False
+    return done
 
 
 def format_terse_line( status, command, target, source, env ):
@@ -811,6 +1016,93 @@ def flush_unconsumed_terse_command():
     _write_command( cmd )
 
 
+def _factory_args( body ):
+    """Arguments of a ``Copy("dest", "src")`` style command."""
+    args = []
+    index = 0
+    length = len( body )
+    while index < length:
+        while index < length and body[index] in " \t\r\n":
+            index += 1
+        if index >= length:
+            break
+        if body[index] == '"':
+            end = body.find( '"', index + 1 )
+            if end < 0:
+                args.append( body[index + 1:] )
+                break
+            args.append( body[index + 1:end] )
+            index = end + 1
+        else:
+            end = body.find( ",", index )
+            token = body[index: end if end >= 0 else length].strip()
+            if token:
+                args.append( token )
+            index = end if end >= 0 else length
+            continue
+        while index < length and body[index] in " \t":
+            index += 1
+        if index < length and body[index] == ",":
+            index += 1
+    return args
+
+
+def _executed_paths( command, target, source ):
+    """Nodes for an ``Execute`` action. ``Execute`` itself passes empty lists.
+
+    ``Copy("dest", "src")`` and ``Move("dest", "src")`` carry the paths in the
+    command text. Other commands keep the nodes SCons passed in.
+    """
+    text = str( command or "" ).strip()
+    name, _open, body = text.partition( "(" )
+    key = name.strip().lower()
+    if key not in ( "copy", "move" ) or not body.endswith( ")" ):
+        return target, source
+    args = _factory_args( body[:-1] )
+    dest = args[0] if args else ""
+    src = args[1] if len( args ) > 1 else ""
+    if not _node_path( _first_node( target ) ) and dest:
+        target = [ dest ]
+    if not _node_path( _first_node( source ) ) and src:
+        source = [ src ]
+    return target, source
+
+
+def _present_executed_command( command, target, source, env, failed ):
+    """Print a nested ``Execute`` action. Return whether that replaced the parent line.
+
+    ``Copy`` and ``Move`` are the work, so they become their own status line and
+    the caller's SCons description stays hidden. ``Touch`` only stamps a file
+    the caller already reports, so it is dropped. Anything else is written as
+    SCons printed it.
+    """
+    text = str( command or "" ).strip()
+    if not text:
+        return False
+    key = text.split( "(", 1 )[0].strip().lower()
+    if key == "touch":
+        return False
+    if key in ( "copy", "move" ):
+        use_target, use_source = _executed_paths( text, target, source )
+        if failed:
+            _write_command( text )
+        sys.stdout.write(
+                format_terse_line(
+                        "error" if failed else "ok",
+                        text,
+                        use_target,
+                        use_source,
+                        env,
+                )
+                + "\n"
+        )
+        sys.stdout.flush()
+        note_terse_status_emitted()
+        return True
+    _write_command( text )
+    return False
+
+
 def flush_terse_commands():
     """Reprint commands still stashed when the process exits."""
     with _pending_lock:
@@ -864,6 +1156,7 @@ def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, t
     prints the command and the processed output first, then the status line
     as the summary.
     """
+    note_terse_build_activity()
     if not returncode and not errors and not warnings:
         status = "ok"
     elif returncode or errors:
@@ -906,10 +1199,30 @@ class _TersePythonCallable( object ):
         except ( KeyboardInterrupt, SystemExit ):
             raise
         except Exception:
-            _report_python_action( target, source, env, failed=True )
+            if not take_terse_status_emitted():
+                _report_python_action( target, source, env, failed=True )
+            else:
+                take_terse_command()
+                take_terse_children()
             raise
-        _report_python_action( target, source, env, failed=bool( result ) )
+        if take_terse_status_emitted():
+            take_terse_command()
+            take_terse_children()
+        else:
+            _report_python_action( target, source, env, failed=bool( result ) )
         return result
+
+
+def _is_python_action_dump( command ):
+    """True for SCons' default ``Name([...], [...])`` description.
+
+    That text is the callable and the node lists, not the program that ran.
+    """
+    text = str( command or "" ).lstrip()
+    name, sep, _rest = text.partition( "(" )
+    if not sep or not name:
+        return False
+    return name.replace( "_", "" ).isalnum() and ( name[0].isalpha() or name[0] == "_" )
 
 
 def _report_python_action( target, source, env, failed ):
@@ -950,8 +1263,9 @@ def _report_python_action( target, source, env, failed ):
                 _write_command( child_command )
                 for line in lines:
                     _write_command( line )
-        elif command:
+        elif command and not _is_python_action_dump( command ):
             _write_command( command )
+    note_terse_build_activity()
     sys.stdout.write( status_line + "\n" )
     sys.stdout.flush()
 
@@ -1035,6 +1349,45 @@ def enable_terse_python_actions( env ):
     # reaches it. The printed ``Install file:`` line is then a ``copy`` status.
     for name in ( "Install", "InstallAs", "InstallVersionedLib" ):
         _wrap_factory( env, name, _wrap_nodes )
+    # ``env.Execute(Copy(...))`` prints through ``PRINT_CMD_LINE_FUNC`` and
+    # then returns. Nothing consumes that command, so the next print flushes
+    # it raw and knocks the caller's description out of the stash.
+    _wrap_execute( env )
+
+
+def _wrap_execute( env ):
+    current = getattr( env, "Execute", None )
+    if current is None or getattr( current, "_cuppa_terse_execute", False ):
+        return
+
+    def execute( action, *args, **kwargs ):
+        if not _env_get( env, "terse_output" ):
+            return current( action, *args, **kwargs )
+        saved = take_terse_command()
+        try:
+            result = current( action, *args, **kwargs )
+        except ( KeyboardInterrupt, SystemExit ):
+            if saved[0]:
+                stash_terse_command( *saved )
+            raise
+        except Exception:
+            take_terse_command()
+            if saved[0]:
+                stash_terse_command( *saved )
+            raise
+        nested = take_terse_command()
+        visible = _present_executed_command(
+                nested[0], nested[1], nested[2], env, failed=bool( result ),
+        )
+        if saved[0] and not visible:
+            stash_terse_command( *saved )
+        return result
+
+    execute._cuppa_terse_execute = True
+    try:
+        env.Execute = execute
+    except Exception:
+        return
 
 
 

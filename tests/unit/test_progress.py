@@ -220,6 +220,37 @@ def test_progress_uses_unwrapped_command_when_present(monkeypatch):
     assert wrapped_calls == []
 
 
+def test_sconstruct_end_confirms_a_successful_terse_build(capsys):
+    env = {"terse_output": True}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+    progress_module.note_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    assert capsys.readouterr().out == "[done] build succeeded\n"
+
+
+def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
+    env = {"terse_output": True}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    assert capsys.readouterr().out == "[done] build up to date\n"
+
+
+def test_sconstruct_end_is_silent_without_terse_output(capsys):
+    env = {}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    assert capsys.readouterr().out == ""
+
+
 def test_variant_completion_tracker_notes_started_and_finished():
     tracker = VariantCompletionTracker()
     variant = "_build/test/dbg/x86_64/c++20"

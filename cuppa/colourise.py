@@ -23,7 +23,7 @@ from contextlib import contextmanager
 # Names below are the usual ANSI / terminal names (SGR 90 "bright black", SGR 37 "white"),
 # not "dim black/white": we are not using the DIM attribute, and renaming them DIM_* would
 # invite reintroducing Style.DIM. Bright black typically renders as a dark grey.
-GREY_256 = "\x1b[38;5;244m"       # mid grey — subdued on a light background
+GREY_256 = "\x1b[38;5;236m"       # dark grey — subdued on a light background
 GREY_256_ON_DARK = "\x1b[38;5;247m"  # slightly lighter mid grey — subdued on dark glass
 BRIGHT_BLACK = "\x1b[90m"   # SGR 90 — dark ink; subdued fallback on a light background
 WHITE = "\x1b[37m"          # SGR 37 — light ink; subdued fallback on a dark background

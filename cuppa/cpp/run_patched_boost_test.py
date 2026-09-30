@@ -18,6 +18,7 @@ from SCons.Errors import BuildError
 
 import cuppa.timer
 import cuppa.test_report.cuppa_json
+from cuppa.cpp.terse_test_report import enabled as terse_tests
 import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
@@ -31,18 +32,31 @@ class Notify(object):
 
     def __init__( self, scons_env, show_test_output ):
         self._show_test_output = show_test_output
+        self._scons_env = scons_env
         self._toolchain = scons_env['toolchain']
         self.master_suite = {}
         self.master_suite['status'] = 'passed'
+        self._program = ""
+        self._current = None
+        self._finished = []
+
+
+    def bind_program( self, program ):
+        self._program = program
 
 
     def enter_suite(self, suite):
+        if terse_tests( self._scons_env ):
+            return
         sys.stdout.write(
             as_emphasised( "\nStarting Test Suite [%s]\n" % suite )
         )
 
 
     def exit_suite(self, suite):
+        if terse_tests( self._scons_env ):
+            self._finished.append( suite )
+            return
         sys.stdout.write(
             as_emphasised( "\nTest Suite Finished [%s] " % suite['name'] )
         )
@@ -153,12 +167,24 @@ class Notify(object):
 
 
     def enter_test(self, test_case):
+        self._current = test_case
+        if terse_tests( self._scons_env ):
+            return
         sys.stdout.write(
             as_emphasised( "\nRunning Test Case [%s] ...\n" % test_case['key'] )
         )
 
 
     def exit_test( self, test_case ):
+        if terse_tests( self._scons_env ):
+            from cuppa.cpp.terse_test_report import write_case
+            nanos = 0
+            times = test_case.get( "cpu_times" )
+            if times is not None:
+                nanos = getattr( times, "wall", 0 ) or 0
+            write_case( self._scons_env, self._program, test_case, nanos )
+            self._current = None
+            return
         label   = test_case['status']
         meaning = test_case['status']
 
@@ -231,6 +257,10 @@ class Notify(object):
 
 
     def display_assertion(self, line, level ):
+        if terse_tests( self._scons_env ):
+            if self._current is not None:
+                self._current.setdefault( "terse_lines", [] ).append( line )
+            return
 
         def start( level ):
             return start_colour( level )
@@ -753,6 +783,7 @@ class RunPatchedBoostTest:
         working_dir  = self._working_dir and self._working_dir or os.path.split( executable )[0]
         program_path = source[0].path
         notifier     = Notify(env, env['show_test_output'])
+        notifier.bind_program( os.path.basename( program_path ) )
 
         if cuppa.build_platform.name() == "Windows":
             executable = '"' + executable + '"'
@@ -788,6 +819,9 @@ class RunPatchedBoostTest:
                     preprocess,
                     env
             )
+            if terse_tests( env ):
+                from cuppa.cpp.terse_test_report import write_boost_rollup
+                write_boost_rollup( env, os.path.basename( program_path ), notifier._finished )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 
@@ -814,7 +848,7 @@ class RunPatchedBoostTest:
 
         except OSError as e:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
-            raise BuildError( e )
+            raise BuildError( node=source[0], errstr=str( e ) )
 
 
     def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess, env ):
@@ -826,7 +860,8 @@ class RunPatchedBoostTest:
                                                     shlex.split( test_command ),
                                                     cwd=working_dir,
                                                     scons_env=env,
-                                                    inherit_process_env=self._inherit_process_env )
+                                                    inherit_process_env=self._inherit_process_env,
+                                                    suppress_output=terse_tests( env ) )
 
         return return_code, process_stdout.tests()
 

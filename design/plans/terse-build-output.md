@@ -87,7 +87,7 @@ improvement.
 | Sconscript | Script path with a leading `./` removed. A trailing `/sconscript` is dropped (`./test/orders/sconscript` → `test/orders`). A named script keeps its stem (`widget/tests.sconscript` → `widget/tests`). Empty when the script is the project-root `sconscript`. Only the leaf is coloured (`orders` in `test/orders`); any leading path is subdued | subdued path, info leaf |
 | Variant | `toolchain_variant_arch_abi` (`gcc16_dbg_x86_64_cxx2c`). `dbg` alone is ambiguous across sconscripts. The variant name (`dbg` / `rel` / `cov`) stays plain; the rest of the cell is subdued | subdued, variant name plain |
 | Action | See the table below. Uncoloured | plain |
-| File | A `·` separates the action from the path. `compile`, `compile-*`, `markdown`, and `asciidoc`: the source in the project tree, not the variant `working/` copy. Only files that exist in the source tree — products and intermediates stay basenames. A source outside the project is `~/...` when it is under the home directory (forward slashes on Linux and Windows), otherwise absolute. Never a `../` climb. The directory is subdued and the filename is emphasised. `copy`, `expand`, `render`, and a redirected `run`: `source → dest`. The source path is subdued. The destination directory is subdued and its filename is info and bold. `<working>/` and `<final>/` mark this variant's build locations. `<artifacts>/` is only this variant's folder under the artefacts root (`_artifacts/<sconscript>_<variant>/...`); any other path there is written as itself (`_artifacts/documentation/...`). A real project path has no such prefix. Link, archive, index, and a program `run` stay the product basename, emphasised | see the cell |
+| File | A `·` separates the action from the path. `compile`, `compile-*`, `markdown`, and `asciidoc`: the source in the project tree, not the variant `working/` copy. Only files that exist in the source tree — products and intermediates stay basenames. A source outside the project is `~/...` when it is under the home directory (forward slashes on Linux and Windows), otherwise absolute. Never a `../` climb. The directory is subdued and the filename is info and bold. `copy`, `expand`, `render`, and a redirected `run`: `source → dest`. The source path is subdued. The destination directory is subdued and its filename is info and bold. `<working>/` and `<final>/` mark this variant's build locations. `<artifacts>/` is this variant's artefact location: the flat folder `_artifacts/<sconscript>_<variant>/...`, or a report path whose variant offset is `gcc16_dbg_x86_64_cxx2c/<sconscript>` even when a prefix such as `test/` sits in front. Any other path under the artefacts root is written as itself (`_artifacts/documentation/...`). A real project path has no such prefix. Link, archive, index, and a program `run` stay the product basename, emphasised | see the cell |
 
 A compile shows the source, not the object, so `database.cpp` is not confused with another sconscript's `database.o`. Link, archive, and index show the product name, because the inputs already had their own lines. A `compile-*` label (for example `compile-scss`) shows the source the same way. `markdown` and `asciidoc` do too. `copy`, `expand`, `render`, and a redirected `run` show `source → dest`.
 
@@ -151,14 +151,24 @@ SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionActi
 | Result | What is printed |
 |--------|-----------------|
 | Success | `[ok]` line only. The SCons description stays hidden |
-| Failure or exception | Whatever the action already wrote, then its description, then the `[error]` line |
+| Failure or exception | Whatever the action already wrote, then its description, then the `[error]` line. SCons' default `Name([...])` dump is not that description. A test names the program, not its log |
 | Clean child tool | Hidden. The action notes the command and its lines; a clean note is dropped |
 | Child warning or error | The child command and its lines, then `[warn]` or `[error]`. A line containing `: ERROR:` is an error even when the tool exits 0. The action's return code is unchanged |
 | `Install file:` / `Install directory:` | `copy`, and hidden on success. `env.Install` is wrapped so the sentence is not flushed later |
+| `Execute(Copy(...))` / `Execute(Move(...))` | Its own `copy` or `move` line, `source → dest`. The caller's SCons description is not also printed |
+| `Execute(Touch(...))` | Hidden. The caller keeps its own status line |
 | `Progress(...)` | Still hidden. The wrapper does not touch those actions |
 | Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
+| Ctrl-C | One subdued `interrupted` line. The per-job `scons: *** [file] Error -2` list is dropped, as is `building terminated because of errors.` |
+| Successful build | A final green `[done] build succeeded`; if no terse action ran, `[done] build up to date`. No Phase 2 counts or whole-build timer yet |
 
 Text the action prints itself still appears as it happens. Only a child handed to `note_terse_child` is held back. `asciidoctor` does that. An unlabelled `asciidoctor` command is spelled `asciidoc`.
+
+### Tests
+
+A test binary keeps one roll-up line: `[pass|fail|skip|xfail|xpass] sconscript · variant · test · duration · binary — 11/12 cases, 40/52 assertions, 1 failed`. The duration is subdued (`4 ms`, `1.2 s`, `12 s`). The binary name is in the status colour, not bold, so a test is visible among compile and copy lines. Passing fractions stay plain. Only non-zero extras follow, in the status colour (`1 failed`, `1 aborted`, `1 skipped`, `1 xfailed`). No assertion total is a notice: `no assertions`.
+
+A binary with several cases prints a failing case before that roll-up: assertion text, then `[fail] … · test-case · duration · binary/case — 1/3 assertions`. Only the case leaf is coloured. Passing cases stay hidden unless `--show-test-cases` is set. That flag requires `--terse-output`. A Cuppa test that is one executable is only the roll-up, and it says `no assertions` rather than `1/1`. `run` and `benchmark` stay `[ok]`.
 
 `None`, `0`, and any other falsy return are success, matching SCons. A truthy return or an exception is failure. `KeyboardInterrupt` and `SystemExit` propagate with no status line.
 

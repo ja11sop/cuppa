@@ -18,6 +18,7 @@ from SCons.Script import Flatten
 import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
+from cuppa.cpp.terse_test_report import enabled as terse_tests
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
 from cuppa.log import logger
@@ -37,11 +38,12 @@ class TestSuite(object):
         self._name = name
         self._scons_env = scons_env
 
-        sys.stdout.write('\n')
-        sys.stdout.write(
-            as_emphasised( "Starting Test Suite [{}]".format( name ) )
-        )
-        sys.stdout.write('\n')
+        if not terse_tests( scons_env ):
+            sys.stdout.write('\n')
+            sys.stdout.write(
+                as_emphasised( "Starting Test Suite [{}]".format( name ) )
+            )
+            sys.stdout.write('\n')
 
         self._suite = {}
         self._suite['total_tests']       = 0
@@ -65,9 +67,10 @@ class TestSuite(object):
 
 
     def enter_test( self, test, expected='passed' ) :
-        sys.stdout.write(
-            as_emphasised( "\nTest [%s]..." % test ) + '\n'
-        )
+        if not terse_tests( self._scons_env ):
+            sys.stdout.write(
+                as_emphasised( "\nTest [%s]..." % test ) + '\n'
+            )
         test_case = {}
         test_case['name']     = test
         test_case['expected'] = expected
@@ -101,7 +104,17 @@ class TestSuite(object):
         test_case['wall_cpu_percent'] = cuppa.timer.as_wall_cpu_percent_string( cpu_times )
 
 
-        self._write_test_case( test_case )
+        if terse_tests( self._scons_env ):
+            from cuppa.cpp.terse_test_report import write_process_case
+            write_process_case(
+                    self._scons_env,
+                    os.path.basename( test_case['name'] ),
+                    status,
+                    test_case.get( 'expected' ),
+                    cpu_times.wall,
+            )
+        else:
+            self._write_test_case( test_case )
 
         self._suite['total_tests'] += 1
         if status == 'passed':
@@ -117,7 +130,8 @@ class TestSuite(object):
 
         self._suite['total_cpu_times'] += test_case['cpu_times']
 
-        sys.stdout.write('\n\n')
+        if not terse_tests( self._scons_env ):
+            sys.stdout.write('\n\n')
 
 
     def _write_test_case( self, test_case ):
@@ -140,6 +154,8 @@ class TestSuite(object):
 
 
     def exit_suite( self ):
+        if terse_tests( self._scons_env ):
+            return
 
         suite = self._suite
 
@@ -427,7 +443,7 @@ class RunProcessTest(object):
         except OSError as e:
             logger.error( "Execution of [{}] failed with error: {}".format( as_notice(test_command), as_notice(str(e)) ) )
             test_suite.exit_test( test_case, 'aborted' )
-            raise BuildError( e )
+            raise BuildError( node=source[0], errstr=str( e ) )
 
 
     def _write_success_file( self, file_name ):
@@ -451,7 +467,8 @@ class RunProcessTest(object):
                                                     shlex.split( test_command ),
                                                     cwd=working_dir,
                                                     scons_env=env,
-                                                    inherit_process_env=self._inherit_process_env)
+                                                    inherit_process_env=self._inherit_process_env,
+                                                    suppress_output=terse_tests( env ))
         return return_code
 
 

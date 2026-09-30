@@ -208,6 +208,32 @@ def test_copy_uses_virtual_roots_and_an_arrow():
     )
 
 
+def test_a_nested_report_artifact_uses_the_variant_token():
+    env = _layout_env()
+    variant = env.pop( "_variant" )
+    env["flat_tool_variant_dir_offset"] = "gcc16_dbg_x86_64_cxx2c/test/cycle_events"
+    report = progress.format_terse_line(
+            "ok",
+            'Copy("dest", "src")',
+            [ "/proj/_artifacts/test/gcc16_dbg_x86_64_cxx2c/test/cycle_events/cycle_ended.report.html" ],
+            [ variant + "/final/cycle_ended.report.html" ],
+            env,
+    )
+    assert report == (
+            "[ok] reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
+            "<final>/cycle_ended.report.html → <artifacts>/cycle_ended.report.html"
+    )
+    elsewhere = progress.format_terse_line(
+            "ok",
+            'Copy("dest", "src")',
+            [ "/proj/_artifacts/documentation/platform_guide/platform_guide.html" ],
+            [ variant + "/final/platform_guide.html" ],
+            env,
+    )
+    assert "_artifacts/documentation/platform_guide/platform_guide.html" in elsewhere
+    assert "<artifacts>" not in elsewhere.split( "→", 1 )[1]
+
+
 def test_copy_colours_the_destination_leaf_and_mutes_the_source( monkeypatch ):
     monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
     monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
@@ -401,6 +427,24 @@ def test_install_methods_wrap_the_action_on_the_returned_node():
     progress.enable_terse_python_actions( env )
     assert env.Install( "dest.html", "src.html" ) == [ node ]
     assert isinstance( action.execfunction, progress._TersePythonCallable )
+
+
+def test_a_failed_test_names_the_program_and_hides_the_action_dump( capsys ):
+    log = _LabelledNode( "test", "trading_limit_consumed.stdout.log" )
+    env = _terse_env()
+    progress.stash_terse_command(
+            'RunBoostTest(["trading_limit_consumed.stdout.log"], ["trading_limit_consumed"])',
+            [ log ],
+            [ "trading_limit_consumed" ],
+            env,
+    )
+    progress._report_python_action( [ log ], [ "trading_limit_consumed" ], env, failed=True )
+    out = capsys.readouterr().out
+    assert "RunBoostTest" not in out
+    assert "stdout.log" not in out
+    assert out.rstrip().endswith(
+            "[error] test/orders · gcc16_dbg_x86_64_cxx2c · test · trading_limit_consumed"
+    )
 
 
 def test_python_action_failure_prints_the_description_then_the_summary( capsys ):
@@ -623,7 +667,7 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
     )
     assert line == (
             "[ok] <s>test/</s><i>orders</i> <s>·</s> <s>gcc16_</s>dbg<s>_x86_64_cxx2c</s> "
-            "<s>·</s> compile <s>·</s> <s>test/orders/src/</s><e>hello.cpp</e>"
+            "<s>·</s> compile <s>·</s> <s>test/orders/src/</s><e><i>hello.cpp</i></e>"
     )
 
     env = _variant_env()
@@ -637,8 +681,184 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
     assert leaf_only.startswith( "[ok] <i>order_matcher</i> " )
 
 
+def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
+    progress.reset_build_interrupted()
+    stream = progress._TerseInterruptStream( sys.stderr )
+    stream.write( "scons: *** [_build/test/market_data/working/time.o] Error -2\n" )
+    stream.write( "scons: *** [_build/test/market_data/working/protocol.o] Error -2\n" )
+    stream.write( "scons: Build interrupted.\n" )
+    stream.write( "scons: building terminated because of errors.\n" )
+    stream.write( "scons: *** [_build/test/market_data/working/time.o] Error 1\n" )
+    err = capsys.readouterr().err
+    assert err.count( "interrupted" ) == 1
+    assert "Error -2" not in err
+    assert "Build interrupted" not in err
+    assert "building terminated because of errors" not in err
+    assert "Error 1" in err
+
+    spawned = _spawned( True )
+    progress.stash_terse_command( "g++ -c time.cpp", [ "time.o" ], [ "time.cpp" ], _variant_env() )
+    spawned.finish( -2 )
+    again = capsys.readouterr()
+    assert again.out == ""
+    assert "interrupted" not in again.err
+    assert "[error]" not in again.err
+
+
 def test_spawn_without_terse_returns_lines_for_immediate_printing(capsys):
     spawned = _spawned(False)
     assert spawned("hello from the tool") == "hello from the tool"
     spawned.finish(0)
     assert capsys.readouterr().out == ""
+
+
+def test_a_test_line_puts_the_duration_between_the_action_and_the_name():
+    line = progress.format_terse_result_line(
+            "pass",
+            _variant_env(),
+            "test",
+            "buy_sell_ladder",
+            duration="207 ms",
+            detail="11/12, 1 failed",
+    )
+    assert line == (
+            "[pass] test/orders · gcc16_dbg_x86_64_cxx2c · test · 207 ms · "
+            "buy_sell_ladder — 11/12, 1 failed"
+    )
+    assert progress.format_terse_duration( 4_000_000 ) == "4 ms"
+    assert progress.format_terse_duration( 1_200_000_000 ) == "1.2 s"
+    assert progress.format_terse_duration( 12_000_000_000 ) == "12 s"
+
+
+def test_failing_cases_are_shown_and_passing_cases_wait_for_the_flag( capsys ):
+    from cuppa.cpp.terse_test_report import show_case, write_case, rollup_detail
+
+    env = _variant_env()
+    env["terse_output"] = True
+    assert show_case( "failed", env )
+    assert not show_case( "passed", env )
+    env["show_test_cases"] = True
+    assert show_case( "passed", env )
+
+    env["show_test_cases"] = False
+    write_case(
+            env,
+            "buy_sell_ladder",
+            {
+                "name": "rejects_a_cross",
+                "status": "failed",
+                "passed": 1,
+                "total": 3,
+                "terse_lines": [ "check failed" ],
+            },
+            18_000_000,
+    )
+    out = capsys.readouterr().out
+    assert out == (
+            "check failed\n"
+            "[fail] test/orders · gcc16_dbg_x86_64_cxx2c · test-case · 18 ms · "
+            "buy_sell_ladder/rejects_a_cross — 1/3 assertions\n"
+    )
+    assert rollup_detail( 11, 1, 1, 0, 1, 12, assertions=( 40, 52 ) ) == (
+            "11/12 cases, 40/52 assertions, 1 failed, 1 skipped, 1 xfailed"
+    )
+    assert rollup_detail( 0, 0, 0, 0, 0, 0, assertions=( 0, 0 ), cases=False ) == "no assertions"
+
+
+class _ExecuteEnv( dict ):
+    """Stand-in that records an ``Execute`` the way SCons prints it."""
+
+    def Execute( self, action ):
+        progress.terse_print_cmd_line( action, [], [], self )
+        return 0
+
+
+def test_an_executed_copy_is_a_transfer_line_and_hides_the_caller( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    variant = env.pop( "_variant" )
+    caller = _ExecuteEnv( env )
+    progress.enable_terse_python_actions( caller )
+    dest = "/proj/_artifacts/reference_guide_gcc16_dbg_x86_64_cxx2c/protocol.report.html"
+    src = variant + "/final/protocol.report.html"
+    progress.stash_terse_command(
+            'CollateReportIndexAction(["protocol.report.html"], ["protocol.report.html"])',
+            [ dest ],
+            [ src ],
+            caller,
+    )
+    caller.Execute( 'Copy("{}", "{}")'.format( dest, src ) )
+    assert capsys.readouterr().out == (
+            "[ok] reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
+            "<final>/protocol.report.html → <artifacts>/protocol.report.html\n"
+    )
+    assert progress.take_terse_status_emitted()
+    assert progress.take_terse_command()[0] is None
+
+
+def test_an_executed_touch_stays_hidden_behind_the_caller( capsys ):
+    env = _ExecuteEnv( terse_output=True )
+    progress.enable_terse_python_actions( env )
+    progress.stash_terse_command( "package archive", [ "pkg.tgz" ], [], env )
+    env.Execute( 'Touch("pkg.tgz")' )
+    assert capsys.readouterr().out == ""
+    assert not progress.take_terse_status_emitted()
+    assert progress.take_terse_command()[0] == "package archive"
+
+
+def test_executed_copies_replace_the_python_action_line( capsys ):
+    dest = "/proj/_artifacts/reference_guide_gcc16_dbg_x86_64_cxx2c/protocol.report.html"
+    src_root = "/proj/_build/reference_guide/gcc16/dbg/x86_64/cxx2c/final"
+
+    def _action( target, source, env ):
+        env.Execute( 'Copy("{}/protocol.report.html", "{}/protocol.report.html")'.format(
+                os.path.dirname( dest ), src_root,
+        ) )
+        env.Execute( 'Copy("{}/protocol.report-summary.json", "{}/protocol.report-summary.json")'.format(
+                os.path.dirname( dest ), src_root,
+        ) )
+        return None
+
+    env = _layout_env()
+    env["terse_output"] = True
+    env.pop( "_variant" )
+    caller = _ExecuteEnv( env )
+    progress.enable_terse_python_actions( caller )
+    progress.stash_terse_command( "CollateReportIndexAction([], [])", [ dest ], [], caller )
+    wrapped = progress._TersePythonCallable( _action )
+    assert wrapped( target=[ dest ], source=[], env=caller ) is None
+    out = capsys.readouterr().out
+    assert "CollateReportIndexAction" not in out
+    assert out.count( "[ok] " ) == 2
+    assert "protocol.report.html" in out
+    assert "protocol.report-summary.json" in out
+    assert " · run · " not in out
+
+
+def test_the_case_leaf_is_coloured_and_the_counts_stay_plain( monkeypatch ):
+    from cuppa.cpp import terse_test_report
+
+    monkeypatch.setattr( terse_test_report, "as_colour", lambda meaning, text: "<{}>{}</>".format( meaning, text ) )
+    monkeypatch.setattr( terse_test_report, "as_notice", lambda text: "<notice>" + text + "</notice>" )
+    monkeypatch.setattr( terse_test_report, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    assert terse_test_report.colour_test_name( "pass", "protocol/test_endpoint", case=True ) == (
+            "protocol/<success>test_endpoint</>"
+    )
+    assert terse_test_report.colour_test_name( "fail", "protocol" ) == "<error>protocol</>"
+    assert "cases" not in terse_test_report.assertion_clause( 6, 6 )
+    assert terse_test_report.assertion_clause( 6, 6 ) == "6/6 assertions"
+    assert terse_test_report.assertion_clause( 0, 0 ) == "<notice>no assertions</notice>"
+    assert "1 failed" in terse_test_report.rollup_detail( 11, 1, 1, 0, 0, 12, assertions=( 40, 52 ) )
+
+
+def test_a_reported_test_line_replaces_the_generic_status( capsys ):
+    def _action( target, source, env ):
+        progress.note_terse_status_emitted()
+        sys.stdout.write( "[pass] already reported\n" )
+        return None
+
+    env = _terse_env()
+    progress.stash_terse_command( "running buy_sell_ladder", [], [], env )
+    wrapped = progress._TersePythonCallable( _action )
+    assert wrapped( target=[], source=[], env=env ) is None
+    assert capsys.readouterr().out == "[pass] already reported\n"

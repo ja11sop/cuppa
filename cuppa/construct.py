@@ -311,9 +311,17 @@ class Construct(object):
                 cuppa_env.get_option( 'terse_output_notify_progress' ) and True or False
         )
 
+        cuppa_env['show_test_cases'] = (
+                cuppa_env.get_option( 'show_test_cases' ) and True or False
+        )
+
         if cuppa_env['terse_output_notify_progress'] and not cuppa_env['terse_output']:
             raise SCons.Errors.StopError(
                     "--terse-output-notify-progress requires --terse-output"
+            )
+        if cuppa_env['show_test_cases'] and not cuppa_env['terse_output']:
+            raise SCons.Errors.StopError(
+                    "--show-test-cases requires --terse-output"
             )
 
         processor_flags = []
@@ -963,6 +971,10 @@ class Construct(object):
                                     'terse_output_notify_progress' in cuppa_env
                                     and cuppa_env['terse_output_notify_progress']
                             )
+                            env['show_test_cases'] = bool(
+                                    'show_test_cases' in cuppa_env
+                                    and cuppa_env['show_test_cases']
+                            )
 
                     env['toolchain']       = toolchain
                     env['variant']         = variant
@@ -1041,6 +1053,8 @@ class Construct(object):
 
         cuppa_env['empty_env'] = cuppa_env.create_env()
         if cuppa_env['terse_output']:
+            cuppa.progress.install_terse_interrupt_filter()
+            cuppa_env['empty_env']['terse_output'] = True
             cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
             cuppa_env['empty_env']['terse_output_notify_progress'] = bool(
                     cuppa_env['terse_output_notify_progress']

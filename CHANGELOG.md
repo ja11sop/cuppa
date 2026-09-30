@@ -17,10 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the command and its output, then that line as the summary. Python actions
   (copy, SCSS, CMake, run, and the other labelled methods) get the same line.
   A clean ``Install file:`` is ``copy``, shown as ``source → dest`` with
-  ``<working>``, ``<final>``, or ``<artifacts>`` (only that variant's artefact
-  folder). A clean tool such as ``asciidoctor``
+  ``<working>``, ``<final>``, or ``<artifacts>`` (that variant's flat folder, or
+  a report path that contains the variant and sconscript). ``Execute(Copy(...))`` inside another action is that same line, and
+  the caller's own description stays hidden. A nested ``Touch`` stays hidden. A clean tool such as ``asciidoctor``
   stays hidden; a warning or error from that tool is printed before the
-  summary. Without ``--terse-output`` they are left alone. Hides SCons
+  summary. A passing test is one ``[pass]`` line. The test name is in
+  the status colour. Counts are ``11/12 cases, 40/52 assertions``, and a run
+  with no assertion total says ``no assertions``. A failure prints each
+  failing ``test-case``, then the binary's ``[fail]`` roll-up.
+  ``--show-test-cases`` also prints the cases that passed. Without
+  ``--terse-output`` they are left alone. Ctrl-C prints one ``interrupted``
+  line instead of a per-target ``Error -2`` list. A successful build ends
+  with ``[done] build succeeded``, or ``[done] build up to date`` when no
+  terse action ran. Hides SCons
   ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
   ``--raw-output`` or ``--scons-output``.
 - ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print

@@ -25,7 +25,13 @@ from cuppa.utility.env import build_subprocess_env
 from cuppa.cpp.cxx_profiles_report import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
-from cuppa.progress import NotifyProgress, render_terse_spawn, take_terse_command
+from cuppa.progress import (
+        NotifyProgress,
+        is_interrupt_returncode,
+        note_build_interrupted,
+        render_terse_spawn,
+        take_terse_command,
+)
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
@@ -362,6 +368,10 @@ class SpawnedProcessor(object):
 
     def finish( self, returncode ):
         """Print the spawn transcript. Terse success is one line; the command waits."""
+        if self._terse and is_interrupt_returncode( returncode ):
+            take_terse_command()
+            note_build_interrupted()
+            return
         if not self._terse:
             summary = self.summary( returncode )
             if summary:

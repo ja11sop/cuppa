@@ -75,6 +75,10 @@ def spell_tool_command( command, target ):
     # SCons prints these instead of a tool command. They are copies.
     if text.startswith( "install file:" ) or text.startswith( "install directory:" ):
         return "copy"
+    if text.startswith( "copy(" ):
+        return "copy"
+    if text.startswith( "move(" ):
+        return "move"
     tool = tool_basename( command )
     if not tool:
         return ""

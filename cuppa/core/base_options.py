@@ -68,6 +68,11 @@ def add_base_options():
                                  "sconscript and variant structure stays visible. Requires "
                                  "--terse-output. -Q still omits those lines" )
 
+    add_option( '--show-test-cases', dest='show_test_cases', action='store_true',
+                            help="With --terse-output, print a line for every test case, "
+                                 "including those that passed. Requires --terse-output. "
+                                 "Failing cases are shown either way" )
+
     add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
                             help="Do not show repeated errors or warnings" )
 
