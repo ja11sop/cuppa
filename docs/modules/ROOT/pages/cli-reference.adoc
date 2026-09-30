@@ -148,7 +148,8 @@ xref:cli/building.adoc[Building].
 Output comes from three layers: SCons reports graph progress and build actions, Cuppa reports
 selection and structured status, and the invoked compiler, test, or process writes native output.
 The controls are deliberately separate. For example, `-Q` quiets SCons without hiding compiler
-commands, while `--minimal-output` filters Cuppa's processed diagnostics and
+commands, while `--minimal-output` filters Cuppa's processed diagnostics,
+`--terse-output` folds a clean tool run to one line, and
 `--show-test-output` exposes test-process streams.
 
 Use `--verbosity=exception` when an exception occurs while reading the project; use

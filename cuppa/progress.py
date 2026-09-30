@@ -8,11 +8,13 @@
 #   Progress
 #-------------------------------------------------------------------------------
 
+import atexit
 import logging
 import os.path
+import sys
 import threading
 
-from cuppa.colourise import as_notice, as_info
+from cuppa.colourise import as_colour, as_emphasised, as_info, as_notice, as_subdued
 from cuppa.log import logger
 
 from SCons.Script import Action
@@ -225,6 +227,155 @@ def progress_action( label, event, sconscript, variant, env ):
         description = "Progress( {}{} )".format( stage, name )
 
     return Action( progress, description )
+
+
+# --terse-output. Flip this to compare the two transcripts. Not a CLI flag.
+# False keeps SCons Progress(...) lines: the sconscript and variant structure
+# is useful, though parallel builds interleave it. True hides those lines.
+# -Q already omits them, because progress_action only builds the description
+# when the logger is at info.
+TERSE_SUPPRESS_PROGRESS_LINES = False
+
+_terse_command = threading.local()
+_pending_lock = threading.Lock()
+# Commands stashed by a job thread and not yet consumed by a spawn. A Python
+# action prints before it runs and never spawns, so the next print on that
+# thread (or process exit) writes the line back out.
+_pending_commands = {}
+
+
+def terse_counts_prefix():
+    """Leading counts segment reserved for Phase 2. Empty until then."""
+    return ""
+
+
+def _is_progress_command( cmd ):
+    return bool( cmd ) and cmd.lstrip().startswith( "Progress(" )
+
+
+def _variant_label( env ):
+    if not env:
+        return ""
+    variant = env.get( "variant" ) if hasattr( env, "get" ) else None
+    if variant is None:
+        return ""
+    name = variant.name() if hasattr( variant, "name" ) else variant
+    return str( name )
+
+
+def _target_label( target ):
+    if not target:
+        return ""
+    if not isinstance( target, ( list, tuple ) ):
+        target = [ target ]
+    text = str( target[0] )
+    return os.path.basename( text ) or text
+
+
+def format_terse_success( target, env ):
+    """One success line. The counts prefix is empty until Phase 2."""
+    parts = []
+    prefix = terse_counts_prefix()
+    if prefix:
+        parts.append( prefix )
+    parts.append( as_colour( "success", "[ok]" ) )
+    variant = _variant_label( env )
+    if variant:
+        parts.append( as_subdued( variant ) )
+    name = _target_label( target )
+    if name:
+        parts.append( as_emphasised( name ) )
+    return " ".join( parts )
+
+
+def stash_terse_command( cmd, target, source, env ):
+    _terse_command.cmd = cmd
+    _terse_command.target = target
+    _terse_command.source = source
+    _terse_command.env = env
+    with _pending_lock:
+        _pending_commands[ threading.get_ident() ] = ( cmd, target, source, env )
+
+
+def take_terse_command():
+    """Return and clear the command stashed on this job thread."""
+    cmd = getattr( _terse_command, "cmd", None )
+    target = getattr( _terse_command, "target", None )
+    source = getattr( _terse_command, "source", None )
+    env = getattr( _terse_command, "env", None )
+    _terse_command.cmd = None
+    _terse_command.target = None
+    _terse_command.source = None
+    _terse_command.env = None
+    with _pending_lock:
+        _pending_commands.pop( threading.get_ident(), None )
+    return cmd, target, source, env
+
+
+def _write_command( cmd ):
+    if cmd:
+        sys.stdout.write( cmd + "\n" )
+
+
+def flush_unconsumed_terse_command():
+    """Reprint a command whose action did not spawn on this thread."""
+    cmd, _target, _source, _env = take_terse_command()
+    _write_command( cmd )
+
+
+def flush_terse_commands():
+    """Reprint commands still stashed when the process exits."""
+    with _pending_lock:
+        leftover = list( _pending_commands.values() )
+        _pending_commands.clear()
+    for cmd, _target, _source, _env in leftover:
+        _write_command( cmd )
+
+
+def terse_print_cmd_line( cmd, target, source, env ):
+    """SCons ``PRINT_CMD_LINE_FUNC`` for ``--terse-output``.
+
+    Progress lines are printed or dropped here. Tool commands are stashed
+    and printed later, only when that run warns or fails. Show and execute
+    run on the same SCons job thread, so a per-thread stash pairs them
+    under ``-j``. A command that never reaches a spawn is written back on
+    the next print, or at process exit.
+    """
+    flush_unconsumed_terse_command()
+    if _is_progress_command( cmd ):
+        if not TERSE_SUPPRESS_PROGRESS_LINES:
+            sys.stdout.write( cmd + "\n" )
+        return
+    stash_terse_command( cmd, target, source, env )
+
+
+atexit.register( flush_terse_commands )
+
+
+def _chunk_lines( chunk ):
+    if not chunk:
+        return []
+    text = chunk[:-1] if chunk.endswith( "\n" ) else chunk
+    if not text:
+        return []
+    return text.split( "\n" )
+
+
+def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, target, env, summary ):
+    """Lines to print after a terse tool run.
+
+    A clean exit with no warnings is one success line. Anything else reprints
+    the command, then the processed output, then the summary.
+    """
+    if not returncode and not errors and not warnings:
+        return [ format_terse_success( target, env ) ]
+    lines = []
+    if command:
+        lines.append( command )
+    for chunk in buffered_lines or []:
+        lines.extend( _chunk_lines( chunk ) )
+    lines.extend( _chunk_lines( summary ) )
+    return lines
 
 
 

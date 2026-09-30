@@ -25,7 +25,7 @@ from cuppa.utility.env import build_subprocess_env
 from cuppa.cpp.cxx_profiles_report import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
-from cuppa.progress import NotifyProgress
+from cuppa.progress import NotifyProgress, render_terse_spawn, take_terse_command
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
@@ -275,10 +275,7 @@ class Processor:
             suppress_output=True,
         )
 
-        summary = processor.summary( returncode )
-
-        if summary:
-            print( summary )
+        processor.finish( returncode )
 
         return returncode
 
@@ -319,10 +316,7 @@ class Processor:
 
         returncode = pspawn.returncode()
 
-        summary = processor.summary( returncode )
-
-        if summary:
-            print( summary )
+        processor.finish( returncode )
 
         return returncode
 
@@ -352,12 +346,40 @@ class SpawnedProcessor(object):
                 scons_env['minimal_output'],
                 scons_env['ignore_duplicates'],
                 self._profiles_scope )
+        self._terse = bool( scons_env.get( 'terse_output' ) )
+        self._buffered = []
 
     def __call__( self, line ):
-        return self._processor( line )
+        rendered = self._processor( line )
+        if self._terse:
+            if rendered:
+                self._buffered.append( rendered )
+            return None
+        return rendered
 
     def summary( self, returncode ):
         return self._processor.summary( returncode )
+
+    def finish( self, returncode ):
+        """Print the spawn transcript. Terse success is one line; the command waits."""
+        if not self._terse:
+            summary = self.summary( returncode )
+            if summary:
+                print( summary )
+            return
+
+        command, target, _source, env = take_terse_command()
+        for line in render_terse_spawn(
+                returncode,
+                self._processor.errors,
+                self._processor.warnings,
+                self._buffered,
+                command,
+                target,
+                env,
+                self.summary( returncode ),
+        ):
+            print( line )
 
 
 

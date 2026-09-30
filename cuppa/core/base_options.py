@@ -46,7 +46,7 @@ def add_base_options():
                             help="Do not install Cuppa's spawn processor, so SCons launches "
                                  "child processes itself. Cuppa colour on logs and reports stays. "
                                  "Progress nodes and the cuppa token mask still apply. "
-                                 "Do not combine with --minimal-output" )
+                                 "Do not combine with --minimal-output or --terse-output" )
 
     add_option( '--standard-output', dest='standard_output', action='store_true',
                             help="Perform standard output processing but not colourisation of output" )
@@ -54,6 +54,12 @@ def add_base_options():
     add_option( '--minimal-output', dest='minimal_output', action='store_true',
                             help="Show only errors and warnings in the output. Requires Cuppa's "
                                  "spawn processor; refused with --raw-output or --scons-output" )
+
+    add_option( '--terse-output', dest='terse_output', action='store_true',
+                            help="On a clean tool run, print one success line and hide the command. "
+                                 "On a warning or failure, print the command and the processed output. "
+                                 "Does not imply --minimal-output. Refused with --raw-output or "
+                                 "--scons-output" )
 
     add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
                             help="Do not show repeated errors or warnings" )

@@ -234,6 +234,7 @@ class Construct(object):
                 'scons_output',
                 'standard_output',
                 'minimal_output',
+                'terse_output',
                 'offline',
                 'ignore_duplicates',
                 'working_dir',
@@ -304,16 +305,23 @@ class Construct(object):
         cuppa_env['scons_output']    = cuppa_env.get_option( 'scons_output' ) and True or False
         cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
         cuppa_env['minimal_output']  = cuppa_env.get_option( 'minimal_output' ) and True or False
+        cuppa_env['terse_output']    = cuppa_env.get_option( 'terse_output' ) and True or False
 
-        if cuppa_env['minimal_output'] and cls._skips_spawn_processor( cuppa_env ):
+        processor_flags = []
+        if cuppa_env['minimal_output']:
+            processor_flags.append( '--minimal-output' )
+        if cuppa_env['terse_output']:
+            processor_flags.append( '--terse-output' )
+        if processor_flags and cls._skips_spawn_processor( cuppa_env ):
             blockers = []
             if cuppa_env['raw_output']:
                 blockers.append( '--raw-output' )
             if cuppa_env['scons_output']:
                 blockers.append( '--scons-output' )
             raise SCons.Errors.StopError(
-                    "Invalid option combination (--minimal-output and {})".format(
-                            " and ".join( blockers )
+                    "Invalid option combination ({} and {})".format(
+                            " and ".join( processor_flags ),
+                            " and ".join( blockers ),
                     )
             )
 
@@ -441,6 +449,7 @@ class Construct(object):
         help = cuppa_env.get_option( 'help' ) and True or False
 
         cuppa_env['minimal_output']       = cuppa_env.get_option( 'minimal_output' )
+        cuppa_env['terse_output']         = cuppa_env.get_option( 'terse_output' )
         cuppa_env['ignore_duplicates']    = cuppa_env.get_option( 'ignore_duplicates' )
 
         cuppa_env['working_dir']          = os.getcwd()
@@ -937,6 +946,9 @@ class Construct(object):
 
                     if not self._skips_spawn_processor( cuppa_env ):
                         cuppa.output_processor.Processor.install( env )
+                        if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
+                            env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
+                            env['terse_output'] = True
 
                     env['toolchain']       = toolchain
                     env['variant']         = variant

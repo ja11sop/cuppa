@@ -1,8 +1,8 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-09-29
+- **Updated:** 2026-09-30
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Mode note (plan vs agent)
@@ -72,7 +72,7 @@ improvement.
 | Progress node succeeds (child actions all ok) | Single line: optional `{counts}` prefix + `[ok] variant / target` (exact format TBD in PR) |
 | Progress node fails | Print command/description + failure output (existing processor path) |
 | Warning in tool output | Print command + warning lines (do not hide behind ok line) |
-| Sconstruct / sconscript begin/end | One line each (optional suppress duplicate variant banners) |
+| Sconstruct / sconscript begin/end | One line each, via the existing `Progress(...)` nodes, unless the code switch below hides them |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
 **Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
@@ -85,16 +85,24 @@ diagnostic filtering on failures only).
 |------|----------------|
 | CLI | `cuppa/core/base_options.py` — `--terse-output` |
 | Env | `construct.py` — `cuppa_env['terse_output']` |
-| Progress | `cuppa/progress.py` — **`ProgressReporter`** facade + `NotifyProgress.call_callbacks` |
-| Spawn | `output_processor.py` — defer printing until summary when terse + success |
-| Tests | Unit: mock progress events; integration: line-count ceiling on minimal example |
+| Progress | `cuppa/progress.py` — `PRINT_CMD_LINE_FUNC` plus the code switch below |
+| Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
+| Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
-**Phase 1 hook for Phase 2:** introduce a small reporter API (name TBD in PR) that Phase 1 calls
-from existing events only (`sconstruct_begin`, `begin`, `started`, `finished`, spawn success).
-Phase 2 adds denominators and `action_done` without rewriting terse formatting twice.
+**Phase 1 reporter** is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
+`format_terse_success`, `render_terse_spawn`, and `terse_print_cmd_line`. Phase 2 fills
+`terse_counts_prefix()` (empty in Phase 1) and does not rewrite the success line. Do not key
+human text off the `Progress(...)` description.
 
-Open design choice for PR: suppress SCons's default `Progress( … )` line via quieter action
-descriptions vs custom reporter registered on `NotifyProgress.call_callbacks`.
+### Progress lines (code switch)
+
+`TERSE_SUPPRESS_PROGRESS_LINES` in `cuppa/progress.py` defaults to `False`. `--terse-output`
+keeps SCons `Progress(...)` lines so the sconscript and variant structure stays visible. Set it
+to `True` to hide those lines and compare the two transcripts. It is not a command-line flag.
+
+`-Q` already omits the lines: `progress_action` only builds the description when the logger is
+at info. The switch matters on a normal info-level build. Parallel (`-j`) interleaves the
+structure, which is why the default is not settled.
 
 ---
 

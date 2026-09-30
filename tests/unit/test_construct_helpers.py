@@ -361,6 +361,23 @@ def test_minimal_output_refuses_scons_or_raw_spawn_skip():
         assert "--minimal-output" in str(caught.value)
 
 
+def test_terse_output_refuses_scons_or_raw_spawn_skip():
+    for flags in ( {"terse_output": True, "scons_output": True},
+                   {"terse_output": True, "raw_output": True} ):
+        env = _ColourEnv(**flags)
+        with pytest.raises(SCons.Errors.StopError) as caught:
+            Construct._set_output_format(env)
+        assert "--terse-output" in str(caught.value)
+
+
+def test_terse_and_minimal_together_keep_the_processor():
+    env = _ColourEnv(terse_output=True, minimal_output=True)
+    Construct._set_output_format(env)
+    assert env["terse_output"] is True
+    assert env["minimal_output"] is True
+    assert Construct._skips_spawn_processor(env) is False
+
+
 def test_create_build_envs_skips_processor_for_scons_output(monkeypatch):
     calls = []
     monkeypatch.setattr(
@@ -392,4 +409,24 @@ def test_create_build_envs_installs_processor_by_default(monkeypatch):
     cuppa_env["scons_output"] = False
     construct.create_build_envs(toolchain, cuppa_env)
     assert len(calls) == 1
+    assert built == ["dbg"]
+
+
+def test_create_build_envs_installs_terse_command_printer(monkeypatch):
+    from cuppa.progress import terse_print_cmd_line
+
+    monkeypatch.setattr(
+            "cuppa.output_processor.Processor.install",
+            lambda env: None,
+    )
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+            default_variants=["dbg"],
+            option_flags={"dbg": True},
+    )
+    cuppa_env["raw_output"] = False
+    cuppa_env["scons_output"] = False
+    cuppa_env["terse_output"] = True
+    envs = construct.create_build_envs(toolchain, cuppa_env)
+    assert envs[0]["env"]["PRINT_CMD_LINE_FUNC"] is terse_print_cmd_line
+    assert envs[0]["env"]["terse_output"] is True
     assert built == ["dbg"]
