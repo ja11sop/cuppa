@@ -1026,6 +1026,8 @@ class Construct(object):
 #        cuppa.progress.NotifyProgress.register_callback( None, self.on_progress )
 
         cuppa_env['empty_env'] = cuppa_env.create_env()
+        if cuppa_env['terse_output']:
+            cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 

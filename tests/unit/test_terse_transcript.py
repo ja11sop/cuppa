@@ -28,19 +28,20 @@ def _spawned(terse):
     return SpawnedProcessor(env)
 
 
-def test_progress_lines_stay_unless_the_code_flag_hides_them(capsys, monkeypatch):
-    assert progress.TERSE_SUPPRESS_PROGRESS_LINES is False
-    progress.terse_print_cmd_line("Progress( Begin )", [], [], {})
-    assert capsys.readouterr().out == "Progress( Begin )\n"
-    assert progress.take_terse_command()[0] is None
-
-    monkeypatch.setattr(progress, "TERSE_SUPPRESS_PROGRESS_LINES", True)
+def test_progress_lines_are_hidden_unless_the_code_flag_shows_them(capsys, monkeypatch):
+    assert progress.TERSE_SUPPRESS_PROGRESS_LINES is True
     progress.terse_print_cmd_line("Progress( Begin )", [], [], {})
     assert capsys.readouterr().out == ""
     assert progress.take_terse_command()[0] is None
 
+    monkeypatch.setattr(progress, "TERSE_SUPPRESS_PROGRESS_LINES", False)
+    progress.terse_print_cmd_line("Progress( Begin )", [], [], {})
+    assert capsys.readouterr().out == "Progress( Begin )\n"
+    assert progress.take_terse_command()[0] is None
 
-def test_a_command_that_never_spawns_is_reprinted_before_the_next_line(capsys):
+
+def test_a_command_that_never_spawns_is_reprinted_before_the_next_line(capsys, monkeypatch):
+    monkeypatch.setattr(progress, "TERSE_SUPPRESS_PROGRESS_LINES", False)
     progress.terse_print_cmd_line("Removing empty directories", ["stamp"], [], {})
     assert capsys.readouterr().out == ""
     progress.terse_print_cmd_line("Progress( End )", [], [], {})

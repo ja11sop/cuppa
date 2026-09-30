@@ -230,11 +230,11 @@ def progress_action( label, event, sconscript, variant, env ):
 
 
 # --terse-output. Flip this to compare the two transcripts. Not a CLI flag.
-# False keeps SCons Progress(...) lines: the sconscript and variant structure
-# is useful, though parallel builds interleave it. True hides those lines.
+# True hides SCons Progress(...) lines. False puts the sconscript and variant
+# structure back; parallel builds interleave it, which is why this is unsettled.
 # -Q already omits them, because progress_action only builds the description
 # when the logger is at info.
-TERSE_SUPPRESS_PROGRESS_LINES = False
+TERSE_SUPPRESS_PROGRESS_LINES = True
 
 _terse_command = threading.local()
 _pending_lock = threading.Lock()

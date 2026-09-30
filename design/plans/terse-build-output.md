@@ -96,9 +96,9 @@ human text off the `Progress(...)` description.
 
 ### Progress lines (code switch)
 
-`TERSE_SUPPRESS_PROGRESS_LINES` in `cuppa/progress.py` defaults to `False`. `--terse-output`
-keeps SCons `Progress(...)` lines so the sconscript and variant structure stays visible. Set it
-to `True` to hide those lines and compare the two transcripts. It is not a command-line flag.
+`TERSE_SUPPRESS_PROGRESS_LINES` in `cuppa/progress.py` is `True` for now, so `--terse-output`
+hides SCons `Progress(...)` lines. Set it to `False` to put the sconscript and variant structure
+back and compare the two transcripts. It is not a command-line flag.
 
 `-Q` already omits the lines: `progress_action` only builds the description when the logger is
 at info. The switch matters on a normal info-level build. Parallel (`-j`) interleaves the
