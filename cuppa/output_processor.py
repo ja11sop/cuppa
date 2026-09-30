@@ -368,7 +368,7 @@ class SpawnedProcessor(object):
                 print( summary )
             return
 
-        command, target, _source, env = take_terse_command()
+        command, target, source, env = take_terse_command()
         for line in render_terse_spawn(
                 returncode,
                 self._processor.errors,
@@ -376,6 +376,7 @@ class SpawnedProcessor(object):
                 self._buffered,
                 command,
                 target,
+                source,
                 env,
                 self.summary( returncode ),
         ):

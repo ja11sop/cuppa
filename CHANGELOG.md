@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- ``cuppa --terse-output``: one ``[ok]`` line for a clean tool run, with the command
-  and processed output reprinted when that run warns or fails. Hides SCons
+- ``cuppa --terse-output``: one status line per tool run,
+  ``[ok|warn|error] sconscript · variant · action file``. A warning or failure
+  prints that line before the command and the processed output. Hides SCons
   ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
   ``--raw-output`` or ``--scons-output``.
 - ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print

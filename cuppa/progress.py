@@ -246,39 +246,202 @@ def _is_progress_command( cmd ):
     return bool( cmd ) and cmd.lstrip().startswith( "Progress(" )
 
 
-def _variant_label( env ):
-    if not env:
+_OBJECT_SUFFIXES = ( ".o", ".obj", ".os" )
+_ARCHIVE_SUFFIXES = ( ".a", ".lib" )
+_SHARED_SUFFIXES = ( ".so", ".dll", ".dylib" )
+
+
+def _env_get( env, key, default=None ):
+    if not env or not hasattr( env, "get" ):
+        return default
+    return env.get( key, default )
+
+
+def _first_node( nodes ):
+    if not nodes:
+        return None
+    if isinstance( nodes, ( list, tuple ) ):
+        return nodes[0] if nodes else None
+    return nodes
+
+
+def _node_path( node ):
+    if node is None:
         return ""
-    variant = env.get( "variant" ) if hasattr( env, "get" ) else None
+    path = getattr( node, "path", None )
+    if path:
+        return str( path )
+    return str( node )
+
+
+def _node_basename( nodes ):
+    text = _node_path( _first_node( nodes ) ).replace( "\\", "/" )
+    if not text:
+        return ""
+    return os.path.basename( text ) or text
+
+
+def _command_tokens( command ):
+    if not command:
+        return []
+    return command.replace( "\n", " " ).split()
+
+
+def _tool_tail( command ):
+    tokens = _command_tokens( command )
+    if not tokens:
+        return ""
+    tool = os.path.basename( tokens[0].strip( "'\"" ) )
+    if tool.lower().endswith( ".exe" ):
+        tool = tool[:-4]
+    return tool.lower().split( "-" )[-1]
+
+
+def spell_terse_action( command, target ):
+    """Short action word for one tool run. Not the Cuppa method name.
+
+    ``CompileStatic`` and ``BuildStaticLibrary`` fan out into several processes,
+    and the spawn does not carry the method name. The tool and the target do.
+    """
+    tail = _tool_tail( command )
+    tokens = [ token.lower() for token in _command_tokens( command ) ]
+    name = _node_basename( target ).lower()
+    if tail == "ranlib":
+        return "index"
+    if "-c" in tokens or "/c" in tokens:
+        return "compile"
+    if name.endswith( _SHARED_SUFFIXES ) or ".so." in name:
+        return "link-shared"
+    if tail in ( "ar", "lib" ) or name.endswith( _ARCHIVE_SUFFIXES ):
+        return "archive"
+    if name.endswith( _OBJECT_SUFFIXES ):
+        return "compile"
+    return "link"
+
+
+def _sconscript_label( env ):
+    path = str( _env_get( env, "sconscript_file", "" ) or "" ).replace( "\\", "/" )
+    if path.startswith( "./" ):
+        path = path[2:]
+    if path == "sconscript":
+        return ""
+    if path.endswith( "/sconscript" ):
+        return path[: -len( "/sconscript" )]
+    if path.endswith( ".sconscript" ):
+        return path[: -len( ".sconscript" )]
+    return path
+
+
+def _variant_name( env ):
+    variant = _env_get( env, "variant" )
     if variant is None:
         return ""
     name = variant.name() if hasattr( variant, "name" ) else variant
     return str( name )
 
 
-def _target_label( target ):
-    if not target:
+def _variant_cell( env ):
+    """Toolchain, variant, arch, and abi. ``dbg`` alone is ambiguous across scripts."""
+    toolchain = _env_get( env, "toolchain" )
+    toolchain_name = toolchain.name() if hasattr( toolchain, "name" ) else ""
+    parts = [
+            str( part ) for part in (
+                    toolchain_name,
+                    _variant_name( env ),
+                    _env_get( env, "target_arch", "" ) or "",
+                    _env_get( env, "abi", "" ) or "",
+            ) if part
+    ]
+    return "_".join( parts )
+
+
+def _sconscript_dir( env ):
+    path = str( _env_get( env, "sconscript_file", "" ) or "" ).replace( "\\", "/" )
+    if path.startswith( "./" ):
+        path = path[2:]
+    return os.path.dirname( path )
+
+
+def _compile_file_parts( source, env ):
+    """Source path relative to the sconscript directory, as ``(directory, filename)``."""
+    raw = _node_path( _first_node( source ) ).replace( "\\", "/" )
+    if not raw:
+        return "", ""
+    anchor = str(
+            _env_get( env, "abs_sconscript_dir", "" )
+            or _env_get( env, "sconscript_dir", "" )
+            or ""
+    ).replace( "\\", "/" )
+    if os.path.isabs( raw ) and anchor and os.path.isabs( anchor ):
+        try:
+            raw = os.path.relpath( raw, anchor ).replace( "\\", "/" )
+        except ValueError:
+            raw = os.path.basename( raw )
+    else:
+        script_dir = _sconscript_dir( env )
+        prefix = script_dir + "/" if script_dir else ""
+        if prefix and raw.startswith( prefix ):
+            raw = raw[ len( prefix ): ]
+    if raw in ( "", "." ):
+        return "", ""
+    directory, filename = os.path.split( raw )
+    if directory in ( "", "." ):
+        directory = ""
+    return directory, filename or raw
+
+
+def _coloured_file( directory, filename ):
+    if not filename:
         return ""
-    if not isinstance( target, ( list, tuple ) ):
-        target = [ target ]
-    text = str( target[0] )
-    return os.path.basename( text ) or text
+    if directory:
+        return as_subdued( directory + "/" ) + as_emphasised( filename )
+    return as_emphasised( filename )
 
 
-def format_terse_success( target, env ):
-    """One success line. The counts prefix is empty until Phase 2."""
+def _file_field( action, target, source, env ):
+    if action == "compile":
+        directory, filename = _compile_file_parts( source, env )
+        if filename:
+            return _coloured_file( directory, filename )
+    return _coloured_file( "", _node_basename( target ) )
+
+
+def _status_marker( status ):
+    if status == "warn":
+        return as_colour( "warning", "[warn]" )
+    if status == "error":
+        return as_colour( "error", "[error]" )
+    return as_colour( "success", "[ok]" )
+
+
+def format_terse_line( status, command, target, source, env ):
+    """``[status] sconscript · variant · action file``. Counts prefix stays empty until Phase 2."""
     parts = []
     prefix = terse_counts_prefix()
     if prefix:
         parts.append( prefix )
-    parts.append( as_colour( "success", "[ok]" ) )
-    variant = _variant_label( env )
-    if variant:
-        parts.append( as_subdued( variant ) )
-    name = _target_label( target )
-    if name:
-        parts.append( as_emphasised( name ) )
+    parts.append( _status_marker( status ) )
+
+    fields = []
+    script = _sconscript_label( env )
+    if script:
+        fields.append( as_subdued( script ) )
+    cell = _variant_cell( env )
+    if cell:
+        fields.append( as_subdued( cell ) )
+    action = spell_terse_action( command, target )
+    action_text = as_notice( action )
+    file_text = _file_field( action, target, source, env )
+    if file_text:
+        action_text = action_text + " " + file_text
+    fields.append( action_text )
+    if fields:
+        parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
     return " ".join( parts )
+
+
+def format_terse_success( command, target, source, env ):
+    return format_terse_line( "ok", command, target, source, env )
 
 
 def stash_terse_command( cmd, target, source, env ):
@@ -362,15 +525,22 @@ def _chunk_lines( chunk ):
     return text.split( "\n" )
 
 
-def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, target, env, summary ):
+def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, target, source, env, summary ):
     """Lines to print after a terse tool run.
 
-    A clean exit with no warnings is one success line. Anything else reprints
-    the command, then the processed output, then the summary.
+    A clean exit with no warnings is one success line. A warning or failure
+    prints the same shape of status line first, then the command, the processed
+    output, and the summary.
     """
     if not returncode and not errors and not warnings:
-        return [ format_terse_success( target, env ) ]
-    lines = []
+        status = "ok"
+    elif returncode or errors:
+        status = "error"
+    else:
+        status = "warn"
+    lines = [ format_terse_line( status, command, target, source, env ) ]
+    if status == "ok":
+        return lines
     if command:
         lines.append( command )
     for chunk in buffered_lines or []:

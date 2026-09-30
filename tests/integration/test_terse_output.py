@@ -23,6 +23,8 @@ def _compile_hello(tmp_path, *flags):
     result = run_cuppa(project, "--dbg", *flags)
     assert_success(result)
     assert "[ok]" in result.stdout
+    assert "compile" in result.stdout
+    assert "hello.cpp" in result.stdout
     commands = [line for line in result.stdout.splitlines() if _looks_like_tool_command(line)]
     assert commands == []
     return result

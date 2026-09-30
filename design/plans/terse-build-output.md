@@ -36,10 +36,10 @@ slices of this document.
 ## Goals
 
 1. Add **`--terse-output`** (name settled here; not `--simple-output` — too vague).
-2. On success: one line per completed build action — e.g. subdued variant + emphasised target +
-   ok marker (reuse `as_notice` / `as_info` / success colour if added).
-3. On failure or warning-bearing tool run: print the **command** (or `Progress` description) and
-   allow tool output through (respect `--native-output` / default interpretors per companion plan).
+2. On success: one line per completed tool run —
+   `[ok] sconscript · variant · action file`.
+3. On failure or warning: the same line with `[error]` or `[warn]`, then the command and the
+   tool output (respect `--native-output` / default interpretors per companion plan).
 4. Keep **`NotifyProgress` graph** unchanged — only change what `progress_action` / post-spawn
    summary prints.
 5. Document vs `--minimal-output`, `--verbosity`, and CI usage.
@@ -65,15 +65,41 @@ slices of this document.
 Measure baseline line counts on `examples/minimal` and one integration fixture before claiming
 improvement.
 
-## Settled behaviour (proposal)
+## Settled behaviour
 
 | Event | Terse output |
 |-------|----------------|
-| Progress node succeeds (child actions all ok) | Single line: optional `{counts}` prefix + `[ok] variant / target` (exact format TBD in PR) |
-| Progress node fails | Print command/description + failure output (existing processor path) |
-| Warning in tool output | Print command + warning lines (do not hide behind ok line) |
+| Clean tool run | `[ok] sconscript · variant · action file`. Optional `{counts}` prefix stays empty until Phase 2 |
+| Tool run fails | `[error]` line of the same shape, then the command, processed output, and summary |
+| Warning in tool output | `[warn]` line of the same shape, then the command and warning lines |
 | Sconstruct / sconscript begin/end | Hidden under `--terse-output`. Printed again with `--terse-output-notify-progress` |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
+
+### Status line
+
+```text
+[error] test/orders · gcc16_dbg_x86_64_cxx2c · link buy_sell_ladder
+```
+
+| Field | Spelling | Colour |
+|-------|----------|--------|
+| Status | `[ok]`, `[warn]`, or `[error]` | success / warning / error |
+| Sconscript | Script path with a leading `./` removed. A trailing `/sconscript` is dropped (`./test/orders/sconscript` → `test/orders`). A named script keeps its stem (`widget/tests.sconscript` → `widget/tests`). Empty when the script is the project-root `sconscript` | subdued |
+| Variant | `toolchain_variant_arch_abi` (`gcc16_dbg_x86_64_cxx2c`). `dbg` alone is ambiguous across sconscripts | subdued |
+| Action | See the table below. Plain colour, not bold | notice |
+| File | `compile`: source relative to the sconscript directory. The directory is subdued and the filename is emphasised. Other actions: the product basename, emphasised | subdued directory, emphasised name |
+
+The action word comes from the tool and the target, not the Cuppa method name. `CompileStatic` and `BuildStaticLibrary` fan out into several processes, and the spawn does not carry the method name.
+
+| Spelling | When |
+|----------|------|
+| `compile` | `-c` / `/c`, or an object target (`.o`, `.obj`, `.os`) |
+| `archive` | `ar` or `lib` writing a `.a` / `.lib` |
+| `index` | `ranlib` on that archive (the second line for one `.a`) |
+| `link` | Compiler driver producing a program |
+| `link-shared` | A `.so`, `.dylib`, or `.dll` |
+
+A compile shows the source, not the object, so `database.cpp` is not confused with another sconscript's `database.o`. Link, archive, and index show the product name, because the inputs already had their own lines.
 
 **Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
 `--minimal-output`. Combining both should be documented (likely: terse success lines + minimal
@@ -90,9 +116,9 @@ diagnostic filtering on failures only).
 | Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
 **Phase 1 reporter** is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
-`format_terse_success`, `render_terse_spawn`, and `terse_print_cmd_line`. Phase 2 fills
-`terse_counts_prefix()` (empty in Phase 1) and does not rewrite the success line. Do not key
-human text off the `Progress(...)` description.
+`format_terse_line`, `spell_terse_action`, `render_terse_spawn`, and `terse_print_cmd_line`.
+Phase 2 fills `terse_counts_prefix()` (empty in Phase 1) and does not rewrite the status line.
+Do not key human text off the `Progress(...)` description.
 
 ### Progress lines
 
@@ -115,7 +141,7 @@ Example layout: 4 sconscripts (projects), 3 variants each, 38 tracked actions pe
 
 ```text
 scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%
-[ok] test/sconscript · gcc15_dbg_x86_64_cxx2c · compile main.cpp
+[ok] test · gcc15_dbg_x86_64_cxx2c · compile main.cpp
 ```
 
 Nested bracket intuition `[66%][33%][92%]` is useful mentally, but **do not multiply level

@@ -15,7 +15,13 @@ pytestmark = pytest.mark.unit
 
 
 def _variant_env():
-    return {"variant": SimpleNamespace(name=lambda: "dbg")}
+    return {
+        "variant": SimpleNamespace(name=lambda: "dbg"),
+        "toolchain": SimpleNamespace(name=lambda: "gcc16"),
+        "target_arch": "x86_64",
+        "abi": "cxx2c",
+        "sconscript_file": "./test/orders/sconscript",
+    }
 
 
 def _spawned(terse):
@@ -61,55 +67,78 @@ def test_tool_commands_are_stashed_instead_of_printed(capsys):
     assert progress.take_terse_command() == (None, None, None, None)
 
 
-def test_success_line_reserves_an_empty_counts_prefix():
+def test_success_line_names_sconscript_variant_action_and_source():
     assert progress.terse_counts_prefix() == ""
-    assert progress.format_terse_success(["dir/hello.o"], _variant_env()) == "[ok] dbg hello.o"
+    line = progress.format_terse_success(
+            "g++ -c test/orders/src/hello.cpp",
+            ["_build/hello.o"],
+            ["test/orders/src/hello.cpp"],
+            _variant_env(),
+    )
+    assert line == "[ok] test/orders · gcc16_dbg_x86_64_cxx2c · compile src/hello.cpp"
+
+
+def test_action_spelling_separates_archive_index_and_link():
+    env = _variant_env()
+    assert progress.spell_terse_action("ar rc libquince.a a.o", ["libquince.a"]) == "archive"
+    assert progress.spell_terse_action("ranlib libquince.a", ["libquince.a"]) == "index"
+    assert progress.spell_terse_action("g++ -o buy_sell_ladder buy_sell_ladder.o", ["buy_sell_ladder"]) == "link"
+    assert progress.spell_terse_action("/usr/bin/g++-16 -o buy_sell_ladder buy_sell_ladder.o", ["buy_sell_ladder"]) == "link"
+    assert progress.spell_terse_action("g++ -shared -o libfoo.so a.o", ["libfoo.so"]) == "link-shared"
+    assert progress.format_terse_line(
+            "error", "g++ -o buy_sell_ladder buy_sell_ladder.o", ["buy_sell_ladder"], ["buy_sell_ladder.o"], env,
+    ) == "[error] test/orders · gcc16_dbg_x86_64_cxx2c · link buy_sell_ladder"
 
 
 def test_clean_run_is_one_line_and_a_warning_reprints_the_command():
     env = _variant_env()
+    source = ["test/orders/hello.cpp"]
     ok = progress.render_terse_spawn(
-            0, 0, 0, ["note\n"], "g++ -c hello.cpp", ["hello.o"], env, "",
+            0, 0, 0, ["note\n"], "g++ -c test/orders/hello.cpp", ["hello.o"], source, env, "",
     )
-    assert ok == ["[ok] dbg hello.o"]
+    assert ok == ["[ok] test/orders · gcc16_dbg_x86_64_cxx2c · compile hello.cpp"]
 
     warned = progress.render_terse_spawn(
-            0, 0, 1, ["warn line\n"], "g++ -c hello.cpp", ["hello.o"], env,
+            0, 0, 1, ["warn line\n"], "g++ -c test/orders/hello.cpp", ["hello.o"], source, env,
             " === Warnings 1 === ",
     )
-    assert warned[0] == "g++ -c hello.cpp"
+    assert warned[0] == "[warn] test/orders · gcc16_dbg_x86_64_cxx2c · compile hello.cpp"
+    assert warned[1] == "g++ -c test/orders/hello.cpp"
     assert "warn line" in warned
     assert "[ok]" not in "\n".join(warned)
 
 
-def test_failed_run_reprints_the_command_and_the_tool_output():
+def test_failed_run_prints_an_error_line_before_the_command():
     failed = progress.render_terse_spawn(
-            1, 1, 0, ["bad\n"], "g++ -c hello.cpp", ["hello.o"], {}, "summary\n",
+            1, 1, 0, ["bad\n"], "g++ -c hello.cpp", ["hello.o"], ["hello.cpp"], {}, "summary\n",
     )
-    assert failed[0] == "g++ -c hello.cpp"
+    assert failed[0] == "[error] compile hello.cpp"
+    assert failed[1] == "g++ -c hello.cpp"
     assert "bad" in failed
     assert "summary" in failed
 
 
 def test_spawn_folds_a_clean_run_and_discards_the_stash(capsys):
-    progress.stash_terse_command("g++ -c hello.cpp", ["hello.o"], [], _variant_env())
+    progress.stash_terse_command(
+            "g++ -c test/orders/hello.cpp", ["hello.o"], ["test/orders/hello.cpp"], _variant_env(),
+    )
     spawned = _spawned(True)
     assert spawned("noise the compiler wrote") is None
     spawned.finish(0)
     out = capsys.readouterr().out
-    assert "[ok] dbg hello.o" in out
-    assert "g++" not in out
+    assert out.strip() == "[ok] test/orders · gcc16_dbg_x86_64_cxx2c · compile hello.cpp"
     assert "noise" not in out
     assert progress.take_terse_command()[0] is None
 
 
 def test_spawn_reprints_the_command_when_the_tool_fails(capsys):
-    progress.stash_terse_command("g++ -c hello.cpp", ["hello.o"], [], {})
+    progress.stash_terse_command("g++ -c hello.cpp", ["hello.o"], ["hello.cpp"], {})
     spawned = _spawned(True)
     spawned._processor.errors = 1
     spawned._buffered.append("bad.cpp: error\n")
     spawned.finish(1)
     out = capsys.readouterr().out
+    assert out.startswith("[error] compile hello.cpp\n")
     assert "g++ -c hello.cpp" in out
     assert "bad.cpp: error" in out
     assert "[ok]" not in out
