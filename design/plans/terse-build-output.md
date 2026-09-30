@@ -72,7 +72,7 @@ improvement.
 | Progress node succeeds (child actions all ok) | Single line: optional `{counts}` prefix + `[ok] variant / target` (exact format TBD in PR) |
 | Progress node fails | Print command/description + failure output (existing processor path) |
 | Warning in tool output | Print command + warning lines (do not hide behind ok line) |
-| Sconstruct / sconscript begin/end | One line each, via the existing `Progress(...)` nodes, unless the code switch below hides them |
+| Sconstruct / sconscript begin/end | Hidden under `--terse-output`. Printed again with `--terse-output-notify-progress` |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
 **Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
@@ -85,7 +85,7 @@ diagnostic filtering on failures only).
 |------|----------------|
 | CLI | `cuppa/core/base_options.py` — `--terse-output` |
 | Env | `construct.py` — `cuppa_env['terse_output']` |
-| Progress | `cuppa/progress.py` — `PRINT_CMD_LINE_FUNC` plus the code switch below |
+| Progress | `cuppa/progress.py` — `PRINT_CMD_LINE_FUNC`; `--terse-output-notify-progress` prints the lines |
 | Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
 | Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
@@ -94,15 +94,15 @@ diagnostic filtering on failures only).
 `terse_counts_prefix()` (empty in Phase 1) and does not rewrite the success line. Do not key
 human text off the `Progress(...)` description.
 
-### Progress lines (code switch)
+### Progress lines
 
-`TERSE_SUPPRESS_PROGRESS_LINES` in `cuppa/progress.py` is `True` for now, so `--terse-output`
-hides SCons `Progress(...)` lines. Set it to `False` to put the sconscript and variant structure
-back and compare the two transcripts. It is not a command-line flag.
+`--terse-output` hides SCons `Progress(...)` lines. `--terse-output-notify-progress` prints
+them again, so the sconscript and variant structure can be compared without editing code. The
+notify flag requires `--terse-output`.
 
 `-Q` already omits the lines: `progress_action` only builds the description when the logger is
-at info. The switch matters on a normal info-level build. Parallel (`-j`) interleaves the
-structure, which is why the default is not settled.
+at info. The flag matters on a normal info-level build. Parallel (`-j`) interleaves the
+structure, which is why it stays opt-in.
 
 ---
 

@@ -592,7 +592,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **in progress** for **1.12.0**. `Progress(...)` lines hidden while `TERSE_SUPPRESS_PROGRESS_LINES` is `True` |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **in progress** for **1.12.0**. `Progress(...)` lines return with `--terse-output-notify-progress` |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.12.0** (first console slice) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.12.0** |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | CMake/Ninja job-count fix (serial default + explicit affinity-sized `--parallel N`) on [#319](https://github.com/ja11sop/cuppa/pull/319) / [#318](https://github.com/ja11sop/cuppa/issues/318) — **live soak done** 2026-09-21. `--parallel=N` CLI remains [#298](https://github.com/ja11sop/cuppa/issues/298). Design: [`parallel-job-count.md`](design/plans/parallel-job-count.md). |

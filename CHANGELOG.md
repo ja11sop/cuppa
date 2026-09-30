@@ -10,11 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - ``cuppa --terse-output``: one ``[ok]`` line for a clean tool run, with the command
-  and processed output reprinted when that run warns or fails. Does not imply
-  ``--minimal-output``. Refused with ``--raw-output`` or ``--scons-output``.
-  SCons ``Progress(...)`` lines are hidden while ``TERSE_SUPPRESS_PROGRESS_LINES``
-  in ``cuppa/progress.py`` is ``True``. Set it to ``False`` to put the
-  sconscript and variant structure back.
+  and processed output reprinted when that run warns or fails. Hides SCons
+  ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
+  ``--raw-output`` or ``--scons-output``.
+- ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print
+  ``Progress(...)`` lines so the sconscript and variant structure stays visible.
+  Requires ``--terse-output``. ``-Q`` still omits those lines.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.

@@ -14,7 +14,8 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--scons-output` | Do not install the spawn processor; keep Cuppa colour on logs and reports
 | `--standard-output` | Keep Cuppa processing but disable colour
 | `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`
-| `--terse-output` | One success line for a clean tool run; reprint the command when that run warns or fails. Refused with `--raw-output` or `--scons-output`
+| `--terse-output` | One success line for a clean tool run; reprint the command when that run warns or fails. Hides `Progress(...)` lines. Refused with `--raw-output` or `--scons-output`
+| `--terse-output-notify-progress` | With `--terse-output`, also print `Progress(...)` lines. Requires `--terse-output`
 | `--ignore-duplicates` | Suppress repeated diagnostics recognised by the output processor
 | `--show-test-output` | Show stdout and stderr from test processes
 | `--suppress-process-output` | Suppress stdout and stderr from invoked processes
@@ -29,7 +30,7 @@ leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode`
 reports, not info logs, so they stay. `--verbosity=LEVEL` overrides the level `-Q` or `-s` would
 set. `--minimal-output` filters Cuppa's processed build messages and needs that processor, so it cannot be combined with `--raw-output` or `--scons-output`.
 
-`--terse-output` prints one `[ok]` line for a tool run that exits cleanly with no warnings, and hides that run's command. A warning or a non-zero exit reprints the command and the processed output. It does not imply `--minimal-output`. Together, a clean run is still one line, and failure output is filtered to errors and warnings. It needs the spawn processor, so it is refused with `--raw-output` or `--scons-output`. SCons `Progress(...)` lines are hidden while `TERSE_SUPPRESS_PROGRESS_LINES` in `cuppa/progress.py` is `True`. Set it to `False` to put the sconscript and variant structure back. That structure is less useful under `--parallel`, where actions interleave. `-Q` already omits those lines, because their description is only built at info verbosity.
+`--terse-output` prints one `[ok]` line for a tool run that exits cleanly with no warnings, and hides that run's command. A warning or a non-zero exit reprints the command and the processed output. It does not imply `--minimal-output`. Together, a clean run is still one line, and failure output is filtered to errors and warnings. It needs the spawn processor, so it is refused with `--raw-output` or `--scons-output`. `Progress(...)` lines are hidden. Pass `--terse-output-notify-progress` as well to put the sconscript and variant structure back. That structure is less useful under `--parallel`, where actions interleave. `-Q` still omits those lines, because their description is only built at info verbosity. `--terse-output-notify-progress` on its own is refused.
 
 `--scons-output` is the spawn half of `--raw-output`: SCons launches child processes, and Cuppa still colours logs and console reports. `--scons-output` together with `--standard-output` is the same outcome as `--raw-output` (no processor, no colour). Neither flag removes Cuppa progress nodes, and the `cuppa` wrapper still masks `*TOKEN*` values.
 

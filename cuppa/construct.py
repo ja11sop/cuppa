@@ -235,6 +235,7 @@ class Construct(object):
                 'standard_output',
                 'minimal_output',
                 'terse_output',
+                'terse_output_notify_progress',
                 'offline',
                 'ignore_duplicates',
                 'working_dir',
@@ -306,6 +307,14 @@ class Construct(object):
         cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
         cuppa_env['minimal_output']  = cuppa_env.get_option( 'minimal_output' ) and True or False
         cuppa_env['terse_output']    = cuppa_env.get_option( 'terse_output' ) and True or False
+        cuppa_env['terse_output_notify_progress'] = (
+                cuppa_env.get_option( 'terse_output_notify_progress' ) and True or False
+        )
+
+        if cuppa_env['terse_output_notify_progress'] and not cuppa_env['terse_output']:
+            raise SCons.Errors.StopError(
+                    "--terse-output-notify-progress requires --terse-output"
+            )
 
         processor_flags = []
         if cuppa_env['minimal_output']:
@@ -450,6 +459,7 @@ class Construct(object):
 
         cuppa_env['minimal_output']       = cuppa_env.get_option( 'minimal_output' )
         cuppa_env['terse_output']         = cuppa_env.get_option( 'terse_output' )
+        cuppa_env['terse_output_notify_progress'] = cuppa_env.get_option( 'terse_output_notify_progress' )
         cuppa_env['ignore_duplicates']    = cuppa_env.get_option( 'ignore_duplicates' )
 
         cuppa_env['working_dir']          = os.getcwd()
@@ -949,6 +959,10 @@ class Construct(object):
                         if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
                             env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
                             env['terse_output'] = True
+                            env['terse_output_notify_progress'] = bool(
+                                    'terse_output_notify_progress' in cuppa_env
+                                    and cuppa_env['terse_output_notify_progress']
+                            )
 
                     env['toolchain']       = toolchain
                     env['variant']         = variant
@@ -1028,6 +1042,9 @@ class Construct(object):
         cuppa_env['empty_env'] = cuppa_env.create_env()
         if cuppa_env['terse_output']:
             cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
+            cuppa_env['empty_env']['terse_output_notify_progress'] = bool(
+                    cuppa_env['terse_output_notify_progress']
+            )
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 

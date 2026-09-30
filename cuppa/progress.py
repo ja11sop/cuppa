@@ -229,13 +229,6 @@ def progress_action( label, event, sconscript, variant, env ):
     return Action( progress, description )
 
 
-# --terse-output. Flip this to compare the two transcripts. Not a CLI flag.
-# True hides SCons Progress(...) lines. False puts the sconscript and variant
-# structure back; parallel builds interleave it, which is why this is unsettled.
-# -Q already omits them, because progress_action only builds the description
-# when the logger is at info.
-TERSE_SUPPRESS_PROGRESS_LINES = True
-
 _terse_command = threading.local()
 _pending_lock = threading.Lock()
 # Commands stashed by a job thread and not yet consumed by a spawn. A Python
@@ -332,18 +325,26 @@ def flush_terse_commands():
         _write_command( cmd )
 
 
+def _shows_notify_progress( env ):
+    """True when ``--terse-output-notify-progress`` is set on this env."""
+    if not env or not hasattr( env, "get" ):
+        return False
+    return bool( env.get( "terse_output_notify_progress" ) )
+
+
 def terse_print_cmd_line( cmd, target, source, env ):
     """SCons ``PRINT_CMD_LINE_FUNC`` for ``--terse-output``.
 
-    Progress lines are printed or dropped here. Tool commands are stashed
-    and printed later, only when that run warns or fails. Show and execute
-    run on the same SCons job thread, so a per-thread stash pairs them
-    under ``-j``. A command that never reaches a spawn is written back on
-    the next print, or at process exit.
+    Progress lines are dropped unless ``--terse-output-notify-progress`` is
+    set. ``-Q`` still omits them, because ``progress_action`` only builds the
+    description at info. Tool commands are stashed and printed later, only
+    when that run warns or fails. Show and execute run on the same SCons job
+    thread, so a per-thread stash pairs them under ``-j``. A command that
+    never reaches a spawn is written back on the next print, or at process exit.
     """
     flush_unconsumed_terse_command()
     if _is_progress_command( cmd ):
-        if not TERSE_SUPPRESS_PROGRESS_LINES:
+        if _shows_notify_progress( env ):
             sys.stdout.write( cmd + "\n" )
         return
     stash_terse_command( cmd, target, source, env )
