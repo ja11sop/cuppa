@@ -376,6 +376,13 @@ def test_spawn_processor_hook_skips_raw_output(monkeypatch):
     ProfilesDiagnosticCollector._rebind_spawn_processor(FakeEnv())
     assert calls == []
 
+    class SconsEnv(dict):
+        def get_option(self, name):
+            return name == 'scons_output'
+
+    ProfilesDiagnosticCollector._rebind_spawn_processor(SconsEnv())
+    assert calls == []
+
     class NormalEnv(dict):
         def get_option(self, name):
             return False

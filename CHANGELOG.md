@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
+  run through Cuppa's processor. Cuppa colour on logs and reports stays.
+  ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.
 - ``cuppa --info``: print the installed package version and exit without loading
   a project ``sconstruct`` (works without ``-D``). Supports ``--offline`` and
   ``--list-format=json``.

@@ -160,7 +160,7 @@ Multi-part strings such as `Action("cd <...> && <...>")` therefore fail under de
 Windows colourised `SPAWN` may still accept those strings because it reuses `PSPAWN`; that is a platform difference in the spawn wrapper, not a reason to use `cd &&` in portable sconscripts.
 
 * **POSIX + colourised output (default):** argv `IncrementalSubProcess` — multi-part shell strings fail.
-* **POSIX + `--raw-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd <...> && <...>` (still not recommended for parallel-safe builds).
+* **POSIX + `--raw-output` or `--scons-output`:** colourised `SPAWN` is not installed; SCons' default shell spawn can run `cd <...> && <...>` (still not recommended for parallel-safe builds). `--scons-output` keeps Cuppa colour on logs and reports; `--raw-output` turns that colour off as well.
 * **Windows + colourised output (default):** `windows_spawn` wraps native `PSPAWN` — shell-style strings may succeed; prefer `working_dir` / `cwd=` anyway.
 ====
 

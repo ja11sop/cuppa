@@ -315,3 +315,81 @@ def test_get_sub_sconscripts_with_only_absolute_excludes_still_finds_scripts(tmp
     found = construct.get_sub_sconscripts(str(root), [str(tmp_path / "elsewhere")])
     found_str = [str(p).replace("\\", "/") for p in found]
     assert any(p.endswith("lib/sconscript") for p in found_str)
+
+
+class _ColourEnv(FakeEnv):
+    def __init__(self, **flags):
+        super().__init__(flags)
+        self.colour_enabled = False
+
+    def colouriser(self):
+        return self
+
+    def enable(self):
+        self.colour_enabled = True
+
+
+def test_scons_output_keeps_colour_and_skips_only_the_processor():
+    env = _ColourEnv(scons_output=True)
+    Construct._set_output_format(env)
+    assert env["scons_output"] is True
+    assert env["raw_output"] is False
+    assert env.colour_enabled is True
+    assert Construct._skips_spawn_processor(env) is True
+
+
+def test_raw_output_disables_colour_and_skips_the_processor():
+    env = _ColourEnv(raw_output=True)
+    Construct._set_output_format(env)
+    assert env.colour_enabled is False
+    assert Construct._skips_spawn_processor(env) is True
+
+
+def test_scons_output_with_standard_output_matches_raw_colour_off():
+    env = _ColourEnv(scons_output=True, standard_output=True)
+    Construct._set_output_format(env)
+    assert env.colour_enabled is False
+    assert Construct._skips_spawn_processor(env) is True
+
+
+def test_minimal_output_refuses_scons_or_raw_spawn_skip():
+    for flags in ( {"minimal_output": True, "scons_output": True},
+                   {"minimal_output": True, "raw_output": True} ):
+        env = _ColourEnv(**flags)
+        with pytest.raises(SCons.Errors.StopError) as caught:
+            Construct._set_output_format(env)
+        assert "--minimal-output" in str(caught.value)
+
+
+def test_create_build_envs_skips_processor_for_scons_output(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+            "cuppa.output_processor.Processor.install",
+            lambda env: calls.append(env),
+    )
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+            default_variants=["dbg"],
+            option_flags={"dbg": True},
+    )
+    cuppa_env["raw_output"] = False
+    cuppa_env["scons_output"] = True
+    construct.create_build_envs(toolchain, cuppa_env)
+    assert calls == []
+    assert built == ["dbg"]
+
+
+def test_create_build_envs_installs_processor_by_default(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+            "cuppa.output_processor.Processor.install",
+            lambda env: calls.append(env),
+    )
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+            default_variants=["dbg"],
+            option_flags={"dbg": True},
+    )
+    cuppa_env["raw_output"] = False
+    cuppa_env["scons_output"] = False
+    construct.create_build_envs(toolchain, cuppa_env)
+    assert len(calls) == 1
+    assert built == ["dbg"]

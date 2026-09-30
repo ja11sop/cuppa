@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](console-mode-banners.md); [`terse-build-output.md`](terse-build-output.md); [`native-toolchain-output.md`](native-toolchain-output.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`build-log-hygiene.md`](build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-09-29
+- **Updated:** 2026-09-30
 - **Impact:** none for this index; the mode-banner slice in the same pull request is `patch`
 
 This is the map for Cuppa's console work. Individual plans stay the spec for their slice. Do not re-decide which channel a line belongs to inside a later pull request.
@@ -41,7 +41,7 @@ One mode owns the transcript. They do not restyle console reports.
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
 | `--terse-output` | on; success folded to one line | on | planned; build/test/coverage progress only |
 | `--native-output` | on, passthrough | toolchain's own colour on child output | planned; v1 ignores `--minimal-output` with a warning |
-| `--scons-output` | **off** | unchanged | **gap** — not implemented |
+| `--scons-output` | **off** | unchanged | **This pull request** |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |
 
 `--raw-output` currently bundles two switches: the colouriser stays off, and `Processor.install` is skipped so SCons' own `SPAWN` runs. People also use it to pipe a list without ANSI. `--scons-output` should be only the second switch.
@@ -56,19 +56,19 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 |------|---------|--------|
 | [`build-log-hygiene.md`](build-log-hygiene.md) | Log (which info lines exist) | Done on master |
 | [`cuppa-info.md`](cuppa-info.md) | A one-line console report that exits before SCons | Done on master ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
-| [`console-mode-banners.md`](console-mode-banners.md) | Mode chips move from log to console report | **This pull request** |
+| [`console-mode-banners.md`](console-mode-banners.md) | Mode chips move from log to console report | Done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
 | [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Phase 0 still open | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
 | [`terse-build-output.md`](terse-build-output.md) | Build transcript | Planned. Must not restyle lists, trees, or mode banners |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Optional. Must not recolour console reports |
-| `--scons-output` | Build transcript | Captured here until a slice starts. No separate plan until then |
+| `--scons-output` | Build transcript | **This pull request.** No separate plan; the matrix above is the spec |
 | `console-stream-split` (ROADMAP) | Which file descriptor | Orthogonal. Do not decide it inside terse or native |
 
 ## Order
 
 1. **Mode banners** — this pull request. Smallest change that makes the report channel real, and the `-Q` soak bug.
-2. **`--scons-output`** — split it out of `--raw-output` so the matrix exists in code before terse and native land.
+2. **`--scons-output`** — this pull request. Split it out of `--raw-output` so the matrix exists in code before terse and native land.
 3. **Terse Phase 1** — the 1.12.0 headline, transcript only, citing this matrix.
 4. **Native output** — optional, same family, after the matrix is in code.
 5. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
