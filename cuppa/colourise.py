@@ -171,6 +171,23 @@ class Colouriser(object):
         return self.start_badge( meaning ) + text + colorama.Style.RESET_ALL
 
 
+    def case_notice( self, text ):
+        """Bold ``no assertions`` on a test-case.
+
+        On a light console the ink is the ordinary notice yellow, the same
+        yellow as a notice badge background. ``SGR 1`` plus ``Fore.YELLOW``
+        would lift that to bright yellow, so the 256-colour slot is used and
+        bold only changes the weight.
+        """
+        if not self.use_colour:
+            return text
+        if console_background() == 'light' and supports_256_colours():
+            return colorama.Style.BRIGHT + "\x1b[38;5;3m" + text + colorama.Style.RESET_ALL
+        if console_background() == 'light':
+            return colorama.Fore.YELLOW + text + colorama.Style.RESET_ALL
+        return self.emphasise( self.colour( 'notice', text ) )
+
+
     def start_colour( self, meaning ):
         if self.use_colour:
             return self._start_colour( meaning )
@@ -243,10 +260,15 @@ class Colouriser(object):
         SGR 1 bolds the text and lifts the background onto the bright colour.
         A badge keeps that meaning's ordinary background and a plain foreground,
         so notice stays notice-yellow and success stays the quieter green.
-        Success text is black, which reads on that green; the other badges
-        keep the highlight's foreground.
+        On a dark console, success text is black. On a light console, success
+        and notice text use the paper colour. The other badges keep the
+        highlight's foreground.
         """
         sequence = self._start_highlight( meaning ).replace( colorama.Style.BRIGHT, '' )
+        if console_background() == 'light' and meaning in ( 'success', 'passed', 'notice' ):
+            # SGR 37 is the theme's "white", often a grey on a light glass. The
+            # bright-white slot is the paper colour, so the badge reads as a cut-out.
+            return sequence.replace( colorama.Fore.WHITE, colorama.Fore.LIGHTWHITE_EX )
         if meaning in ( 'success', 'passed' ):
             sequence = sequence.replace( colorama.Fore.WHITE, colorama.Fore.BLACK )
         return sequence
@@ -317,6 +339,9 @@ def as_highlighted( meaning, text ):
 
 def as_badge( meaning, text ):
     return colouriser.badge( meaning, text )
+
+def as_case_notice( text ):
+    return colouriser.case_notice( text )
 
 def as_emphasised( text ):
     return colouriser.emphasise( text )

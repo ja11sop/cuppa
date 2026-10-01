@@ -26,11 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the caller's own description stays hidden. A nested ``Touch`` stays hidden. A clean tool such as ``asciidoctor``
   stays hidden; a warning or error from that tool is printed before the
   summary. A passing test is one ``[pass]`` badge, in the quieter green with
-  plain black text. A failing roll-up is a ``[fail]`` badge in the same quiet
+  plain black text, or the paper colour on a light console. A failing
+  roll-up is a ``[fail]`` badge in the same quiet
   style. The test name is that kind of badge too. A ``test-case`` uses the
   same text without the badge. Counts are ``11/12 cases, 40/52 assertions``,
   and a run with no assertion total says ``no assertions``: a notice-yellow
-  badge on a roll-up, and a bold notice on a ``test-case``. Status tokens share a six-column field, so
+  badge on a roll-up, with paper-coloured text on a light console, and a
+  bold notice on a ``test-case`` in that same dull yellow. Status tokens share a six-column field, so
   ``[ok]`` lines up with ``[pass]`` and ``[warn]``. ``[error]`` runs one
   column past that. A failure prints each failing ``test-case``, then the
   binary's ``[fail]`` roll-up.

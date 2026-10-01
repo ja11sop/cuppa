@@ -112,13 +112,15 @@ The closing line uses the same ratio once the jobs have returned: `[interrupted]
 
 ==== Tests
 
-A passing test binary is one `[pass]` badge, in the quieter green with plain black text,
-and the elapsed time after the action. `[fail]`, `[skip]`, `[xfail]`, and `[xpass]` use
+A passing test binary is one `[pass]` badge, in the quieter green. The text is plain
+black on a dark console, and the paper colour on a light console. The elapsed time
+follows the action. `[fail]`, `[skip]`, `[xfail]`, and `[xpass]` use
 that same quiet badge in their own colour. The test name is a badge, like the status. A
 `test-case` uses the same text without the badge, and colours only the case leaf. A
 multi-case binary ends with `11/12 cases, 40/52 assertions`. A run with no assertion
-total says `no assertions`: a notice-yellow badge on the roll-up, and a bold notice on a
-`test-case`. A failure prints each failing case (`test-case`) and its assertion text,
+total says `no assertions`: a notice-yellow badge on the roll-up, with paper-coloured
+text on a light console, and on a `test-case` a bold notice in that same dull yellow
+rather than bright yellow. A failure prints each failing case (`test-case`) and its assertion text,
 then the binary's `[fail]` badge. `--show-test-cases` also prints the cases that passed,
 and requires `--terse-output`. `run` and `benchmark` stay `[ok]`.
 

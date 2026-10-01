@@ -55,6 +55,10 @@ class HtmlColouriser(object):
             + self._token( 'reset' )
         )
 
+    def case_notice( self, text ):
+        """Bold notice. The page colour for notice is already the dull yellow."""
+        return self.emphasise( self.colour( 'notice', text ) )
+
     def badge( self, meaning, text ):
         """Same meaning colour as a label, without the bold weight."""
         return (

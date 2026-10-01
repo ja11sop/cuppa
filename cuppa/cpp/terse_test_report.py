@@ -10,7 +10,15 @@
 import sys
 
 import cuppa.progress
-from cuppa.colourise import as_badge, as_colour, as_emphasised, as_notice, as_subdued
+from cuppa.colourise import (
+        as_badge,
+        as_case_notice,
+        as_colour,
+        as_emphasised,
+        as_notice,
+        as_subdued,
+        console_background,
+)
 
 
 def enabled( env ):
@@ -117,6 +125,8 @@ def assertion_clause( passed, total, label=False ):
     if not total:
         if label:
             return as_badge( "notice", "no assertions" )
+        if console_background() == "light":
+            return as_case_notice( "no assertions" )
         return as_emphasised( as_notice( "no assertions" ) )
     return "{}/{} assertions".format( passed, total )
 

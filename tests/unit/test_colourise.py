@@ -110,6 +110,27 @@ def test_a_badge_uses_the_ordinary_colour_without_bold( plain_environment ):
     assert colorama.Style.BRIGHT not in notice
 
 
+def test_a_light_console_uses_paper_text_and_a_dull_bold_notice( plain_environment ):
+    """Light glass: badge text is the paper colour, and a case notice stays dull yellow."""
+    import colorama
+
+    from cuppa.colourise import as_badge, as_case_notice
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'light' )
+    plain_environment.setenv( 'TERM', 'xterm-256color' )
+    passed = as_badge( 'success', '[pass]' )
+    notice = as_badge( 'notice', 'no assertions' )
+    case = as_case_notice( 'no assertions' )
+    assert colorama.Fore.LIGHTWHITE_EX in passed
+    assert colorama.Fore.BLACK not in passed
+    assert colorama.Back.GREEN in passed
+    assert colorama.Fore.LIGHTWHITE_EX in notice
+    assert colorama.Back.YELLOW in notice
+    assert colorama.Style.BRIGHT in case
+    assert '\x1b[38;5;3m' in case
+    assert colorama.Fore.YELLOW not in case
+
+
 def test_remove_notice_and_remove_error_meanings( plain_environment ):
     from cuppa.colourise import as_remove_error, as_remove_notice, as_error, as_warning
     assert as_remove_notice( 'x' ) == as_warning( 'x' )
