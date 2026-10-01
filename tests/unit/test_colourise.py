@@ -89,6 +89,27 @@ def test_subdued_without_256_colours_picks_ink_toward_the_background( plain_envi
     assert start_subdued() == WHITE
 
 
+def test_a_badge_uses_the_ordinary_colour_without_bold( plain_environment ):
+    """SGR 1 bolds the text and lifts the background. A badge leaves it off."""
+    import colorama
+
+    from cuppa.colourise import as_badge, as_highlighted
+
+    passed = as_badge( "success", "[pass]" )
+    loud = as_highlighted( "success", "[pass]" )
+    notice = as_badge( "notice", "no assertions" )
+    loud_notice = as_highlighted( "notice", "no assertions" )
+    assert colorama.Style.BRIGHT not in passed
+    assert colorama.Style.BRIGHT in loud
+    assert colorama.Back.GREEN in passed
+    assert colorama.Fore.BLACK in passed
+    assert colorama.Fore.WHITE not in passed
+    assert colorama.Back.YELLOW in notice
+    assert colorama.Fore.WHITE in notice
+    assert colorama.Back.YELLOW in loud_notice
+    assert colorama.Style.BRIGHT not in notice
+
+
 def test_remove_notice_and_remove_error_meanings( plain_environment ):
     from cuppa.colourise import as_remove_error, as_remove_notice, as_error, as_warning
     assert as_remove_notice( 'x' ) == as_warning( 'x' )

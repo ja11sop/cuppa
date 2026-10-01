@@ -1048,11 +1048,18 @@ class Construct(object):
 
 
     def build( self, cuppa_env ):
+        # Before SCons installs its own SIGINT handler. The first Ctrl-C stops
+        # new tasks and lets the ones already running finish.
+        from cuppa.utility.build_children import install_graceful_interrupt
+        install_graceful_interrupt()
 
 #        cuppa.progress.NotifyProgress.register_callback( None, self.on_progress )
 
         cuppa_env['empty_env'] = cuppa_env.create_env()
         if cuppa_env['terse_output']:
+            cuppa.progress.reset_progress_ledger()
+            cuppa.progress.enable_terse_build_summary()
+            cuppa.progress.install_terse_progress_hooks()
             cuppa.progress.install_terse_interrupt_filter()
             cuppa_env['empty_env']['terse_output'] = True
             cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line

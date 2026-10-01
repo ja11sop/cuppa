@@ -10,7 +10,7 @@
 import sys
 
 import cuppa.progress
-from cuppa.colourise import as_colour, as_notice, as_subdued
+from cuppa.colourise import as_badge, as_colour, as_emphasised, as_notice, as_subdued
 
 
 def enabled( env ):
@@ -30,22 +30,28 @@ def _count( value ):
         return 0
 
 
-def _paint( status, text ):
-    """Status colour, not bold. The name is what you scan for."""
-    if status == "skip":
-        return as_subdued( text )
-    meaning = {
+def _status_meaning( status ):
+    return {
             "fail": "error",
+            "skip": "skipped",
             "xfail": "expected_failure",
             "xpass": "unexpected_success",
     }.get( status, "success" )
-    return as_colour( meaning, text )
+
+
+def _paint( status, text ):
+    """Status colour, not bold. A case leaf is what you scan for."""
+    if status == "skip":
+        return as_subdued( text )
+    return as_colour( _status_meaning( status ), text )
 
 
 def colour_test_name( status, name, case=False ):
-    """Colour the binary, or only the case leaf after ``binary/``."""
+    """Badge a test binary. A case colours only the leaf after ``binary/``."""
     text = str( name or "" )
-    if case and "/" in text:
+    if not case:
+        return as_badge( _status_meaning( status ), text )
+    if "/" in text:
         prefix, leaf = text.rsplit( "/", 1 )
         return prefix + "/" + _paint( status, leaf )
     return _paint( status, text )
@@ -88,7 +94,7 @@ def write_case( env, program, test_case, nanos ):
             sys.stdout.write( str( line ) + "\n" )
     total = _count( test_case.get( "total" ) )
     passed = _count( test_case.get( "passed" ) )
-    detail = assertion_clause( passed, total )
+    detail = assertion_clause( passed, total, label=False )
     name = program + "/" + str( test_case.get( "name" ) or "" )
     _write( env, case_status( raw ), "test-case", name, nanos, detail )
 
@@ -102,10 +108,16 @@ def _status_phrase( count, label, meaning ):
     return as_colour( meaning, text )
 
 
-def assertion_clause( passed, total ):
-    """``14/14 assertions``, or a notice when nothing was checked."""
+def assertion_clause( passed, total, label=False ):
+    """``14/14 assertions``, or ``no assertions`` when nothing was checked.
+
+    A roll-up draws that phrase as a notice badge. A ``test-case`` uses a bold
+    notice, so the case line does not grow another badge.
+    """
     if not total:
-        return as_notice( "no assertions" )
+        if label:
+            return as_badge( "notice", "no assertions" )
+        return as_emphasised( as_notice( "no assertions" ) )
     return "{}/{} assertions".format( passed, total )
 
 
@@ -122,7 +134,7 @@ def rollup_detail( passed, failed, skipped, aborted, expected, total, assertions
     if cases and total:
         parts.append( "{}/{} cases".format( passed, total ) )
     if assertions is not None:
-        parts.append( assertion_clause( assertions[0], assertions[1] ) )
+        parts.append( assertion_clause( assertions[0], assertions[1], label=True ) )
     parts.append( _status_phrase( failed, "failed", "error" ) )
     parts.append( _status_phrase( aborted, "aborted", "error" ) )
     parts.append( _status_phrase( skipped, "skipped", "subdued" ) )
@@ -136,6 +148,9 @@ def write_rollup( env, program, status, nanos, passed, failed, skipped, aborted,
             assertions=assertions, cases=cases,
     )
     _write( env, status, "test", program, nanos, detail )
+    if cases:
+        case_total = total or ( passed + failed + skipped + aborted + expected )
+        cuppa.progress.note_terse_test_cases( case_total )
     cuppa.progress.note_terse_status_emitted()
 
 

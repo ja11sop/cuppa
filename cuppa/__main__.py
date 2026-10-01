@@ -71,6 +71,21 @@ def restrict_cpus():
             process.cpu_affinity( list(range(core_count-4)) )
 
 
+def _abort_scons( process ):
+    """Stop the inner SCons process. Used when Ctrl-C is pressed again."""
+    if not process:
+        return
+    try:
+        if process.poll() is not None:
+            return
+    except Exception:
+        pass
+    try:
+        process.kill()
+    except Exception:
+        pass
+
+
 def run_scons( args_list ):
 
     masker = MaskSecrets()
@@ -109,7 +124,21 @@ def run_scons( args_list ):
 
         stderr_thread = threading.Thread( target=stderr_consumer )
         stderr_thread.start()
-        stdout_consumer();
+        # The first Ctrl-C is delivered to this process and to SCons. SCons
+        # stops scheduling new tasks; children are in their own session, so
+        # they keep running. Keep reading so that drain is not stuck on a
+        # full pipe. The inner process handles a second Ctrl-C by terminating
+        # those children; a third stops SCons outright.
+        interrupts = 0
+        while True:
+            try:
+                stdout_consumer()
+                break
+            except KeyboardInterrupt:
+                interrupts += 1
+                if interrupts >= 3:
+                    _abort_scons( process )
+                    break
         stderr_thread.join()
 
         process.wait()
@@ -123,12 +152,15 @@ def run_scons( args_list ):
         return process.returncode
 
     except KeyboardInterrupt:
+        _abort_scons( process )
         if process:
-            process.terminate()
-            process.wait()
+            try:
+                process.wait()
+            except Exception:
+                pass
         if stderr_thread:
             stderr_thread.join()
-        return process.returncode
+        return process.returncode if process else 1
 
     return 1
 

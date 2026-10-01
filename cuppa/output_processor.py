@@ -21,6 +21,7 @@ import logging
 
 import cuppa.timer
 from cuppa.colourise import as_colour, as_emphasised, as_highlighted, as_notice
+from cuppa.utility.build_children import child_popen_kwargs, forget_child, remember_child
 from cuppa.utility.env import build_subprocess_env
 from cuppa.cpp.cxx_profiles_report import parse_profiles_diagnostic
 from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
@@ -134,10 +135,14 @@ class IncrementalSubProcess:
             if not suppress_output:
                 sys.stdout.write( " ".join(args_list) + "\n" )
 
+            popen_kwargs = dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
+            for key, value in child_popen_kwargs().items():
+                popen_kwargs.setdefault( key, value )
             process = subprocess.Popen(
                 use_shell and " ".join(args_list) or args_list,
-                **dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
+                **popen_kwargs
             )
+            remember_child( process )
 
             stderr_consumer = LineConsumer( process.stderr.readline, stderr_processor )
             stdout_consumer = LineConsumer( process.stdout.readline, stdout_processor )
@@ -167,6 +172,8 @@ class IncrementalSubProcess:
                 logger.info( "Joining any running threads" )
                 stderr_thread.join()
             raise e
+        finally:
+            forget_child( process )
 
 
     @classmethod

@@ -31,7 +31,109 @@ leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode`
 reports, not info logs, so they stay. `--verbosity=LEVEL` overrides the level `-Q` or `-s` would
 set. `--minimal-output` filters Cuppa's processed build messages and needs that processor, so it cannot be combined with `--raw-output` or `--scons-output`.
 
-`--terse-output` prints one status line per tool run: `[ok]`, `[warn]`, or `[error]`, then the sconscript, the build cell (`toolchain_variant_arch_abi`), the action (`compile`, `archive`, `index`, `link`, `link-shared`, or `run`), and the file. The toolchain names its own tools, so `gcc-ranlib-16` is `index`. A method may name its own action. Anything else is `run`. A `·` separates the action from the path. A compile shows the source in the project tree, not the variant working copy, with the directory subdued and the filename info and bold. `markdown` and `asciidoc` do the same. A source outside the project is shown from `~` when it lives under the home directory, otherwise as an absolute path. `copy`, `expand`, `render`, and a run that writes a file show `source → dest`. The source is subdued, the destination directory is subdued, and the destination filename is info and bold. `<working>/` and `<final>/` are this variant's build locations. `<artifacts>/` is this variant's artefact location, either its flat folder or a report directory that contains this variant and sconscript; any other path under the artefacts root is written as itself. Link, archive, and a program run show the product name. The sconscript leaf is info-coloured and any leading path is subdued. The action is plain, and in the build cell only the variant name (`dbg`, `rel`, `cov`) is plain. A clean run hides the command. A warning or a non-zero exit prints the command and the processed output, then the status line as the summary. Python actions such as copy, SCSS, and CMake get the same line. SCons `Install file:` and `Install directory:` lines are `copy`, and a clean install is only that status line. An `Execute(Copy(...))` inside another action is that same `copy` line, and the caller's own description stays hidden. A nested `Touch` stays hidden. A tool the action starts, such as `asciidoctor`, is hidden on a clean run. If it prints a warning or an error, or exits non-zero, that command and its output are printed, then the status line. Other text the action prints while it runs still appears as it happens. It does not imply `--minimal-output`. Together, a clean run is still one line, and failure output is filtered to errors and warnings. It needs the spawn processor, so it is refused with `--raw-output` or `--scons-output`. `Progress(...)` lines are hidden. Ctrl-C prints one `interrupted` line. The per-target `Error -2` lines from jobs that were still running are dropped. Pass `--terse-output-notify-progress` as well to put the sconscript and variant structure back. That structure is less useful under `--parallel`, where actions interleave. `-Q` still omits those lines, because their description is only built at info verbosity. `--terse-output-notify-progress` on its own is refused. A passing test binary is one `[pass]` line, with the elapsed time after the action. The test name is in the status colour. A multi-case binary ends with `11/12 cases, 40/52 assertions`; a run with no assertion total says `no assertions`. A failure prints each failing case (`test-case`) and its assertion text, then the binary's `[fail]` roll-up. `--show-test-cases` also prints the cases that passed, and requires `--terse-output`.
+=== Terse output
+
+`--terse-output` prints one status line per tool run. A clean run hides the command. A
+warning or a non-zero exit prints the command and the processed output, then the status
+line as the summary. It does not imply `--minimal-output`. Combined with it, a clean run
+is still one line, and failure output is filtered to errors and warnings. It needs the
+spawn processor, so it is refused with `--raw-output` or `--scons-output`.
+`Progress(...)` lines are hidden. Pass `--terse-output-notify-progress` as well to put
+the sconscript and variant structure back. That structure is less useful under
+`--parallel`, where actions interleave. `-Q` still omits those lines, because their
+description is only built at info verbosity. `--terse-output-notify-progress` on its own
+is refused.
+
+A line is `[ok]`, `[warn]`, or `[error]`, then the sconscript, the build cell
+(`toolchain_variant_arch_abi`), the action, and the file. The toolchain names its own
+tools, so `gcc-ranlib-16` is `index`. A method may name its own action. Anything else is
+`run`. A known SCons builder is named from its command: `tar`, `zip`, `text` (`Textfile`
+and `Substfile`), `jar`, `javac`, `m4`, `lex`, `yacc`, `swig`, `rpcgen`, `rpm`, and the
+TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from the path. A
+compile shows the source in the project tree, not the variant working copy, with the
+directory subdued and the filename info and bold. `markdown` and `asciidoc` do the same.
+A source outside the project is shown from `~` when it lives under the home directory,
+otherwise as an absolute path. `copy`, `expand`, `render`, and a run that writes a file
+show `source → dest`. The source is subdued, the destination directory is subdued, and
+the destination filename is info and bold. `<working>/` and `<final>/` are this
+variant's build locations. `<artifacts>/` is this variant's artefact location, either
+its flat folder or a report directory that contains this variant and sconscript. Any
+other path under the artefacts root is written as itself. Link, archive, and a program
+run show the product name. The sconscript leaf is info-coloured and any leading path is
+subdued. The action is plain, and in the build cell only the variant name (`dbg`, `rel`,
+`cov`) is plain. Status tokens share a six-column field, so `[ok]` lines up with
+`[pass]` and `[warn]`. `[error]`, `[xfail]`, and `[xpass]` run one column past it.
+
+Python actions such as copy, SCSS, and CMake get the same line. SCons `Install file:`
+and `Install directory:` lines are `copy`, and a clean install is only that status line.
+An `Execute` inside another action is a `→` line (`copy`, `move`, `delete`, `mkdir`,
+`chmod`, or `run`), and the caller's own description stays hidden. `Touch` stays hidden.
+A tool the action starts, such as `asciidoctor`, is hidden on a clean run. If it prints
+a warning or an error, or exits non-zero, that command and its output are printed, then
+the status line. Other text the action prints while it runs still appears as it happens.
+A status line that is not in the action total starts with `→`. That includes a test case
+and a nested copy or move.
+
+Before the first action, one subdued line gives the sconscript, variant, and action
+totals. `[done]` then reports how many ran, how many were already up to date, the test
+cases, and how many nested calls ran. It does not repeat the running tally. A no-op
+build is `[done] build up to date`.
+
+==== The running tally
+
+An action line leads with this sconscript and variant's tally and the percent of the
+whole build, ` 19/182 · 10%`. The subdued fraction is that one cell, so another
+sconscript has its own total. The percent is plain-coloured. It is how many of this
+run's actions have been accounted for, out of the actions that are going to run. Counts
+reserve three digits and the percent two, and grow past 999 or 99. A `→` line is
+indented so `[status]` stays in the same column. Actions SCons finds up to date are
+included in both numbers. They are counted when SCons visits them, and that visit does
+not print a line.
+
+[NOTE]
+====
+The percent can differ between runs at the same point in the graph.
+
+Every run starts the count at zero. An action that still has to run adds one when its
+line prints. An action left built by a previous run adds its whole count when a worker
+visits it, and that visit is silent.
+
+With `--parallel`, several workers visit the graph at once. If most nodes are already
+built, those workers are likely to reach built nodes early, and the percent jumps toward
+that share before many new lines appear. If only a little is built, the first lines are
+often compiles that still have to run, so the percent stays near zero until the walk
+reaches the built nodes. The same compile can therefore show `0%` on one run and `66%`
+on the next. The fraction in front of the percent (`19/182`) is only that sconscript and
+variant. It is not a second reading of the percent.
+
+The closing line uses the same ratio once the jobs have returned: `[interrupted] reached
+57%: 1280/2245`.
+====
+
+==== Tests
+
+A passing test binary is one `[pass]` badge, in the quieter green with plain black text,
+and the elapsed time after the action. `[fail]`, `[skip]`, `[xfail]`, and `[xpass]` use
+that same quiet badge in their own colour. The test name is a badge, like the status. A
+`test-case` uses the same text without the badge, and colours only the case leaf. A
+multi-case binary ends with `11/12 cases, 40/52 assertions`. A run with no assertion
+total says `no assertions`: a notice-yellow badge on the roll-up, and a bold notice on a
+`test-case`. A failure prints each failing case (`test-case`) and its assertion text,
+then the binary's `[fail]` badge. `--show-test-cases` also prints the cases that passed,
+and requires `--terse-output`. `run` and `benchmark` stay `[ok]`.
+
+==== Interrupting a build
+
+Ctrl-C prints `interrupted — finishing in-flight actions...`. Tasks that have already
+started are left to finish, and each of those lines leads with `...`. No new tasks are
+started. When they have finished, one line says `finished in-flight actions`, then
+`[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. The fraction is
+actions completed against the actions that were going to run, including those already up
+to date. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and
+stops what is still running, with no closing line. The per-target `Error -2` lines from
+jobs that were still running are dropped. `-Q` does not hide this close: SCons omits its
+own `scons: Build interrupted.` line in quiet mode, and Cuppa prints the close when the
+jobs return.
 
 `--scons-output` is the spawn half of `--raw-output`: SCons launches child processes, and Cuppa still colours logs and console reports. `--scons-output` together with `--standard-output` is the same outcome as `--raw-output` (no processor, no colour). Neither flag removes Cuppa progress nodes, and the `cuppa` wrapper still masks `*TOKEN*` values.
 

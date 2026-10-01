@@ -69,16 +69,85 @@ def _is_msvc_driver( tool ):
     return tool in ( "cl", "link" )
 
 
+# A default SCons builder, named from the program it runs. ``gtar`` is still
+# ``tar``. ``flex`` and ``bison`` keep the builder's name, not the binary's.
+_BUILDER_TOOLS = {
+    "tar": "tar",
+    "gtar": "tar",
+    "zip": "zip",
+    "jar": "jar",
+    "javac": "javac",
+    "javah": "javah",
+    "rmic": "rmic",
+    "m4": "m4",
+    "lex": "lex",
+    "flex": "lex",
+    "yacc": "yacc",
+    "bison": "yacc",
+    "swig": "swig",
+    "rpcgen": "rpcgen",
+    "rpm": "rpm",
+    "rpmbuild": "rpm",
+    "latex": "latex",
+    "pdflatex": "pdflatex",
+    "tex": "tex",
+    "pdftex": "pdftex",
+    "dvips": "dvips",
+    "dvipdf": "dvipdf",
+    "gs": "gs",
+    "gswin32c": "gs",
+    "gsos2": "gs",
+    "bibtex": "bibtex",
+    "biber": "biber",
+    "makeindex": "makeindex",
+}
+
+
+def _leading_tool( command ):
+    """The program a builder runs, skipping ``cd dir &&`` and ``NAME=value``."""
+    tokens = command_tokens( command )
+    index = 0
+    while index < len( tokens ):
+        token = tokens[ index ].strip( "'\"" )
+        lowered = token.lower()
+        if lowered == "cd":
+            index += 2
+            if index < len( tokens ) and tokens[ index ].strip( "'\"" ) == "&&":
+                index += 1
+            continue
+        if not token or lowered in ( "&&", ";", ">", "<", "|" ) or "=" in token:
+            index += 1
+            continue
+        return tool_basename( token )
+    return ""
+
+
 def spell_tool_command( command, target ):
     """``compile`` / ``archive`` / ``index`` / ``link`` / ``link-shared``, or empty."""
     text = str( command or "" ).lstrip().lower()
     # SCons prints these instead of a tool command. They are copies.
     if text.startswith( "install file:" ) or text.startswith( "install directory:" ):
         return "copy"
-    if text.startswith( "copy(" ):
+    if text.startswith( "copy(" ) or text.startswith( "copy file" ):
         return "copy"
     if text.startswith( "move(" ):
         return "move"
+    if text.startswith( "delete(" ):
+        return "delete"
+    if text.startswith( "mkdir(" ):
+        return "mkdir"
+    if text.startswith( "chmod(" ):
+        return "chmod"
+    # Textfile and Substfile print the same sentence, so they share a word.
+    if text.startswith( "creating '" ) or text.startswith( 'creating "' ):
+        return "text"
+    # Zip's builder is a Python function. Its description is not a ``zip`` command.
+    if text.startswith( "zip_builder(" ):
+        return "zip"
+    # Before the compiler's ``-c`` test. ``tar -c`` is an archive, not a compile.
+    builder = _BUILDER_TOOLS.get( _leading_tool( text ) )
+    if builder:
+        return builder
     tool = tool_basename( command )
     if not tool:
         return ""

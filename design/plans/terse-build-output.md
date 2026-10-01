@@ -2,16 +2,14 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-09-30
+- **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Mode note (plan vs agent)
 
-Capture **hierarchical counts and percentages** in this document now (Phase 2 below) so Phase 1
-does not paint us into a corner. **Agent mode** is enough to land that plan text. Switch to **plan
-mode** only if you want a longer design session before slice B — for example weighting rules,
-whether spawn completion is an acceptable proxy for “target done”, or splitting Phase 2 into its
-own issue/PR.
+Phase 2 counting rules are settled below. One action is one status line that is not a child of
+another. The prefix is that line's sconscript and variant (`35/38`) and one overall percent.
+Up-to-date actions count as already done.
 
 ## Why
 
@@ -69,11 +67,21 @@ improvement.
 
 | Event | Terse output |
 |-------|----------------|
-| Clean tool run | `[ok] sconscript · variant · action file`. Optional `{counts}` prefix stays empty until Phase 2 |
+| Clean tool run | `35/38 · 68% [ok] sconscript · variant · action file`. The fraction is this sconscript and variant. The percent is the whole build. Actions SCons has already found up to date are included in both |
 | Tool run fails | The command, processed output, and summary, then the `[error]` line. The status line is the summary of the failure |
 | Warning in tool output | The command and warning lines, then the `[warn]` line |
 | Sconstruct / sconscript begin/end | Hidden under `--terse-output`. Printed again with `--terse-output-notify-progress` |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
+
+The percent is actions accounted for in this process, out of the actions that are going to
+run. It starts at zero every run. A line that still has to run adds one when it prints. A
+node SCons finds already built adds its remaining actions when it is visited, and that visit
+does not print. With `--parallel`, the first lines show a low percent when the workers are
+still on nodes that need building, and a high percent when they reach nodes left built by the
+previous run. A later run therefore does not open at the previous percent. If most of the
+graph is already built, those workers are likely to count it quickly. If little is built, the
+opening lines can stay near zero until the walk reaches the built nodes. The closing
+`reached` line is that same ratio once the jobs have returned.
 
 ### Status line
 
@@ -109,6 +117,7 @@ A compile shows the source, not the object, so `database.cpp` is not confused wi
 | `link` | Compiler driver (`g++`, `g++-16`, `clang++`, `cl`, `link`) producing a program |
 | `link-shared` | A `.so`, `.dylib`, or `.dll`, or `-shared` / `/dll` |
 | `run` | Anything else that nobody named |
+| SCons builder | Named from the command. `tar` and `gtar` are `tar`. `zip` and `zip_builder(...)` are `zip`. `Textfile` and `Substfile` are both `text`, because both print `Creating '...'`. `CopyAs` and `CopyTo` (`Copy file(s):`) are `copy`. `jar`, `javac`, `javah`, `rmic`, `m4`, `swig`, `rpcgen`, `latex`, `pdflatex`, `tex`, `pdftex`, `dvips`, `dvipdf`, `gs`, `bibtex`, `biber`, and `makeindex` use that tool's name. `flex` is `lex`, `bison` is `yacc`, and `rpmbuild` is `rpm`. This is decided before `-c`, so `tar -c` is not a compile |
 
 ### Method labels
 
@@ -155,20 +164,21 @@ SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionActi
 | Clean child tool | Hidden. The action notes the command and its lines; a clean note is dropped |
 | Child warning or error | The child command and its lines, then `[warn]` or `[error]`. A line containing `: ERROR:` is an error even when the tool exits 0. The action's return code is unchanged |
 | `Install file:` / `Install directory:` | `copy`, and hidden on success. `env.Install` is wrapped so the sentence is not flushed later |
-| `Execute(Copy(...))` / `Execute(Move(...))` | Its own `copy` or `move` line, `source → dest`. The caller's SCons description is not also printed |
+| `Execute(...)` | A `→` line, not in the action total. `copy` and `move` show `source → dest`. `delete`, `mkdir`, and `chmod` show the path. Anything else is `run`, and the command is printed only on failure. `Touch` stays hidden. The caller's description is not also printed |
 | `Execute(Touch(...))` | Hidden. The caller keeps its own status line |
 | `Progress(...)` | Still hidden. The wrapper does not touch those actions |
 | Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
-| Ctrl-C | One subdued `interrupted` line. The per-job `scons: *** [file] Error -2` list is dropped, as is `building terminated because of errors.` |
-| Successful build | A final green `[done] build succeeded`; if no terse action ran, `[done] build up to date`. No Phase 2 counts or whole-build timer yet |
+| Ctrl-C | One subdued `interrupted — finishing in-flight actions...` line. Tasks already running are left to finish, and each of those lines leads with `...`. No new tasks are started. When they have finished: `finished in-flight actions`, then `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. That close is printed when the job runner returns. `-Q` never writes SCons's own `scons: Build interrupted.` line, so that text is not the cue. The fraction is actions completed against the actions that were going to run. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and stops what is still running, with no closing line. The per-job `Error -2` list is dropped |
+| Before the first action | One subdued line: `3 sconscripts · 1 variant · 13465 actions`. A variant is the build cell, counted once however many sconscripts use it |
+| Successful build | `[done] build succeeded · 820 ran · 12645 up to date · 842 test cases · 36 nested`. Zero clauses are omitted. `nested` is every uncounted `Execute` line. Test cases come from the roll-up, including cases that were not printed. A no-op build is `[done] build up to date · 13465 actions`. No whole-build timer. Nothing is added on failure or Ctrl-C |
 
 Text the action prints itself still appears as it happens. Only a child handed to `note_terse_child` is held back. `asciidoctor` does that. An unlabelled `asciidoctor` command is spelled `asciidoc`.
 
 ### Tests
 
-A test binary keeps one roll-up line: `[pass|fail|skip|xfail|xpass] sconscript · variant · test · duration · binary — 11/12 cases, 40/52 assertions, 1 failed`. The duration is subdued (`4 ms`, `1.2 s`, `12 s`). The binary name is in the status colour, not bold, so a test is visible among compile and copy lines. Passing fractions stay plain. Only non-zero extras follow, in the status colour (`1 failed`, `1 aborted`, `1 skipped`, `1 xfailed`). No assertion total is a notice: `no assertions`.
+A test binary keeps one roll-up line: `[pass|fail|skip|xfail|xpass] sconscript · variant · test · duration · binary — 11/12 cases, 40/52 assertions, 1 failed`. The roll-up status and the binary name are quiet badges: the same colour as a highlight, without the bold bright background. A `test-case` uses the same status text in the status colour, not a badge, and colours only the case leaf. The duration is subdued (`4 ms`, `1.2 s`, `12 s`). Passing fractions stay plain. Only non-zero extras follow, in the status colour (`1 failed`, `1 aborted`, `1 skipped`, `1 xfailed`). On a roll-up, no assertion total is a notice badge: `no assertions`. The yellow is the notice colour, not the bright highlight. On a `test-case` the same words are a bold notice, not a label. Status tokens share a six-column field, so `[ok]` lines up with `[pass]`, `[warn]`, `[fail]`, and `[skip]`. `[error]`, `[xfail]`, and `[xpass]` run one column past it.
 
-A binary with several cases prints a failing case before that roll-up: assertion text, then `[fail] … · test-case · duration · binary/case — 1/3 assertions`. Only the case leaf is coloured. Passing cases stay hidden unless `--show-test-cases` is set. That flag requires `--terse-output`. A Cuppa test that is one executable is only the roll-up, and it says `no assertions` rather than `1/1`. `run` and `benchmark` stay `[ok]`.
+A binary with several cases prints a failing case before that roll-up: assertion text, then `→ [fail] … · test-case · duration · binary/case — 1/3 assertions`. A leading `→` means the line is not in the action total. A nested `copy` or `move` uses it too. Only the case leaf is coloured. Passing cases stay hidden unless `--show-test-cases` is set. That flag requires `--terse-output`. A Cuppa test that is one executable is only the roll-up, and it says `no assertions` rather than `1/1`. `run` and `benchmark` stay `[ok]`.
 
 `None`, `0`, and any other falsy return are success, matching SCons. A truthy return or an exception is failure. `KeyboardInterrupt` and `SystemExit` propagate with no status line.
 
@@ -188,7 +198,7 @@ diagnostic filtering on failures only).
 
 **Phase 1 reporter** is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
 `format_terse_line`, `spell_terse_action`, `render_terse_spawn`, and `terse_print_cmd_line`.
-Phase 2 fills `terse_counts_prefix()` (empty in Phase 1) and does not rewrite the status line.
+`terse_counts_prefix()` is the cell tally and overall percent. It does not rewrite the rest of the status line.
 Do not key human text off the `Progress(...)` description.
 
 ### Progress lines
@@ -204,6 +214,14 @@ structure, which is why it stays opt-in.
 ---
 
 ## Phase 2 — hierarchical progress (counts and percentages)
+
+### Settled
+
+- One action is one status line that stands alone: compile, link, archive, index, a top-level copy, a test roll-up. A status line that is not in that total leads with `→`, whether or not a parent line is visible. That covers a `test-case` and a nested `copy` or `move`. The caller of the nested copy still counts as one. `[done]` is not an action and is not a status line, so it has no arrow.
+- Several targets that share an executor count once. Archive and index are two slots, because they are two status lines.
+- The total is the actions reachable from the targets being built. Anything SCons decides is up to date is already done, not missing. A walk that finds nothing keeps the full set, so a failed lookup does not show an empty tally.
+- The prefix is ` 19/182 · 10%`. The subdued fraction is this sconscript and variant, so two scripts show different totals. The plain-coloured percent is completed actions over total actions for the whole build. Counts reserve three digits and the percent two (` 25/ 56 · 10%`); past 999 or 99 they grow. A `→` line is indented so its `[status]` stays in that column. Do not print "which script we are in". Under `-j` the numbers only increase.
+- No ETA, and no tally on `[done]`.
 
 ### What you asked for
 
@@ -224,7 +242,8 @@ overall = completed_actions / total_actions   (all active sconscript × variant 
 ```
 
 Optional secondary fields: `scripts i/N`, `variant j/M` (within current sconscript), `actions k/T`
-(within current variant cell).
+(within current variant cell). The script and variant position in that sketch does not survive
+`-j`. What ships is the settled prefix above: this cell's `35/38`, then one overall percent.
 
 ### What cuppa already knows
 
@@ -253,8 +272,10 @@ So hierarchy **display** is feasible; **per-action completion** needs new instru
    | **B. Wrap `NotifyProgress.add` + SCons `Command`/`Action` post-hooks** | Theoretically everything | Invasive; easy to miss a builder path |
    | **C. SCons task progress / `-Q` integration** | Whatever SCons counts | Fights cuppa’s custom spawn; version-dependent |
 
-   **Recommendation:** start Phase 2 with **A + ledger populated in `add()`**, document gaps for
-   non-spawn actions; revisit **B** only if gaps matter in practice.
+   The settled tally is the status lines themselves, registered from the executor when
+   `NotifyProgress.add` records the node. Spawn exits and Python actions both move it.
+   Up-to-date nodes are credited when SCons skips them. Nested copies and `test-case`
+   lines do not.
 
 5. **Script order.** “Project 2 of 4” follows **active `--scripts` order**, not filesystem order,
    unless we deliberately sort — state the rule in docs.
@@ -273,7 +294,7 @@ Optional later: `--progress-format=nested|flat|overall-only`.
 ### Phase 1 must not foreclose Phase 2
 
 - Terse formatting goes through **one reporter**, not ad hoc `print` in spawn and progress.
-- Success lines reserve an optional **leading counts segment** (empty in Phase 1 is fine).
+- Success lines keep the leading counts segment (`35/38 · 68%`).
 - Do not key human-readable progress off SCons `Progress( … )` description strings — they change.
 
 ---

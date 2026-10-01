@@ -55,6 +55,17 @@ class HtmlColouriser(object):
             + self._token( 'reset' )
         )
 
+    def badge( self, meaning, text ):
+        """Same meaning colour as a label, without the bold weight."""
+        return (
+            self._token(
+                    'start',
+                    ( self._meaning_class( meaning ), 'cuppa-badge' ),
+            )
+            + text
+            + self._token( 'reset' )
+        )
+
     def emphasise( self, text ):
         return (
             self._token( 'start', ( 'cuppa-emphasised', ) )

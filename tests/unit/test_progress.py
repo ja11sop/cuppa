@@ -63,6 +63,7 @@ def _reset_notifyprogress_state(monkeypatch):
     NotifyProgress._started = {}
     NotifyProgress._finished = {}
     NotifyProgress.set_inventory_report_mode( False )
+    progress_module.reset_progress_ledger()
 
     def _fake_progress(label, event, sconscript, variant, env):
         return "progress:{}:{}:{}".format(event, sconscript, variant)
@@ -239,6 +240,65 @@ def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
     progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
 
     assert capsys.readouterr().out == "[done] build up to date\n"
+
+
+class _SummaryNode:
+    def has_builder(self):
+        return True
+
+    def get_executor(self):
+        return self
+
+    def get_action_list(self):
+        return [object()]
+
+
+def test_a_terse_build_summarises_the_plan_and_what_finished(capsys):
+    env = _make_env("test/orders/sconscript", "_build/test/orders/gcc16/dbg/x86_64/cxx2c/working")
+    env["terse_output"] = True
+    env["toolchain"] = type("T", (), {"name": lambda self: "gcc16"})()
+    env["variant"] = type("V", (), {"name": lambda self: "dbg"})()
+    env["target_arch"] = "x86_64"
+    env["abi"] = "cxx2c"
+    skipped = _SummaryNode()
+    ran = _SummaryNode()
+    progress_module.enable_terse_build_summary()
+    progress_module.register_terse_actions(env, [skipped, ran])
+    progress_module.note_up_to_date_action(skipped)
+    progress_module.write_terse_build_plan()
+    progress_module.format_terse_line("ok", "g++ -c a.cpp", [ran], ["a.cpp"], env)
+    progress_module.note_terse_build_activity()
+    progress_module.note_terse_nested_action()
+    progress_module.note_terse_test_cases(2)
+    progress_module.reset_build_interrupted()
+    progress_module.Progress("sconstruct_end", None, None, {"terse_output": True})([], [], {})
+    out = capsys.readouterr().out
+    assert "1 sconscript · 1 variant · 2 actions\n" in out
+    assert out.endswith("[done] build succeeded · 1 ran · 1 up to date · 2 test cases · 1 nested\n")
+
+
+def test_an_interrupt_summarises_the_whole_build_not_only_the_drain(capsys):
+    env = _make_env("test/orders/sconscript", "_build/test/orders/gcc16/dbg/x86_64/cxx2c/working")
+    env["terse_output"] = True
+    env["toolchain"] = type("T", (), {"name": lambda self: "gcc16"})()
+    env["variant"] = type("V", (), {"name": lambda self: "dbg"})()
+    env["target_arch"] = "x86_64"
+    env["abi"] = "cxx2c"
+    skipped = _SummaryNode()
+    ran = _SummaryNode()
+    waiting = _SummaryNode()
+    progress_module.enable_terse_build_summary()
+    progress_module.register_terse_actions(env, [skipped, ran, waiting])
+    progress_module.note_up_to_date_action(skipped)
+    progress_module.format_terse_line("ok", "g++ -c a.cpp", [ran], ["a.cpp"], env)
+    progress_module.note_terse_test_cases(2)
+    progress_module.note_build_interrupted()
+    progress_module.write_terse_interrupt_finish()
+    out = capsys.readouterr().out
+    assert out.endswith(
+            "finished in-flight actions\n"
+            "[interrupted] reached 67%: 2/3 · 1 ran · 1 up to date · 2 test cases\n"
+    )
 
 
 def test_sconstruct_end_is_silent_without_terse_output(capsys):

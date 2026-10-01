@@ -15,16 +15,20 @@ import signal
 import sys
 import threading
 
-from cuppa.colourise import as_colour, as_emphasised, as_info, as_notice, as_subdued
+from cuppa.colourise import as_badge, as_colour, as_emphasised, as_info, as_notice, as_subdued
 from cuppa.log import logger
 
 from SCons.Script import Action
 
 
 _interrupt_announced = False
+_abort_announced = False
+_interrupt_finished = False
 _interrupt_lock = threading.Lock()
 _terse_activity_seen = False
 _terse_activity_lock = threading.Lock()
+_summary_enabled = False
+_plan_written = False
 
 
 def reset_terse_build_activity():
@@ -46,20 +50,81 @@ def terse_build_had_activity():
         return _terse_activity_seen
 
 
+def _plural( count, singular, plural ):
+    return "{} {}".format( count, singular if count == 1 else plural )
+
+
+def _plan_sentence( scripts, variants, total ):
+    parts = []
+    if scripts:
+        parts.append( _plural( scripts, "sconscript", "sconscripts" ) )
+    if variants:
+        parts.append( _plural( variants, "variant", "variants" ) )
+    if total:
+        parts.append( _plural( total, "action", "actions" ) )
+    return " · ".join( parts )
+
+
+def enable_terse_build_summary():
+    """Print the opening plan and the closing counts for this build."""
+    global _summary_enabled
+    _summary_enabled = True
+
+
+def write_terse_build_plan():
+    """One subdued line before the first action, once the totals are known."""
+    global _plan_written
+    if not _summary_enabled or _plan_written or _interrupt_announced:
+        return
+    _plan_written = True
+    text = _progress_ledger.plan_line()
+    if not text:
+        return
+    sys.stdout.write( as_subdued( text ) + "\n" )
+    sys.stdout.flush()
+
+
+def write_terse_interrupt_finish():
+    """Close a graceful Ctrl-C once the actions already running have finished.
+
+    An ``aborted`` build has no closing line. The counts are the same ones a
+    successful build would report.
+    """
+    global _interrupt_finished
+    with _interrupt_lock:
+        if _abort_announced or _interrupt_finished or not _interrupt_announced:
+            return
+        _interrupt_finished = True
+    sys.stdout.write( as_subdued( "finished in-flight actions" ) + "\n" )
+    summary = ""
+    if _summary_enabled:
+        summary = _progress_ledger.interrupt_summary()
+    line = as_notice( "[interrupted]" )
+    if summary:
+        line += " " + summary
+    sys.stdout.write( line + "\n" )
+    sys.stdout.flush()
+
+
 def write_terse_build_completion( env ):
     """Finish a successful terse build, including a no-op build under ``-Q``."""
     if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return
     outcome = "succeeded" if terse_build_had_activity() else "up to date"
-    sys.stdout.write( as_colour( "success", "[done]" ) + " build " + outcome + "\n" )
+    suffix = ""
+    if _summary_enabled:
+        suffix = _progress_ledger.completion_clause( outcome == "up to date" )
+    sys.stdout.write( as_colour( "success", "[done]" ) + " build " + outcome + suffix + "\n" )
     sys.stdout.flush()
 
 
 def reset_build_interrupted():
     """Allow another build in this process to report Ctrl-C once."""
-    global _interrupt_announced
+    global _interrupt_announced, _abort_announced, _interrupt_finished
     with _interrupt_lock:
         _interrupt_announced = False
+        _abort_announced = False
+        _interrupt_finished = False
 
 
 def is_interrupt_returncode( returncode ):
@@ -72,6 +137,32 @@ def is_interrupt_returncode( returncode ):
     return code in ( -interrupted, 128 + interrupted )
 
 
+def _interrupt_stream():
+    """The real stderr, under the filter that hides SCons's Ctrl-C list."""
+    stream = sys.stderr
+    while isinstance( stream, _TerseInterruptStream ):
+        stream = stream._real
+    return stream
+
+
+def _write_interrupt_word( word ):
+    """Put ``word`` on its own line, even when the transcript stopped mid-line."""
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+    stream = _interrupt_stream()
+    stream.write( "\n" + as_subdued( word ) + "\n" )
+    stream.flush()
+
+
+def _finishing_mark():
+    """``...`` in front of a line printed while in-flight actions drain."""
+    if not _interrupt_announced or _abort_announced:
+        return ""
+    return as_subdued( "... " )
+
+
 def note_build_interrupted():
     """Print one ``interrupted`` line. Further calls in this build do nothing."""
     global _interrupt_announced
@@ -79,11 +170,17 @@ def note_build_interrupted():
         if _interrupt_announced:
             return
         _interrupt_announced = True
-    stream = sys.stderr
-    while isinstance( stream, _TerseInterruptStream ):
-        stream = stream._real
-    stream.write( as_subdued( "interrupted" ) + "\n" )
-    stream.flush()
+    _write_interrupt_word( "interrupted — finishing in-flight actions..." )
+
+
+def note_build_aborted():
+    """Print one ``aborted`` line when a second Ctrl-C stops running work."""
+    global _abort_announced
+    with _interrupt_lock:
+        if _abort_announced:
+            return
+        _abort_announced = True
+    _write_interrupt_word( "aborted" )
 
 
 def _is_interrupt_noise( text ):
@@ -114,6 +211,9 @@ class _TerseInterruptStream:
     def write( self, text ):
         if _is_interrupt_noise( text ):
             note_build_interrupted()
+            # SCons prints this after the jobs already running have returned.
+            if "Build interrupted." in str( text or "" ):
+                write_terse_interrupt_finish()
             return
         return self._real.write( text )
 
@@ -122,6 +222,11 @@ class _TerseInterruptStream:
 
     def __getattr__( self, name ):
         return getattr( self._real, name )
+
+
+def terse_interrupt_installed():
+    """True once ``--terse-output`` is hiding the per-job Ctrl-C list."""
+    return isinstance( sys.stderr, _TerseInterruptStream ) or isinstance( sys.stdout, _TerseInterruptStream )
 
 
 def install_terse_interrupt_filter():
@@ -274,6 +379,8 @@ class NotifyProgress(object):
             cls._sconstruct_end = progress( '#SconstructEnd', 'sconstruct_end', None, None, empty_env )
 
         env.Requires( cls._sconstruct_end, end )
+        if _env_get( env, "terse_output" ):
+            register_terse_actions( env, target )
 
 
 class VariantCompletionTracker(object):
@@ -354,9 +461,522 @@ _pending_lock = threading.Lock()
 _pending_commands = {}
 
 
-def terse_counts_prefix():
-    """Leading counts segment reserved for Phase 2. Empty until then."""
-    return ""
+class _ProgressLedger(object):
+    """Actions that will print a status line, by sconscript and variant.
+
+    One executor is one tally, however many targets it writes. A static
+    library's archive and index are two slots on that executor. A test
+    binary's log files share one. Up-to-date work is already done.
+    """
+
+    def __init__( self ):
+        self._lock = threading.Lock()
+        self._nodes = {}
+        self._executors = {}
+        self._cells = {}
+        self._done = 0
+        self._total = 0
+        self._narrowed = False
+        self._action_digits = 3
+        self._percent_digits = 2
+        self._up_to_date = 0
+        self._nested = 0
+        self._test_cases = 0
+
+    def reset( self ):
+        with self._lock:
+            self._nodes = {}
+            self._executors = {}
+            self._cells = {}
+            self._done = 0
+            self._total = 0
+            self._narrowed = False
+            self._action_digits = 3
+            self._percent_digits = 2
+            self._up_to_date = 0
+            self._nested = 0
+            self._test_cases = 0
+
+    def register( self, env, nodes ):
+        cell = _progress_cell( env )
+        with self._lock:
+            for node in _iter_nodes( nodes ):
+                slots, executor_id = _action_slots( node )
+                if slots <= 0 or executor_id is None:
+                    continue
+                existing = self._executors.get( executor_id )
+                if existing is not None:
+                    self._nodes[ id( node ) ] = existing
+                    continue
+                entry = {
+                        "slots": slots,
+                        "remaining": slots,
+                        "cell": cell,
+                }
+                self._executors[ executor_id ] = entry
+                self._nodes[ id( node ) ] = entry
+                bucket = self._cells.setdefault( cell, { "done": 0, "total": 0 } )
+                bucket[ "total" ] += slots
+                self._total += slots
+
+    def keep_reachable( self, roots ):
+        """Drop actions that are not under the targets about to be built.
+
+        An empty walk leaves the full set in place. A failed lookup must not
+        turn the tally into zero.
+        """
+        with self._lock:
+            if self._narrowed:
+                return
+            known = set( self._nodes )
+        found = _reachable_ids( roots, known )
+        with self._lock:
+            if self._narrowed:
+                return
+            self._narrowed = True
+            if not found:
+                return
+            entry_ids = set()
+            for ident in found:
+                entry = self._nodes.get( ident )
+                if entry is not None:
+                    entry_ids.add( id( entry ) )
+            if not entry_ids:
+                return
+            self._nodes = {
+                    ident: entry
+                    for ident, entry in self._nodes.items()
+                    if id( entry ) in entry_ids
+            }
+            self._rebuild_totals()
+
+    def credit_and_prefix( self, target, current, env, count ):
+        with self._lock:
+            credited = False
+            if count:
+                credited = self._credit_unlocked( target, current, 1 )
+            return credited, self._prefix_unlocked( _progress_cell( env ) )
+
+    def credit_all_remaining( self, node ):
+        with self._lock:
+            entry = self._nodes.get( id( node ) )
+            if entry is None:
+                return False
+            take = entry[ "remaining" ]
+            if not self._credit_entry( entry, take ):
+                return False
+            self._up_to_date += take
+            return True
+
+    def note_nested( self ):
+        with self._lock:
+            self._nested += 1
+
+    def note_test_cases( self, count ):
+        try:
+            count = int( count )
+        except ( TypeError, ValueError ):
+            return
+        if count <= 0:
+            return
+        with self._lock:
+            self._test_cases += count
+
+    def plan_line( self ):
+        """``3 sconscripts · 1 variant · 13465 actions``, or empty."""
+        with self._lock:
+            scripts = set()
+            variants = set()
+            seen = set()
+            for entry in self._nodes.values():
+                if id( entry ) in seen:
+                    continue
+                seen.add( id( entry ) )
+                script, variant = entry[ "cell" ]
+                if script:
+                    scripts.add( script )
+                if variant:
+                    variants.add( variant )
+            total = self._total
+        return _plan_sentence( len( scripts ), len( variants ), total )
+
+    def completion_clause( self, up_to_date_outcome ):
+        """The counts that follow ``build succeeded`` or ``build up to date``."""
+        with self._lock:
+            total = self._total
+            ran = self._done - self._up_to_date
+            skipped = self._up_to_date
+            cases = self._test_cases
+            nested = self._nested
+        if ran < 0:
+            ran = 0
+        if up_to_date_outcome:
+            if not total:
+                return ""
+            return " · " + _plural( total, "action", "actions" )
+        parts = []
+        if ran and skipped:
+            parts.append( "{} ran".format( ran ) )
+            parts.append( "{} up to date".format( skipped ) )
+        elif ran:
+            parts.append( "{} ran".format( ran ) )
+        elif skipped:
+            parts.append( "{} up to date".format( skipped ) )
+        if cases:
+            parts.append( _plural( cases, "test case", "test cases" ) )
+        if nested:
+            parts.append( "{} nested".format( nested ) )
+        if not parts:
+            return ""
+        return " · " + " · ".join( parts )
+
+    def interrupt_summary( self ):
+        """How far the whole build got, not only the actions still running.
+
+        ``reached 57%: 1280/2245 · 80 ran · 1200 up to date``. The fraction is
+        actions completed against the actions that were going to run. Completed
+        counts both ``ran`` and ``up to date``.
+        """
+        with self._lock:
+            total = self._total
+            done = self._done
+            ran = done - self._up_to_date
+            skipped = self._up_to_date
+            cases = self._test_cases
+            nested = self._nested
+        if ran < 0:
+            ran = 0
+        if done < 0:
+            done = 0
+        parts = []
+        if total:
+            percent = int( ( 100 * done + total // 2 ) / total )
+            parts.append( "reached {}%: {}/{}".format( percent, done, total ) )
+        if ran:
+            parts.append( "{} ran".format( ran ) )
+        if skipped:
+            parts.append( "{} up to date".format( skipped ) )
+        if cases:
+            parts.append( _plural( cases, "test case", "test cases" ) )
+        if nested:
+            parts.append( "{} nested".format( nested ) )
+        return " · ".join( parts )
+
+    def _credit_unlocked( self, target, current, count ):
+        for node in _iter_nodes( target ):
+            entry = self._nodes.get( id( node ) )
+            if entry is not None and entry[ "remaining" ] > 0:
+                return self._credit_entry( entry, count )
+        for node in _iter_nodes( current ):
+            entry = self._nodes.get( id( node ) )
+            if entry is not None and entry[ "remaining" ] > 0:
+                return self._credit_entry( entry, count )
+        return False
+
+    def _credit_entry( self, entry, count ):
+        take = entry[ "remaining" ] if count is None else min( int( count ), entry[ "remaining" ] )
+        if take <= 0:
+            return False
+        entry[ "remaining" ] -= take
+        bucket = self._cells.get( entry[ "cell" ] )
+        if bucket is not None:
+            bucket[ "done" ] += take
+        self._done += take
+        return True
+
+    def _prefix_unlocked( self, cell ):
+        bucket = self._cells.get( cell )
+        if not bucket or not bucket[ "total" ] or not self._total:
+            return ""
+        percent = int( ( 100 * self._done + self._total // 2 ) / self._total )
+        action_digits, percent_digits = self._prefix_widths( percent )
+        return "{:>{}}/{:>{}} · {:>{}}%".format(
+                bucket[ "done" ], action_digits,
+                bucket[ "total" ], action_digits,
+                percent, percent_digits,
+        )
+
+    def _prefix_widths( self, percent ):
+        """Reserve three digits and two for the percent. Grow past 999 or 99."""
+        widest = 0
+        for bucket in self._cells.values():
+            widest = max( widest, bucket[ "total" ], bucket[ "done" ] )
+        if widest:
+            self._action_digits = max( self._action_digits, len( str( widest ) ) )
+        self._percent_digits = max( self._percent_digits, len( str( percent ) ) )
+        return self._action_digits, self._percent_digits
+
+    def _rebuild_totals( self ):
+        self._cells = {}
+        self._done = 0
+        self._total = 0
+        seen = set()
+        for entry in self._nodes.values():
+            if id( entry ) in seen:
+                continue
+            seen.add( id( entry ) )
+            done = entry[ "slots" ] - entry[ "remaining" ]
+            bucket = self._cells.setdefault( entry[ "cell" ], { "done": 0, "total": 0 } )
+            bucket[ "total" ] += entry[ "slots" ]
+            bucket[ "done" ] += done
+            self._total += entry[ "slots" ]
+            self._done += done
+
+
+_progress_ledger = _ProgressLedger()
+_current_action_target = threading.local()
+_terse_action_accounted = threading.local()
+_progress_narrowed = False
+_progress_narrow_lock = threading.Lock()
+
+
+def reset_progress_ledger():
+    """Drop registered actions. The next build counts from empty."""
+    global _progress_narrowed, _summary_enabled, _plan_written
+    _progress_ledger.reset()
+    _current_action_target.value = None
+    _terse_action_accounted.done = False
+    _summary_enabled = False
+    _plan_written = False
+    with _progress_narrow_lock:
+        _progress_narrowed = False
+
+
+def register_terse_actions( env, nodes ):
+    """Count executors that will get a status line. No effect unless terse."""
+    if not _env_get( env, "terse_output" ):
+        return
+    _progress_ledger.register( env, nodes )
+
+
+def remember_terse_action_target( target ):
+    """The Python action now running. Its roll-up credits this target."""
+    _current_action_target.value = target
+
+
+def forget_terse_action_target():
+    _current_action_target.value = None
+
+
+def _current_action_nodes():
+    return getattr( _current_action_target, "value", None )
+
+
+def note_terse_action_accounted():
+    """This action already moved the tally. Do not count it again."""
+    _terse_action_accounted.done = True
+
+
+def take_terse_action_accounted():
+    done = bool( getattr( _terse_action_accounted, "done", False ) )
+    _terse_action_accounted.done = False
+    return done
+
+
+def note_up_to_date_action( node ):
+    """SCons will not run this action. It is already done."""
+    _progress_ledger.credit_all_remaining( node )
+
+
+def note_terse_nested_action():
+    """A nested ``Execute`` printed a status line. It is not an action."""
+    _progress_ledger.note_nested()
+
+
+def note_terse_test_cases( count ):
+    """Case total from a test roll-up, including cases that were not printed."""
+    _progress_ledger.note_test_cases( count )
+
+
+def _action_slots( node ):
+    """Status lines one executor will print, and an id for that executor.
+
+    ``(0, None)`` is not an action. Several targets that share an executor
+    count once.
+    """
+    has_builder = getattr( node, "has_builder", None )
+    if not callable( has_builder ):
+        return 0, None
+    try:
+        if not has_builder():
+            return 0, None
+    except Exception:
+        return 0, None
+    try:
+        executor = node.get_executor()
+    except Exception:
+        return 1, id( node )
+    if executor is None:
+        return 1, id( node )
+    try:
+        actions = executor.get_action_list()
+    except Exception:
+        return 1, id( executor )
+    slots = _slots_in( actions or [] )
+    if slots <= 0:
+        slots = 1
+    return slots, id( executor )
+
+
+def _slots_in( actions ):
+    total = 0
+    for action in actions:
+        children = getattr( action, "list", None )
+        if children:
+            total += _slots_in( children )
+        else:
+            total += 1
+    return total
+
+
+def _progress_cell( env ):
+    return ( _sconscript_label( env ), _variant_cell( env ) )
+
+
+def _reachable_ids( roots, nodes ):
+    found = set()
+    seen = set()
+    stack = [ node for node in roots or [] if node is not None ]
+    while stack:
+        node = stack.pop()
+        if isinstance( node, ( str, bytes ) ):
+            continue
+        ident = id( node )
+        if ident in seen:
+            continue
+        seen.add( ident )
+        if ident in nodes:
+            found.add( ident )
+        for child in _graph_children( node ):
+            stack.append( child )
+    return found
+
+
+def _graph_children( node ):
+    kids = []
+    children = getattr( node, "children", None )
+    if callable( children ):
+        try:
+            kids.extend( children( scan=False ) )
+        except Exception:
+            pass
+    prerequisites = getattr( node, "prerequisites", None )
+    if prerequisites:
+        try:
+            kids.extend( prerequisites )
+        except Exception:
+            pass
+    return kids
+
+
+def _build_root_nodes():
+    try:
+        import SCons.Script as script
+    except Exception:
+        return []
+    names = list( getattr( script, "BUILD_TARGETS", None ) or [] )
+    if not names:
+        defaults = list( getattr( script, "DEFAULT_TARGETS", None ) or [] )
+        nodes = [ node for node in defaults if not isinstance( node, ( str, bytes ) ) ]
+        if nodes and not names:
+            return nodes
+        names = [ node for node in defaults if isinstance( node, ( str, bytes ) ) ]
+    if not names:
+        return []
+    try:
+        env = script.DefaultEnvironment()
+    except Exception:
+        return [ node for node in names if not isinstance( node, ( str, bytes ) ) ]
+    roots = []
+    for name in names:
+        if not isinstance( name, ( str, bytes ) ):
+            roots.append( name )
+            continue
+        try:
+            roots.extend( env.arg2nodes( [ name ] ) )
+        except Exception:
+            continue
+    return roots
+
+
+def narrow_progress_ledger( roots ):
+    _progress_ledger.keep_reachable( roots )
+
+
+def narrow_progress_ledger_once():
+    """Keep the tally to the targets of this build. Once, on the first task."""
+    global _progress_narrowed
+    with _progress_narrow_lock:
+        if _progress_narrowed:
+            return
+        _progress_narrowed = True
+    narrow_progress_ledger( _build_root_nodes() )
+
+
+def _credit_up_to_date_targets( targets ):
+    try:
+        import SCons.Node as node_module
+        up_to_date = node_module.up_to_date
+    except Exception:
+        return
+    for target in _iter_nodes( targets ):
+        try:
+            state = target.get_state()
+        except Exception:
+            continue
+        if state == up_to_date:
+            note_up_to_date_action( target )
+
+
+def install_terse_progress_hooks():
+    """Count up-to-date nodes, and ignore actions outside this build."""
+    import SCons.Script.Main as main
+    current = main.BuildTask.make_ready
+    if getattr( current, "_cuppa_terse_ledger", False ):
+        return
+
+    def make_ready( self ):
+        narrow_progress_ledger_once()
+        write_terse_build_plan()
+        current( self )
+        _credit_up_to_date_targets( self.targets )
+
+    make_ready._cuppa_terse_ledger = True
+    main.BuildTask.make_ready = make_ready
+
+
+def _account_and_prefix( target, env, count, mark=False ):
+    credited, text = _progress_ledger.credit_and_prefix(
+            target, _current_action_nodes(), env, count,
+    )
+    if credited and mark:
+        note_terse_action_accounted()
+    if not count or not text:
+        return ""
+    return _colour_counts_prefix( text )
+
+
+def _colour_counts_prefix( text ):
+    """Subdue the cell tally and separator, but leave the percent plain."""
+    tally, separator, percent = text.partition( " · " )
+    if not separator:
+        return as_subdued( text )
+    return as_subdued( tally + separator ) + percent
+
+
+def terse_counts_prefix( env=None ):
+    """`` 19/182 · 10%`` for this sconscript and variant, then the whole build.
+
+    Counts reserve three digits and the percent two, and grow past 999 or
+    99. Empty when nothing has been registered. The fraction is not a
+    position in the sconscript list.
+    """
+    if env is None:
+        return ""
+    _credited, text = _progress_ledger.credit_and_prefix( None, None, env, False )
+    if not text:
+        return ""
+    return _colour_counts_prefix( text )
 
 
 def _is_progress_command( cmd ):
@@ -823,12 +1443,15 @@ def _paths_style( nodes ):
 
 
 _TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
+_PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
 _SOURCE_ACTIONS = ( "markdown", "asciidoc" )
 
 
 def _file_field( action, target, source, env ):
     if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
         return _transfer_field( target, source, env )
+    if action in _PATH_ACTIONS:
+        return _path_action_field( _node_path( _first_node( target ) ), env )
     if action == "compile" or str( action ).startswith( "compile-" ) or action in _SOURCE_ACTIONS:
         directory, filename = _compile_file_parts( source, env )
         if filename:
@@ -839,25 +1462,68 @@ def _file_field( action, target, source, env ):
     return _coloured_file( "", _node_basename( target ) )
 
 
+_STATUS_WIDTH = 6
+
+
+def _status_field( painted, text ):
+    """Keep ``[ok]`` in line with ``[pass]`` and ``[warn]``.
+
+    The token is six columns. ``[error]``, ``[xfail]``, and ``[xpass]`` are
+    seven, so they run one column past the rest. The pad sits outside the
+    colour, so a short badge stays tight.
+    """
+    short = _STATUS_WIDTH - len( text )
+    if short <= 0:
+        return painted
+    return painted + ( " " * short )
+
+
 def _status_marker( status ):
     if status == "warn":
-        return as_colour( "warning", "[warn]" )
-    if status == "error":
-        return as_colour( "error", "[error]" )
-    return as_colour( "success", "[ok]" )
+        text = "[warn]"
+        painted = as_colour( "warning", text )
+    elif status == "error":
+        text = "[error]"
+        painted = as_colour( "error", text )
+    else:
+        text = "[ok]"
+        painted = as_colour( "success", text )
+    return _status_field( painted, text )
 
 
 def _test_status_marker( status ):
-    """Test markers stay the same width family as ``[ok]``, without a highlight badge."""
+    """A ``test-case`` marker. Same shape as ``[ok]``, without a highlight badge."""
     if status == "fail":
-        return as_colour( "error", "[fail]" )
-    if status == "skip":
-        return as_subdued( "[skip]" )
-    if status == "xfail":
-        return as_colour( "expected_failure", "[xfail]" )
-    if status == "xpass":
-        return as_colour( "unexpected_success", "[xpass]" )
-    return as_colour( "success", "[pass]" )
+        text = "[fail]"
+        painted = as_colour( "error", text )
+    elif status == "skip":
+        text = "[skip]"
+        painted = as_subdued( text )
+    elif status == "xfail":
+        text = "[xfail]"
+        painted = as_colour( "expected_failure", text )
+    elif status == "xpass":
+        text = "[xpass]"
+        painted = as_colour( "unexpected_success", text )
+    else:
+        text = "[pass]"
+        painted = as_colour( "success", text )
+    return _status_field( painted, text )
+
+
+def _test_status_label( status ):
+    """Roll-up ``[pass]``, as a quiet badge. The text matches a case marker."""
+    if status == "fail":
+        meaning, text = "error", "[fail]"
+    elif status == "skip":
+        meaning, text = "skipped", "[skip]"
+    elif status == "xfail":
+        meaning, text = "expected_failure", "[xfail]"
+    elif status == "xpass":
+        meaning, text = "unexpected_success", "[xpass]"
+    else:
+        meaning, text = "success", "[pass]"
+    return _status_field( as_badge( meaning, text ), text )
 
 
 def format_terse_duration( nanos ):
@@ -876,8 +1542,27 @@ def format_terse_duration( nanos ):
     return "{:.0f} s".format( seconds )
 
 
+def _uncounted_prefix( env, marker ):
+    """Indent ``→`` so ``[status]`` lines up with a counted line.
+
+    The arrow means this line is not in the action total. The gap is the
+    padded tally, minus one column for the arrow itself.
+    """
+    _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
+    arrow = as_subdued( "→" )
+    if not plain:
+        return arrow + " " + marker
+    return ( " " * ( len( plain ) - 1 ) ) + arrow + " " + marker
+
+
 def format_terse_result_line( status, env, action, name, duration="", detail="" ):
-    """``[status] sconscript · variant · action · duration · name — detail``."""
+    """``[status] sconscript · variant · action · duration · name — detail``.
+
+    A test roll-up draws ``[pass]`` as a quiet badge. A ``test-case`` uses the same text
+    in the status colour, and leads with ``→`` because it is not in the total.
+    """
+    child = action == "test-case"
+    prefix = "" if child else _account_and_prefix( None, env, count=True, mark=True )
     fields = []
     script = _sconscript_label( env )
     if script:
@@ -893,10 +1578,16 @@ def format_terse_result_line( status, env, action, name, duration="", detail="" 
         tail = ( tail + " — " + detail ).strip()
     if tail:
         fields.append( tail )
-    line = _test_status_marker( status )
+    marker = _test_status_marker( status ) if child else _test_status_label( status )
+    if child:
+        marker = _uncounted_prefix( env, marker )
+    parts = []
+    if prefix:
+        parts.append( prefix )
+    parts.append( marker )
     if fields:
-        line += " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
-    return line
+        parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
+    return _finishing_mark() + " ".join( parts )
 
 
 _terse_status_emitted = threading.local()
@@ -914,13 +1605,20 @@ def take_terse_status_emitted():
     return done
 
 
-def format_terse_line( status, command, target, source, env ):
-    """``[status] sconscript · variant · action · file``. Counts prefix stays empty until Phase 2."""
+def format_terse_line( status, command, target, source, env, count=True ):
+    """``[status] sconscript · variant · action · file``.
+
+    ``count=False`` is a line that is not in the action total, such as a
+    nested copy or move. It leads with ``→``. The caller is still the action.
+    """
     parts = []
-    prefix = terse_counts_prefix()
+    prefix = _account_and_prefix( target, env, count=count, mark=False )
     if prefix:
         parts.append( prefix )
-    parts.append( _status_marker( status ) )
+    marker = _status_marker( status )
+    if not count:
+        marker = _uncounted_prefix( env, marker )
+    parts.append( marker )
 
     fields = []
     script = _sconscript_label( env )
@@ -936,7 +1634,7 @@ def format_terse_line( status, command, target, source, env ):
         fields.append( file_text )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
-    return " ".join( parts )
+    return _finishing_mark() + " ".join( parts )
 
 
 def format_terse_success( command, target, source, env ):
@@ -1068,13 +1766,42 @@ def _executed_paths( command, target, source ):
     return target, source
 
 
-def _present_executed_command( command, target, source, env, failed ):
-    """Print a nested ``Execute`` action. Return whether that replaced the parent line.
+def _quoted_args( text ):
+    args = []
+    body = str( text or "" )
+    index = 0
+    while True:
+        start = body.find( '"', index )
+        if start < 0:
+            return args
+        end = body.find( '"', start + 1 )
+        if end < 0:
+            return args
+        args.append( body[ start + 1:end ] )
+        index = end + 1
 
-    ``Copy`` and ``Move`` are the work, so they become their own status line and
-    the caller's SCons description stays hidden. ``Touch`` only stamps a file
-    the caller already reports, so it is dropped. Anything else is written as
-    SCons printed it.
+
+def _path_action_field( path, env ):
+    """One path for ``delete``, ``mkdir``, or ``chmod``."""
+    if not path:
+        return ""
+    token, relative = _locate( path, env )
+    if token:
+        return _coloured_transfer_end( token, relative, dest=True )
+    shown = str( relative or path ).replace( "\\", "/" )
+    directory, filename = os.path.split( shown )
+    if directory in ( "", "." ):
+        directory = ""
+    return _coloured_file( directory, filename or shown )
+
+
+def _present_executed_command( command, target, source, env, failed ):
+    """Print a nested ``Execute``. Return whether that replaced the parent line.
+
+    ``Touch`` only stamps a file the caller already reports, so it is dropped.
+    Every other call is an uncounted status line. ``Copy`` and ``Move`` show
+    ``source → dest``. ``Delete``, ``Mkdir``, and ``Chmod`` show the path.
+    Anything else is ``run``, and its command is printed only on failure.
     """
     text = str( command or "" ).strip()
     if not text:
@@ -1082,25 +1809,34 @@ def _present_executed_command( command, target, source, env, failed ):
     key = text.split( "(", 1 )[0].strip().lower()
     if key == "touch":
         return False
+    if failed:
+        _write_command( text )
     if key in ( "copy", "move" ):
         use_target, use_source = _executed_paths( text, target, source )
-        if failed:
-            _write_command( text )
-        sys.stdout.write(
-                format_terse_line(
-                        "error" if failed else "ok",
-                        text,
-                        use_target,
-                        use_source,
-                        env,
-                )
-                + "\n"
-        )
-        sys.stdout.flush()
-        note_terse_status_emitted()
-        return True
-    _write_command( text )
-    return False
+        spell = text
+    elif key in ( "delete", "mkdir", "chmod" ):
+        paths = _quoted_args( text )
+        use_target = [ paths[0] ] if paths else target
+        use_source = []
+        spell = text
+    else:
+        use_target, use_source = target, source
+        spell = ""
+    sys.stdout.write(
+            format_terse_line(
+                    "error" if failed else "ok",
+                    spell,
+                    use_target,
+                    use_source,
+                    env,
+                    count=False,
+            )
+            + "\n"
+    )
+    sys.stdout.flush()
+    note_terse_nested_action()
+    note_terse_status_emitted()
+    return True
 
 
 def flush_terse_commands():
@@ -1194,23 +1930,30 @@ class _TersePythonCallable( object ):
     def __call__( self, target, source, env, **ignored ):
         if not _env_get( env, "terse_output" ):
             return self._original( target=target, source=source, env=env )
+        take_terse_action_accounted()
+        remember_terse_action_target( target )
         try:
-            result = self._original( target=target, source=source, env=env )
-        except ( KeyboardInterrupt, SystemExit ):
-            raise
-        except Exception:
-            if not take_terse_status_emitted():
-                _report_python_action( target, source, env, failed=True )
-            else:
-                take_terse_command()
-                take_terse_children()
-            raise
+            try:
+                result = self._original( target=target, source=source, env=env )
+            except ( KeyboardInterrupt, SystemExit ):
+                raise
+            except Exception:
+                self._finish_python_action( target, source, env, failed=True )
+                raise
+            self._finish_python_action( target, source, env, failed=bool( result ) )
+            return result
+        finally:
+            forget_terse_action_target()
+
+    def _finish_python_action( self, target, source, env, failed ):
         if take_terse_status_emitted():
             take_terse_command()
             take_terse_children()
-        else:
-            _report_python_action( target, source, env, failed=bool( result ) )
-        return result
+            if not take_terse_action_accounted():
+                # Nested copies printed the lines. This action still counts.
+                _account_and_prefix( target, env, count=True, mark=False )
+            return
+        _report_python_action( target, source, env, failed=failed )
 
 
 def _is_python_action_dump( command ):

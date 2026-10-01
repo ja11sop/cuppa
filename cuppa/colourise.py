@@ -23,10 +23,10 @@ from contextlib import contextmanager
 # Names below are the usual ANSI / terminal names (SGR 90 "bright black", SGR 37 "white"),
 # not "dim black/white": we are not using the DIM attribute, and renaming them DIM_* would
 # invite reintroducing Style.DIM. Bright black typically renders as a dark grey.
-GREY_256 = "\x1b[38;5;236m"       # dark grey — subdued on a light background
+GREY_256         = "\x1b[38;5;244m"  # light mid grey — subdued on a light background
 GREY_256_ON_DARK = "\x1b[38;5;247m"  # slightly lighter mid grey — subdued on dark glass
-BRIGHT_BLACK = "\x1b[90m"   # SGR 90 — dark ink; subdued fallback on a light background
-WHITE = "\x1b[37m"          # SGR 37 — light ink; subdued fallback on a dark background
+BRIGHT_BLACK     = "\x1b[90m"        # SGR 90 — dark ink; subdued fallback on a light background
+WHITE            = "\x1b[37m"        # SGR 37 — light ink; subdued fallback on a dark background
 
 # The convention COLORFGBG reports: the last field is the background colour index, and 7 or 15
 # means a light background. Anything else is treated as dark, which is the safe assumption.
@@ -164,6 +164,13 @@ class Colouriser(object):
             return self.start_highlight( meaning ) + text + colorama.Style.RESET_ALL
 
 
+    def badge( self, meaning, text ):
+        """A quieter chip than ``highlight``: same colour, plain text."""
+        if not self.use_colour:
+            return text
+        return self.start_badge( meaning ) + text + colorama.Style.RESET_ALL
+
+
     def start_colour( self, meaning ):
         if self.use_colour:
             return self._start_colour( meaning )
@@ -173,6 +180,12 @@ class Colouriser(object):
     def start_highlight( self, meaning ):
         if self.use_colour:
             return self._start_highlight( meaning )
+        return ''
+
+
+    def start_badge( self, meaning ):
+        if self.use_colour:
+            return self._start_badge( meaning )
         return ''
 
 
@@ -223,6 +236,21 @@ class Colouriser(object):
             return colorama.Fore.BLUE
         elif meaning == 'message':
             return ''
+
+    def _start_badge( self, meaning ):
+        """The highlight colour without SGR 1.
+
+        SGR 1 bolds the text and lifts the background onto the bright colour.
+        A badge keeps that meaning's ordinary background and a plain foreground,
+        so notice stays notice-yellow and success stays the quieter green.
+        Success text is black, which reads on that green; the other badges
+        keep the highlight's foreground.
+        """
+        sequence = self._start_highlight( meaning ).replace( colorama.Style.BRIGHT, '' )
+        if meaning in ( 'success', 'passed' ):
+            sequence = sequence.replace( colorama.Fore.WHITE, colorama.Fore.BLACK )
+        return sequence
+
 
     def _start_highlight( self, meaning ):
         if meaning == 'error':
@@ -286,6 +314,9 @@ def as_colour( meaning, text ):
 
 def as_highlighted( meaning, text ):
     return colouriser.highlight( meaning, text )
+
+def as_badge( meaning, text ):
+    return colouriser.badge( meaning, text )
 
 def as_emphasised( text ):
     return colouriser.emphasise( text )

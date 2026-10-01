@@ -13,7 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``[ok|warn|error] sconscript · variant · action file``. A compile names the
   source in the project tree, or ``~/...`` when the file lives under the home
   directory. ``gcc-ranlib-16`` and ``llvm-ranlib`` are ``index``, not a second
-  ``archive``. An unrecognised command is ``run``. A warning or failure prints
+  ``archive``. An unrecognised command is ``run``. A known SCons builder is
+  named from its command instead: ``tar``, ``zip``, ``text`` (``Textfile`` and
+  ``Substfile``), ``copy`` (``CopyAs`` and ``CopyTo``), ``jar``, ``javac``,
+  ``m4``, ``lex``, ``yacc``, ``swig``, ``rpcgen``, ``rpm``, and the TeX tools.
+  A warning or failure prints
   the command and its output, then that line as the summary. Python actions
   (copy, SCSS, CMake, run, and the other labelled methods) get the same line.
   A clean ``Install file:`` is ``copy``, shown as ``source → dest`` with
@@ -21,15 +25,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a report path that contains the variant and sconscript). ``Execute(Copy(...))`` inside another action is that same line, and
   the caller's own description stays hidden. A nested ``Touch`` stays hidden. A clean tool such as ``asciidoctor``
   stays hidden; a warning or error from that tool is printed before the
-  summary. A passing test is one ``[pass]`` line. The test name is in
-  the status colour. Counts are ``11/12 cases, 40/52 assertions``, and a run
-  with no assertion total says ``no assertions``. A failure prints each
-  failing ``test-case``, then the binary's ``[fail]`` roll-up.
+  summary. A passing test is one ``[pass]`` badge, in the quieter green with
+  plain black text. A failing roll-up is a ``[fail]`` badge in the same quiet
+  style. The test name is that kind of badge too. A ``test-case`` uses the
+  same text without the badge. Counts are ``11/12 cases, 40/52 assertions``,
+  and a run with no assertion total says ``no assertions``: a notice-yellow
+  badge on a roll-up, and a bold notice on a ``test-case``. Status tokens share a six-column field, so
+  ``[ok]`` lines up with ``[pass]`` and ``[warn]``. ``[error]`` runs one
+  column past that. A failure prints each failing ``test-case``, then the
+  binary's ``[fail]`` roll-up.
   ``--show-test-cases`` also prints the cases that passed. Without
-  ``--terse-output`` they are left alone. Ctrl-C prints one ``interrupted``
-  line instead of a per-target ``Error -2`` list. A successful build ends
-  with ``[done] build succeeded``, or ``[done] build up to date`` when no
-  terse action ran. Hides SCons
+  ``--terse-output`` they are left alone. Ctrl-C prints
+  ``interrupted — finishing in-flight actions...`` instead of a per-target
+  ``Error -2`` list. Lines for actions that then finish lead with ``...``,
+  and the drain closes with ``finished in-flight actions``, then
+  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``.
+  The fraction is the whole build, completed against what was going to run.
+  A second Ctrl-C prints ``aborted`` and stops them,
+  with no closing line. An action line leads with
+  this sconscript and variant's tally and the whole-build percent
+  (`` 19/182 · 10%``). The fraction is that sconscript and variant; the
+  percent is the whole build. Counts reserve three digits and the percent
+  two, and grow past that. A ``→`` line is indented so ``[status]`` stays
+  in that column. Work SCons finds up to date counts as already done.
+  A status line that is not part of that tally leads with ``→``. A nested
+  ``Execute`` is one of those lines: ``copy``, ``move``, ``delete``,
+  ``mkdir``, ``chmod``, or ``run``. ``Touch`` stays hidden. Before the
+  first action, one line gives the sconscript, variant, and action totals.
+  ``[done]`` then reports how many ran, how many were up to date, the test
+  cases, and how many nested calls ran. A
+  successful build ends with ``[done] build succeeded``, or ``[done] build
+  up to date`` when no terse action ran. ``[done]`` has no tally. Hides SCons
   ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
   ``--raw-output`` or ``--scons-output``.
 - ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print
