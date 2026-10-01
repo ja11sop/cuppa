@@ -1,15 +1,16 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
-- **Status:** in progress
+- **Status:** done (2026-10-02) on [#353](https://github.com/ja11sop/cuppa/pull/353); **shipped** when 1.12.0 is released
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Mode note (plan vs agent)
 
-Phase 2 counting rules are settled below. One action is one status line that is not a child of
-another. The prefix is that line's sconscript and variant (`35/38`) and one overall percent.
-Up-to-date actions count as already done.
+The flag, the status line, and the tally are done together on [#353](https://github.com/ja11sop/cuppa/pull/353).
+One action is one status line that is not a child of another. The prefix is that line's
+sconscript and variant (`35/38`) and one overall percent. Up-to-date actions count as already
+done. A `scripts i/N · variants j/M` position was declined: it does not survive `-j`.
 
 ## Why
 
@@ -28,7 +29,7 @@ This is **not** a CMake clone: cuppa keeps SCons graph semantics, variant scopin
 
 **Related (separate plans):** configure-time log noise
 ([`build-log-hygiene.md`](build-log-hygiene.md)); version without a build
-([`cuppa-info.md`](cuppa-info.md)). Those are **1.12.0** targets alongside terse Phase 1 — not
+([`cuppa-info.md`](cuppa-info.md)). Those are **1.12.0** targets alongside this flag — not
 slices of this document.
 
 ## Goals
@@ -42,11 +43,11 @@ slices of this document.
    summary prints.
 5. Document vs `--minimal-output`, `--verbosity`, and CI usage.
 
-## Non-goals (Phase 1)
+## Non-goals
 
 - Replacing SCons `-Q` / silent mode globally.
-- **Nested percentage rollup** (sconscript / variant / target) — Phase 2 below; Phase 1 must not
-  block it.
+- A `scripts i/N · variants j/M` position, or multiplying those level percentages. The cell
+  fraction and the whole-build percent are done with the flag. That position sketch is not.
 - ETA or time remaining.
 - Terse mode for **`--list-*` / wipe / removal reports** (those keep judgement trees).
 - Suppressing cuppa `logger.error` routing notices.
@@ -183,10 +184,10 @@ A binary with several cases prints a failing case before that roll-up: assertion
 `None`, `0`, and any other falsy return are success, matching SCons. A truthy return or an exception is failure. `KeyboardInterrupt` and `SystemExit` propagate with no status line.
 
 **Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
-`--minimal-output`. Combining both should be documented (likely: terse success lines + minimal
-diagnostic filtering on failures only).
+`--minimal-output`. Combined with it, a clean run is still one line, and failure output is
+filtered to errors and warnings. That is documented on the output page.
 
-## Implementation sketch (Phase 1)
+## Implementation sketch
 
 | Area | Likely touch |
 |------|----------------|
@@ -196,7 +197,7 @@ diagnostic filtering on failures only).
 | Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
 | Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
-**Phase 1 reporter** is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
+The reporter is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
 `format_terse_line`, `spell_terse_action`, `render_terse_spawn`, and `terse_print_cmd_line`.
 `terse_counts_prefix()` is the cell tally and overall percent. It does not rewrite the rest of the status line.
 Do not key human text off the `Progress(...)` description.
@@ -213,102 +214,32 @@ structure, which is why it stays opt-in.
 
 ---
 
-## Phase 2 — hierarchical progress (counts and percentages)
+## Counting (done with the flag)
 
-### Settled
+The tally once queued here as a later slice is done in [#353](https://github.com/ja11sop/cuppa/pull/353)
+with `--terse-output`. It is not a follow-on.
 
 - One action is one status line that stands alone: compile, link, archive, index, a top-level copy, a test roll-up. A status line that is not in that total leads with `→`, whether or not a parent line is visible. That covers a `test-case` and a nested `copy` or `move`. The caller of the nested copy still counts as one. `[done]` is not an action and is not a status line, so it has no arrow.
 - Several targets that share an executor count once. Archive and index are two slots, because they are two status lines.
 - The total is the actions reachable from the targets being built. Anything SCons decides is up to date is already done, not missing. A walk that finds nothing keeps the full set, so a failed lookup does not show an empty tally.
 - The prefix is ` 19/182 · 10%`. The subdued fraction is this sconscript and variant, so two scripts show different totals. The plain-coloured percent is completed actions over total actions for the whole build. Counts reserve three digits and the percent two (` 25/ 56 · 10%`); past 999 or 99 they grow. A `→` line is indented so its `[status]` stays in that column. Do not print "which script we are in". Under `-j` the numbers only increase.
 - No ETA, and no tally on `[done]`.
+- The ledger registers each executor when `NotifyProgress.add` records the node. Spawn exits and Python actions both move it. Up-to-date nodes are credited when SCons visits them and skips them. That visit prints nothing. Nested copies and `test-case` lines do not count.
 
-### What you asked for
-
-Example layout: 4 sconscripts (projects), 3 variants each, 38 tracked actions per
-(sconscript, variant) cell — show **where we are** at each level, e.g.
-
-```text
-scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%
-[ok] test · gcc15_dbg_x86_64_cxx2c · compile main.cpp
-```
-
-Nested bracket intuition `[66%][33%][92%]` is useful mentally, but **do not multiply level
-percentages** for an “overall” bar — levels are not independent stages. Prefer a **single honest
-rollup**:
-
-```text
-overall = completed_actions / total_actions   (all active sconscript × variant cells)
-```
-
-Optional secondary fields: `scripts i/N`, `variant j/M` (within current sconscript), `actions k/T`
-(within current variant cell). The script and variant position in that sketch does not survive
-`-j`. What ships is the settled prefix above: this cell's `35/38`, then one overall percent.
-
-### What cuppa already knows
-
-| Level | Today | Gap |
-|-------|-------|-----|
-| Sconstruct | `sconstruct_begin` / `sconstruct_end` sentinels | — |
-| Sconscript | `Begin` / `End` per `env['sconscript_file']` | No “2 of 4 scripts” until we count active scripts |
-| Variant | `Starting` / `Finished` keyed by `parent(build_dir)` (includes sconscript segment) | No “1 of 3 variants” until we count variants for that script |
-| Target / action | `NotifyProgress.add(env, nodes)` on method outputs | **No per-action completion event** — only dependency ordering |
-
-So hierarchy **display** is feasible; **per-action completion** needs new instrumentation.
-
-### SCons / cuppa constraints (honest)
-
-1. **Graph is declarative.** Totals can be accumulated during `NotifyProgress.add()` once we define
-   what counts as one “action” (each registered node vs each spawn — see below).
-2. **Parallel builds.** Actions finish out of order; show `35/38 completed`, not “now building step
-   35”.
-3. **Sentinel progress nodes ≠ compile actions.** `Starting`/`Finished` bracket a variant; they do
-   not fire once per object file. Per-target progress cannot reuse those events alone.
-4. **Completion signal (pick in Phase 2 PR):**
-
-   | Source | Covers | Misses |
-   |--------|--------|--------|
-   | **A. Spawn wrapper exit** (`output_processor`) | Compile/link/test processes cuppa spawns | Pure Python `Action`s, some installers |
-   | **B. Wrap `NotifyProgress.add` + SCons `Command`/`Action` post-hooks** | Theoretically everything | Invasive; easy to miss a builder path |
-   | **C. SCons task progress / `-Q` integration** | Whatever SCons counts | Fights cuppa’s custom spawn; version-dependent |
-
-   The settled tally is the status lines themselves, registered from the executor when
-   `NotifyProgress.add` records the node. Spawn exits and Python actions both move it.
-   Up-to-date nodes are credited when SCons skips them. Nested copies and `test-case`
-   lines do not.
-
-5. **Script order.** “Project 2 of 4” follows **active `--scripts` order**, not filesystem order,
-   unless we deliberately sort — state the rule in docs.
-
-### Phase 2 slices (after Phase 1 terse lines ship)
-
-| Slice | Deliverable |
-|-------|-------------|
-| F | **`ProgressLedger`** — register totals per (sconscript, variant) in `NotifyProgress.add` |
-| G | **`action_done` hook** — increment on successful spawn (and optionally other hooks) |
-| H | **Terse line prefix** — `scripts i/N · variant j/M · actions k/T · overall P%` |
-| I | **Docs + integration** — multi-sconscript fixture; parallel build still monotonic counts |
-
-Optional later: `--progress-format=nested|flat|overall-only`.
-
-### Phase 1 must not foreclose Phase 2
-
-- Terse formatting goes through **one reporter**, not ad hoc `print` in spawn and progress.
-- Success lines keep the leading counts segment (`35/38 · 68%`).
-- Do not key human-readable progress off SCons `Progress( … )` description strings — they change.
+A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does not survive `-j`, so it was not built. Level percentages are not multiplied. There is no `--progress-format`.
 
 ---
 
-## Work slices (Phase 1)
+## Work slices
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | A | Design + issue | This document |
-| B | `--terse-output` flag + env | No behaviour yet; docs stub |
-| C | Success one-liner | Hook finish event; colour via existing `colourise` |
-| D | Failure path parity | Ensure commands + diagnostics still visible |
-| E | Integration + docs | Compare before/after transcript in Antora or design note |
-| F–I | Hierarchical counts / overall % | Phase 2 — see above; separate PR after Phase 1 |
+| B | `--terse-output` flag + env | Done in [#353](https://github.com/ja11sop/cuppa/pull/353) |
+| C | Success one-liner | Done in #353 |
+| D | Failure path parity | Done in #353 |
+| E | Integration + docs | Done in #353 |
+| F–I | Cell fraction and overall percent | Done in #353. Not the `scripts i/N · variants j/M` sketch |
 
 ## Refusal rules
 
@@ -321,18 +252,11 @@ Optional later: `--progress-format=nested|flat|overall-only`.
 | Multiply level percentages for “overall” | Refuse; use completed/total actions |
 | Promise sequential “step 35 of 38” under `-j` | Refuse; counts are completion tallies |
 
-## 1.8.0 candidacy
+## Release
 
-| Factor | Assessment |
-|--------|------------|
-| User value | High for large projects |
-| Risk | Medium — touches progress + spawn + logging |
-| Size | Phase 1 medium; Phase 2 medium+ |
-| Depends on | None strictly; cleaner alongside native output plan |
-
-**Suggested:** **1.8.0 target** — ship **Phase 1 (slices A–E)** in the 1.8.0 bundle (see ROADMAP
-§1.8.0 cycle focus). **Phase 2 (F–I)** can be 1.8.0 follow-on or 1.9.0 depending on ledger/spawn
-hook effort. Prefer terse Phase 1 over native output if scope is tight.
+The console bundle slipped from the original 1.8.0 candidacy. The flag and the tally are done
+for 1.12.0 on [#353](https://github.com/ja11sop/cuppa/pull/353). Mark this plan **shipped** and
+move it to `design/archive/` when 1.12.0 is released.
 
 ## Related
 
