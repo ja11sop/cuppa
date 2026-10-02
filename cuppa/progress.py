@@ -156,13 +156,6 @@ def _write_interrupt_word( word ):
     stream.flush()
 
 
-def _finishing_mark():
-    """``...`` in front of a line printed while in-flight actions drain."""
-    if not _interrupt_announced or _abort_announced:
-        return ""
-    return as_subdued( "... " )
-
-
 def note_build_interrupted():
     """Print one ``interrupted`` line. Further calls in this build do nothing."""
     global _interrupt_announced
@@ -1588,7 +1581,7 @@ def format_terse_result_line( status, env, action, name, duration="", detail="" 
     parts.append( marker )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
-    return _finishing_mark() + " ".join( parts )
+    return " ".join( parts )
 
 
 _terse_status_emitted = threading.local()
@@ -1635,7 +1628,7 @@ def format_terse_line( status, command, target, source, env, count=True ):
         fields.append( file_text )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
-    return _finishing_mark() + " ".join( parts )
+    return " ".join( parts )
 
 
 def format_terse_success( command, target, source, env ):

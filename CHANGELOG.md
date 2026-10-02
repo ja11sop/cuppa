@@ -39,8 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--show-test-cases`` also prints the cases that passed. Without
   ``--terse-output`` they are left alone. Ctrl-C prints
   ``interrupted — finishing in-flight actions...`` instead of a per-target
-  ``Error -2`` list. Lines for actions that then finish lead with ``...``,
-  and the drain closes with ``finished in-flight actions``, then
+  ``Error -2`` list. Actions that then finish keep their ordinary status
+  line, and the drain closes with ``finished in-flight actions``, then
   ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``.
   The fraction is the whole build, completed against what was going to run.
   A second Ctrl-C prints ``aborted`` and stops them,

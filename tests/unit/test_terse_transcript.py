@@ -739,7 +739,7 @@ def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
     draining = progress.format_terse_line(
             "ok", "g++ -c account_rule.cpp", [ "account_rule.o" ], [ "account_rule.cpp" ], _variant_env(),
     )
-    assert draining.startswith( "... [ok]   " )
+    assert draining.startswith( "[ok]   " )
     progress.note_build_aborted()
     progress.note_build_aborted()
     stopped = progress.format_terse_line(

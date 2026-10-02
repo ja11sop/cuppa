@@ -124,8 +124,8 @@ and requires `--terse-output`. `run` and `benchmark` stay `[ok]`.
 ==== Interrupting a build
 
 Ctrl-C prints `interrupted — finishing in-flight actions...`. Tasks that have already
-started are left to finish, and each of those lines leads with `...`. No new tasks are
-started. When they have finished, one line says `finished in-flight actions`, then
+started are left to finish, and those lines look the same as any other status line. No
+new tasks are started. When they have finished, one line says `finished in-flight actions`, then
 `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. The fraction is
 actions completed against the actions that were going to run, including those already up
 to date. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and
