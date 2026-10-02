@@ -48,9 +48,9 @@ def _spawned(terse):
     return SpawnedProcessor(env)
 
 
-def test_progress_lines_are_printed(capsys):
+def test_a_progress_description_is_not_printed(capsys):
     progress.terse_print_cmd_line("Progress( Begin )", [], [], {})
-    assert capsys.readouterr().out == "Progress( Begin )\n"
+    assert capsys.readouterr().out == ""
     assert progress.take_terse_command()[0] is None
 
 
@@ -58,7 +58,7 @@ def test_a_command_that_never_spawns_is_reprinted_before_the_next_line(capsys):
     progress.terse_print_cmd_line("Removing empty directories", ["stamp"], [], {})
     assert capsys.readouterr().out == ""
     progress.terse_print_cmd_line("Progress( End )", [], [], {})
-    assert capsys.readouterr().out == "Removing empty directories\nProgress( End )\n"
+    assert capsys.readouterr().out == "Removing empty directories\n"
     assert progress.take_terse_command()[0] is None
 
 
@@ -275,6 +275,7 @@ def test_copy_colours_the_destination_leaf_and_mutes_the_source( monkeypatch ):
     monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
     monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
     monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    monkeypatch.setattr( progress, "as_emphasised_plain", lambda text: "<e>" + text + "</e>" )
     monkeypatch.setattr( progress, "as_colour", lambda meaning, text: text )
     env = _layout_env()
     variant = env.pop( "_variant" )
@@ -695,6 +696,7 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
     monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
     monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
     monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    monkeypatch.setattr( progress, "as_emphasised_plain", lambda text: "<e>" + text + "</e>" )
     monkeypatch.setattr( progress, "as_colour", lambda meaning, text: text )
     line = progress.format_terse_success(
             "g++ -c test/orders/src/hello.cpp",
@@ -704,7 +706,7 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
     )
     assert line == (
             "[ok]   <s>test/</s><i>orders</i> <s>·</s> <s>gcc16_</s>dbg<s>_x86_64_cxx2c</s> "
-            "<s>·</s> compile <s>·</s> <s>test/orders/src/</s><e><i>hello.cpp</i></e>"
+            "<s>·</s> <e>compile</e> <s>·</s> <s>test/orders/src/</s><e><i>hello.cpp</i></e>"
     )
 
     env = _variant_env()
@@ -1009,16 +1011,138 @@ def test_an_action_line_leads_with_the_cell_tally_and_overall_percent():
     first = _ActionNode()
     second = _ActionNode()
     progress.register_terse_actions( env, [ first, second ] )
-    assert _compile_line( env, first, "hello.cpp" ).startswith( "  1/  2 · 50% [ok]   " )
-    assert _compile_line( env, second, "main.cpp" ).startswith( "  2/  2 · 100% [ok]   " )
+    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, second, "main.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
+
+
+def test_a_progress_checkpoint_names_the_scope_and_does_not_count( monkeypatch, tmp_path ):
+    env = _terse_env()
+    first = _ActionNode()
+    second = _ActionNode()
+    progress.register_terse_actions( env, [ first, second ] )
+    opened = progress.format_terse_progress_checkpoint( "started", None, None, env )
+    assert opened == (
+            "variant     0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin · 0/2 actions"
+    )
+    assert opened.index( "[progress]" ) == _compile_line( env, first, "hello.cpp" ).index( "[ok]" )
+    assert "1 variant" not in opened
+    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    closed = progress.format_terse_progress_checkpoint( "finished", None, None, env )
+    assert closed == (
+            "variant    50% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · end · 1/2 actions"
+    )
+
+    script = progress.format_terse_progress_checkpoint( "begin", None, None, env )
+    assert script == (
+            "sconscript 50% [progress] test/orders/sconscript · begin · 1 variant · 1/2 actions"
+    )
+
+    home = tmp_path / "home"
+    project = home / "coding" / "protocols"
+    monkeypatch.setattr(
+            os.path, "expanduser",
+            lambda path: str( home ) if path == "~" else os.path.expanduser( path ),
+    )
+    outside = {
+            "terse_output": True,
+            "base_path": str( project ),
+            "sconstruct_dir": str( home / "other" ),
+            "sconstruct_file": "sconstruct",
+    }
+    root = progress.format_terse_progress_checkpoint( "sconstruct_begin", None, None, outside )
+    assert root.startswith( "sconstruct 50% [progress] ~/other/sconstruct · begin · " )
+    assert "1 sconscript · 1 variant · 1/2 actions" in root
+    assert "../" not in root
+    inside = {
+            "terse_output": True,
+            "base_path": str( project ),
+            "sconstruct_dir": str( project ),
+            "sconstruct_file": "sconstruct",
+    }
+    nested = progress.format_terse_progress_checkpoint( "sconstruct_begin", None, None, inside )
+    assert "~/coding/protocols/sconstruct" in nested
+    assert not nested.split( "[progress] ", 1 )[ 1 ].startswith( "protocols/" )
+
+    progress.format_terse_progress_checkpoint( "started", None, None, env )
+    assert _compile_line( env, second, "main.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
+
+
+def _current_node( current, executor=None, always_build=False ):
+    node = _ActionNode( executor=executor )
+    node.is_up_to_date = lambda: current
+    node.always_build = always_build
+    return node
+
+
+def test_the_first_begin_line_counts_actions_already_up_to_date( capsys ):
+    env = _terse_env()
+    current = _current_node( True )
+    stale = _current_node( False )
+    progress.register_terse_actions( env, [ current, stale ] )
+    progress.write_terse_progress_checkpoint( "sconstruct_begin", None, None, env )
+    out = capsys.readouterr().out
+    assert "sconstruct · begin · 1 sconscript · 1 variant · 1/2 actions" in out
+    asked = { "n": 0 }
+
+    def _counted():
+        asked[ "n" ] += 1
+        return True
+
+    current.is_up_to_date = _counted
+    progress.write_terse_progress_checkpoint( "started", None, None, env )
+    assert asked[ "n" ] == 0
+    assert _compile_line( env, stale, "main.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
+    progress.note_up_to_date_action( current )
+    assert progress.terse_counts_prefix( env ) == "  2/  2 · 100%"
+
+    progress.reset_progress_ledger()
+    shared = _Slots( 1 )
+    progress.register_terse_actions( env, [
+            _current_node( True, shared ),
+            _current_node( False, shared ),
+    ] )
+    progress.credit_terse_up_to_date_lookahead()
+    assert progress.terse_counts_prefix( env ).startswith( "  0/" )
+
+    progress.reset_progress_ledger()
+    forced = _current_node( True, always_build=True )
+    progress.register_terse_actions( env, [ forced ] )
+    progress.credit_terse_up_to_date_lookahead()
+    assert progress.terse_counts_prefix( env ).startswith( "  0/" )
+
+    progress.reset_progress_ledger()
+    broken = _ActionNode()
+
+    def _boom():
+        raise OSError( "stat" )
+
+    broken.is_up_to_date = _boom
+    progress.register_terse_actions( env, [ broken ] )
+    progress.credit_terse_up_to_date_lookahead()
+    assert progress.terse_counts_prefix( env ).startswith( "  0/" )
+
+
+def test_a_progress_checkpoint_colours_the_badge_and_the_leaf( monkeypatch ):
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
+    monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    monkeypatch.setattr( progress, "as_emphasised_plain", lambda text: "<e>" + text + "</e>" )
+    env = _terse_env()
+    line = progress.format_terse_progress_checkpoint( "begin", None, None, env )
+    assert line.startswith( "<s>sconscript</s>  0% <e><i>[progress]</i></e> " )
+    assert "<s>test/</s><i>orders/</i><i>sconscript</i><s> · </s><e>begin</e>" in line
+    variant = progress.format_terse_progress_checkpoint( "started", None, None, env )
+    assert "<s>test/</s><i>orders/</i>" in variant
+    assert "<s>gcc16_</s>dbg<s>_x86_64_cxx2c</s>" in variant
+    assert "<e>begin</e>" in variant
 
 
 def test_archive_and_index_are_two_slots_on_one_library():
     env = _terse_env()
     library = _ActionNode( slots=2 )
     progress.register_terse_actions( env, [ library ] )
-    assert _compile_line( env, library, "a.o" ).startswith( "  1/  2 · 50% [ok]   " )
-    assert _compile_line( env, library, "a.o" ).startswith( "  2/  2 · 100% [ok]   " )
+    assert _compile_line( env, library, "a.o" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, library, "a.o" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
 def test_targets_that_share_an_executor_count_once():
@@ -1027,7 +1151,7 @@ def test_targets_that_share_an_executor_count_once():
     stdout = _ActionNode( executor=executor )
     report = _ActionNode( executor=executor )
     progress.register_terse_actions( env, [ stdout, report ] )
-    assert _compile_line( env, stdout, "buy_sell_ladder" ).startswith( "  1/  1 · 100% [ok]   " )
+    assert _compile_line( env, stdout, "buy_sell_ladder" ).startswith( "   1/  1 · 100% [ok]   " )
 
 
 def test_another_sconscript_changes_the_percent_not_the_cell_fraction():
@@ -1038,8 +1162,8 @@ def test_another_sconscript_changes_the_percent_not_the_cell_fraction():
     positions_node = _ActionNode()
     progress.register_terse_actions( orders, [ orders_node ] )
     progress.register_terse_actions( positions, [ positions_node ] )
-    assert _compile_line( orders, orders_node, "hello.cpp" ).startswith( "  1/  1 · 50% [ok]   " )
-    assert _compile_line( positions, positions_node, "book.cpp" ).startswith( "  1/  1 · 100% [ok]   " )
+    assert _compile_line( orders, orders_node, "hello.cpp" ).startswith( "   1/  1 · 50% [ok]   " )
+    assert _compile_line( positions, positions_node, "book.cpp" ).startswith( "   1/  1 · 100% [ok]   " )
 
 
 def test_an_up_to_date_action_is_already_done():
@@ -1049,7 +1173,7 @@ def test_an_up_to_date_action_is_already_done():
     progress.register_terse_actions( env, [ skipped, waiting ] )
     progress.note_up_to_date_action( skipped )
     assert progress.terse_counts_prefix( env ) == "  1/  2 · 50%"
-    assert _compile_line( env, waiting, "hello.cpp" ).startswith( "  2/  2 · 100% [ok]   " )
+    assert _compile_line( env, waiting, "hello.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
 def test_actions_outside_the_requested_targets_are_not_in_the_total():
@@ -1059,8 +1183,8 @@ def test_actions_outside_the_requested_targets_are_not_in_the_total():
     other = _ActionNode()
     progress.register_terse_actions( env, [ root, child, other ] )
     progress.narrow_progress_ledger( [ root ] )
-    assert _compile_line( env, child, "hello.cpp" ).startswith( "  1/  2 · 50% [ok]   " )
-    assert _compile_line( env, root, "app" ).startswith( "  2/  2 · 100% [ok]   " )
+    assert _compile_line( env, child, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, root, "app" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
 def test_a_test_case_is_marked_and_does_not_move_the_tally():
@@ -1074,13 +1198,13 @@ def test_a_test_case_is_marked_and_does_not_move_the_tally():
     )
     plain = "  0/  1 ·  0%"
     assert progress.terse_counts_prefix( env ) == plain
-    assert case.startswith( ( " " * ( len( plain ) - 1 ) ) + "→ [pass] " )
+    assert case.startswith( ( " " * len( plain ) ) + "→ [pass] " )
     assert "·" not in case.split( "[pass]", 1 )[ 0 ]
     rollup = progress.format_terse_result_line(
             "pass", env, "test", "position_source_id",
             duration="1 ms", detail="2/2 cases, 9/9 assertions",
     )
-    assert rollup.startswith( "  1/  1 · 100% [pass] " )
+    assert rollup.startswith( "   1/  1 · 100% [pass] " )
     assert "→" not in rollup
 
 
@@ -1105,7 +1229,7 @@ def test_nested_copies_do_not_move_the_tally_and_the_caller_does( capsys ):
     out = capsys.readouterr().out
     assert out.count( "→ [ok]   " ) == 2
     assert "%" not in out
-    assert _compile_line( env, nxt, "hello.cpp" ).startswith( "  2/  2 · 100% [ok]   " )
+    assert _compile_line( env, nxt, "hello.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
 def test_make_ready_counts_an_up_to_date_node():
@@ -1127,7 +1251,7 @@ def test_the_tally_reserves_three_digits_and_the_arrow_keeps_the_status_column()
     for node in endpoint[ :18 ]:
         progress.note_up_to_date_action( node )
     counted = _compile_line( endpoint_env, endpoint[ 18 ], "decommission_endpoint.cpp" )
-    assert counted.startswith( " 19/182 · 10% [ok]   " )
+    assert counted.startswith( "  19/182 · 10% [ok]   " )
 
     ethereum_env = _terse_env()
     ethereum_env[ "sconscript_file" ] = "./test/ethereum/sconscript"
@@ -1136,7 +1260,7 @@ def test_the_tally_reserves_three_digits_and_the_arrow_keeps_the_status_column()
     for node in ethereum[ :24 ]:
         progress.note_up_to_date_action( node )
     other = _compile_line( ethereum_env, ethereum[ 24 ], "encoded_transaction_data.cpp" )
-    assert other.startswith( " 25/ 56 · " )
+    assert other.startswith( "  25/ 56 · " )
     assert other.index( "[ok]" ) == counted.index( "[ok]" )
 
     progress.remember_terse_action_target( [ endpoint[ 19 ] ] )
@@ -1152,7 +1276,21 @@ def test_the_tally_reserves_three_digits_and_the_arrow_keeps_the_status_column()
     wide_env[ "sconscript_file" ] = "./test/wide/sconscript"
     wide = _ActionNode( slots=1000 )
     progress.register_terse_actions( wide_env, [ wide ] )
-    assert _compile_line( wide_env, wide, "a.cpp" ).startswith( "   1/1000 · " )
+    wide_line = _compile_line( wide_env, wide, "a.cpp" )
+    assert wide_line.startswith( "   1/1000 · " )
+    wide_progress = progress.format_terse_progress_checkpoint( "started", None, None, wide_env )
+    assert wide_progress.startswith( " variant" )
+    assert wide_line.index( "[ok]" ) == wide_progress.index( "[progress]" )
+
+
+def test_show_actions_appends_the_raw_command():
+    env = _terse_env()
+    hidden = progress.format_terse_line( "ok", "g++ -c hello.cpp", [ "a.o" ], [ "hello.cpp" ], env, count=False )
+    assert "g++ -c hello.cpp" not in hidden
+    env[ "terse_output_show_actions" ] = True
+    shown = progress.format_terse_line( "ok", "g++ -c hello.cpp", [ "a.o" ], [ "hello.cpp" ], env, count=False )
+    assert shown.endswith( "g++ -c hello.cpp" )
+    assert shown.index( "compile" ) < shown.index( "g++" )
 
 
 def test_the_cell_tally_is_subdued_and_the_percentage_is_plain( monkeypatch ):

@@ -77,6 +77,10 @@ class HtmlColouriser(object):
             + self._token( 'reset' )
         )
 
+    def emphasise_plain( self, text ):
+        """Bold without an info colour. HTML has no dark-console bold tint."""
+        return self.emphasise( text )
+
     def subdue( self, text ):
         return (
             self._token( 'start', ( 'cuppa-subdued', ) )

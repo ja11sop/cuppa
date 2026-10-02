@@ -110,6 +110,35 @@ def test_a_badge_uses_the_ordinary_colour_without_bold( plain_environment ):
     assert colorama.Style.BRIGHT not in notice
 
 
+def test_plain_bold_on_a_dark_console_is_white_not_info( plain_environment ):
+    """SGR 1 alone is the terminal's bold colour, info blue on a dark glass."""
+    import colorama
+
+    from cuppa.colourise import as_emphasised, as_emphasised_plain
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'dark' )
+    plain_environment.setenv( 'TERM', 'xterm-256color' )
+    text = as_emphasised_plain( 'compile' )
+    assert colorama.Style.BRIGHT in text
+    assert '\x1b[38;5;15m' in text
+    assert colorama.Fore.BLUE not in text
+    assert text != as_emphasised( 'compile' )
+
+    plain_environment.delenv( 'TERM', raising=False )
+    plain_environment.delenv( 'COLORTERM', raising=False )
+    fallback = as_emphasised_plain( 'compile' )
+    assert colorama.Style.BRIGHT in fallback
+    assert colorama.Fore.LIGHTWHITE_EX in fallback
+    assert colorama.Fore.BLUE not in fallback
+
+
+def test_plain_bold_on_a_light_console_is_bold_alone( plain_environment ):
+    from cuppa.colourise import as_emphasised, as_emphasised_plain
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'light' )
+    assert as_emphasised_plain( 'compile' ) == as_emphasised( 'compile' )
+
+
 def test_a_light_console_uses_paper_text_and_a_dull_bold_notice( plain_environment ):
     """Light glass: badge text is the paper colour, and a case notice stays dull yellow."""
     import colorama

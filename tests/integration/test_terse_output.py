@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from tests.helpers.cuppa_runner import assert_success, run_cuppa
@@ -30,11 +32,23 @@ def _compile_hello(tmp_path, *flags):
     return result
 
 
-def test_terse_output_folds_a_clean_compile_and_keeps_progress_lines(tmp_path):
+def _plain( text ):
+    return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+
+def test_terse_output_folds_a_clean_compile_and_prints_progress_checkpoints(tmp_path):
     result = _compile_hello(tmp_path, "--terse-output")
-    assert "Progress(" in result.stdout
+    plain = _plain( result.stdout )
+    assert "[progress]" in plain
+    assert "· begin" in plain
+    assert "· end" in plain
+    assert "Progress(" not in plain
 
 
-def test_quiet_hides_progress_lines_under_terse_output(tmp_path):
+def test_quiet_keeps_terse_progress_checkpoints(tmp_path):
     result = _compile_hello(tmp_path, "--terse-output", "-Q")
-    assert "Progress(" not in result.stdout
+    plain = _plain( result.stdout )
+    assert "[progress]" in plain
+    assert "· begin" in plain
+    assert "· end" in plain
+    assert "Progress(" not in plain

@@ -52,14 +52,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in that column. Work SCons finds up to date counts as already done.
   A status line that is not part of that tally leads with ``→``. A nested
   ``Execute`` is one of those lines: ``copy``, ``move``, ``delete``,
-  ``mkdir``, ``chmod``, or ``run``. ``Touch`` stays hidden. Before the
-  first action, one line gives the sconscript, variant, and action totals.
+  ``mkdir``, ``chmod``, or ``run``. ``Touch`` stays hidden. A
+  ``[progress]`` checkpoint marks the begin and end of the sconstruct, each
+  sconscript, and each variant. ``[ok]`` starts in the same column as
+  ``[progress]``. The sconstruct path is ``~/...`` even inside the project.
+  The leaf and the directory before it are info. A variant cell stays
+  subdued, with ``dbg``, ``rel``, and ``cov`` plain. ``begin``, ``end``, and
+  an action are bold in the plain ink. On a dark console that is bold
+  white, not the info blue that bold alone becomes. A middot separates them from the counts
+  (``40 sconscripts · 1 variant · 1800/2244 actions``,
+  ``1 variant · 24/58 actions``, or ``24/58 actions``). HTML test reports are ``test-report``, the index is ``test-index``,
+  and a Bitten report is ``bitten-report``. Profiles merge is ``profiles``,
+  a module map is ``module-map``, a package amend is ``amend``, Boost's
+  ``b2`` build is ``b2``, and its toolset file is ``boost-toolset``.
+  ``--terse-output-show-actions`` prints the raw action after the status
+  line. Before the first
+  begin line, actions SCons already considers up to date are counted, so
+  the percent includes them. The opening totals are the sconstruct
+  ``begin`` line, not a line of their own. ``-Q`` still
+  hides SCons ``Progress(...)`` lines. The checkpoint stays.
   ``[done]`` then reports how many ran, how many were up to date, the test
   cases, and how many nested calls ran. A
   successful build ends with ``[done] build succeeded``, or ``[done] build
-  up to date`` when no terse action ran. ``[done]`` has no tally. ``Progress(...)``
-  lines stay. ``-Q`` still omits them. Does not imply ``--minimal-output``.
-  Refused with ``--raw-output`` or ``--scons-output``.
+  up to date`` when no terse action ran. ``[done]`` has no tally. Does not
+  imply ``--minimal-output``. Refused with ``--raw-output`` or
+  ``--scons-output``.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.

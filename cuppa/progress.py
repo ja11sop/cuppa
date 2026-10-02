@@ -15,7 +15,9 @@ import signal
 import sys
 import threading
 
-from cuppa.colourise import as_badge, as_colour, as_emphasised, as_info, as_notice, as_subdued
+from cuppa.colourise import (
+        as_badge, as_colour, as_emphasised, as_emphasised_plain, as_info, as_notice, as_subdued,
+)
 from cuppa.log import logger
 
 from SCons.Script import Action
@@ -28,7 +30,6 @@ _interrupt_lock = threading.Lock()
 _terse_activity_seen = False
 _terse_activity_lock = threading.Lock()
 _summary_enabled = False
-_plan_written = False
 
 
 def reset_terse_build_activity():
@@ -69,19 +70,6 @@ def enable_terse_build_summary():
     """Print the opening plan and the closing counts for this build."""
     global _summary_enabled
     _summary_enabled = True
-
-
-def write_terse_build_plan():
-    """One subdued line before the first action, once the totals are known."""
-    global _plan_written
-    if not _summary_enabled or _plan_written or _interrupt_announced:
-        return
-    _plan_written = True
-    text = _progress_ledger.plan_line()
-    if not text:
-        return
-    sys.stdout.write( as_subdued( text ) + "\n" )
-    sys.stdout.flush()
 
 
 def write_terse_interrupt_finish():
@@ -417,6 +405,7 @@ class Progress(object):
 
     def __call__( self, target, source, env ):
         NotifyProgress.call_callbacks( self._event, self._file, self._variant, self._env, target, source )
+        write_terse_progress_checkpoint( self._event, self._file, self._variant, self._env )
         if self._event == "sconstruct_end":
             write_terse_build_completion( self._env )
         return None
@@ -428,7 +417,9 @@ def progress_action( label, event, sconscript, variant, env ):
 
     description = None
 
-    if logger.isEnabledFor( logging.INFO ):
+    # Terse checkpoints are printed by ``Progress`` itself, including under
+    # ``-Q``. The description would also print ``Progress(...)`` at info.
+    if not _env_get( env, "terse_output" ) and logger.isEnabledFor( logging.INFO ):
         stage = ""
         name  = ""
         if label.startswith("#"):
@@ -475,6 +466,7 @@ class _ProgressLedger(object):
         self._up_to_date = 0
         self._nested = 0
         self._test_cases = 0
+        self._lookahead_done = False
 
     def reset( self ):
         with self._lock:
@@ -489,6 +481,7 @@ class _ProgressLedger(object):
             self._up_to_date = 0
             self._nested = 0
             self._test_cases = 0
+            self._lookahead_done = False
 
     def register( self, env, nodes ):
         cell = _progress_cell( env )
@@ -499,12 +492,14 @@ class _ProgressLedger(object):
                     continue
                 existing = self._executors.get( executor_id )
                 if existing is not None:
+                    existing[ "nodes" ].append( node )
                     self._nodes[ id( node ) ] = existing
                     continue
                 entry = {
                         "slots": slots,
                         "remaining": slots,
                         "cell": cell,
+                        "nodes": [ node ],
                 }
                 self._executors[ executor_id ] = entry
                 self._nodes[ id( node ) ] = entry
@@ -550,6 +545,47 @@ class _ProgressLedger(object):
                 credited = self._credit_unlocked( target, current, 1 )
             return credited, self._prefix_unlocked( _progress_cell( env ) )
 
+    def credit_currently_up_to_date( self ):
+        """Count actions SCons already considers current. Once per build.
+
+        ``is_up_to_date`` is not free, and nothing outside ``--terse-output``
+        shows this tally, so the caller is the terse sconstruct begin line.
+        A later ``make_ready`` visit credits the same node again and finds
+        nothing left. A file that looks current can still be rebuilt when this
+        build regenerates an input it uses. That run does not move the tally
+        a second time.
+        """
+        with self._lock:
+            if self._lookahead_done:
+                return
+            self._lookahead_done = True
+            pending = []
+            seen = set()
+            for entry in self._nodes.values():
+                if id( entry ) in seen or entry[ "remaining" ] <= 0:
+                    continue
+                seen.add( id( entry ) )
+                live = [
+                        node for node in entry[ "nodes" ]
+                        if self._nodes.get( id( node ) ) is entry
+                ]
+                pending.append( ( entry, live ) )
+        for entry, live in pending:
+            if live and all( _node_is_currently_up_to_date( node ) for node in live ):
+                self._credit_live_entry( entry )
+
+    def _credit_live_entry( self, entry ):
+        with self._lock:
+            if entry[ "remaining" ] <= 0:
+                return False
+            if not any( candidate is entry for candidate in self._nodes.values() ):
+                return False
+            take = entry[ "remaining" ]
+            if not self._credit_entry( entry, take ):
+                return False
+            self._up_to_date += take
+            return True
+
     def credit_all_remaining( self, node ):
         with self._lock:
             entry = self._nodes.get( id( node ) )
@@ -577,21 +613,53 @@ class _ProgressLedger(object):
 
     def plan_line( self ):
         """``3 sconscripts · 1 variant · 13465 actions``, or empty."""
+        counts = self.checkpoint_counts( None, None )
+        return _plan_sentence( counts[ "scripts" ], counts[ "variants" ], counts[ "total" ] )
+
+    def checkpoint_counts( self, script, variant ):
+        """Tallies for one progress checkpoint. Does not credit an action."""
         with self._lock:
             scripts = set()
             variants = set()
-            seen = set()
-            for entry in self._nodes.values():
-                if id( entry ) in seen:
-                    continue
-                seen.add( id( entry ) )
-                script, variant = entry[ "cell" ]
-                if script:
-                    scripts.add( script )
-                if variant:
-                    variants.add( variant )
+            script_variants = set()
+            script_done = 0
+            script_total = 0
+            cell_done = 0
+            cell_total = 0
+            for cell, bucket in self._cells.items():
+                entry_script, entry_variant = cell
+                if entry_script:
+                    scripts.add( entry_script )
+                if entry_variant:
+                    variants.add( entry_variant )
+                if script is not None and entry_script == script:
+                    script_done += bucket[ "done" ]
+                    script_total += bucket[ "total" ]
+                    if entry_variant:
+                        script_variants.add( entry_variant )
+                if cell == ( script, variant ):
+                    cell_done = bucket[ "done" ]
+                    cell_total = bucket[ "total" ]
             total = self._total
-        return _plan_sentence( len( scripts ), len( variants ), total )
+            done = self._done
+            if total:
+                percent = int( ( 100 * done + total // 2 ) / total )
+            else:
+                percent = 0
+            _action_digits, percent_digits = self._prefix_widths( percent )
+        return {
+                "percent": percent,
+                "percent_digits": percent_digits,
+                "scripts": len( scripts ),
+                "variants": len( variants ),
+                "done": done,
+                "total": total,
+                "script_variants": len( script_variants ),
+                "script_done": script_done,
+                "script_total": script_total,
+                "cell_done": cell_done,
+                "cell_total": cell_total,
+        }
 
     def completion_clause( self, up_to_date_outcome ):
         """The counts that follow ``build succeeded`` or ``build up to date``."""
@@ -689,6 +757,24 @@ class _ProgressLedger(object):
                 percent, percent_digits,
         )
 
+    def action_line_indent( self ):
+        """Spaces that put ``[ok]`` in the same column as ``[progress]``.
+
+        The scope word is ten columns and the cell tally reserves three
+        digits, which is one space short. Past 999 the tally is wider, so
+        the progress line takes the extra columns instead.
+        """
+        with self._lock:
+            digits = self._action_digits
+        gap = _SCOPE_WIDTH - ( 2 * digits ) - 3
+        return max( gap, 0 )
+
+    def progress_line_indent( self ):
+        with self._lock:
+            digits = self._action_digits
+        gap = _SCOPE_WIDTH - ( 2 * digits ) - 3
+        return max( -gap, 0 )
+
     def _prefix_widths( self, percent ):
         """Reserve three digits and two for the percent. Grow past 999 or 99."""
         widest = 0
@@ -725,12 +811,11 @@ _progress_narrow_lock = threading.Lock()
 
 def reset_progress_ledger():
     """Drop registered actions. The next build counts from empty."""
-    global _progress_narrowed, _summary_enabled, _plan_written
+    global _progress_narrowed, _summary_enabled
     _progress_ledger.reset()
     _current_action_target.value = None
     _terse_action_accounted.done = False
     _summary_enabled = False
-    _plan_written = False
     with _progress_narrow_lock:
         _progress_narrowed = False
 
@@ -906,6 +991,27 @@ def narrow_progress_ledger_once():
     narrow_progress_ledger( _build_root_nodes() )
 
 
+def _node_is_currently_up_to_date( node ):
+    """True when SCons would skip this node given the tree as it is now."""
+    has_builder = getattr( node, "has_builder", None )
+    if not callable( has_builder ):
+        return False
+    try:
+        if not has_builder() or getattr( node, "always_build", False ):
+            return False
+        current = getattr( node, "is_up_to_date", None )
+        if not callable( current ):
+            return False
+        return bool( current() )
+    except Exception:
+        return False
+
+
+def credit_terse_up_to_date_lookahead():
+    """Count up-to-date actions before the first terse begin line."""
+    _progress_ledger.credit_currently_up_to_date()
+
+
 def _credit_up_to_date_targets( targets ):
     try:
         import SCons.Node as node_module
@@ -930,7 +1036,6 @@ def install_terse_progress_hooks():
 
     def make_ready( self ):
         narrow_progress_ledger_once()
-        write_terse_build_plan()
         current( self )
         _credit_up_to_date_targets( self.targets )
 
@@ -1459,6 +1564,11 @@ def _file_field( action, target, source, env ):
 _STATUS_WIDTH = 6
 
 
+def _action_label( action ):
+    """Bold in the plain ink. On a dark console that is bold white, not info."""
+    return as_emphasised_plain( str( action ) )
+
+
 def _status_field( painted, text ):
     """Keep ``[ok]`` in line with ``[pass]`` and ``[warn]``.
 
@@ -1540,13 +1650,15 @@ def _uncounted_prefix( env, marker ):
     """Indent ``→`` so ``[status]`` lines up with a counted line.
 
     The arrow means this line is not in the action total. The gap is the
-    padded tally, minus one column for the arrow itself.
+    padded tally, minus one column for the arrow itself. Counted lines also
+    take the badge indent, and the arrow keeps that column.
     """
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
     arrow = as_subdued( "→" )
     if not plain:
         return arrow + " " + marker
-    return ( " " * ( len( plain ) - 1 ) ) + arrow + " " + marker
+    indent = _progress_ledger.action_line_indent()
+    return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
 
 
 def format_terse_result_line( status, env, action, name, duration="", detail="" ):
@@ -1564,7 +1676,7 @@ def format_terse_result_line( status, env, action, name, duration="", detail="" 
     cell = _coloured_variant_cell( env )
     if cell:
         fields.append( cell )
-    fields.append( action )
+    fields.append( _action_label( action ) )
     if duration:
         fields.append( as_subdued( duration ) )
     tail = name or ""
@@ -1577,7 +1689,7 @@ def format_terse_result_line( status, env, action, name, duration="", detail="" 
         marker = _uncounted_prefix( env, marker )
     parts = []
     if prefix:
-        parts.append( prefix )
+        parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     parts.append( marker )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
@@ -1608,7 +1720,7 @@ def format_terse_line( status, command, target, source, env, count=True ):
     parts = []
     prefix = _account_and_prefix( target, env, count=count, mark=False )
     if prefix:
-        parts.append( prefix )
+        parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     marker = _status_marker( status )
     if not count:
         marker = _uncounted_prefix( env, marker )
@@ -1622,13 +1734,16 @@ def format_terse_line( status, command, target, source, env, count=True ):
     if cell:
         fields.append( cell )
     action = spell_terse_action( command, target, env )
-    fields.append( action )
+    fields.append( _action_label( action ) )
     file_text = _file_field( action, target, source, env )
     if file_text:
         fields.append( file_text )
     if fields:
         parts.append( ( " " + as_subdued( "·" ) + " " ).join( fields ) )
-    return " ".join( parts )
+    line = " ".join( parts )
+    if command and _env_get( env, "terse_output_show_actions" ):
+        line += " " + as_subdued( str( command ) )
+    return line
 
 
 def format_terse_success( command, target, source, env ):
@@ -1842,19 +1957,161 @@ def flush_terse_commands():
         _write_command( cmd )
 
 
+_CHECKPOINT_PHASE = {
+        "sconstruct_begin": ( "sconstruct", "begin" ),
+        "sconstruct_end": ( "sconstruct", "end" ),
+        "begin": ( "sconscript", "begin" ),
+        "end": ( "sconscript", "end" ),
+        "started": ( "variant", "begin" ),
+        "finished": ( "variant", "end" ),
+}
+_SCOPE_WIDTH = len( "sconstruct" )
+
+
+def _counted_phrase( count, singular, plural ):
+    """A plain number and a subdued word. ``1 variant``, ``40 sconscripts``."""
+    word = singular if count == 1 else plural
+    return str( count ) + as_subdued( " " + word )
+
+
+def _fraction_phrase( done, total ):
+    word = "action" if total == 1 else "actions"
+    return "{}/{}".format( done, total ) + as_subdued( " " + word )
+
+
+def _join_subdued( parts ):
+    return as_subdued( " · " ).join( parts )
+
+
+def _coloured_named_path( shown, leaf=None ):
+    """Mute the path. The leaf and the directory before it are info.
+
+    ``leaf`` replaces the info colour on the last part. A variant cell uses
+    that so ``dbg`` stays plain, as it does on an action line.
+    """
+    if not shown:
+        return ""
+    parts = [ part for part in shown.split( "/" ) if part != "" ]
+    if not parts:
+        return ""
+    paint = leaf if leaf is not None else as_info( parts[ -1 ] )
+    if len( parts ) == 1:
+        return paint
+    parent = as_info( parts[ -2 ] + "/" )
+    if len( parts ) == 2:
+        return parent + paint
+    return as_subdued( "/".join( parts[ :-2 ] ) + "/" ) + parent + paint
+
+
+def _sconscript_file_display( env ):
+    path = str( _env_get( env, "sconscript_file", "" ) or "" ).replace( "\\", "/" )
+    if path.startswith( "./" ):
+        path = path[ 2: ]
+    return path
+
+
+def _sconstruct_display( env ):
+    filename = str( _env_get( env, "sconstruct_file", "" ) or "sconstruct" ).replace( "\\", "/" )
+    directory = str( _env_get( env, "sconstruct_dir", "" ) or "" )
+    if os.path.isabs( filename ) or not directory:
+        raw = filename
+    else:
+        raw = os.path.join( directory, filename )
+    shown = _home_display( _to_abs( raw, env ) )
+    return shown or _slash( filename )
+
+
+def _checkpoint_path( scope, env ):
+    if scope == "sconstruct":
+        return _coloured_named_path( _sconstruct_display( env ) )
+    if scope == "sconscript":
+        return _coloured_named_path( _sconscript_file_display( env ) )
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    shown = script + "/" + cell if script and cell else ( cell or script )
+    painted = _coloured_variant_cell( env ) or None
+    return _coloured_named_path( shown, leaf=painted )
+
+
+def _checkpoint_summary( scope, counts ):
+    if scope == "sconstruct":
+        if not counts[ "total" ] and not counts[ "scripts" ]:
+            return ""
+        return _join_subdued( [
+                _counted_phrase( counts[ "scripts" ], "sconscript", "sconscripts" ),
+                _counted_phrase( counts[ "variants" ], "variant", "variants" ),
+                _fraction_phrase( counts[ "done" ], counts[ "total" ] ),
+        ] )
+    if scope == "sconscript":
+        if not counts[ "script_total" ] and not counts[ "script_variants" ]:
+            return ""
+        return _join_subdued( [
+                _counted_phrase( counts[ "script_variants" ], "variant", "variants" ),
+                _fraction_phrase( counts[ "script_done" ], counts[ "script_total" ] ),
+        ] )
+    if not counts[ "cell_total" ]:
+        return ""
+    return _fraction_phrase( counts[ "cell_done" ], counts[ "cell_total" ] )
+
+
+def format_terse_progress_checkpoint( event, _sconscript, _variant, env ):
+    """One ``[progress]`` checkpoint. ``None`` when this event is not a scope edge.
+
+    The percent is the whole build. The fraction follows the scope word:
+    the whole build, every variant of this sconscript, or this cell. Reading
+    the ledger does not credit the checkpoint.
+    """
+    phase = _CHECKPOINT_PHASE.get( event )
+    if phase is None:
+        return None
+    scope, edge = phase
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    counts = _progress_ledger.checkpoint_counts( script, cell )
+    percent = "{:>{}}%".format( counts[ "percent" ], counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    parts = [
+            lead + as_subdued( "{:<{}}".format( scope, _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( "[progress]" ) ),
+            _checkpoint_path( scope, env ),
+    ]
+    line = " ".join( parts ) + as_subdued( " · " ) + _action_label( edge )
+    summary = _checkpoint_summary( scope, counts )
+    if summary:
+        line += as_subdued( " · " ) + summary
+    return line
+
+
+def write_terse_progress_checkpoint( event, sconscript, variant, env ):
+    """Print a terse checkpoint. No effect unless ``--terse-output`` is set.
+
+    The first begin line counts actions SCons already considers up to date,
+    so the percent includes that work before the scope's own actions run.
+    """
+    if not _env_get( env, "terse_output" ):
+        return
+    if event in ( "sconstruct_begin", "begin", "started" ):
+        credit_terse_up_to_date_lookahead()
+    line = format_terse_progress_checkpoint( event, sconscript, variant, env )
+    if not line:
+        return
+    sys.stdout.write( line + "\n" )
+    sys.stdout.flush()
+
+
 def terse_print_cmd_line( cmd, target, source, env ):
     """SCons ``PRINT_CMD_LINE_FUNC`` for ``--terse-output``.
 
-    ``Progress(...)`` lines are printed, as they are without this flag.
-    ``-Q`` still omits them, because ``progress_action`` only builds the
-    description at info. Tool commands are stashed and printed later, only
-    when that run warns or fails. Show and execute run on the same SCons job
-    thread, so a per-thread stash pairs them under ``-j``. A command that
-    never reaches a spawn is written back on the next print, or at process exit.
+    A ``Progress(...)`` description is dropped. The checkpoint is printed
+    from the progress action, including under ``-Q``. Tool commands are
+    stashed and printed later, only when that run warns or fails. Show and
+    execute run on the same SCons job thread, so a per-thread stash pairs
+    them under ``-j``. A command that never reaches a spawn is written back
+    on the next print, or at process exit.
     """
     flush_unconsumed_terse_command()
     if _is_progress_command( cmd ):
-        sys.stdout.write( cmd + "\n" )
         return
     stash_terse_command( cmd, target, source, env )
 

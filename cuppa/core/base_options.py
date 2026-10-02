@@ -59,7 +59,11 @@ def add_base_options():
                             help="On a clean tool run, print one success line and hide the command. "
                                  "On a warning or failure, print the command and the processed output. "
                                  "Does not imply --minimal-output. Refused with "
-                                 "--raw-output or --scons-output. -Q still hides Progress(...) lines" )
+                                 "--raw-output or --scons-output. [progress] checkpoints stay under -Q" )
+
+    add_option( '--terse-output-show-actions', dest='terse_output_show_actions', action='store_true',
+                            help="With --terse-output, also print the raw SCons action after each "
+                                 "status line. For refining the action names. Requires --terse-output" )
 
     add_option( '--show-test-cases', dest='show_test_cases', action='store_true',
                             help="With --terse-output, print a line for every test case, "

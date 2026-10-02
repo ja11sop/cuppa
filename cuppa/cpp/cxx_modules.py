@@ -589,6 +589,7 @@ def _schedule_module_install( env, final_dir, extension ):
         return 0
 
     installed = env.Command( map_path, bmi_nodes, _install_action )
+    cuppa.progress.label_terse_action( installed, "module-map" )
     env.Depends( installed, bmi_nodes )
     cuppa.progress.NotifyProgress.add( env, installed )
     return installed

@@ -39,7 +39,7 @@ One mode owns the transcript. They do not restyle console reports.
 | default | on, interpreted | on | today |
 | `--standard-output` | on | off | today |
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
-| `--terse-output` | on; success folded to one line | on | **This pull request.** Build/test/coverage transcript only. `Progress(...)` lines stay for now, and `-Q` omits them. The open slice replaces those lines with `[progress]` checkpoints, which stay under `-Q` |
+| `--terse-output` | on; success folded to one line | on | **This pull request.** Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
 | `--native-output` | on, passthrough | toolchain's own colour on child output | planned; v1 ignores `--minimal-output` with a warning |
 | `--scons-output` | **off** | unchanged | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |

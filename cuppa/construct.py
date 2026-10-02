@@ -310,10 +310,17 @@ class Construct(object):
         cuppa_env['show_test_cases'] = (
                 cuppa_env.get_option( 'show_test_cases' ) and True or False
         )
+        cuppa_env['terse_output_show_actions'] = (
+                cuppa_env.get_option( 'terse_output_show_actions' ) and True or False
+        )
 
         if cuppa_env['show_test_cases'] and not cuppa_env['terse_output']:
             raise SCons.Errors.StopError(
                     "--show-test-cases requires --terse-output"
+            )
+        if cuppa_env['terse_output_show_actions'] and not cuppa_env['terse_output']:
+            raise SCons.Errors.StopError(
+                    "--terse-output-show-actions requires --terse-output"
             )
 
         processor_flags = []
@@ -958,6 +965,10 @@ class Construct(object):
                         if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
                             env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
                             env['terse_output'] = True
+                            env['terse_output_show_actions'] = bool(
+                                    'terse_output_show_actions' in cuppa_env
+                                    and cuppa_env['terse_output_show_actions']
+                            )
                             env['show_test_cases'] = bool(
                                     'show_test_cases' in cuppa_env
                                     and cuppa_env['show_test_cases']
@@ -1050,6 +1061,9 @@ class Construct(object):
             cuppa.progress.install_terse_interrupt_filter()
             cuppa_env['empty_env']['terse_output'] = True
             cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
+            cuppa_env['empty_env']['sconstruct_file'] = cuppa_env.get( 'sconstruct_file' ) or "sconstruct"
+            cuppa_env['empty_env']['sconstruct_dir'] = cuppa_env.get( 'sconstruct_dir' ) or ""
+            cuppa_env['empty_env']['base_path'] = cuppa_env.get( 'base_path' ) or ""
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 

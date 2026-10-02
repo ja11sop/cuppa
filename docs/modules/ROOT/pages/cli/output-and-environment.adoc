@@ -14,7 +14,8 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--scons-output` | Do not install the spawn processor; keep Cuppa colour on logs and reports
 | `--standard-output` | Keep Cuppa processing but disable colour
 | `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`
-| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `Progress(...)` lines stay; `-Q` still omits them. Refused with `--raw-output` or `--scons-output`
+| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q`. Refused with `--raw-output` or `--scons-output`
+| `--terse-output-show-actions` | With `--terse-output`, print the raw SCons action after each status line. For checking the action names. Requires `--terse-output`
 | `--show-test-cases` | With `--terse-output`, print every test case, not only the failures. Requires `--terse-output`
 | `--ignore-duplicates` | Suppress repeated diagnostics recognised by the output processor
 | `--show-test-output` | Show stdout and stderr from test processes
@@ -37,9 +38,28 @@ warning or a non-zero exit prints the command and the processed output, then the
 line as the summary. It does not imply `--minimal-output`. Combined with it, a clean run
 is still one line, and failure output is filtered to errors and warnings. It needs the
 spawn processor, so it is refused with `--raw-output` or `--scons-output`.
-`Progress(...)` lines stay, the same as without the flag. `-Q` still omits them,
-because their description is only built at info verbosity. Under `--parallel` they
-interleave with the status lines, as they do in any other parallel build.
+`Progress(...)` lines are replaced by a `[progress]` checkpoint when a sconstruct,
+sconscript, or variant begins or ends. The scope word is subdued. The percent is the
+whole build. `[progress]` is info and bold. Status lines are indented so `[ok]` starts
+in the same column. That indent is one space while the cell tally is three digits.
+Past 999 the tally is wider, and the progress line takes the extra column instead.
+On a sconscript checkpoint the leaf and the directory before it are info, and anything
+above that is subdued, so `test/sconscript` is all info and
+`test/reference_data/margin_specs/sconscript` mutes `test/reference_data/`. A variant
+checkpoint uses that directory rule, and the cell is coloured as on an action line:
+subdued, with `dbg`, `rel`, and `cov` left plain. The sconstruct path is always
+`~/...` when the file is under the home directory, including when it sits inside the
+project. Other paths stay project-relative. `begin` and `end` are bold in the plain ink,
+the same as an action. On a dark console that ink is bold white, not the info blue that
+bold alone becomes. A middot separates them from the summary. The summary is subdued
+apart from the numbers.
+A sconstruct line carries the build totals (`40 sconscripts ·
+1 variant · 1800/2244 actions`). Before that first begin line, actions SCons already
+considers up to date are counted, so the percent includes them. A sconscript line counts
+that script's variants and actions. A variant line counts that cell only. Those lines stay
+under `-Q`. Without
+`--terse-output`, `Progress(...)` is unchanged, and `-Q` still omits it. Under
+`--parallel` the checkpoints interleave with the status lines.
 
 A line is `[ok]`, `[warn]`, or `[error]`, then the sconscript, the build cell
 (`toolchain_variant_arch_abi`), the action, and the file. The toolchain names its own
@@ -57,9 +77,61 @@ variant's build locations. `<artifacts>/` is this variant's artefact location, e
 its flat folder or a report directory that contains this variant and sconscript. Any
 other path under the artefacts root is written as itself. Link, archive, and a program
 run show the product name. The sconscript leaf is info-coloured and any leading path is
-subdued. The action is plain, and in the build cell only the variant name (`dbg`, `rel`,
+subdued. The action is bold in the plain ink. On a dark console that is bold white, so it does not turn info-blue or compete with the filename. In the build cell only the variant name (`dbg`, `rel`,
 `cov`) is plain. Status tokens share a six-column field, so `[ok]` lines up with
 `[pass]` and `[warn]`. `[error]`, `[xfail]`, and `[xpass]` run one column past it.
+`--terse-output-show-actions` appends the raw SCons action, subdued, after the status
+line. It is off unless you are checking a name, and it requires `--terse-output`.
+
+A method names its own action. A compiler command is spelled from the tool, not from a
+method label. Anything still unnamed is `run`.
+
+[cols="2,1"]
+|===
+| Method or tool | Word
+
+| `CreateVersion` | `version`
+| `AsciidocToHtml` | `asciidoc`
+| `MarkdownToHtml` | `markdown`
+| `CMakeConfigure` | `cmake-configure`
+| `CMakeBuild` | `cmake-build`
+| `CMakeInstall` | `cmake-install`
+| `Coverage` | `coverage`
+| `CollateCoverageFiles` | `collate-coverage`
+| `CollateCoverageIndex` | `coverage-index`
+| `CopyFiles`, `CopyFilesAs`, `StageLocationDevelop`, `Copy`, `Install` | `copy`
+| `DownloadExtract` | `download`
+| `RemoveEmptyDirs` | `remove-empty`
+| `ExpandTemplateFile` | `expand`
+| `CompileScss` | `compile-scss`
+| `RenderJinjaTemplate` | `render`
+| `Test` | `test`
+| `Benchmark` | `benchmark`
+| `Run` | `run`, or `test` / `benchmark` when that is the variant action
+| `RunAndRedirectToFile` | `run`
+| `GenerateHtmlTestReport` | `test-report`
+| `CollateTestReportIndex` | `test-index`
+| `GenerateBittenReport` | `bitten-report`
+| C++ profiles merge | `profiles`
+| C++ module map | `module-map`
+| package amend (`--amend-package-manifest`) | `amend`
+| `Build`, `Compile`, link | `compile`, `link`, `link-shared`
+| static library | `archive`, then `index`
+| Boost `b2` | `b2`
+| Boost toolset config | `boost-toolset`
+| `PublishPackage` archive | `package`
+| `PublishPackage` upload | `publish`
+| `InstallPackage` | `install`
+| `Textfile`, `Substfile` | `text`
+| `tar` / `gtar` | `tar`
+| `zip` | `zip`
+| `jar`, `javac`, `javah`, `rmic` | the tool name
+| `m4`, `lex` / `flex`, `yacc` / `bison`, `swig`, `rpcgen` | `m4`, `lex`, `yacc`, `swig`, `rpcgen`
+| `rpm` / `rpmbuild` | `rpm`
+| TeX tools (`latex`, `pdflatex`, `tex`, `pdftex`, `dvips`, `dvipdf`, `gs`, `bibtex`, `biber`, `makeindex`) | the tool name
+| nested `Execute` of copy, move, delete, mkdir, chmod | that word
+| anything else | `run`
+|===
 
 Python actions such as copy, SCSS, and CMake get the same line. SCons `Install file:`
 and `Install directory:` lines are `copy`, and a clean install is only that status line.
@@ -71,8 +143,8 @@ the status line. Other text the action prints while it runs still appears as it 
 A status line that is not in the action total starts with `→`. That includes a test case
 and a nested copy or move.
 
-Before the first action, one subdued line gives the sconscript, variant, and action
-totals. `[done]` then reports how many ran, how many were already up to date, the test
+The sconstruct `begin` checkpoint carries the sconscript, variant, and action totals.
+`[done]` then reports how many ran, how many were already up to date, the test
 cases, and how many nested calls ran. It does not repeat the running tally. A no-op
 build is `[done] build up to date`.
 

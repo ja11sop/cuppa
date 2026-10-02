@@ -11,6 +11,7 @@ import hashlib
 import os
 import re
 
+import cuppa.progress
 from cuppa.toolchains.cxx_modules_support import effective_build_dir
 
 
@@ -198,6 +199,7 @@ def profiles_enforce_compile_source_node( env, source_node ):
         )
 
     merged = env.Command( merged_path, source_node, merge_action )
+    cuppa.progress.label_terse_action( merged, "profiles" )
     try:
         env.Clean( env.Dir( env['build_dir'] ), merged_path )
     except Exception:

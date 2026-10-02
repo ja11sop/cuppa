@@ -95,6 +95,25 @@ class Colouriser(object):
             return colorama.Style.BRIGHT + text + colorama.Style.RESET_ALL
 
 
+    def emphasise_plain( self, text ):
+        """Bold in the plain ink.
+
+        ``SGR 1`` alone uses the terminal's bold colour. On a dark console
+        that colour is the info blue, so the ink is set to white first. A
+        256-colour slot keeps the bold from lifting it. A light console can
+        use bold alone: the plain ink is already dark.
+        """
+        if not self.use_colour:
+            return text
+        if console_background() == 'light':
+            return self.emphasise( text )
+        if supports_256_colours():
+            ink = "\x1b[38;5;15m"
+        else:
+            ink = colorama.Fore.LIGHTWHITE_EX
+        return colorama.Style.BRIGHT + ink + text + colorama.Style.RESET_ALL
+
+
     def subdue( self, text ):
         """Text that recedes toward the background without using SGR 2 (DIM)."""
         if not self.use_colour:
@@ -345,6 +364,9 @@ def as_case_notice( text ):
 
 def as_emphasised( text ):
     return colouriser.emphasise( text )
+
+def as_emphasised_plain( text ):
+    return colouriser.emphasise_plain( text )
 
 def as_subdued( text ):
     return colouriser.subdue( text )

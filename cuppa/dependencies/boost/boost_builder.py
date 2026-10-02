@@ -15,6 +15,7 @@ from SCons.Script import File, Flatten
 
 # Cuppa Imports
 import cuppa.build_platform
+import cuppa.progress
 
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise        import as_info, as_notice, colour_items
@@ -388,6 +389,7 @@ class BoostLibraryBuilder(object):
 
 
         b2 = env.Command( b2_exe( self._boost.numeric_version(), self._boost.local() ), [], BuildB2( self._boost ) )
+        cuppa.progress.label_terse_action( b2, "b2" )
         env.NoClean( b2 )
 
         if built_libraries:
@@ -398,6 +400,7 @@ class BoostLibraryBuilder(object):
 
                 toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
                 toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
+                cuppa.progress.label_terse_action( toolset_config_jam, "boost-toolset" )
                 env.Requires( built_libraries, toolset_config_jam )
 
         install_dir = linktype == 'shared' and env['abs_final_dir'] or env['abs_build_dir']

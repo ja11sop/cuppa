@@ -229,7 +229,11 @@ def test_sconstruct_end_confirms_a_successful_terse_build(capsys):
 
     progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
 
-    assert capsys.readouterr().out == "[done] build succeeded\n"
+    out = capsys.readouterr().out
+    assert out.endswith( "[done] build succeeded\n" )
+    assert "[progress]" in out
+    assert "· end" in out
+    assert "Progress(" not in out
 
 
 def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
@@ -239,7 +243,10 @@ def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
 
     progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
 
-    assert capsys.readouterr().out == "[done] build up to date\n"
+    out = capsys.readouterr().out
+    assert out.endswith( "[done] build up to date\n" )
+    assert "[progress]" in out
+    assert "Progress(" not in out
 
 
 class _SummaryNode:
@@ -265,7 +272,6 @@ def test_a_terse_build_summarises_the_plan_and_what_finished(capsys):
     progress_module.enable_terse_build_summary()
     progress_module.register_terse_actions(env, [skipped, ran])
     progress_module.note_up_to_date_action(skipped)
-    progress_module.write_terse_build_plan()
     progress_module.format_terse_line("ok", "g++ -c a.cpp", [ran], ["a.cpp"], env)
     progress_module.note_terse_build_activity()
     progress_module.note_terse_nested_action()
@@ -273,7 +279,7 @@ def test_a_terse_build_summarises_the_plan_and_what_finished(capsys):
     progress_module.reset_build_interrupted()
     progress_module.Progress("sconstruct_end", None, None, {"terse_output": True})([], [], {})
     out = capsys.readouterr().out
-    assert "1 sconscript · 1 variant · 2 actions\n" in out
+    assert "1 sconscript · 1 variant · 2/2 actions" in out
     assert out.endswith("[done] build succeeded · 1 ran · 1 up to date · 2 test cases · 1 nested\n")
 
 

@@ -26,7 +26,7 @@ from SCons.Script import Flatten, Dir, Copy
 from cuppa.colourise import as_notice, as_info, as_error, colour_items, emphasise_time_by_digit
 from cuppa.log import logger
 from cuppa.path import split_common
-from cuppa.progress import NotifyProgress
+from cuppa.progress import NotifyProgress, label_terse_action
 from cuppa.timer import as_duration_string
 from cuppa.utility.python2to3 import escape
 from cuppa.utility.python2to3 import encode
@@ -476,6 +476,7 @@ class GenerateHtmlReportMethod(object):
         )
         env['BUILDERS']['GenerateHtmlReport'] = env.Builder( action=builder.GenerateHtmlTestReport, emitter=builder.emitter )
         report = env.GenerateHtmlReport( [], source )
+        label_terse_action( report, "test-report" )
         NotifyProgress.add( env, report )
         return report
 
@@ -764,7 +765,7 @@ class CollateTestReportIndexMethod(object):
         env['BUILDERS']['CollateTestReportIndexBuilder'] = env.Builder( action=CollateReportIndexAction( destination ), emitter=CollateReportIndexEmitter( destination ) )
 
         index_file = env.CollateTestReportIndexBuilder( [], Flatten( [ sources ] ) )
-
+        label_terse_action( index_file, "test-index" )
         NotifyProgress.add( env, index_file )
         return index_file
 
