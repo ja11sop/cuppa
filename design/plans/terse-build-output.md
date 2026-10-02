@@ -1,6 +1,6 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
-- **Status:** done
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
@@ -11,6 +11,9 @@ The flag, the status line, and the tally are done together on [#353](https://git
 One action is one status line that is not a child of another. The prefix is that line's
 sconscript and variant (`35/38`) and one overall percent. Up-to-date actions count as already
 done. A `scripts i/N · variants j/M` position was declined: it does not survive `-j`.
+
+Terse `[progress]` checkpoints are agreed and not built. They replace `Progress(...)` under
+`--terse-output` only. Without the flag, `Progress(...)` stays as it is.
 
 ## Why
 
@@ -71,7 +74,7 @@ improvement.
 | Clean tool run | `35/38 · 68% [ok] sconscript · variant · action file`. The fraction is this sconscript and variant. The percent is the whole build. Actions SCons has already found up to date are included in both |
 | Tool run fails | The command, processed output, and summary, then the `[error]` line. The status line is the summary of the failure |
 | Warning in tool output | The command and warning lines, then the `[warn]` line |
-| Sconstruct / sconscript begin/end | Printed, as without the flag. `-Q` omits them |
+| Sconstruct / sconscript begin/end | Printed, as without the flag. `-Q` omits them. The checkpoint slice replaces this under `--terse-output` |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
 The percent is actions accounted for in this process, out of the actions that are going to
@@ -206,7 +209,72 @@ Do not key human text off the `Progress(...)` description.
 
 `Progress(...)` lines are printed. `-Q` omits them: `progress_action` only builds the
 description when the logger is at info. Parallel (`-j`) interleaves that structure with the
-status lines, as it does without `--terse-output`.
+status lines, as it does without `--terse-output`. That is the behaviour until the checkpoint
+slice below replaces those lines under `--terse-output`.
+
+### Terse progress checkpoints
+
+Under `--terse-output`, do not print `Progress(...)`. Print one checkpoint when a sconstruct,
+sconscript, or variant begins, and one when it ends. The line is a build-transcript checkpoint,
+not an action, so it does not move the tally. Without `--terse-output`, keep today's
+`Progress(...)` text, and `-Q` still omits it.
+
+```text
+sconstruct    0% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · begin — 40 sconscripts · 1 variant · 0/2244 actions
+sconscript    3% [progress] test/trading_limit_management/sconscript · begin — 1 variant · 24/58 actions
+variant       3% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · begin — 24/58 actions
+variant       4% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · end — 58/58 actions
+sconscript    4% [progress] test/trading_limit_management/sconscript · end — 1 variant · 58/58 actions
+sconstruct  100% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · end — 40 sconscripts · 1 variant · 2244/2244 actions
+```
+
+The scope word is subdued and padded to `sconstruct`. The percent is the whole build, in the
+same column as today, and it stays plain. `[progress]` is info and bold. It does not share the
+`[ok]` column: this is a different line. Directories are subdued. The leaf is info. `begin` and
+`end` are plain. An em dash separates that identity from the summary. Summary words and
+punctuation are subdued. The numbers stay plain.
+
+The path is not the `_build/...` directory. A sconstruct or sconscript checkpoint names that
+file, so the leaf is `sconstruct` or `sconscript`. A variant checkpoint is the sconscript
+directory plus the build cell (`gcc16_dbg_x86_64_cxx2c`). The cell is the leaf, so the whole
+cell is info. Do not also lift `dbg` out of it. A sconstruct outside the project is `~/...`,
+as a source path already is. Spell the line from the progress event and its env. Do not parse
+the `Progress(...)` sentence.
+
+`started` and `finished` are the variant's begin and end. The printed word is `begin` or
+`end` at every scope.
+
+The percent is actions accounted for in this process, the same ratio as a status line. The
+fraction is scoped by the leading word: the whole build, every variant of that sconscript, or
+that one cell. A variant line does not also say `1 variant`. A begin line can already show
+`24/58`. Up-to-date actions are credited when SCons visits them, so the number is what has
+been accounted for, not what ran before the scope opened. Read the ledger. Do not credit the
+checkpoint. Sample the counts when the line is printed.
+
+The opening plan (`40 sconscripts · 1 variant · 2244 actions`) folds into the sconstruct
+`begin` line. Do not print it again on its own. The sconstruct fraction is `done/total`, so
+begin and end match. `[done]` stays the closing status. It is not a checkpoint.
+
+`-Q` still drops SCons banners and the old `Progress(...)` description. The checkpoint stays.
+It is part of `--terse-output`, as `[ok]`, `[done]`, and `[interrupted]` are. There is no
+flag to hide it. Add one only if a real build shows the begin/end pairs are too many. Forty
+sconscripts with one variant each are about a hundred and sixty of these lines, including a
+build that is already up to date.
+
+These forms were declined:
+
+- A cell fraction in front, like an action line. The fraction would change meaning with the
+  scope word, and the action prefix would stop meaning one thing.
+- `[begin]` and `[end]` as the badge. Easy to scan, and it drops the shared `[progress]` label.
+- A longer `Progress(...)` sentence. It keeps the build-directory path and the old chrome.
+- End lines only. Half the noise, and no mark while a long scope is still open. A later
+  quieter choice, not the default.
+- A periodic whole-build line. It repeats the percent and does not say which scope moved.
+
+`progress_action` builds its description only at info, which is why `-Q` hides `Progress(...)`.
+The checkpoint cannot depend on that description. Print it from the progress action when
+`--terse-output` is set, including under `-Q`. Leave the description in place for every other
+mode.
 
 ---
 
@@ -236,6 +304,7 @@ A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does n
 | D | Failure path parity | Done in #353 |
 | E | Integration + docs | Done in #353 |
 | F–I | Cell fraction and overall percent | Done in #353. Not the `scripts i/N · variants j/M` sketch |
+| J | Terse `[progress]` checkpoints | Agreed, not built. Replaces `Progress(...)` under `--terse-output`, and stays under `-Q` |
 
 ## Refusal rules
 
@@ -251,8 +320,9 @@ A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does n
 ## Release
 
 The console bundle slipped from the original 1.8.0 candidacy. The flag and the tally are done
-for 1.12.0 on [#353](https://github.com/ja11sop/cuppa/pull/353). Mark this plan **shipped** and
-move it to `design/archive/` when 1.12.0 is released.
+for 1.12.0 on [#353](https://github.com/ja11sop/cuppa/pull/353). The `[progress]` checkpoints
+are the open slice. Mark this plan **shipped** and move it to `design/archive/` when 1.12.0
+is released.
 
 ## Related
 
