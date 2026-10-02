@@ -30,11 +30,11 @@ def _compile_hello(tmp_path, *flags):
     return result
 
 
-def test_terse_output_folds_a_clean_compile_and_hides_progress_lines(tmp_path):
+def test_terse_output_folds_a_clean_compile_and_keeps_progress_lines(tmp_path):
     result = _compile_hello(tmp_path, "--terse-output")
-    assert "Progress(" not in result.stdout
-
-
-def test_terse_output_notify_progress_prints_progress_lines(tmp_path):
-    result = _compile_hello(tmp_path, "--terse-output", "--terse-output-notify-progress")
     assert "Progress(" in result.stdout
+
+
+def test_quiet_hides_progress_lines_under_terse_output(tmp_path):
+    result = _compile_hello(tmp_path, "--terse-output", "-Q")
+    assert "Progress(" not in result.stdout

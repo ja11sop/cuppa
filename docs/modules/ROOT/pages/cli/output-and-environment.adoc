@@ -14,8 +14,7 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--scons-output` | Do not install the spawn processor; keep Cuppa colour on logs and reports
 | `--standard-output` | Keep Cuppa processing but disable colour
 | `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`
-| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. Hides `Progress(...)` lines. Refused with `--raw-output` or `--scons-output`
-| `--terse-output-notify-progress` | With `--terse-output`, also print `Progress(...)` lines. Requires `--terse-output`
+| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `Progress(...)` lines stay; `-Q` still omits them. Refused with `--raw-output` or `--scons-output`
 | `--show-test-cases` | With `--terse-output`, print every test case, not only the failures. Requires `--terse-output`
 | `--ignore-duplicates` | Suppress repeated diagnostics recognised by the output processor
 | `--show-test-output` | Show stdout and stderr from test processes
@@ -38,11 +37,9 @@ warning or a non-zero exit prints the command and the processed output, then the
 line as the summary. It does not imply `--minimal-output`. Combined with it, a clean run
 is still one line, and failure output is filtered to errors and warnings. It needs the
 spawn processor, so it is refused with `--raw-output` or `--scons-output`.
-`Progress(...)` lines are hidden. Pass `--terse-output-notify-progress` as well to put
-the sconscript and variant structure back. That structure is less useful under
-`--parallel`, where actions interleave. `-Q` still omits those lines, because their
-description is only built at info verbosity. `--terse-output-notify-progress` on its own
-is refused.
+`Progress(...)` lines stay, the same as without the flag. `-Q` still omits them,
+because their description is only built at info verbosity. Under `--parallel` they
+interleave with the status lines, as they do in any other parallel build.
 
 A line is `[ok]`, `[warn]`, or `[error]`, then the sconscript, the build cell
 (`toolchain_variant_arch_abi`), the action, and the file. The toolchain names its own

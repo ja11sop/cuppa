@@ -71,7 +71,7 @@ improvement.
 | Clean tool run | `35/38 · 68% [ok] sconscript · variant · action file`. The fraction is this sconscript and variant. The percent is the whole build. Actions SCons has already found up to date are included in both |
 | Tool run fails | The command, processed output, and summary, then the `[error]` line. The status line is the summary of the failure |
 | Warning in tool output | The command and warning lines, then the `[warn]` line |
-| Sconstruct / sconscript begin/end | Hidden under `--terse-output`. Printed again with `--terse-output-notify-progress` |
+| Sconstruct / sconscript begin/end | Printed, as without the flag. `-Q` omits them |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
 The percent is actions accounted for in this process, out of the actions that are going to
@@ -167,7 +167,7 @@ SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionActi
 | `Install file:` / `Install directory:` | `copy`, and hidden on success. `env.Install` is wrapped so the sentence is not flushed later |
 | `Execute(...)` | A `→` line, not in the action total. `copy` and `move` show `source → dest`. `delete`, `mkdir`, and `chmod` show the path. Anything else is `run`, and the command is printed only on failure. `Touch` stays hidden. The caller's description is not also printed |
 | `Execute(Touch(...))` | Hidden. The caller keeps its own status line |
-| `Progress(...)` | Still hidden. The wrapper does not touch those actions |
+| `Progress(...)` | Printed as usual. The wrapper does not add a status line. `-Q` omits the description |
 | Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
 | Ctrl-C | One subdued `interrupted — finishing in-flight actions...` line. Tasks already running are left to finish, and each of those lines leads with `...`. No new tasks are started. When they have finished: `finished in-flight actions`, then `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. That close is printed when the job runner returns. `-Q` never writes SCons's own `scons: Build interrupted.` line, so that text is not the cue. The fraction is actions completed against the actions that were going to run. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and stops what is still running, with no closing line. The per-job `Error -2` list is dropped |
 | Before the first action | One subdued line: `3 sconscripts · 1 variant · 13465 actions`. A variant is the build cell, counted once however many sconscripts use it |
@@ -193,7 +193,7 @@ filtered to errors and warnings. That is documented on the output page.
 |------|----------------|
 | CLI | `cuppa/core/base_options.py` — `--terse-output` |
 | Env | `construct.py` — `cuppa_env['terse_output']` |
-| Progress | `cuppa/progress.py` — `PRINT_CMD_LINE_FUNC`; `--terse-output-notify-progress` prints the lines |
+| Progress | `cuppa/progress.py` — `PRINT_CMD_LINE_FUNC` prints `Progress(...)` and stashes tool commands |
 | Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
 | Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
@@ -204,13 +204,9 @@ Do not key human text off the `Progress(...)` description.
 
 ### Progress lines
 
-`--terse-output` hides SCons `Progress(...)` lines. `--terse-output-notify-progress` prints
-them again, so the sconscript and variant structure can be compared without editing code. The
-notify flag requires `--terse-output`.
-
-`-Q` already omits the lines: `progress_action` only builds the description when the logger is
-at info. The flag matters on a normal info-level build. Parallel (`-j`) interleaves the
-structure, which is why it stays opt-in.
+`Progress(...)` lines are printed. `-Q` omits them: `progress_action` only builds the
+description when the logger is at info. Parallel (`-j`) interleaves that structure with the
+status lines, as it does without `--terse-output`.
 
 ---
 

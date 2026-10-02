@@ -57,12 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``[done]`` then reports how many ran, how many were up to date, the test
   cases, and how many nested calls ran. A
   successful build ends with ``[done] build succeeded``, or ``[done] build
-  up to date`` when no terse action ran. ``[done]`` has no tally. Hides SCons
-  ``Progress(...)`` lines. Does not imply ``--minimal-output``. Refused with
-  ``--raw-output`` or ``--scons-output``.
-- ``cuppa --terse-output-notify-progress``: with ``--terse-output``, also print
-  ``Progress(...)`` lines so the sconscript and variant structure stays visible.
-  Requires ``--terse-output``. ``-Q`` still omits those lines.
+  up to date`` when no terse action ran. ``[done]`` has no tally. ``Progress(...)``
+  lines stay. ``-Q`` still omits them. Does not imply ``--minimal-output``.
+  Refused with ``--raw-output`` or ``--scons-output``.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.

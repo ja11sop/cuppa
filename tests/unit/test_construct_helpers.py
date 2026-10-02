@@ -370,13 +370,6 @@ def test_terse_output_refuses_scons_or_raw_spawn_skip():
         assert "--terse-output" in str(caught.value)
 
 
-def test_notify_progress_requires_terse_output():
-    env = _ColourEnv(terse_output_notify_progress=True)
-    with pytest.raises(SCons.Errors.StopError) as caught:
-        Construct._set_output_format(env)
-    assert "--terse-output-notify-progress requires --terse-output" in str(caught.value)
-
-
 def test_terse_and_minimal_together_keep_the_processor():
     env = _ColourEnv(terse_output=True, minimal_output=True)
     Construct._set_output_format(env)
@@ -433,9 +426,7 @@ def test_create_build_envs_installs_terse_command_printer(monkeypatch):
     cuppa_env["raw_output"] = False
     cuppa_env["scons_output"] = False
     cuppa_env["terse_output"] = True
-    cuppa_env["terse_output_notify_progress"] = True
     envs = construct.create_build_envs(toolchain, cuppa_env)
     assert envs[0]["env"]["PRINT_CMD_LINE_FUNC"] is terse_print_cmd_line
     assert envs[0]["env"]["terse_output"] is True
-    assert envs[0]["env"]["terse_output_notify_progress"] is True
     assert built == ["dbg"]

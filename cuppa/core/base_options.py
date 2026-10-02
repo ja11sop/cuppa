@@ -58,15 +58,8 @@ def add_base_options():
     add_option( '--terse-output', dest='terse_output', action='store_true',
                             help="On a clean tool run, print one success line and hide the command. "
                                  "On a warning or failure, print the command and the processed output. "
-                                 "Hides SCons Progress(...) lines unless --terse-output-notify-progress "
-                                 "is also set. Does not imply --minimal-output. Refused with "
-                                 "--raw-output or --scons-output" )
-
-    add_option( '--terse-output-notify-progress', dest='terse_output_notify_progress',
-                            action='store_true',
-                            help="With --terse-output, also print Progress(...) lines so the "
-                                 "sconscript and variant structure stays visible. Requires "
-                                 "--terse-output. -Q still omits those lines" )
+                                 "Does not imply --minimal-output. Refused with "
+                                 "--raw-output or --scons-output. -Q still hides Progress(...) lines" )
 
     add_option( '--show-test-cases', dest='show_test_cases', action='store_true',
                             help="With --terse-output, print a line for every test case, "

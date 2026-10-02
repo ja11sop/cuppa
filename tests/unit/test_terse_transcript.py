@@ -48,23 +48,16 @@ def _spawned(terse):
     return SpawnedProcessor(env)
 
 
-def test_progress_lines_stay_hidden_unless_notify_progress_is_set(capsys):
+def test_progress_lines_are_printed(capsys):
     progress.terse_print_cmd_line("Progress( Begin )", [], [], {})
-    assert capsys.readouterr().out == ""
-    assert progress.take_terse_command()[0] is None
-
-    progress.terse_print_cmd_line(
-            "Progress( Begin )", [], [], {"terse_output_notify_progress": True},
-    )
     assert capsys.readouterr().out == "Progress( Begin )\n"
     assert progress.take_terse_command()[0] is None
 
 
 def test_a_command_that_never_spawns_is_reprinted_before_the_next_line(capsys):
-    notify = {"terse_output_notify_progress": True}
     progress.terse_print_cmd_line("Removing empty directories", ["stamp"], [], {})
     assert capsys.readouterr().out == ""
-    progress.terse_print_cmd_line("Progress( End )", [], [], notify)
+    progress.terse_print_cmd_line("Progress( End )", [], [], {})
     assert capsys.readouterr().out == "Removing empty directories\nProgress( End )\n"
     assert progress.take_terse_command()[0] is None
 

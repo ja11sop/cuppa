@@ -1849,18 +1849,11 @@ def flush_terse_commands():
         _write_command( cmd )
 
 
-def _shows_notify_progress( env ):
-    """True when ``--terse-output-notify-progress`` is set on this env."""
-    if not env or not hasattr( env, "get" ):
-        return False
-    return bool( env.get( "terse_output_notify_progress" ) )
-
-
 def terse_print_cmd_line( cmd, target, source, env ):
     """SCons ``PRINT_CMD_LINE_FUNC`` for ``--terse-output``.
 
-    Progress lines are dropped unless ``--terse-output-notify-progress`` is
-    set. ``-Q`` still omits them, because ``progress_action`` only builds the
+    ``Progress(...)`` lines are printed, as they are without this flag.
+    ``-Q`` still omits them, because ``progress_action`` only builds the
     description at info. Tool commands are stashed and printed later, only
     when that run warns or fails. Show and execute run on the same SCons job
     thread, so a per-thread stash pairs them under ``-j``. A command that
@@ -1868,8 +1861,7 @@ def terse_print_cmd_line( cmd, target, source, env ):
     """
     flush_unconsumed_terse_command()
     if _is_progress_command( cmd ):
-        if _shows_notify_progress( env ):
-            sys.stdout.write( cmd + "\n" )
+        sys.stdout.write( cmd + "\n" )
         return
     stash_terse_command( cmd, target, source, env )
 
