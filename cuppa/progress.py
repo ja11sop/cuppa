@@ -1080,7 +1080,8 @@ def spell_terse_action( command, target, env=None ):
     toolchain = _env_get( env, "toolchain" )
     spell = getattr( toolchain, "spell_terse_action", None )
     if callable( spell ):
-        word = spell( command, target )
+        # getattr's default is None, so pylint still treats this as not callable.
+        word = spell( command, target )  # pylint: disable=not-callable
         if word:
             return word
     from cuppa.toolchains.terse_actions import spell_tool_command

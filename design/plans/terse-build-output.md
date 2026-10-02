@@ -1,6 +1,6 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
-- **Status:** done (2026-10-02) on [#353](https://github.com/ja11sop/cuppa/pull/353); **shipped** when 1.12.0 is released
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
