@@ -26,7 +26,7 @@ class LineConsumer(object):
 
     def __call__( self ):
         for line in iter( self.call_readline, self._empty_str ):
-            line = as_str( line )
+            line = _decode_child_line( line )
             if line:
                 if self.processor:
                     line = self.processor( line )
@@ -53,6 +53,18 @@ class MaskSecrets(object):
         for secret, mask in six.iteritems(self.secrets):
             message = message.replace( secret, mask )
         return message
+
+
+def _decode_child_line( line ):
+    """Decode one pipe line. A bad byte must not end the transcript.
+
+    The SCons child is asked for UTF-8. A tool can still write a legacy
+    byte straight to the pipe. Replacing that byte keeps the rest of the
+    line, including a terse ``[ok]``.
+    """
+    if isinstance( line, bytes ):
+        return line.decode( "utf-8", errors="replace" )
+    return as_str( line )
 
 
 def restrict_cpus():
@@ -112,7 +124,11 @@ def run_scons( args_list ):
         kwargs['close_fds'] = platform.system() == "Windows" and False or True
 
         use_shell = False
-        propagated_env = os.environ
+        # Copy so the child's UTF-8 stdio does not stick to this process.
+        # A Windows pipe would otherwise encode the terse middle dot as
+        # cp1252, and the reader, which expects UTF-8, would stop there.
+        propagated_env = os.environ.copy()
+        propagated_env["PYTHONIOENCODING"] = "utf-8"
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,

@@ -44,18 +44,28 @@ class _Pipe(object):
         return self._buffer.readline()
 
 
+class _PipeBytes( object ):
+
+    def __init__( self, payload ):
+        self._buffer = io.BytesIO( payload )
+
+    def readline( self ):
+        return self._buffer.readline()
+
+
 class _FakeProcess(object):
 
     def __init__( self, stdout_text ):
         self.stdout = _Pipe( stdout_text )
         self.stderr = _Pipe( '' )
         self.returncode = 0
+        self.killed = False
 
     def wait( self ):
         return self.returncode
 
     def kill( self ):
-        return None
+        self.killed = True
 
     def terminate( self ):
         return None
@@ -67,6 +77,7 @@ def test_run_scons_appends_cuppa_mode_and_masks_stdout( monkeypatch, capsys ):
 
     def fake_popen( args, **kwargs ):
         captured['args'] = args
+        captured['env'] = kwargs.get( 'env' )
         return _FakeProcess( "token=s3cret-value" )
 
     monkeypatch.setattr( "cuppa.__main__.subprocess.Popen", fake_popen )
@@ -75,7 +86,27 @@ def test_run_scons_appends_cuppa_mode_and_masks_stdout( monkeypatch, capsys ):
     assert run_scons( [ "-D", "--dbg" ] ) == 0
     assert captured['args'][0] == "scons"
     assert captured['args'][-1] == "--cuppa-mode"
+    assert captured['env']['PYTHONIOENCODING'] == "utf-8"
     assert captured['args'][1:-1] == [ "-D", "--dbg" ]
     printed = capsys.readouterr().out
     assert "s3cret-value" not in printed
     assert "CI_JOB_TOKEN" in printed
+
+
+def test_a_legacy_pipe_byte_does_not_drop_the_terse_status( monkeypatch, capsys ):
+    """cp1252 middle dot used to abort the reader before ``[ok]`` was copied."""
+    status = "[ok] sconscript \u00b7 compile hello.cpp\n".encode( "cp1252" )
+    process = _FakeProcess( "" )
+    process.stdout = _PipeBytes( status )
+
+    def fake_popen( args, **kwargs ):
+        return process
+
+    monkeypatch.setattr( "cuppa.__main__.subprocess.Popen", fake_popen )
+    monkeypatch.setattr( "cuppa.__main__.inject_inventory_ignore_errors", lambda args: args )
+
+    assert run_scons( [] ) == 0
+    assert process.killed is False
+    printed = capsys.readouterr().out
+    assert "[ok]" in printed
+    assert "hello.cpp" in printed
