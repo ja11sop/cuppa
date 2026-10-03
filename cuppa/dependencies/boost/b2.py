@@ -184,14 +184,8 @@ class BuildB2(object):
         process_b2_build = ProcessB2Build( self._version )
         args = [ b2_build_script ]
         command_text = " ".join( args )
-        product = b2_exe_name( self._version )
-        try:
-            engine = os.path.relpath( build_script_path, self._location )
-        except ValueError:
-            engine = build_script_path
-        summary = os.path.join( engine, product ).replace( "\\", "/" )
         cuppa.progress.label_terse_action(
-                target, "build-b2", summary=summary, paths="file", shared=True,
+                target, "build-b2", paths="product", shared=True,
         )
         terse = bool( env.get( 'terse_output' ) )
 
@@ -207,7 +201,7 @@ class BuildB2(object):
             if terse:
                 cuppa.progress.write_terse_launch(
                         "build-b2",
-                        summary,
+                        None,
                         env,
                         command=command_text,
                         target=target,
@@ -235,6 +229,10 @@ class BuildB2(object):
 
             logger.debug( "Copying b2 exe from [{}] to [{}]".format( as_info( b2_binary_path ), as_notice( target[0].path ) ) )
             shutil.copy( b2_binary_path, target[0].path )
+            if terse:
+                cuppa.progress.write_terse_nested_copy(
+                        b2_binary_path, target[0].path, env, target=target,
+                )
 
         except OSError as error:
             logger.critical( "Error building b2 [{}]".format( str( error.args ) ) )

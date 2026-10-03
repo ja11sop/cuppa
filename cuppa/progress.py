@@ -444,6 +444,8 @@ _pending_lock = threading.Lock()
 # action prints before it runs and never spawns, so the next print on that
 # thread (or process exit) writes the line back out.
 _pending_commands = {}
+_terse_locations = []
+_terse_locations_lock = threading.Lock()
 
 
 class _ProgressLedger(object):
@@ -823,6 +825,8 @@ def reset_progress_ledger():
     _summary_enabled = False
     with _progress_narrow_lock:
         _progress_narrowed = False
+    with _terse_locations_lock:
+        _terse_locations[:] = []
 
 
 def register_terse_actions( env, nodes ):
@@ -1145,11 +1149,14 @@ def label_terse_action( nodes, action, paths=None, summary=None, shared=None ):
     ``summary`` replaces the file cell (delegated builders: ``-B …`` instead of
     a stamp basename such as ``cmake.build.complete``).
 
+    ``paths="product"`` prints the located target path (token + leaf), for a
+    delegated close whose news is the artefact, not a stamp name.
+
     ``shared`` replaces the variant cell when the author knows the tool is
-    build-wide (e.g. Boost bootstrap ``b2``). ``True`` means
+    build-wide (e.g. Boost bootstrap ``build-b2``). ``True`` means
     ``shared_across_variants``. Not inferred from the Depends graph.
     """
-    if not action and not summary and shared is None:
+    if not action and not summary and shared is None and not paths:
         return nodes
     if shared is True:
         shared = _SHARED_ACROSS_VARIANTS
@@ -1169,6 +1176,40 @@ def label_terse_action( nodes, action, paths=None, summary=None, shared=None ):
         except Exception:
             continue
     return nodes
+
+
+def label_terse_location( env, name, path, scope="sconscript" ):
+    """Register a named root for terse file cells and begin-line maps.
+
+    Built-in tokens (``working``, ``final``, ``artefacts``) come from the env
+    on variant begin. Authors add extras such as ``boost``. ``scope`` is
+    ``sconstruct``, ``sconscript``, or ``variant`` — the map prints on that
+    begin checkpoint. Not inferred from ``_download``.
+    """
+    token = str( name or "" ).strip().strip( "<>" )
+    if not token or not path:
+        return
+    abs_path = _to_abs( path, env )
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    entry = ( str( scope or "sconscript" ), script, cell, token, abs_path )
+    with _terse_locations_lock:
+        kept = [
+                item for item in _terse_locations
+                if not (
+                        item[0] == entry[0]
+                        and item[1] == entry[1]
+                        and item[3] == entry[3]
+                        and ( entry[0] != "variant" or item[2] == entry[2] )
+                )
+        ]
+        kept.append( entry )
+        _terse_locations[:] = kept
+
+
+def _author_locations():
+    with _terse_locations_lock:
+        return list( _terse_locations )
 
 
 def _explicit_terse_action( target ):
@@ -1518,10 +1559,11 @@ def _strip_artifact_folder( relative, env ):
 def _locate( raw, env ):
     """``(root, relative)`` for a path on a status line.
 
-    ``root`` is ``working`` or ``final`` for this variant's build, or
-    ``artifacts`` for this variant's folder under the artefacts root. Any
-    other path there is a normal project path. Otherwise ``relative`` is the
-    project path, ``~/...``, or an absolute path.
+    ``root`` is ``working`` or ``final`` for this variant's build,
+    ``artefacts`` for this variant's folder under the artefacts root, or an
+    author token such as ``boost``. Any other path there is a normal project
+    path. Otherwise ``relative`` is the project path, ``~/...``, or an
+    absolute path.
     """
     if not raw:
         return "", ""
@@ -1532,11 +1574,11 @@ def _locate( raw, env ):
     roots = (
             ( "final", "abs_final_dir" ),
             ( "working", "abs_build_dir" ),
-            ( "artifacts", "abs_artefacts_root" ),
+            ( "artefacts", "abs_artefacts_root" ),
     )
     for token, key in roots:
         root = _env_get( env, key, "" ) or ""
-        if token == "artifacts" and not root:
+        if token == "artefacts" and not root:
             root = _env_get( env, "abs_artifacts_root", "" ) or ""
         if not root:
             continue
@@ -1544,13 +1586,23 @@ def _locate( raw, env ):
         relative = _rel_inside( abs_path, root_abs )
         if relative is None:
             continue
-        if token == "artifacts":
-            # ``<artifacts>`` is this variant's folder, not the artefacts root.
+        if token == "artefacts":
+            # ``<artefacts>`` is this variant's folder, not the artefacts root.
             # ``_artifacts/documentation/...`` is a real path and stays as-is.
             variant_relative = _strip_artifact_folder( relative, env )
             if variant_relative == relative:
                 continue
             return token, variant_relative
+        return token, relative
+    authors = sorted(
+            _author_locations(),
+            key=lambda item: len( item[4] ),
+            reverse=True,
+    )
+    for _scope, _script, _cell, token, root in authors:
+        relative = _rel_inside( abs_path, root )
+        if relative is None:
+            continue
         return token, relative
     return "", _display_source_path( raw, env )
 
@@ -1560,8 +1612,8 @@ def _coloured_transfer_end( token, relative, dest ):
 
     The source is entirely subdued. The destination directory is subdued and
     its filename is info-coloured and bold, not the info highlight.
-    ``<working>``, ``<final>``, and
-    ``<artifacts>`` mark build locations so they are not read as project paths.
+    ``<working>``, ``<final>``, ``<artefacts>``, and author tokens such as
+    ``<boost>`` mark build locations so they are not read as project paths.
     """
     relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
     directory, filename = os.path.split( relative ) if relative else ( "", "" )
@@ -1628,6 +1680,11 @@ def _transform_field( target, source, env ):
 
 
 def _file_field( action, target, source, env ):
+    if _paths_style( target ) == "product" and action not in _TRANSFER_ACTIONS:
+        token, relative = _locate( _node_path( _first_node( target ) ), env )
+        shown = _coloured_transfer_end( token, relative, dest=True )
+        if shown:
+            return shown
     summary = _explicit_terse_summary( target )
     if summary:
         if _paths_style( target ) == "file":
@@ -1750,6 +1807,127 @@ def _uncounted_prefix( env, marker ):
         return arrow + " " + marker
     indent = _progress_ledger.action_line_indent()
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
+
+
+def _coloured_location_value( shown, env ):
+    """Path on a location map. Same roles as the parent checkpoint path.
+
+    ``_build/`` (and other prefixes) subdued; sconscript leaf info; ``dbg`` /
+    ``rel`` / ``cov`` plain; remaining layout dirs subdued; last component
+    info+bold.
+    """
+    shown = str( shown or "" ).replace( "\\", "/" )
+    if not shown:
+        return ""
+    parts = [ part for part in shown.split( "/" ) if part ]
+    if shown.startswith( "/" ):
+        parts = [ "" ] + parts
+    if not parts:
+        return ""
+    script_parts = [
+            part for part in _sconscript_label( env ).replace( "\\", "/" ).split( "/" ) if part
+    ]
+    script_leaf = script_parts[ -1 ] if script_parts else ""
+    name = _variant_name( env )
+    painted = []
+    last = len( parts ) - 1
+    for index, part in enumerate( parts ):
+        if index == last and part:
+            painted.append( as_emphasised( as_info( part ) ) )
+        elif name and part == name:
+            painted.append( part )
+        elif script_leaf and part == script_leaf:
+            painted.append( as_info( part ) )
+        else:
+            painted.append( as_subdued( part ) )
+    return as_subdued( "/" ).join( painted )
+
+
+def _location_badge():
+    """Notice-coloured ``[location]``. Chrome, not an action; not bold."""
+    return as_notice( "[location]" )
+
+
+def format_terse_location_line( token, path, env, scope="variant" ):
+    """``→ [location] [sconscript ·] [variant ·] <token> = path``.
+
+    Identity fields let a map reattach when ``-j`` splits it from its
+    ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
+    """
+    abs_path = _to_abs( path, env )
+    shown = _project_display( abs_path, env ) or _home_display( abs_path )
+    fields = []
+    script = _sconscript_label( env )
+    if script:
+        fields.append( _coloured_sconscript( script ) )
+    if scope == "variant":
+        cell = _coloured_variant_cell( env )
+        if cell:
+            fields.append( cell )
+    value = "<" + str( token ) + ">" + as_subdued( " = " ) + _coloured_location_value( shown, env )
+    fields.append( value )
+    lead = _uncounted_prefix( env, _location_badge() )
+    return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
+
+
+def _builtin_location_maps( env ):
+    maps = []
+    for token, key in (
+            ( "working", "abs_build_dir" ),
+            ( "final", "abs_final_dir" ),
+            ( "artefacts", "abs_artefacts_root" ),
+    ):
+        path = _env_get( env, key, "" ) or ""
+        if token == "artefacts" and not path:
+            path = _env_get( env, "abs_artifacts_root", "" ) or ""
+        if path:
+            maps.append( ( token, path ) )
+    return maps
+
+
+def format_terse_location_maps( scope, env ):
+    """Location-map lines for one checkpoint begin. Empty on end events."""
+    lines = []
+    if scope == "variant":
+        for token, path in _builtin_location_maps( env ):
+            lines.append( format_terse_location_line( token, path, env, scope=scope ) )
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    for item_scope, item_script, item_cell, token, path in _author_locations():
+        if item_scope != scope:
+            continue
+        if item_script and script and item_script != script:
+            continue
+        if scope == "variant" and item_cell and cell and item_cell != cell:
+            continue
+        lines.append( format_terse_location_line( token, path, env, scope=item_scope ) )
+    return lines
+
+
+def write_terse_nested_copy( source, dest, env, target=None ):
+    """Uncounted ``copy`` after a delegated product is staged. Does not close the parent."""
+    if not _env_get( env, "terse_output" ):
+        return
+    dest_nodes = [ dest ]
+    shared = _explicit_terse_shared( target )
+    if shared:
+        attributes = type( "A", (), {} )()
+        attributes.cuppa_terse_shared = shared
+        holder = type( "T", (), {} )()
+        holder.path = dest
+        holder.attributes = attributes
+        dest_nodes = [ holder ]
+    line = format_terse_line(
+            "ok",
+            'Copy("{}", "{}")'.format( dest, source ),
+            dest_nodes,
+            [ source ],
+            env,
+            count=False,
+    )
+    sys.stdout.write( line + "\n" )
+    sys.stdout.flush()
+    note_terse_nested_action()
 
 
 def format_terse_result_line( status, env, action, name, duration="", detail="" ):
@@ -1913,10 +2091,17 @@ def format_terse_launch( action, summary, env, target=None ):
     if action:
         fields.append( _action_label( action ) )
     file_text = ""
-    if target is not None:
+    if summary:
+        if target is not None and _paths_style( target ) == "file":
+            shown = str( summary ).replace( "\\", "/" )
+            directory, filename = os.path.split( shown )
+            if directory in ( "", "." ):
+                directory = ""
+            file_text = _coloured_file( directory, filename or shown )
+        else:
+            file_text = as_subdued( str( summary ) )
+    elif target is not None:
         file_text = _file_field( action, target, None, env )
-    if not file_text and summary:
-        file_text = as_subdued( str( summary ) )
     if file_text:
         fields.append( file_text )
     line = " ".join( parts )
@@ -2279,6 +2464,10 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     if not line:
         return
     sys.stdout.write( line + "\n" )
+    phase = _CHECKPOINT_PHASE.get( event )
+    if phase and phase[1] == "begin":
+        for map_line in format_terse_location_maps( phase[0], env ):
+            sys.stdout.write( map_line + "\n" )
     sys.stdout.flush()
 
 

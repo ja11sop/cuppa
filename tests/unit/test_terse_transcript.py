@@ -249,7 +249,7 @@ def test_copy_uses_virtual_roots_and_an_arrow():
     )
     assert published == (
             "[ok]   reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
-            "<final>/reference_guide.html → <artifacts>/reference_guide.html"
+            "<final>/reference_guide.html → <artefacts>/reference_guide.html"
     )
     staged = progress.format_terse_line(
             "ok",
@@ -271,7 +271,7 @@ def test_copy_uses_virtual_roots_and_an_arrow():
     )
     assert published_elsewhere == (
             "[ok]   reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
-            "<artifacts>/platform_guide.html → "
+            "<artefacts>/platform_guide.html → "
             "_artifacts/documentation/platform_guide/platform_guide.html"
     )
 
@@ -289,7 +289,7 @@ def test_a_nested_report_artifact_uses_the_variant_token():
     )
     assert report == (
             "[ok]   reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
-            "<final>/cycle_ended.report.html → <artifacts>/cycle_ended.report.html"
+            "<final>/cycle_ended.report.html → <artefacts>/cycle_ended.report.html"
     )
     elsewhere = progress.format_terse_line(
             "ok",
@@ -299,7 +299,7 @@ def test_a_nested_report_artifact_uses_the_variant_token():
             env,
     )
     assert "_artifacts/documentation/platform_guide/platform_guide.html" in elsewhere
-    assert "<artifacts>" not in elsewhere.split( "→", 1 )[1]
+    assert "<artefacts>" not in elsewhere.split( "→", 1 )[1]
 
 
 def test_copy_colours_the_destination_leaf_and_mutes_the_source( monkeypatch ):
@@ -317,7 +317,7 @@ def test_copy_colours_the_destination_leaf_and_mutes_the_source( monkeypatch ):
             [ variant + "/final/scss/cplx.css" ],
             env,
     )
-    assert "<s><final>/scss/cplx.css</s> <s>→</s> <s><artifacts>/</s><e><i>cplx.css</i></e>" in line
+    assert "<s><final>/scss/cplx.css</s> <s>→</s> <s><artefacts>/</s><e><i>cplx.css</i></e>" in line
 
 
 def test_expand_render_and_redirect_use_the_same_arrow():
@@ -918,7 +918,7 @@ def test_an_executed_copy_is_a_transfer_line_and_hides_the_caller( capsys ):
     caller.Execute( 'Copy("{}", "{}")'.format( dest, src ) )
     assert capsys.readouterr().out == (
             "→ [ok]   reference_guide · gcc16_dbg_x86_64_cxx2c · copy · "
-            "<final>/protocol.report.html → <artifacts>/protocol.report.html\n"
+            "<final>/protocol.report.html → <artefacts>/protocol.report.html\n"
     )
     assert progress.take_terse_status_emitted()
     assert progress.take_terse_command()[0] is None
@@ -1287,26 +1287,103 @@ def test_shared_across_variants_replaces_the_variant_cell( monkeypatch ):
     assert painted == "shared<s>_across_variants</s>"
 
 
-def test_build_b2_file_cell_colours_the_binary_leaf( monkeypatch ):
-    env = _terse_env()
+def test_build_b2_file_cell_is_the_extract_product( monkeypatch ):
+    env = _layout_env()
+    env["terse_output"] = True
+    boost = "/proj/_download/boost_1_86_0"
+    progress.label_terse_location( env, "boost", boost )
     node = SimpleNamespace(
-            path="b2",
+            path=boost + "/b2",
             attributes=SimpleNamespace(),
     )
-    progress.label_terse_action(
-            [ node ],
-            "build-b2",
-            summary="tools/build/src/engine/b2",
-            paths="file",
-            shared=True,
-    )
+    progress.label_terse_action( [ node ], "build-b2", paths="product", shared=True )
     line = progress.format_terse_line( "done", "./build.sh", [ node ], [], env )
-    assert "· build-b2 · tools/build/src/engine/b2" in line
+    assert "· build-b2 · <boost>/b2" in line
+    nested = progress.format_terse_line(
+            "ok",
+            'Copy("{}/b2", "{}/tools/build/src/engine/b2")'.format( boost, boost ),
+            [ boost + "/b2" ],
+            [ boost + "/tools/build/src/engine/b2" ],
+            env,
+            count=False,
+    )
+    assert nested.startswith( "→" )
+    assert "· copy ·" in nested
+    assert "<boost>/tools/build/src/engine/b2 → <boost>/b2" in nested
     monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
     monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
     monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
     painted = progress.format_terse_line( "done", "./build.sh", [ node ], [], env )
-    assert "<s>tools/build/src/engine/</s><e><i>b2</i></e>" in painted
+    assert "<s><boost>/</s><e><i>b2</i></e>" in painted
+
+
+def test_variant_begin_prints_builtin_location_maps( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    progress.write_terse_progress_checkpoint( "started", None, None, env )
+    out = capsys.readouterr().out
+    assert "variant" in out and "[progress]" in out
+    assert "[location]" in out
+    assert "reference_guide · gcc16_dbg_x86_64_cxx2c · <working> =" in out
+    assert "working" in out
+    assert "reference_guide · gcc16_dbg_x86_64_cxx2c · <final> =" in out
+    assert "final" in out
+    assert "reference_guide · gcc16_dbg_x86_64_cxx2c · <artefacts> =" in out
+    assert "_artifacts" in out
+    progress.write_terse_progress_checkpoint( "finished", None, None, env )
+    closed = capsys.readouterr().out
+    assert "[location]" not in closed
+
+
+def test_sconscript_begin_prints_author_boost_location( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    progress.label_terse_location( env, "boost", "/proj/_download/boost_1_86_0" )
+    progress.write_terse_progress_checkpoint( "begin", None, None, env )
+    out = capsys.readouterr().out
+    assert "sconscript" in out and "[progress]" in out
+    assert "[location]" in out
+    assert "reference_guide · <boost> =" in out
+    assert "gcc16_dbg_x86_64_cxx2c · <boost>" not in out
+    assert "_download/boost_1_86_0" in out
+    progress.write_terse_progress_checkpoint( "started", None, None, env )
+    variant = capsys.readouterr().out
+    assert "<boost>" not in variant
+    assert "reference_guide · gcc16_dbg_x86_64_cxx2c · <working> =" in variant
+
+
+def test_location_path_colours_the_sconscript_leaf_like_progress( monkeypatch ):
+    env = _layout_env()
+    env["terse_output"] = True
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
+    monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    monkeypatch.setattr( progress, "as_notice", lambda text: "<n>" + text + "</n>" )
+    line = progress.format_terse_location_line(
+            "working", env[ "abs_build_dir" ], env, scope="variant",
+    )
+    assert "<s>→</s>" in line
+    assert "<n>[location]</n>" in line
+    assert "<e><i>[location]</i></e>" not in line
+    assert "<i>[location]</i>" not in line
+    assert "<i>reference_guide</i>" in line
+    assert "<s>_build</s>" in line
+    assert "<s>/</s>dbg<s>/</s>" in line
+    assert "<e><i>working</i></e>" in line
+    env[ "sconscript_file" ] = "./test/sconscript"
+    env[ "abs_build_dir" ] = "/proj/_build/test/gcc16/dbg/x86_64/cxx2c/working"
+    test_line = progress.format_terse_location_line(
+            "working", env[ "abs_build_dir" ], env, scope="variant",
+    )
+    assert "<i>test</i>" in test_line
+    assert "<s>gcc16_</s>dbg<s>_x86_64_cxx2c</s>" in test_line
+    assert "<working>" in test_line
+    boost = progress.format_terse_location_line(
+            "boost", "/proj/_download/boost_1_86_0", env, scope="sconscript",
+    )
+    assert "gcc16_dbg_x86_64_cxx2c" not in boost
+    assert "<boost>" in boost
+    assert "<i>test</i>" in boost
 
 
 def test_delegated_python_action_closes_with_done( capsys ):

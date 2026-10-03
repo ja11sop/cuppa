@@ -21,7 +21,7 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
-| [`plans/deep-clean.md`](plans/deep-clean.md) | proposal | `--deep-clean` modifier on `-c`; naming + gap assessment; Boost cooperative `b2 --clean`; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
+| [`plans/deep-clean.md`](plans/deep-clean.md) | proposal | `--deep-clean` modifier on `-c`; cooperative `b2 --clean`; extract `b2` on ordinary `-c` as follow-up; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | [`plans/gitlab-package-transitive.md`](plans/gitlab-package-transitive.md) | in progress | GitLab package A can carry deps on package B (manifest + BuildWith); consumer declares A only |
 | [`archive/list-deps-requires-closure.md`](archive/list-deps-requires-closure.md) | shipped | `--list-dependencies`: nest traveling-manifest closure under tip `requires`; Option A usage vs resolve-identity `--list-scope` |
 | [`archive/dependencies-docs-four-hubs.md`](archive/dependencies-docs-four-hubs.md) | shipped | Dependencies Antora: Using / Managing / Publishing / Authoring hubs; Using-first usability story; align list-deps Option A |
@@ -43,7 +43,7 @@ maintainer workflow evolved.
 | [`plans/methods-pages-split.md`](plans/methods-pages-split.md) | in progress | Hub + job-named `methods/*` (discovery, templates, CreateVersion, staging-files, test-reporting, …) — ROADMAP `doc-methods-split`; #234 |
 | [`plans/native-toolchain-output.md`](plans/native-toolchain-output.md) | proposal | `--native-output`: passthrough native compiler colour — ROADMAP `console-native-output` |
 | [`plans/terse-build-output.md`](plans/terse-build-output.md) | done | `--terse-output`: coloured one-line progress — ROADMAP `console-terse-output` / **1.12.0** |
-| [`plans/terse-delegated-output.md`](plans/terse-delegated-output.md) | in progress | Terse file-field patterns (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted `→` children — ROADMAP `console-terse-delegated` |
+| [`plans/terse-delegated-output.md`](plans/terse-delegated-output.md) | done | Terse file-field patterns (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]`, `[done]` close, muted `→` children, `[location]` maps — ROADMAP `console-terse-delegated` / **1.12.0** |
 | [`plans/build-log-hygiene.md`](plans/build-log-hygiene.md) | done | Configure-time log demotion + variant default message fix — ROADMAP `console-log-hygiene` / **1.12.0** |
 | [`plans/cuppa-info.md`](plans/cuppa-info.md) | done | `cuppa --info`: version without sconstruct — ROADMAP `cli-info` / **1.12.0** — [#350](https://github.com/ja11sop/cuppa/pull/350) |
 | [`plans/cxx-profiles-report.md`](plans/cxx-profiles-report.md) | in progress | `--cxx-profiles-report`: classify/dedupe Profiles diagnostics — ROADMAP `profiles-violation-report` — **`prof-report-method-semantics`** [#203](https://github.com/ja11sop/cuppa/pull/203); **`prof-report-remote-links`** [#219](https://github.com/ja11sop/cuppa/pull/219); **`prof-report-error-limit`** [#225](https://github.com/ja11sop/cuppa/pull/225); **`prof-report-scope-filter`** [#246](https://github.com/ja11sop/cuppa/pull/246) — **1.9.0**; full **F** blocked on [#135](https://github.com/ja11sop/cuppa/issues/135) |

@@ -1,10 +1,11 @@
 # Plan: terse file fields and delegated builders
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`terse-build-output.md`](terse-build-output.md) (Phase 1, done for 1.12.0);
   [`native-toolchain-output.md`](native-toolchain-output.md); [`console-channels.md`](console-channels.md);
   [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md); Boost `b2` via
-  `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-delegated`
+  `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-delegated`;
+  Boost `-c` follow-up [`deep-clean.md`](deep-clean.md)
 - **Updated:** 2026-10-03
 - **Impact:** minor — presentation and delegated-builder wiring under `--terse-output`; default
   transcript unchanged
@@ -35,6 +36,9 @@ presentation so CMake/`b2` stay under Cuppa's transcript instead of drowning it.
 - Making `--native-output` a third transcript (it remains a diagnostic-body modifier).
 - Changing the Phase 1 tally grammar (`N/M · P%`, `[progress]` scope begin/end).
 - Hiding configure-time package download progress (that is the log/report channel, not this plan).
+- `--deep-clean` / Boost extract `b2` vs ordinary `-c` (see follow-up below).
+  Ordinary `-c` already removes `_build` and the Boost **stage**; `bin.*` and
+  extract `b2` stay today. That is [`deep-clean.md`](deep-clean.md), not this plan.
 
 ## Observations from the corosio soak
 
@@ -312,16 +316,42 @@ Default behaviour is unchanged: launch and close show the triggering variant cel
 With ``shared``, that slot becomes the shared label instead:
 
 ```text
-delegate     0% [launch] shared_across_variants · build-b2 · tools/build/src/engine/b2
-   1/  8 ·   3% [done]  shared_across_variants · build-b2 · tools/build/src/engine/b2
+sconscript  0% [progress] pkg/sconscript · begin
+             → [location] pkg · <boost> = _download/boost_1_86_0
+delegate     0% [launch] pkg · shared_across_variants · build-b2 · <boost>/b2
+             → Building Boost.Build engine
+             → [ok] pkg · shared_across_variants · copy · <boost>/tools/build/src/engine/b2 → <boost>/b2
+   1/  8 ·   3% [done]  pkg · shared_across_variants · build-b2 · <boost>/b2
 ```
 
-The file cell is the engine binary (directory subdued, ``b2`` info+bold). Copying that
-binary to the extract root stays inside the same action. Colour: ``shared`` plain (like
-``dbg`` in a cell); ``_across_variants`` subdued. Sconscript (when present) is unchanged.
-Per-variant ``b2`` library builds do not set this flag. ``boost-toolset`` is also
+The file cell is the extract product (``paths="product"``). The engine-tree copy is an
+uncounted nested ``copy`` and must **not** call ``note_terse_status_emitted``, or the
+counted ``[done]`` is skipped. Colour: ``shared`` plain (like ``dbg`` in a cell);
+``_across_variants`` subdued. Sconscript (when present) is unchanged. Per-variant ``b2``
+library builds do not set this flag. ``boost-toolset`` is also
 ``shared_across_variants``; if the ``._jam`` already exists, SCons treats it as up to
 date and there is no status line.
+
+### Location maps
+
+Begin checkpoints print named roots so later ``<token>/`` file cells can be decoded:
+
+```text
+variant     0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin
+             → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <working> = _build/test/orders/gcc16/dbg/x86_64/cxx2c/working
+             → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <final> = _build/test/orders/gcc16/dbg/x86_64/cxx2c/final
+             → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <artefacts> = _artifacts
+```
+
+``<working>``, ``<final>``, and ``<artefacts>`` come from the env on **variant** begin.
+Authors add extras with ``label_terse_location(env, "boost", path)`` (default scope
+**sconscript**). Grammar: ``→ [location] [sconscript ·] [variant ·] <token> = path``.
+``[location]`` is notice-coloured chrome (register a root for readers), not an
+action and not info+bold. Identity fields reattach the line when ``-j`` splits it from
+``[progress]``. Sconscript-scoped
+maps omit the variant cell. Path colour matches the parent checkpoint: sconscript
+leaf info, ``dbg`` / ``rel`` / ``cov`` plain, last component info+bold. Not inferred from
+``_download``. End checkpoints do not repeat the maps.
 
 ### Staging copies after CMake
 
@@ -354,16 +384,17 @@ instead of a raw `cp` and a false `archive`.
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| A | Design + index + ROADMAP row | This document |
-| B | File-field Transform for `compile` / `compile-*` / `markdown` / `asciidoc` | Unit tests on `_file_field`; docs table |
-| C | Speller: `cp`/`copy` before archive-suffix heuristic | Fixes false `archive` |
-| D | Label staging copies (CMake package path + any `command.run` cp) | Integration soak on a package publisher |
-| E | Delegated launch bookend (`delegate … [launch]` + status fields) + muted `→` child stream helper | `progress.py` + `command.run`; no `start` edge |
-| F | CMake summaries on configure/build/install status lines | Drop stamp filenames |
-| G | Boost `b2` on the same helper | Parity with CMake |
-| H | Docs: output page patterns + delegated section | Antora + changelog for the release that ships it |
-| I | Soak tweak: launch mirrors close fields; clean close `[done]`; whole-build `[completed]` | After corosio soak |
-| J | `shared_across_variants` author override for build-wide tools | Bootstrap `b2`; not graph-inferred |
+| A | Design + index + ROADMAP row | Done |
+| B | File-field Transform for `compile` / `compile-*` / `markdown` / `asciidoc` | Done |
+| C | Speller: `cp`/`copy` before archive-suffix heuristic | Done |
+| D | Label staging copies (CMake package path + any `command.run` cp) | Done |
+| E | Delegated launch bookend (`delegate … [launch]` + status fields) + muted `→` child stream helper | Done |
+| F | CMake summaries on configure/build/install status lines | Done |
+| G | Boost `b2` on the same helper | Done |
+| H | Docs: output page patterns + delegated section | Done (Antora + changelog; not shipped until 1.12.0) |
+| I | Soak tweak: launch mirrors close fields; clean close `[done]`; whole-build `[completed]` | Done |
+| J | `shared_across_variants` author override for build-wide tools | Done |
+| K | Location maps + extract `b2` as `paths=product` + uncounted copy | Done; Boost `-c`/`b2` is [`deep-clean.md`](deep-clean.md) |
 
 ## Refusal rules
 
@@ -376,6 +407,9 @@ instead of a raw `cp` and a false `archive`.
 | Make transform `source → product` the default outside `--terse-output` | Refuse; only the terse file cell changes |
 | Infer `archive` from a `.a` target for any tool | Refuse; that is the bug being fixed |
 | Infer “shared across variants” from Depends | Refuse; author sets `label_terse_action(..., shared=True)` |
+| Infer `<boost>` from `_download` | Refuse; author calls `label_terse_location` |
+| Register Boost `bin.*` as a terse location | Refuse; ordinary `-c` does not wipe it |
+| Change `env.NoClean(b2)` / cooperative library clean in this plan | Refuse; follow-up on [`deep-clean.md`](deep-clean.md) |
 
 ## Success criteria
 
@@ -386,9 +420,24 @@ instead of a raw `cp` and a false `archive`.
 2. Staging libraries show as `copy` with `source → dest`, never as `archive` from `cp`.
 3. A native `compile` shows `source → <working>/….o` and still closes with `[ok]`.
 4. Boost `b2` uses the same delegated presentation (library builds per variant;
-   bootstrap `BuildB2` with `shared_across_variants`).
+   bootstrap `BuildB2` with `shared_across_variants`, extract product
+   ``<boost>/b2``, uncounted nested copy).
 5. Failure still prints argv and enough foreign output to diagnose (`[warn]` / `[error]`).
 6. A successful whole build ends with `[completed] build succeeded` (not `[done]`).
+7. Variant begin prints ``→ [location]`` maps for ``<working>`` / ``<final>`` /
+   ``<artefacts>`` with sconscript · variant; Boost registers ``<boost>`` on
+   sconscript begin (no variant cell).
+
+## Follow-up (not this plan)
+
+Boost `-c` vs extract `b2` vs library `bin.*` is tracked on
+[`deep-clean.md`](deep-clean.md). Today `env.NoClean(b2)` leaves the bootstrap
+binary, so the next build does not rebuild `b2` if it exists. That is the right
+**build** default and the wrong **clean** default: Cuppa built that file, so
+ordinary `-c` should remove it (CMake `-B` parity), and a cooperative
+`b2 --clean` for the **current variants** is the library-side match — not a
+`--deep-clean` wipe of the whole `bin.*` tree. Coarse Boost.Build toolset
+folders make the latter risky. Leave `NoClean(b2)` until that follow-up.
 
 ## Related
 
@@ -396,3 +445,4 @@ instead of a raw `cp` and a false `archive`.
 - Channel map: [`console-channels.md`](console-channels.md)
 - Native diagnostic modifier: [`native-toolchain-output.md`](native-toolchain-output.md)
 - CMake drive / package staging: [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md)
+- Boost `-c` / extract `b2` / `bin.*`: [`deep-clean.md`](deep-clean.md)

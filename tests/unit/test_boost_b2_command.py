@@ -208,8 +208,7 @@ def test_build_b2_terse_emits_launch_and_muted_children( monkeypatch, tmp_path, 
     engine = location / "tools" / "build" / "src" / "engine"
     engine.mkdir( parents=True )
     ( engine / "b2" ).write_text( "", encoding="utf-8" )
-    dest = tmp_path / "out" / "b2"
-    dest.parent.mkdir()
+    dest = location / "b2"
     dest.write_text( "", encoding="utf-8" )
 
     def fake_popen( processor, args_list, **kwargs ):
@@ -229,7 +228,9 @@ def test_build_b2_terse_emits_launch_and_muted_children( monkeypatch, tmp_path, 
             "target_arch": "x86_64",
             "abi": "cxx2c",
             "sconscript_file": "./pkg/sconscript",
+            "base_path": str( tmp_path ),
     }
+    progress.label_terse_location( env, "boost", str( location ) )
     target = SimpleNamespace(
             path=str( dest ),
             attributes=SimpleNamespace(),
@@ -238,15 +239,21 @@ def test_build_b2_terse_emits_launch_and_muted_children( monkeypatch, tmp_path, 
             local=lambda: str( location ),
             numeric_version=lambda: 1.86,
     )
+    progress.take_terse_status_emitted()
     assert BuildB2( boost )( [ target ], [], env ) is None
     out = capsys.readouterr().out
-    assert "[launch] pkg · shared_across_variants · build-b2 · tools/build/src/engine/b2" in out
+    assert "[launch] pkg · shared_across_variants · build-b2 · <boost>/b2" in out
     assert "→ Building Boost.Build engine" in out
     assert "→ gcc.compile c.o" in out
+    assert "· copy ·" in out
+    assert "shared_across_variants" in out
+    assert "<boost>/tools/build/src/engine/b2 → <boost>/b2" in out
     assert "./build.sh\n" not in out
     assert target.attributes.cuppa_terse_shared == "shared_across_variants"
     assert target.attributes.cuppa_terse_action == "build-b2"
-    assert target.attributes.cuppa_terse_summary == "tools/build/src/engine/b2"
+    assert target.attributes.cuppa_terse_paths == "product"
+    assert not getattr( target.attributes, "cuppa_terse_summary", "" )
+    assert not progress.take_terse_status_emitted()
     emitted, command = progress.take_terse_launch()
     assert emitted
     assert command == "./build.sh"

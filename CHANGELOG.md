@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the command and its output, then that line as the summary. Python actions
   (copy, SCSS, CMake, run, and the other labelled methods) get the same line.
   A clean ``Install file:`` is ``copy``, shown as ``source → dest`` with
-  ``<working>``, ``<final>``, or ``<artifacts>`` (that variant's flat folder, or
+  ``<working>``, ``<final>``, or ``<artefacts>`` (that variant's flat folder, or
   a report path that contains the variant and sconscript). ``Execute(Copy(...))`` inside another action is that same line, and
   the caller's own description stays hidden. A nested ``Touch`` stays hidden. A clean tool such as ``asciidoctor``
   stays hidden; a warning or error from that tool is printed before the
@@ -107,7 +107,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   may set ``label_terse_action(..., shared=True)`` so the variant slot
   shows ``shared_across_variants`` instead of the triggering cell (Boost
   bootstrap ``build-b2`` and ``boost-toolset``); this is an author override,
-  not graph inference.
+  not graph inference. Bootstrap ``build-b2`` names the extract product
+  (``<boost>/b2``) and prints an uncounted nested ``copy`` from the engine
+  tree. Begin checkpoints print location maps
+  (``→ [location] <sconscript> · <variant> · <working> = …``) so ``-j`` can
+  split them from the ``[progress]`` begin; authors register extras such as
+  ``<boost>`` with ``label_terse_location``. The artefacts-root token is
+  British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
+  alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)
   print on stdout as console reports, so `-Q` and `-s` / `--quiet` no longer hide
   them. Info logs are unchanged. Channel map: ``design/plans/console-channels.md``.
