@@ -21,3 +21,14 @@ def test_save_and_show_conf(tmp_path):
     shown = run_cuppa(project, "--show-conf")
     assert_success(shown)
     assert "dbg" in shown.stdout or conf.read_text()
+
+
+def test_update_conf_stores_one_transcript_choice(tmp_path):
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    conf = project / "configure.conf"
+    conf.write_text("terse_output = True\n", encoding="utf-8")
+    updated = run_cuppa(project, "--normal-output", "--update-conf")
+    assert_success(updated)
+    text = conf.read_text(encoding="utf-8")
+    assert "terse_output = False" in text

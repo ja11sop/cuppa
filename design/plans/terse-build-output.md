@@ -194,8 +194,8 @@ filtered to errors and warnings. That is documented on the output page.
 
 | Area | Likely touch |
 |------|----------------|
-| CLI | `cuppa/core/base_options.py` — `--terse-output` |
-| Env | `construct.py` — `cuppa_env['terse_output']` |
+| CLI and precedence | `cuppa/core/output_options.py` — normal/terse choice, modifiers, validation, processor requirements |
+| Env | `construct.py` asks `output_options` to resolve `cuppa_env['terse_output']` after configuration is loaded |
 | Progress | `cuppa/progress.py` — the progress action prints a `[progress]` checkpoint; `PRINT_CMD_LINE_FUNC` drops `Progress(...)` and stashes tool commands |
 | Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
 | Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
@@ -334,6 +334,26 @@ A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does n
 | Hide failures to keep terse | Refuse |
 | Multiply level percentages for “overall” | Refuse; use completed/total actions |
 | Promise sequential “step 35 of 38” under `-j` | Refuse; counts are completion tallies |
+
+## Overriding a saved transcript
+
+The transcript is one choice: normal, or terse. `--normal-output` is the
+normal transcript. It exists so a command line can beat `--terse-output`
+saved in `configure.conf`, `~/.cuppaconfig`, or `default_options`. Passing
+both transcript flags is an options error. The saved choice is
+`terse_output`: true is terse and false is normal.
+
+`get_option` returns the command line when one was passed, and otherwise the
+saved or coded default. It caches that answer. The transcript is read after
+`configure.load()` has merged the configuration into `default_options`.
+Reading it earlier would keep the unconfigured value for the rest of the run.
+
+`--show-test-cases` and `--terse-output-show-actions` apply only while the
+transcript is terse. A saved copy is ignored on a normal run. Passing either
+on the command line of a normal run is an error.
+
+`--native-output`, when it exists, is not a third transcript. It chooses how
+a warning or failure is drawn, in either transcript.
 
 ## Release
 

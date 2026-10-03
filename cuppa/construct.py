@@ -26,6 +26,7 @@ import cuppa.core.storage_options
 import cuppa.core.storage_actions
 import cuppa.core.location_options
 import cuppa.core.options
+import cuppa.core.output_options
 import cuppa.core.build_layout
 import cuppa.core.sconscript_coupling
 import cuppa.modules.registration
@@ -43,7 +44,7 @@ from cuppa.cpp.coverage_workflow import maybe_warn_parallel_coverage_collection
 #import cuppa.cpp.stdcpp
 
 from cuppa.colourise import as_emphasised, as_info, as_error, as_notice, colour_items, as_info_label
-from cuppa.log import set_logging_level, reset_logging_format, logger, enable_thirdparty_logging
+from cuppa.log import set_logging_level, logger, enable_thirdparty_logging
 from cuppa.utility.console_report import report_mode_banner
 from cuppa.utility.entry_points import iter_entry_points
 
@@ -293,59 +294,6 @@ class Construct(object):
             set_logging_level( verbosity )
 
 
-    @staticmethod
-    def _skips_spawn_processor( cuppa_env ):
-        """True when SCons' own SPAWN must stay in place."""
-        return bool( cuppa_env.get( 'raw_output' ) or cuppa_env.get( 'scons_output' ) )
-
-
-    @classmethod
-    def _set_output_format( cls, cuppa_env ):
-        cuppa_env['raw_output']      = cuppa_env.get_option( 'raw_output' ) and True or False
-        cuppa_env['scons_output']    = cuppa_env.get_option( 'scons_output' ) and True or False
-        cuppa_env['standard_output'] = cuppa_env.get_option( 'standard_output' ) and True or False
-        cuppa_env['minimal_output']  = cuppa_env.get_option( 'minimal_output' ) and True or False
-        cuppa_env['terse_output']    = cuppa_env.get_option( 'terse_output' ) and True or False
-
-        cuppa_env['show_test_cases'] = (
-                cuppa_env.get_option( 'show_test_cases' ) and True or False
-        )
-        cuppa_env['terse_output_show_actions'] = (
-                cuppa_env.get_option( 'terse_output_show_actions' ) and True or False
-        )
-
-        if cuppa_env['show_test_cases'] and not cuppa_env['terse_output']:
-            raise SCons.Errors.StopError(
-                    "--show-test-cases requires --terse-output"
-            )
-        if cuppa_env['terse_output_show_actions'] and not cuppa_env['terse_output']:
-            raise SCons.Errors.StopError(
-                    "--terse-output-show-actions requires --terse-output"
-            )
-
-        processor_flags = []
-        if cuppa_env['minimal_output']:
-            processor_flags.append( '--minimal-output' )
-        if cuppa_env['terse_output']:
-            processor_flags.append( '--terse-output' )
-        if processor_flags and cls._skips_spawn_processor( cuppa_env ):
-            blockers = []
-            if cuppa_env['raw_output']:
-                blockers.append( '--raw-output' )
-            if cuppa_env['scons_output']:
-                blockers.append( '--scons-output' )
-            raise SCons.Errors.StopError(
-                    "Invalid option combination ({} and {})".format(
-                            " and ".join( processor_flags ),
-                            " and ".join( blockers ),
-                    )
-            )
-
-        if not cuppa_env['raw_output'] and not cuppa_env['standard_output']:
-            cuppa_env.colouriser().enable()
-            reset_logging_format()
-
-
     @classmethod
     def _normalise_with_defaults( cls, values, default_values, name ):
         from cuppa.core.run_list_names import normalise_with_defaults
@@ -433,9 +381,11 @@ class Construct(object):
         cuppa_env['sconstruct_path'] = sconstruct_path
         cuppa_env['sconstruct_dir'], cuppa_env['sconstruct_file'] = os.path.split(sconstruct_path)
 
-        self._set_output_format( cuppa_env )
-
+        # get_option caches the first answer. Load the configuration into
+        # default_options before reading the transcript, or a saved terse
+        # choice never arrives and a later read cannot see it either.
         self._configure.load()
+        cuppa.core.output_options.process_output_options( cuppa_env )
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
@@ -463,10 +413,6 @@ class Construct(object):
             logger.warn( profiles_warning )
 
         help = cuppa_env.get_option( 'help' ) and True or False
-
-        cuppa_env['minimal_output']       = cuppa_env.get_option( 'minimal_output' )
-        cuppa_env['terse_output']         = cuppa_env.get_option( 'terse_output' )
-        cuppa_env['ignore_duplicates']    = cuppa_env.get_option( 'ignore_duplicates' )
 
         cuppa_env['working_dir']          = os.getcwd()
         cuppa_env['launch_dir']           = os.path.relpath( SCons.Script.GetLaunchDir(), cuppa_env['working_dir'] )
@@ -556,8 +502,6 @@ class Construct(object):
         cuppa_env['propagate_path']      = cuppa_env.get_option( 'propagate-path' )      and True or False
         cuppa_env['merge_path']          = cuppa_env.get_option( 'merge-path' )          and True or False
         cuppa_env['inherit_process_env'] = cuppa_env.get_option( 'inherit-process-env' ) and True or False
-        cuppa_env['show_test_output']    = cuppa_env.get_option( 'show-test-output' )    and True or False
-        cuppa_env['suppress_process_output'] = cuppa_env.get_option( 'suppress-process-output' ) and True or False
         cuppa_env['dump']                = cuppa_env.get_option( 'dump' )                and True or False
         cuppa_env['clean']               = cuppa_env.get_option( 'clean' )               and True or False
 
@@ -960,7 +904,7 @@ class Construct(object):
                         'raw_abi': toolchain.abi( env ),
                         'env': env } )
 
-                    if not self._skips_spawn_processor( cuppa_env ):
+                    if not cuppa.core.output_options.skips_spawn_processor( cuppa_env ):
                         cuppa.output_processor.Processor.install( env )
                         if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
                             env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line

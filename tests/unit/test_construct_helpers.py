@@ -317,67 +317,6 @@ def test_get_sub_sconscripts_with_only_absolute_excludes_still_finds_scripts(tmp
     assert any(p.endswith("lib/sconscript") for p in found_str)
 
 
-class _ColourEnv(FakeEnv):
-    def __init__(self, **flags):
-        super().__init__(flags)
-        self.colour_enabled = False
-
-    def colouriser(self):
-        return self
-
-    def enable(self):
-        self.colour_enabled = True
-
-
-def test_scons_output_keeps_colour_and_skips_only_the_processor():
-    env = _ColourEnv(scons_output=True)
-    Construct._set_output_format(env)
-    assert env["scons_output"] is True
-    assert env["raw_output"] is False
-    assert env.colour_enabled is True
-    assert Construct._skips_spawn_processor(env) is True
-
-
-def test_raw_output_disables_colour_and_skips_the_processor():
-    env = _ColourEnv(raw_output=True)
-    Construct._set_output_format(env)
-    assert env.colour_enabled is False
-    assert Construct._skips_spawn_processor(env) is True
-
-
-def test_scons_output_with_standard_output_matches_raw_colour_off():
-    env = _ColourEnv(scons_output=True, standard_output=True)
-    Construct._set_output_format(env)
-    assert env.colour_enabled is False
-    assert Construct._skips_spawn_processor(env) is True
-
-
-def test_minimal_output_refuses_scons_or_raw_spawn_skip():
-    for flags in ( {"minimal_output": True, "scons_output": True},
-                   {"minimal_output": True, "raw_output": True} ):
-        env = _ColourEnv(**flags)
-        with pytest.raises(SCons.Errors.StopError) as caught:
-            Construct._set_output_format(env)
-        assert "--minimal-output" in str(caught.value)
-
-
-def test_terse_output_refuses_scons_or_raw_spawn_skip():
-    for flags in ( {"terse_output": True, "scons_output": True},
-                   {"terse_output": True, "raw_output": True} ):
-        env = _ColourEnv(**flags)
-        with pytest.raises(SCons.Errors.StopError) as caught:
-            Construct._set_output_format(env)
-        assert "--terse-output" in str(caught.value)
-
-
-def test_terse_and_minimal_together_keep_the_processor():
-    env = _ColourEnv(terse_output=True, minimal_output=True)
-    Construct._set_output_format(env)
-    assert env["terse_output"] is True
-    assert env["minimal_output"] is True
-    assert Construct._skips_spawn_processor(env) is False
-
-
 def test_create_build_envs_skips_processor_for_scons_output(monkeypatch):
     calls = []
     monkeypatch.setattr(

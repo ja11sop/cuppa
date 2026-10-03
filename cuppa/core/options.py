@@ -16,6 +16,17 @@ def add_option( *args, **kwargs ):
     SCons.Script.AddOption( *args, **kwargs )
 
 
+def command_line_option( option ):
+    """Return only an explicitly parsed command-line value, or ``None``."""
+    try:
+        value = SCons.Script.GetOption( option )
+    except AttributeError:
+        return None
+    if value is None or value == '':
+        return None
+    return value
+
+
 class list_parser(object):
 
     def __init__( self, attribute ):

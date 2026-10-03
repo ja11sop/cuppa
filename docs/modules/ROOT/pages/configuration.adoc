@@ -69,6 +69,12 @@ Those names are mixed: some use underscores (`reports_link_style`, `toolchain_id
 spelling mechanically. Command-line flags still override saved or coded defaults when passed
 explicitly.
 
+The build transcript is one of those choices. `--terse-output` stores
+`terse_output = True`; `--normal-output` stores `False`. The command line
+replaces the saved value, which is how `--normal-output` turns a saved terse
+transcript back to the normal one for a single run. Passing both transcript
+flags is an options error.
+
 [#toolchain-identity]
 === Toolchain identity (`toolchain_identity`)
 

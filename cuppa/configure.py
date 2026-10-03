@@ -17,6 +17,7 @@ import SCons.Script
 
 
 import cuppa.core.options
+import cuppa.core.output_options
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 
@@ -257,6 +258,8 @@ class Configure(object):
 
 
     def _is_saveable( self, key, value ):
+        if not cuppa.core.output_options.is_saveable( key, value ):
+            return False
         return(     not key.startswith("__")
                 and not self._is_defaulted_scons_option( key, value )
                 and not key == 'cuppa-mode'
@@ -289,6 +292,8 @@ class Configure(object):
                 except:
                     pass
                 options[key] = value
+
+        cuppa.core.output_options.update_saved_options( options )
 
         with open(conf_path, "w") as config_file:
             for key, value in options.items():

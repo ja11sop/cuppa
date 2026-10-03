@@ -4,7 +4,7 @@
 A Cuppa command combines SCons progress, Cuppa status, native build commands, and child-process
 output. These options let you change one layer without accidentally hiding another.
 
-== Output modes
+== Output controls
 
 [cols="3,7"]
 |===
@@ -14,7 +14,8 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--scons-output` | Do not install the spawn processor; keep Cuppa colour on logs and reports
 | `--standard-output` | Keep Cuppa processing but disable colour
 | `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`
-| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q`. Refused with `--raw-output` or `--scons-output`
+| `--normal-output` | The normal transcript: each command, with Cuppa's processed tool output. Overrides a terse choice saved in a configuration file. Do not combine with `--terse-output`
+| `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q`. Refused with `--raw-output` or `--scons-output`. Do not combine with `--normal-output`
 | `--terse-output-show-actions` | With `--terse-output`, print the raw SCons action after each status line. For checking the action names. Requires `--terse-output`
 | `--show-test-cases` | With `--terse-output`, print every test case, not only the failures. Requires `--terse-output`
 | `--ignore-duplicates` | Suppress repeated diagnostics recognised by the output processor
@@ -32,6 +33,15 @@ reports, not info logs, so they stay. `--verbosity=LEVEL` overrides the level `-
 set. `--minimal-output` filters Cuppa's processed build messages and needs that processor, so it cannot be combined with `--raw-output` or `--scons-output`.
 
 === Terse output
+
+The transcript is one choice. The default is the normal transcript.
+`--terse-output` sets `terse_output = True`, and `--normal-output` saves it as
+`False`. Do not pass both; that is an options error. The command line replaces
+a saved choice, so a project that has saved terse output can still be
+diagnosed with `--normal-output`.
+`--show-test-cases` and `--terse-output-show-actions` apply only while the
+transcript is terse. A saved copy of either is ignored on a normal run.
+Passing either on the command line of a normal run is an error.
 
 `--terse-output` prints one status line per tool run. A clean run hides the command. A
 warning or a non-zero exit prints the command and the processed output, then the status

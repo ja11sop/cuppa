@@ -27,7 +27,7 @@ continues in parallel where it does not block the console slices.
 | Console: `cuppa --info` | **Done on master** — [`cuppa-info.md`](design/plans/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
 | Console: channel map + mode banners | **Done on master** — [`console-channels.md`](design/plans/console-channels.md), [`console-mode-banners.md`](design/plans/console-mode-banners.md) ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
 | Console: `--scons-output` | **Done on master** — spawn-only half of `--raw-output`; colour stays ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
-| Console: `--terse-output` | **Done** — status lines, tally, test badges, graceful Ctrl-C, and `[progress]` checkpoints: [`terse-build-output.md`](design/plans/terse-build-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
+| Console: `--terse-output` | **Done** — status lines, tally, test badges, graceful Ctrl-C, `[progress]` checkpoints, and `--normal-output` to override a saved terse choice: [`terse-build-output.md`](design/plans/terse-build-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
 | Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |
 | Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — E / archive-progress / publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |

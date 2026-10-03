@@ -45,13 +45,15 @@ not `--raw-output`, which also disables cuppa's progress wiring and other proces
 | *(default)* | Colourised spawn + `ToolchainProcessor` interpretors |
 | `--standard-output` | Spawn processing without cuppa log colour (existing) |
 | `--raw-output` | No cuppa spawn wrapper (existing) |
-| **`--native-output`** | Spawn wrapper stays; child gets native-colour flags; lines pass through uninterpreted |
+| **`--native-output`** | Not a transcript. On a warning or failure, in normal or terse, the toolchain's own lines pass through and Cuppa still counts them |
 | `--minimal-output` | Filter to errors/warnings only (existing; applies to interpreted path today) |
 | `--terse-output` | See companion plan — progress-first, not diagnostic parsing |
 
-**Precedence (proposal):** `--raw-output` wins over everything. Among cuppa spawn modes:
-`--native-output` and default colourisation are mutually exclusive; `--standard-output` disables
-cuppa colour on logs but does not imply native toolchain colour unless documented otherwise.
+**Precedence:** `--native-output` is not a third transcript beside normal and terse.
+It chooses how a warning or failure is drawn in either transcript: the toolchain's
+own lines pass through, and Cuppa still counts them. `--raw-output` still wins over
+the spawn processor. `--standard-output` disables Cuppa colour on logs and does not
+imply native toolchain colour.
 
 ## Behaviour sketch
 
@@ -95,7 +97,7 @@ output, classification may be unavailable. Options (pick one in implementation P
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | A | Design + issue | This document; file umbrella issue |
-| B | `--native-output` flag + env key | `base_options.py`, `construct._set_output_format` |
+| B | `--native-output` flag + env key | `core/output_options.py` owns registration, precedence, and validation |
 | C | Toolchain `native_output_flags` | GCC/Clang/MSVC initial mapping |
 | D | Passthrough spawn branch | `output_processor.py`; tests with fake toolchain lines |
 | E | Docs + CLI reference | Interactions with other output flags |

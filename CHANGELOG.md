@@ -78,7 +78,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   successful build ends with ``[done] build succeeded``, or ``[done] build
   up to date`` when no terse action ran. ``[done]`` has no tally. Does not
   imply ``--minimal-output``. Refused with ``--raw-output`` or
-  ``--scons-output``.
+  ``--scons-output``. ``--normal-output`` selects the normal transcript
+  again. It overrides ``--terse-output``, including a choice saved in
+  ``configure.conf`` or ``~/.cuppaconfig``. Passing both transcript flags is
+  an options error. The saved key is ``terse_output``: true is terse and
+  false is normal.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.

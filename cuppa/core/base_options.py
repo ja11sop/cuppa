@@ -15,6 +15,7 @@ import SCons.Script
 
 # Custom
 import cuppa.core.options
+import cuppa.core.output_options
 import cuppa.core.storage_options
 import cuppa.core.storage_actions
 import cuppa.core.location_options
@@ -38,40 +39,7 @@ def add_base_options():
                                  "intercept; prefer the cuppa entry point when secrets may appear "
                                  "in build output" )
 
-    add_option( '--raw-output', dest='raw_output', action='store_true',
-                            help="Disable Cuppa colour and do not install the spawn processor. "
-                                 "Use --scons-output to skip only the processor and keep colour" )
-
-    add_option( '--scons-output', dest='scons_output', action='store_true',
-                            help="Do not install Cuppa's spawn processor, so SCons launches "
-                                 "child processes itself. Cuppa colour on logs and reports stays. "
-                                 "Progress nodes and the cuppa token mask still apply. "
-                                 "Do not combine with --minimal-output or --terse-output" )
-
-    add_option( '--standard-output', dest='standard_output', action='store_true',
-                            help="Perform standard output processing but not colourisation of output" )
-
-    add_option( '--minimal-output', dest='minimal_output', action='store_true',
-                            help="Show only errors and warnings in the output. Requires Cuppa's "
-                                 "spawn processor; refused with --raw-output or --scons-output" )
-
-    add_option( '--terse-output', dest='terse_output', action='store_true',
-                            help="On a clean tool run, print one success line and hide the command. "
-                                 "On a warning or failure, print the command and the processed output. "
-                                 "Does not imply --minimal-output. Refused with "
-                                 "--raw-output or --scons-output. [progress] checkpoints stay under -Q" )
-
-    add_option( '--terse-output-show-actions', dest='terse_output_show_actions', action='store_true',
-                            help="With --terse-output, also print the raw SCons action after each "
-                                 "status line. For refining the action names. Requires --terse-output" )
-
-    add_option( '--show-test-cases', dest='show_test_cases', action='store_true',
-                            help="With --terse-output, print a line for every test case, "
-                                 "including those that passed. Requires --terse-output. "
-                                 "Failing cases are shown either way" )
-
-    add_option( '--ignore-duplicates', dest='ignore_duplicates', action='store_true',
-                            help="Do not show repeated errors or warnings" )
+    cuppa.core.output_options.add_output_options( add_option )
 
     add_option( '--offline', dest='offline', action='store_true',
                             help="Run in offline mode so don't attempt to check the cuppa version or update"
@@ -113,12 +81,6 @@ def add_base_options():
     add_option( '--parallel', dest='parallel', action='store_true',
                             help="Enable parallel builds utilising the available concurrency."
                                  " Translates to -j N with N chosen based on the current hardware" )
-
-    add_option( '--show-test-output', dest='show-test-output', action='store_true',
-                            help="When executing tests display all outout to stdout and stderr as appropriate" )
-
-    add_option( '--suppress-process-output', dest='suppress-process-output', action='store_true',
-                            help="When executing processes suppress all output to stdout and stderr" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 

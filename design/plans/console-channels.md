@@ -30,17 +30,18 @@ This is the map for Cuppa's console work. Individual plans stay the spec for the
 
 That is why a mode chip emitted with `logger.info` vanishes under `-Q` while the list or cascade tree (stdout) remains. Docs that say `-Q` keeps all Cuppa output are wrong for info logs.
 
-## Spawn modes (build transcript only)
+## Output controls (build transcript only)
 
-One mode owns the transcript. They do not restyle console reports.
+Normal or terse owns the transcript. The other controls modify diagnostics,
+colour, or who launches the child. They do not restyle console reports.
 
-| Mode | Spawn processor | Cuppa colour on logs and reports | Notes |
+| Control | Spawn processor | Cuppa colour on logs and reports | Notes |
 |------|-----------------|----------------------------------|-------|
-| default | on, interpreted | on | today |
+| default / `--normal-output` | on, interpreted | on | today. `--normal-output` is how a command line beats a saved `--terse-output` |
 | `--standard-output` | on | off | today |
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
 | `--terse-output` | on; success folded to one line | on | **This pull request.** Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
-| `--native-output` | on, passthrough | toolchain's own colour on child output | planned; v1 ignores `--minimal-output` with a warning |
+| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | planned modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
 | `--scons-output` | **off** | unchanged | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |
 
