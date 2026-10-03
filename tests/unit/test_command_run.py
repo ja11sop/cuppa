@@ -7,7 +7,8 @@ import os
 
 import pytest
 
-from cuppa.utility.command import _resolve_executable
+import cuppa.progress as progress
+from cuppa.utility.command import _resolve_executable, run
 from cuppa.utility.command_failure import (
         line_failure_priority,
         select_failure_detail_lines,
@@ -73,6 +74,71 @@ def test_select_failure_detail_lines_prefers_failed_over_warnings():
     assert any( "loading shared libraries" in line for line in detail )
     assert any( "ninja: build stopped" in line for line in detail )
     assert not any( line.startswith( "warning:" ) for line in detail )
+
+
+def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsys ):
+    progress.reset_progress_ledger()
+    progress.take_terse_launch()
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        assert kwargs.get( "suppress_output" ) is True
+        stdout_processor( "[1/2] Building CXX object a.cpp.o" )
+        stdout_processor( "[2/2] Linking CXX static library liba.a" )
+        return 0
+
+    monkeypatch.setattr(
+            "cuppa.utility.command.IncrementalSubProcess.Popen2",
+            fake_popen2,
+    )
+    env = {
+            "terse_output": True,
+            "variant": type( "V", (), { "name": lambda self: "dbg" } )(),
+            "toolchain": type( "T", (), { "name": lambda self: "gcc16" } )(),
+            "target_arch": "x86_64",
+            "abi": "cxx2c",
+            "sconscript_file": "./pkg/sconscript",
+    }
+    action = run(
+            "cmake --build _build/x --parallel 1",
+            working_dir="/tmp",
+            terse_summary="-B _build/x --parallel 1",
+            terse_action="cmake-build",
+    )
+    assert action( [ "cmake.build.complete" ], [], env ) == 0
+    out = capsys.readouterr().out
+    assert "delegate" in out
+    assert "[launch] pkg · gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x --parallel 1" in out
+    assert "· start ·" not in out
+    assert "→ [1/2] Building CXX object a.cpp.o" in out
+    assert "→ [2/2] Linking CXX static library liba.a" in out
+    assert "cmake --build _build/x --parallel 1\n" not in out
+    emitted, command = progress.take_terse_launch()
+    assert emitted
+    assert command == "cmake --build _build/x --parallel 1"
+
+
+def test_command_run_terse_without_delegate_opts_skips_launch( monkeypatch, capsys ):
+    progress.reset_progress_ledger()
+    progress.take_terse_launch()
+    seen = {}
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        seen["suppress_output"] = kwargs.get( "suppress_output" )
+        stdout_processor( "copied" )
+        return 0
+
+    monkeypatch.setattr(
+            "cuppa.utility.command.IncrementalSubProcess.Popen2",
+            fake_popen2,
+    )
+    env = { "terse_output": True }
+    action = run( "cp -f a.a b.a", working_dir="/tmp" )
+    assert action( [ "b.a" ], [ "a.a" ], env ) == 0
+    out = capsys.readouterr().out
+    assert "[launch]" not in out
+    assert "copied\n" in out
+    assert seen.get( "suppress_output" ) is True
+    assert progress.take_terse_launch() == ( False, None )
 
 
 def test_select_failure_detail_lines_respects_limit_and_dedupes():

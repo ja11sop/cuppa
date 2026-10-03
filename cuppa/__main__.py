@@ -26,14 +26,12 @@ class LineConsumer(object):
 
     def __call__( self ):
         for line in iter( self.call_readline, self._empty_str ):
-            line = as_str( line )
+            line = _decode_child_line( line )
             if line:
                 if self.processor:
                     line = self.processor( line )
-                    if line:
-                        sys.stdout.write( line )
-                else:
-                    sys.stdout.write( line )
+                if line:
+                    _write_transcript( line )
 
 
 class MaskSecrets(object):
@@ -55,6 +53,37 @@ class MaskSecrets(object):
         return message
 
 
+def _write_transcript( line ):
+    """Copy one child line to this process.
+
+    The child speaks UTF-8. This console may still be cp1252. A glyph it
+    cannot encode must not end the transcript or kill the build.
+    """
+    try:
+        sys.stdout.write( line )
+        return
+    except UnicodeEncodeError:
+        pass
+    encoding = getattr( sys.stdout, "encoding", None ) or "ascii"
+    try:
+        safe = line.encode( encoding, errors="replace" ).decode( encoding, errors="replace" )
+    except LookupError:
+        safe = line.encode( "ascii", errors="replace" ).decode( "ascii" )
+    sys.stdout.write( safe )
+
+
+def _decode_child_line( line ):
+    """Decode one pipe line. A bad byte must not end the transcript.
+
+    The SCons child is asked for UTF-8. A tool can still write a legacy
+    byte straight to the pipe. Replacing that byte keeps the rest of the
+    line, including a terse ``[ok]``.
+    """
+    if isinstance( line, bytes ):
+        return line.decode( "utf-8", errors="replace" )
+    return as_str( line )
+
+
 def restrict_cpus():
     process = psutil.Process()
     core_count = psutil.cpu_count()
@@ -69,6 +98,21 @@ def restrict_cpus():
             process.cpu_affinity( list(range(core_count-3)) )
         else:
             process.cpu_affinity( list(range(core_count-4)) )
+
+
+def _abort_scons( process ):
+    """Stop the inner SCons process. Used when Ctrl-C is pressed again."""
+    if not process:
+        return
+    try:
+        if process.poll() is not None:
+            return
+    except Exception:
+        pass
+    try:
+        process.kill()
+    except Exception:
+        pass
 
 
 def run_scons( args_list ):
@@ -97,7 +141,17 @@ def run_scons( args_list ):
         kwargs['close_fds'] = platform.system() == "Windows" and False or True
 
         use_shell = False
-        propagated_env = os.environ
+        # Copy so the child's UTF-8 stdio does not stick to this process.
+        # A Windows pipe would otherwise encode the terse middle dot as
+        # cp1252, and the reader, which expects UTF-8, would stop there.
+        propagated_env = os.environ.copy()
+        propagated_env["PYTHONIOENCODING"] = "utf-8"
+        # Glyphs follow the console the wrapper is writing to. The child's
+        # own stdout is the UTF-8 pipe, which would otherwise look capable
+        # of box drawing that this console cannot print.
+        console_encoding = getattr( sys.stdout, "encoding", None )
+        if console_encoding:
+            propagated_env["CUPPA_CONSOLE_ENCODING"] = console_encoding
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,
@@ -109,7 +163,21 @@ def run_scons( args_list ):
 
         stderr_thread = threading.Thread( target=stderr_consumer )
         stderr_thread.start()
-        stdout_consumer();
+        # The first Ctrl-C is delivered to this process and to SCons. SCons
+        # stops scheduling new tasks; children are in their own session, so
+        # they keep running. Keep reading so that drain is not stuck on a
+        # full pipe. The inner process handles a second Ctrl-C by terminating
+        # those children; a third stops SCons outright.
+        interrupts = 0
+        while True:
+            try:
+                stdout_consumer()
+                break
+            except KeyboardInterrupt:
+                interrupts += 1
+                if interrupts >= 3:
+                    _abort_scons( process )
+                    break
         stderr_thread.join()
 
         process.wait()
@@ -123,12 +191,15 @@ def run_scons( args_list ):
         return process.returncode
 
     except KeyboardInterrupt:
+        _abort_scons( process )
         if process:
-            process.terminate()
-            process.wait()
+            try:
+                process.wait()
+            except Exception:
+                pass
         if stderr_thread:
             stderr_thread.join()
-        return process.returncode
+        return process.returncode if process else 1
 
     return 1
 

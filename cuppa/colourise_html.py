@@ -55,12 +55,31 @@ class HtmlColouriser(object):
             + self._token( 'reset' )
         )
 
+    def case_notice( self, text ):
+        """Bold notice. The page colour for notice is already the dull yellow."""
+        return self.emphasise( self.colour( 'notice', text ) )
+
+    def badge( self, meaning, text ):
+        """Same meaning colour as a label, without the bold weight."""
+        return (
+            self._token(
+                    'start',
+                    ( self._meaning_class( meaning ), 'cuppa-badge' ),
+            )
+            + text
+            + self._token( 'reset' )
+        )
+
     def emphasise( self, text ):
         return (
             self._token( 'start', ( 'cuppa-emphasised', ) )
             + text
             + self._token( 'reset' )
         )
+
+    def emphasise_plain( self, text ):
+        """Bold without an info colour. HTML has no dark-console bold tint."""
+        return self.emphasise( text )
 
     def subdue( self, text ):
         return (

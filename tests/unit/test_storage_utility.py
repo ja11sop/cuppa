@@ -8,6 +8,11 @@ from cuppa.utility import storage
 pytestmark = pytest.mark.unit
 
 
+def test_a_legacy_console_encoding_keeps_ascii_glyphs( monkeypatch ):
+    monkeypatch.setenv( "CUPPA_CONSOLE_ENCODING", "cp1252" )
+    assert storage.glyphs() == storage.ASCII_GLYPHS
+
+
 def test_human_size_uses_binary_units():
     assert storage.human_size( 0 ) == '0B'
     assert storage.human_size( 512 ) == '512B'

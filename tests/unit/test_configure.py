@@ -76,6 +76,9 @@ def test_load_grandfathers_existing_global_without_key( tmp_path, monkeypatch ):
 
 def test_is_saveable_filters_never_save_and_conf_keys(tmp_path):
     conf, _env = _configure(tmp_path)
+    assert conf._is_saveable("terse_output", None) is False
+    assert conf._is_saveable("terse_output", False) is True
+    assert conf._is_saveable("terse_output", True) is True
     assert conf._is_saveable("dbg", True) is True
     assert conf._is_saveable("__internal", True) is False
     assert conf._is_saveable("save_conf", True) is False

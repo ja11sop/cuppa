@@ -13,6 +13,7 @@ import os.path
 from SCons.Node import Node
 from SCons.Script import Flatten
 
+import cuppa.progress
 from cuppa.utility.filter import filter_nodes
 
 class CopyFilesAsMethod:
@@ -30,7 +31,10 @@ class CopyFilesAsMethod:
 
         # Progress comes from MethodWithProgress wrapping InstallAs on the
         # sconscript env — do not NotifyProgress.add again here.
-        return env.InstallAs( destinations, filtered_nodes )
+        copied = env.InstallAs( destinations, filtered_nodes )
+        return cuppa.progress.label_terse_action(
+                copied, "copy", paths="transfer",
+        )
 
     @classmethod
     def add_to_env( cls, cuppa_env ):

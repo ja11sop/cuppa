@@ -233,7 +233,7 @@ class RunProcessAction(object):
             log_failure( "Execution of [{}] failed with error: {}".format( as_notice(command), as_notice(str(e)) ) )
             monitor.stop( status='failed', treat_error_as_warning=retry )
             if not retry:
-                raise BuildError( e )
+                raise BuildError( node=source and source[0] or None, errstr=str( e ) )
 
 
     def __call__( self, target, source, env ):

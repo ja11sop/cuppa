@@ -40,6 +40,7 @@ class ExpandTemplateFileMethod(object):
         ) } )
 
         expanded_template = env.ExpandTemplateFile( target, source )
+        cuppa.progress.label_terse_action( expanded_template, "expand" )
         cuppa.progress.NotifyProgress.add( env, expanded_template )
         return expanded_template
 

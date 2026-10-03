@@ -168,6 +168,35 @@ def test_cmake_build_method_honours_parallel_jobs( silence_progress ):
     assert shlex.split( action._command ) == [
             'cmake', '--build', '_build/x', '--parallel', '6',
     ]
+    assert action._terse_action == 'cmake-build'
+    assert action._terse_summary == '-B _build/x --parallel 6'
+
+
+def test_cmake_configure_method_sets_terse_summary( silence_progress ):
+    env = _RecordingEnv( _env( 'rel' ) )
+    CMakeConfigureMethod()(
+            env,
+            'src',
+            working_dir='/tmp/src',
+            build_dir='_build/gcc_rel',
+            generator='Ninja',
+    )
+    action = env.commands[0]['action']
+    assert action._terse_action == 'cmake-configure'
+    assert action._terse_summary == '-B _build/gcc_rel -G Ninja'
+
+
+def test_cmake_install_method_sets_terse_summary( silence_progress ):
+    env = _RecordingEnv( _env() )
+    CMakeInstallMethod()(
+            env,
+            'built',
+            build_dir='_build/x',
+            working_dir='/tmp/src',
+    )
+    action = env.commands[0]['action']
+    assert action._terse_action == 'cmake-install'
+    assert action._terse_summary == '-B _build/x --target install'
 
 
 def test_cmake_build_method_defaults_to_parallel_one( silence_progress ):

@@ -97,6 +97,7 @@ class RemoveEmptyDirsMethod(object):
                         'Removing empty directories under [{}]'.format( parent ),
                 ),
         )
+        cuppa.progress.label_terse_action( nodes, "remove-empty" )
         cuppa.progress.NotifyProgress.add( env, nodes )
         return nodes
 
@@ -170,6 +171,7 @@ class DownloadExtractMethod(object):
                         'Downloading and extracting [{}]'.format( url ),
                 ),
         )
+        cuppa.progress.label_terse_action( nodes, "download" )
         env.Clean( nodes, extract_dir )
         cuppa.progress.NotifyProgress.add( env, nodes )
         return nodes

@@ -50,6 +50,16 @@ def test_html_colouriser_renders_labels_and_subdued_text_as_docs_classes():
     )
 
 
+def test_html_colouriser_renders_a_badge_in_the_meaning_colour():
+    backend = HtmlColouriser()
+    with colourise.using_colouriser( backend ):
+        text = colourise.as_badge( 'notice', 'no assertions' )
+
+    assert backend.render( text, wrap=False ) == (
+        '<span class="cuppa-notice cuppa-badge">no assertions</span>'
+    )
+
+
 def test_html_colouriser_supports_start_and_reset_helpers():
     backend = HtmlColouriser()
     with colourise.using_colouriser( backend ):

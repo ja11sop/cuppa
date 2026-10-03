@@ -89,6 +89,7 @@ class PublishPackageMethod(object):
                     [ source, publisher.sources() ],
                     publisher.build_package,
             )
+        cuppa.progress.label_terse_action( built_package, "package" )
         declare_package_archive_side_effect( env, built_package, publisher )
         target = built_package
 
@@ -111,6 +112,7 @@ class PublishPackageMethod(object):
                     publish_package_sources( publisher, built_package, env=env ),
                     publisher.publish_package,
             )
+            cuppa.progress.label_terse_action( published_package, "publish" )
             target = published_package
             if env.get_option( 'force' ):
                 always = getattr( env, 'AlwaysBuild', None )
@@ -313,6 +315,7 @@ class InstallPackageMethod(object):
         package_include_dir = env.Dir( package_installer.include_dir() )
 
         extracted_package = env.Command( package_include_dir, [], package_installer )
+        cuppa.progress.label_terse_action( extracted_package, "install" )
 
         env.Clean( extracted_package, package_installer.package_dir() )
         env.Clean( extracted_package, package_installer.download_target() )

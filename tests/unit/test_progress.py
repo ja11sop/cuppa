@@ -63,6 +63,7 @@ def _reset_notifyprogress_state(monkeypatch):
     NotifyProgress._started = {}
     NotifyProgress._finished = {}
     NotifyProgress.set_inventory_report_mode( False )
+    progress_module.reset_progress_ledger()
 
     def _fake_progress(label, event, sconscript, variant, env):
         return "progress:{}:{}:{}".format(event, sconscript, variant)
@@ -218,6 +219,102 @@ def test_progress_uses_unwrapped_command_when_present(monkeypatch):
     assert node == "Starting"
     assert unwrapped_calls == [ "Starting" ]
     assert wrapped_calls == []
+
+
+def test_sconstruct_end_confirms_a_successful_terse_build(capsys):
+    env = {"terse_output": True}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+    progress_module.note_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    out = capsys.readouterr().out
+    assert out.endswith( "[completed] build succeeded\n" )
+    assert "[progress]" in out
+    assert "· end" in out
+    assert "Progress(" not in out
+
+
+def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
+    env = {"terse_output": True}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    out = capsys.readouterr().out
+    assert out.endswith( "[completed] build up to date\n" )
+    assert "[progress]" in out
+    assert "Progress(" not in out
+
+
+class _SummaryNode:
+    def has_builder(self):
+        return True
+
+    def get_executor(self):
+        return self
+
+    def get_action_list(self):
+        return [object()]
+
+
+def test_a_terse_build_summarises_the_plan_and_what_finished(capsys):
+    env = _make_env("test/orders/sconscript", "_build/test/orders/gcc16/dbg/x86_64/cxx2c/working")
+    env["terse_output"] = True
+    env["toolchain"] = type("T", (), {"name": lambda self: "gcc16"})()
+    env["variant"] = type("V", (), {"name": lambda self: "dbg"})()
+    env["target_arch"] = "x86_64"
+    env["abi"] = "cxx2c"
+    skipped = _SummaryNode()
+    ran = _SummaryNode()
+    progress_module.enable_terse_build_summary()
+    progress_module.register_terse_actions(env, [skipped, ran])
+    progress_module.note_up_to_date_action(skipped)
+    progress_module.format_terse_line("ok", "g++ -c a.cpp", [ran], ["a.cpp"], env)
+    progress_module.note_terse_build_activity()
+    progress_module.note_terse_nested_action()
+    progress_module.note_terse_test_cases(2)
+    progress_module.reset_build_interrupted()
+    progress_module.Progress("sconstruct_end", None, None, {"terse_output": True})([], [], {})
+    out = capsys.readouterr().out
+    assert "1 sconscript · 1 variant · 2/2 actions" in out
+    assert out.endswith("[completed] build succeeded · 1 ran · 1 up to date · 2 test cases · 1 nested\n")
+
+
+def test_an_interrupt_summarises_the_whole_build_not_only_the_drain(capsys):
+    env = _make_env("test/orders/sconscript", "_build/test/orders/gcc16/dbg/x86_64/cxx2c/working")
+    env["terse_output"] = True
+    env["toolchain"] = type("T", (), {"name": lambda self: "gcc16"})()
+    env["variant"] = type("V", (), {"name": lambda self: "dbg"})()
+    env["target_arch"] = "x86_64"
+    env["abi"] = "cxx2c"
+    skipped = _SummaryNode()
+    ran = _SummaryNode()
+    waiting = _SummaryNode()
+    progress_module.enable_terse_build_summary()
+    progress_module.register_terse_actions(env, [skipped, ran, waiting])
+    progress_module.note_up_to_date_action(skipped)
+    progress_module.format_terse_line("ok", "g++ -c a.cpp", [ran], ["a.cpp"], env)
+    progress_module.note_terse_test_cases(2)
+    progress_module.note_build_interrupted()
+    progress_module.write_terse_interrupt_finish()
+    out = capsys.readouterr().out
+    assert out.endswith(
+            "finished in-flight actions\n"
+            "[interrupted] reached 67%: 2/3 · 1 ran · 1 up to date · 2 test cases\n"
+    )
+
+
+def test_sconstruct_end_is_silent_without_terse_output(capsys):
+    env = {}
+    progress_module.reset_build_interrupted()
+    progress_module.reset_terse_build_activity()
+
+    progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
+
+    assert capsys.readouterr().out == ""
 
 
 def test_variant_completion_tracker_notes_started_and_finished():

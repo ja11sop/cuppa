@@ -1,8 +1,8 @@
 # Plan: `--deep-clean` as a modifier on `-c` / `--clean`
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326); [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py))
-- **Updated:** 2026-09-22
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326);   [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](terse-delegated-output.md)
+- **Updated:** 2026-10-03
 - **Impact:** `minor` (new CLI flag / opt-in clean scope)
 
 ## Problem
@@ -113,7 +113,8 @@ dir, stamps).
 | `_build/…` targets | Yes | Yes |
 | Boost `build.<abi>/<toolchain>/…` stage | Yes (after #326) | Yes (path Clean; also after b2 clean) |
 | Boost `bin.<abi>/…` for this selection | No | Yes — prefer **cooperative `b2 --clean`**, with path Clean as fallback/supplement |
-| Boost extract / headers / `b2` | No | No |
+| Boost extract / headers | No | No |
+| Boost extract `b2` binary | No today (`env.NoClean`); **should** be Yes — follow-up | No (headers/extract stay) |
 | CMake `-B` via Cuppa methods | Yes | Yes; optional native `cmake --build --target clean` later if path Clean proves incomplete |
 | Other location deps | No new behaviour until each opts in | Opt-in via the same helper |
 
@@ -121,6 +122,30 @@ dir, stamps).
 a Boost.Build naming limit when using path Clean / `storage_clean`. Cooperative
 `b2 --clean` with Cuppa’s exact `toolset=` / `variant=` / `--build-dir=` should
 track **what that b2 invocation built**, which is the better default for deep-clean.
+
+## Follow-up: extract `b2` vs ordinary `-c`
+
+Not a `--terse-output` blocker. Recorded after a Boost package soak where
+`build-b2` is a first-class transcript line.
+
+Today `env.NoClean(b2)` leaves `…/patched/b2`. The **build** default is correct:
+do not rebuild `b2` when the binary already exists (the old reason for
+`NoClean` is no longer clearly recalled; the effect still matches “bootstrap
+once per extract”). The **clean** default is wrong: Cuppa built that file, so
+ordinary `-c` should remove it, the way CMake `-B` is cleaned. Leaving `b2`
+after `-c` while removing the stage makes the next build look half-clean.
+
+Desired split:
+
+| Gesture | Intent |
+|---------|--------|
+| Ordinary `-c` | `_build` copies + cuppa stage + **extract `b2`** (we built it) + cooperative `b2 --clean` for **this selection** (current variants / toolset / abi). Not a wipe of the whole `bin.*` tree. |
+| `-c --deep-clean` | Coarse wipe of remaining `bin.*` when cooperative clean is not enough. |
+
+The hard part is Boost.Build’s **coarser** versioning under `bin.<abi>`
+(`gcc-16` vs Cuppa `gcc162`, dbg/rel sharing one engine tree). A directory
+delete is too wide for ordinary `-c`; a `NoClean` on `b2` is too narrow.
+Leave `NoClean(b2)` in code until this follow-up is implemented.
 
 ## Use case: Boost package, cold rebuild after `-c`
 
@@ -231,6 +256,7 @@ continues to use.
 | Settled: modifier on `-c`, not standalone | Done |
 | Naming commentary + gap assessment | Done (this revision) |
 | Native tool clean + Boost `b2 --clean` use case | Done (design); code not started |
+| Extract `b2` on ordinary `-c` (drop `NoClean`) | Follow-up; not terse |
 | Scratchpad note | Graduated here |
 | Option + refusal gate | Not started |
 | Boost cooperative clean + fallback | Not started |

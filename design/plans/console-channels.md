@@ -3,7 +3,7 @@
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](console-mode-banners.md); [`terse-build-output.md`](terse-build-output.md); [`native-toolchain-output.md`](native-toolchain-output.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`build-log-hygiene.md`](build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-09-30
-- **Impact:** none for this index; the mode-banner slice in the same pull request is `patch`
+- **Impact:** none for this index; `--terse-output` in the current pull request is `minor`
 
 This is the map for Cuppa's console work. Individual plans stay the spec for their slice. Do not re-decide which channel a line belongs to inside a later pull request.
 
@@ -30,23 +30,24 @@ This is the map for Cuppa's console work. Individual plans stay the spec for the
 
 That is why a mode chip emitted with `logger.info` vanishes under `-Q` while the list or cascade tree (stdout) remains. Docs that say `-Q` keeps all Cuppa output are wrong for info logs.
 
-## Spawn modes (build transcript only)
+## Output controls (build transcript only)
 
-One mode owns the transcript. They do not restyle console reports.
+Normal or terse owns the transcript. The other controls modify diagnostics,
+colour, or who launches the child. They do not restyle console reports.
 
-| Mode | Spawn processor | Cuppa colour on logs and reports | Notes |
+| Control | Spawn processor | Cuppa colour on logs and reports | Notes |
 |------|-----------------|----------------------------------|-------|
-| default | on, interpreted | on | today |
+| default / `--normal-output` | on, interpreted | on | today. `--normal-output` is how a command line beats a saved `--terse-output` |
 | `--standard-output` | on | off | today |
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
-| `--terse-output` | on; success folded to one line | on | planned; build/test/coverage progress only |
-| `--native-output` | on, passthrough | toolchain's own colour on child output | planned; v1 ignores `--minimal-output` with a warning |
-| `--scons-output` | **off** | unchanged | **This pull request** |
+| `--terse-output` | on; success folded to one line | on | **This pull request.** Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
+| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | planned modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
+| `--scons-output` | **off** | unchanged | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |
 
-`--raw-output` currently bundles two switches: the colouriser stays off, and `Processor.install` is skipped so SCons' own `SPAWN` runs. People also use it to pipe a list without ANSI. `--scons-output` should be only the second switch.
+`--raw-output` bundles two switches: the colouriser stays off, and `Processor.install` is skipped so SCons' own `SPAWN` runs. People also use it to pipe a list without ANSI. `--scons-output` is only the second switch.
 
-Refuse `--terse-output`, `--native-output`, and `--minimal-output` together with `--scons-output` or `--raw-output` (those three need the processor). `--scons-output` plus `--standard-output` is the same outcome as `--raw-output`.
+`--terse-output` and `--minimal-output` are refused with `--scons-output` or `--raw-output` (they need the processor). `--native-output` will be refused the same way. `--scons-output` plus `--standard-output` is the same outcome as `--raw-output`.
 
 Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` still inserts `Progress(…)` nodes, and the `cuppa` wrapper still masks `*TOKEN*` on its pipe. The flag does not remove either.
 
@@ -60,16 +61,17 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
 | [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Phase 0 still open | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
-| [`terse-build-output.md`](terse-build-output.md) | Build transcript | Planned. Must not restyle lists, trees, or mode banners |
+| [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
+| [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Optional. Must not recolour console reports |
-| `--scons-output` | Build transcript | **This pull request.** No separate plan; the matrix above is the spec |
+| `--scons-output` | Build transcript | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). No separate plan; the matrix above is the spec |
 | `console-stream-split` (ROADMAP) | Which file descriptor | Orthogonal. Do not decide it inside terse or native |
 
 ## Order
 
-1. **Mode banners** — this pull request. Smallest change that makes the report channel real, and the `-Q` soak bug.
-2. **`--scons-output`** — this pull request. Split it out of `--raw-output` so the matrix exists in code before terse and native land.
-3. **Terse Phase 1** — the 1.12.0 headline, transcript only, citing this matrix.
+1. **Mode banners** — done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)). Smallest change that makes the report channel real, and the `-Q` soak bug.
+2. **`--scons-output`** — done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). Split it out of `--raw-output` so the matrix exists in code before terse and native land.
+3. **Terse Phase 1** — this pull request. Transcript only, citing this matrix.
 4. **Native output** — optional, same family, after the matrix is in code.
 5. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
 

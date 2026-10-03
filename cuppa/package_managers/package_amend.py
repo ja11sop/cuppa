@@ -70,5 +70,6 @@ def skip_builder_for_amend( env, target, label ):
             [],
             Action( _action, 'Amend skip [{}]'.format( label ) ),
     )
+    cuppa.progress.label_terse_action( nodes, "amend" )
     cuppa.progress.NotifyProgress.add( env, nodes )
     return nodes

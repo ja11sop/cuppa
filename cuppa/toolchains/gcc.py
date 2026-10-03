@@ -298,6 +298,16 @@ class Gcc(object):
         return self.name()
 
 
+    def spell_terse_action( self, command, target ):
+        """Status-line verb for a gcc, ``gcc-ar*``, or ``gcc-ranlib*`` run.
+
+        Empty when this command is not one of those tools, so the generic
+        fallback can say ``run``.
+        """
+        from cuppa.toolchains.terse_actions import spell_tool_command
+        return spell_tool_command( command, target )
+
+
     def family( self ):
         return "gcc"
 

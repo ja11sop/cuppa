@@ -17,6 +17,7 @@ import os
 
 from SCons.Script import Flatten
 
+import cuppa.progress
 from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 
@@ -69,7 +70,7 @@ class StageLocationDevelopMethod:
                         as_notice( stage ),
                 )
         )
-        return installed
+        return cuppa.progress.label_terse_action( installed, "copy" )
 
 
     @classmethod

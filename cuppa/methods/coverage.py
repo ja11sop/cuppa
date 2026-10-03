@@ -54,6 +54,7 @@ class CoverageMethod(object):
         env['BUILDERS']['CoverageBuilder'] = env.Builder( action=builder, emitter=emitter )
 
         coverage = env.CoverageBuilder( [], Flatten( [ sources ] ) )
+        cuppa.progress.label_terse_action( coverage, "coverage" )
 
         cuppa.progress.NotifyProgress.add( env, coverage )
         return coverage
@@ -82,6 +83,7 @@ class CollateCoverageFilesMethod(object):
         env['BUILDERS']['CollateCoverageFilesBuilder'] = env.Builder( action=builder, emitter=emitter )
 
         summary_files = env.CollateCoverageFilesBuilder( [], Flatten( [ sources ] ) )
+        cuppa.progress.label_terse_action( summary_files, "collate-coverage" )
 
         cuppa.progress.NotifyProgress.add( env, summary_files )
         return summary_files
@@ -110,6 +112,7 @@ class CollateCoverageIndexMethod(object):
         env['BUILDERS']['CollateCoverageIndexBuilder'] = env.Builder( action=builder, emitter=emitter )
 
         index_file = env.CollateCoverageIndexBuilder( [], Flatten( [ sources ] ) )
+        cuppa.progress.label_terse_action( index_file, "coverage-index" )
 
         cuppa.progress.NotifyProgress.add( env, index_file )
         return index_file

@@ -13,6 +13,16 @@ from cuppa.method_helpers.run_process import runner
 from cuppa.utility.depends import with_depends
 
 
+def _run_terse_action( env ):
+    """``Run`` covers run, test, and benchmark. The variant action picks the word."""
+    keys = set( env['variant_actions'].keys() )
+    if keys & { 'benchmark', 'force_benchmark' }:
+        return 'benchmark'
+    if keys & { 'test', 'force_test' }:
+        return 'test'
+    return 'run'
+
+
 class RunMethod(object):
 
     def __init__( self ):
@@ -57,6 +67,7 @@ class RunMethod(object):
             sources = with_depends( source, depends_on, data )
 
             run_process = env.RunBuilder( [], sources )
+            cuppa.progress.label_terse_action( run_process, _run_terse_action( env ) )
             if any( force_action in self._force_action_keys for force_action in env['variant_actions'].keys() ):
                 run_process = env.AlwaysBuild( run_process )
 

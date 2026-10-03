@@ -9,6 +9,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa --terse-output``: one status line per tool run,
+  ``[ok|warn|error] sconscript · variant · action file``. A compile names the
+  source in the project tree, or ``~/...`` when the file lives under the home
+  directory. ``gcc-ranlib-16`` and ``llvm-ranlib`` are ``index``, not a second
+  ``archive``. An unrecognised command is ``run``. A known SCons builder is
+  named from its command instead: ``tar``, ``zip``, ``text`` (``Textfile`` and
+  ``Substfile``), ``copy`` (``CopyAs`` and ``CopyTo``), ``jar``, ``javac``,
+  ``m4``, ``lex``, ``yacc``, ``swig``, ``rpcgen``, ``rpm``, and the TeX tools.
+  A warning or failure prints
+  the command and its output, then that line as the summary. Python actions
+  (copy, SCSS, CMake, run, and the other labelled methods) get the same line.
+  A clean ``Install file:`` is ``copy``, shown as ``source → dest`` with
+  ``<working>``, ``<final>``, or ``<artefacts>`` (that variant's flat folder, or
+  a report path that contains the variant and sconscript). ``Execute(Copy(...))`` inside another action is that same line, and
+  the caller's own description stays hidden. A nested ``Touch`` stays hidden. A clean tool such as ``asciidoctor``
+  stays hidden; a warning or error from that tool is printed before the
+  summary. A passing test is one ``[pass]`` badge, in the quieter green with
+  plain black text, or the paper colour on a light console. A failing
+  roll-up is a ``[fail]`` badge in the same quiet
+  style. The test name is that kind of badge too. A ``test-case`` uses the
+  same text without the badge. Counts are ``11/12 cases, 40/52 assertions``,
+  and a run with no assertion total says ``no assertions``: a notice-yellow
+  badge on a roll-up, with paper-coloured text on a light console, and a
+  bold notice on a ``test-case`` in that same dull yellow. Status tokens share a six-column field, so
+  ``[ok]`` lines up with ``[pass]`` and ``[warn]``. ``[error]`` runs one
+  column past that. A failure prints each failing ``test-case``, then the
+  binary's ``[fail]`` roll-up.
+  ``--show-test-cases`` also prints the cases that passed. Without
+  ``--terse-output`` they are left alone. Ctrl-C prints
+  ``interrupted — finishing in-flight actions...`` instead of a per-target
+  ``Error -2`` list. Actions that then finish keep their ordinary status
+  line, and the drain closes with ``finished in-flight actions``, then
+  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``.
+  The fraction is the whole build, completed against what was going to run.
+  A second Ctrl-C prints ``aborted`` and stops them,
+  with no closing line. An action line leads with
+  this sconscript and variant's tally and the whole-build percent
+  (`` 19/182 · 10%``). The fraction is that sconscript and variant; the
+  percent is the whole build. Counts reserve three digits and the percent
+  three (so ``100%`` does not shift the status column), and grow past
+  that. A ``→`` line is indented so ``[status]`` stays in that column.
+  Work SCons finds up to date counts as already done.
+  A status line that is not part of that tally leads with ``→``. A nested
+  ``Execute`` is one of those lines: ``copy``, ``move``, ``delete``,
+  ``mkdir``, ``chmod``, or ``run``. ``Touch`` stays hidden. A
+  ``[progress]`` checkpoint marks the begin and end of the sconstruct, each
+  sconscript, and each variant. ``[ok]`` starts in the same column as
+  ``[progress]``. The sconstruct path is ``~/...`` even inside the project.
+  The leaf and the directory before it are info. A variant cell stays
+  subdued, with ``dbg``, ``rel``, and ``cov`` plain. ``begin``, ``end``, and
+  an action are bold in the plain ink. On a dark console that is bold
+  white, not the info blue that bold alone becomes. A middot separates them from the counts
+  (``40 sconscripts · 1 variant · 1800/2244 actions``,
+  ``1 variant · 24/58 actions``, or ``24/58 actions``). HTML test reports are ``test-report``, the index is ``test-index``,
+  and a Bitten report is ``bitten-report``. Profiles merge is ``profiles``,
+  a module map is ``module-map``, a package amend is ``amend``, Boost's
+  ``build-b2`` bootstrap, its ``b2`` library build, and its toolset file is
+  ``boost-toolset``.
+  ``--terse-output-show-actions`` prints the raw action after the status
+  line. On Windows the SCons child still speaks UTF-8, and a glyph the
+  console cannot encode is replaced instead of ending the transcript.
+  Before the first
+  begin line, actions SCons already considers up to date are counted, so
+  the percent includes them. The opening totals are the sconstruct
+  ``begin`` line, not a line of their own. ``-Q`` still
+  hides SCons ``Progress(...)`` lines. The checkpoint stays.
+  ``[completed]`` then reports how many ran, how many were up to date, the
+  test cases, and how many nested calls ran. A successful build ends with
+  ``[completed] build succeeded``, or ``[completed] build up to date`` when
+  no terse action ran. ``[completed]`` has no tally. Does not imply
+  ``--minimal-output``. Refused with ``--raw-output`` or ``--scons-output``.
+  ``--normal-output`` selects the normal transcript again. It overrides
+  ``--terse-output``, including a choice saved in ``configure.conf`` or
+  ``~/.cuppaconfig``. Passing both transcript flags is an options error.
+  The saved key is ``terse_output``: true is terse and false is normal.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.
@@ -18,6 +93,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ``--terse-output`` file cells and delegated builders: ``compile`` /
+  ``compile-*`` / ``markdown`` / ``asciidoc`` show ``source → product``;
+  ``cp`` / ``copy`` / ``install`` onto a ``.a`` spell as ``copy``, not
+  ``archive``; CMake and Boost ``b2`` print
+  ``delegate … [launch] <variant> · <action> · …`` then muted ``→`` child
+  lines, with a counted ``[done]`` close that names ``-B …`` (or the ``b2``
+  stage) instead of a stamp file.   Summary tokens inside the file cell are
+  space-separated (argv-like); middots stay between Cuppa fields. Ordinary
+  unit success stays ``[ok]``. The whole-build close is ``[completed]``
+  (was ``[done]``). ``cuppa.utility.command.run`` opts into that handoff
+  only when ``terse_action`` / ``terse_summary`` is set. Build-wide tools
+  may set ``label_terse_action(..., shared=True)`` so the variant slot
+  shows ``shared_across_variants`` instead of the triggering cell (Boost
+  bootstrap ``build-b2`` and ``boost-toolset``); this is an author override,
+  not graph inference. Bootstrap ``build-b2`` names the extract product
+  (``<boost>/b2``) and prints an uncounted nested ``copy`` from the engine
+  tree. Begin checkpoints print location maps
+  (``→ [location] <sconscript> · <variant> · <working> = …``) so ``-j`` can
+  split them from the ``[progress]`` begin; authors register extras such as
+  ``<boost>`` with ``label_terse_location``. The artefacts-root token is
+  British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
+  alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)
   print on stdout as console reports, so `-Q` and `-s` / `--quiet` no longer hide
   them. Info logs are unchanged. Channel map: ``design/plans/console-channels.md``.

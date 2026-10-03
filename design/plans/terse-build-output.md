@@ -1,17 +1,19 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-09-29
+- **Status:** done
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); follow-on [`terse-delegated-output.md`](terse-delegated-output.md) (file fields + CMake/`b2`); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Mode note (plan vs agent)
 
-Capture **hierarchical counts and percentages** in this document now (Phase 2 below) so Phase 1
-does not paint us into a corner. **Agent mode** is enough to land that plan text. Switch to **plan
-mode** only if you want a longer design session before slice B — for example weighting rules,
-whether spawn completion is an acceptable proxy for “target done”, or splitting Phase 2 into its
-own issue/PR.
+The flag, the status line, and the tally are done together on [#353](https://github.com/ja11sop/cuppa/pull/353).
+One action is one status line that is not a child of another. The prefix is that line's
+sconscript and variant (`35/38`) and one overall percent. Up-to-date actions count as already
+done. A `scripts i/N · variants j/M` position was declined: it does not survive `-j`.
+
+Terse `[progress]` checkpoints replace `Progress(...)` under `--terse-output`. Without the
+flag, `Progress(...)` stays as it is, and `-Q` still omits it.
 
 ## Why
 
@@ -30,25 +32,25 @@ This is **not** a CMake clone: cuppa keeps SCons graph semantics, variant scopin
 
 **Related (separate plans):** configure-time log noise
 ([`build-log-hygiene.md`](build-log-hygiene.md)); version without a build
-([`cuppa-info.md`](cuppa-info.md)). Those are **1.12.0** targets alongside terse Phase 1 — not
+([`cuppa-info.md`](cuppa-info.md)). Those are **1.12.0** targets alongside this flag — not
 slices of this document.
 
 ## Goals
 
 1. Add **`--terse-output`** (name settled here; not `--simple-output` — too vague).
-2. On success: one line per completed build action — e.g. subdued variant + emphasised target +
-   ok marker (reuse `as_notice` / `as_info` / success colour if added).
-3. On failure or warning-bearing tool run: print the **command** (or `Progress` description) and
-   allow tool output through (respect `--native-output` / default interpretors per companion plan).
+2. On success: one line per completed tool run —
+   `[ok] sconscript · variant · action file`.
+3. On failure or warning: the same line with `[error]` or `[warn]`, then the command and the
+   tool output (respect `--native-output` / default interpretors per companion plan).
 4. Keep **`NotifyProgress` graph** unchanged — only change what `progress_action` / post-spawn
    summary prints.
 5. Document vs `--minimal-output`, `--verbosity`, and CI usage.
 
-## Non-goals (Phase 1)
+## Non-goals
 
 - Replacing SCons `-Q` / silent mode globally.
-- **Nested percentage rollup** (sconscript / variant / target) — Phase 2 below; Phase 1 must not
-  block it.
+- A `scripts i/N · variants j/M` position, or multiplying those level percentages. The cell
+  fraction and the whole-build percent are done with the flag. That position sketch is not.
 - ETA or time remaining.
 - Terse mode for **`--list-*` / wipe / removal reports** (those keep judgement trees).
 - Suppressing cuppa `logger.error` routing notices.
@@ -65,124 +67,262 @@ slices of this document.
 Measure baseline line counts on `examples/minimal` and one integration fixture before claiming
 improvement.
 
-## Settled behaviour (proposal)
+## Settled behaviour
 
 | Event | Terse output |
 |-------|----------------|
-| Progress node succeeds (child actions all ok) | Single line: optional `{counts}` prefix + `[ok] variant / target` (exact format TBD in PR) |
-| Progress node fails | Print command/description + failure output (existing processor path) |
-| Warning in tool output | Print command + warning lines (do not hide behind ok line) |
-| Sconstruct / sconscript begin/end | One line each (optional suppress duplicate variant banners) |
+| Clean tool run | `35/38 · 68% [ok] sconscript · variant · action file`. The fraction is this sconscript and variant. The percent is the whole build. Actions SCons has already found up to date are included in both |
+| Tool run fails | The command, processed output, and summary, then the `[error]` line. The status line is the summary of the failure |
+| Warning in tool output | The command and warning lines, then the `[warn]` line |
+| Sconstruct / sconscript begin/end | A `[progress]` checkpoint, and it stays under `-Q`. Without the flag, `Progress(...)` is unchanged and `-Q` omits it |
 | Configure / list actions | Unaffected — flag applies to **build/test/coverage** progress only |
 
-**Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
-`--minimal-output`. Combining both should be documented (likely: terse success lines + minimal
-diagnostic filtering on failures only).
+The percent is actions accounted for in this process, out of the actions that are going to
+run. It starts at zero every run. A line that still has to run adds one when it prints. A
+node SCons finds already built adds its remaining actions when it is visited, and that visit
+does not print. With `--parallel`, the first lines show a low percent when the workers are
+still on nodes that need building, and a high percent when they reach nodes left built by the
+previous run. A later run therefore does not open at the previous percent. If most of the
+graph is already built, those workers are likely to count it quickly. If little is built, the
+opening lines can stay near zero until the walk reaches the built nodes. The closing
+`reached` line is that same ratio once the jobs have returned.
 
-## Implementation sketch (Phase 1)
+### Status line
+
+```text
+[error] test/orders · gcc16_dbg_x86_64_cxx2c · link buy_sell_ladder
+```
+
+| Field | Spelling | Colour |
+|-------|----------|--------|
+| Status | `[ok]`, `[warn]`, or `[error]` | success / warning / error |
+| Sconscript | Script path with a leading `./` removed. A trailing `/sconscript` is dropped (`./test/orders/sconscript` → `test/orders`). A named script keeps its stem (`widget/tests.sconscript` → `widget/tests`). Empty when the script is the project-root `sconscript`. Only the leaf is coloured (`orders` in `test/orders`); any leading path is subdued | subdued path, info leaf |
+| Variant | `toolchain_variant_arch_abi` (`gcc16_dbg_x86_64_cxx2c`). `dbg` alone is ambiguous across sconscripts. The variant name (`dbg` / `rel` / `cov`) stays plain; the rest of the cell is subdued | subdued, variant name plain |
+| Action | See the table below. Uncoloured | plain |
+| File | A `·` separates the action from the path. `compile`, `compile-*`, `markdown`, and `asciidoc`: the source in the project tree, not the variant `working/` copy. Only files that exist in the source tree — products and intermediates stay basenames. A source outside the project is `~/...` when it is under the home directory (forward slashes on Linux and Windows), otherwise absolute. Never a `../` climb. The directory is subdued and the filename is info and bold. `copy`, `expand`, `render`, and a redirected `run`: `source → dest`. The source path is subdued. The destination directory is subdued and its filename is info and bold. `<working>/` and `<final>/` mark this variant's build locations. `<artefacts>/` is this variant's artefact location: the flat folder `_artifacts/<sconscript>_<variant>/...`, or a report path whose variant offset is `gcc16_dbg_x86_64_cxx2c/<sconscript>` even when a prefix such as `test/` sits in front. Any other path under the artefacts root is written as itself (`_artifacts/documentation/...`). A real project path has no such prefix. Link, archive, index, and a program `run` stay the product basename, emphasised | see the cell |
+
+A compile shows the source, not the object, so `database.cpp` is not confused with another sconscript's `database.o`. Link, archive, and index show the product name, because the inputs already had their own lines. A `compile-*` label (for example `compile-scss`) shows the source the same way. `markdown` and `asciidoc` do too. `copy`, `expand`, `render`, and a redirected `run` show `source → dest`.
+
+### How an action word is chosen
+
+`CompileStatic` and `BuildStaticLibrary` fan out into several processes. The spawn does not carry the Cuppa method name. Spell each line in this order:
+
+1. **Explicit label** on the product node (`node.attributes.cuppa_terse_action`), set by the method that created that one action. Do not put a label on a node that has two tool actions. A static library is both `archive` and `index`; one label would hide the second.
+2. **The active toolchain** — `spell_terse_action(command, target)` on `Gcc`, `Clang`, and `cl`. Empty means "not my tool". Gcc and Clang share `cuppa/toolchains/terse_actions.py` because `gcc-ar-16` / `gcc-ranlib-16` and `llvm-ar` / `llvm-ranlib` are the same kinds of name. `cl` uses the same helper for `cl`, `lib`, and `link`.
+3. **Generic fallback** — the same tool speller when the toolchain has no method, then `run`.
+
+`run` is the fallback, not `link`. An unrecognised command used to become `link`, so `pysassc`, Python, and CMake would all look like links.
+
+| Spelling | When |
+|----------|------|
+| `compile` | `-c` / `/c`, or an object target (`.o`, `.obj`, `.os`) |
+| `archive` | `ar`, `lib`, `gcc-ar`, `gcc-ar-16`, `llvm-ar`, or any `*-ar` / `*-ar-<version>`, writing a `.a` / `.lib` |
+| `index` | The tool name contains `ranlib` (`ranlib`, `gcc-ranlib-16`, `llvm-ranlib`). This is the second line for one `.a`. The version suffix must not win: taking only the text after the last hyphen turned `gcc-ranlib-16` into `16`, and the `.a` suffix then said `archive` |
+| `link` | Compiler driver (`g++`, `g++-16`, `clang++`, `cl`, `link`) producing a program |
+| `link-shared` | A `.so`, `.dylib`, or `.dll`, or `-shared` / `/dll` |
+| `run` | Anything else that nobody named |
+| SCons builder | Named from the command. `tar` and `gtar` are `tar`. `zip` and `zip_builder(...)` are `zip`. `Textfile` and `Substfile` are both `text`, because both print `Creating '...'`. `CopyAs` and `CopyTo` (`Copy file(s):`) are `copy`. `jar`, `javac`, `javah`, `rmic`, `m4`, `swig`, `rpcgen`, `latex`, `pdflatex`, `tex`, `pdftex`, `dvips`, `dvipdf`, `gs`, `bibtex`, `biber`, and `makeindex` use that tool's name. `flex` is `lex`, `bison` is `yacc`, and `rpmbuild` is `rpm`. This is decided before `-c`, so `tar -c` is not a compile |
+
+### Method labels
+
+Toolchain children stay unlabelled. `Compile`, `CompileStatic`, `CompileShared`, `Build`, `BuildLib`, `BuildTest`, `BuildBenchmark`, `HeaderUnit`, `Module`, and `ImportModules` create objects, archives, and programs. The toolchain spells those processes.
+
+These methods do not create an action node, so they have no status line: `BuildWith`, `BuildProfile`, `CxxProfiles`, `CxxLto`, `CxxErrorLimit`, `StdCpp`, `ReplaceFlags`, `RemoveFlags`, `Variant`, `Toolchain`, `HasToolchain`, `Use`, `HasDependency`, `TargetFrom`, `PackageDir` / `PackageBin` / `PackageLib` / `PackageVersion` / `CMakePrefixPathFor`, `Filter`, `Glob` / `RecursiveGlob`, `Modules`, `CollateCxxProfilesIndex`, `Reports`.
+
+| Method | Label | Notes |
+|--------|-------|-------|
+| `CompileScss` | `compile-scss` | Source path, same as `compile` |
+| `Run` | `run`, `test`, or `benchmark` | Whichever variant action is selected |
+| `Test` | `test` | |
+| `Benchmark` | `benchmark` | |
+| `RunAndRedirectToFile` | `run` | `program → output`. A plain `Run` stays the program name |
+| `CopyFiles`, `CopyFilesAs`, `StageLocationDevelop` | `copy` | `source → dest`, with `<working>`, `<final>`, or `<artefacts>` |
+| `MarkdownToHtml` | `markdown` | Source path, same as `compile` |
+| `AsciidocToHtml` | `asciidoc` | Source path, same as `compile` |
+| `RenderJinjaTemplate` | `render` | `source → dest` |
+| `ExpandTemplateFile` | `expand` | `source → dest` |
+| `CreateVersion` | `version` | The generated file, not the later compile of it |
+| `CMakeConfigure` | `cmake-configure` | |
+| `CMakeBuild` | `cmake-build` | |
+| `CMakeInstall` | `cmake-install` | |
+| `DownloadExtract` | `download` | |
+| `RemoveEmptyDirs` | `remove-empty` | |
+| `Coverage` | `coverage` | |
+| `CollateCoverageFiles` | `collate-coverage` | |
+| `CollateCoverageIndex` | `coverage-index` | Not `index` — that word is the archiver |
+| `PublishPackage` | `package`, then `publish` when uploading | Two nodes |
+| `InstallPackage` | `install` | |
+
+The label is stored on the product node. A spawned tool reads it when the child exits.
+
+### Python actions
+
+SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionAction`s. They do not go through the spawn processor. SCons prints their description, then calls them, and only then knows the return value. Their own `print` and log lines appear while they run. Buffering that output globally is unsafe under `-j`, so it stays live.
+
+`--terse-output` installs a wrapper on those actions (`enable_terse_python_actions`). Any other mode does not: the original callable runs and the wrapper is not consulted. The wrapper swaps `execfunction` after SCons has stored the action signature, so turning the flag on does not rebuild the tree.
+
+| Result | What is printed |
+|--------|-----------------|
+| Success | `[ok]` line only. The SCons description stays hidden |
+| Failure or exception | Whatever the action already wrote, then its description, then the `[error]` line. SCons' default `Name([...])` dump is not that description. A test names the program, not its log |
+| Clean child tool | Hidden. The action notes the command and its lines; a clean note is dropped |
+| Child warning or error | The child command and its lines, then `[warn]` or `[error]`. A line containing `: ERROR:` is an error even when the tool exits 0. The action's return code is unchanged |
+| `Install file:` / `Install directory:` | `copy`, and hidden on success. `env.Install` is wrapped so the sentence is not flushed later |
+| `Execute(...)` | A `→` line, not in the action total. `copy` and `move` show `source → dest`. `delete`, `mkdir`, and `chmod` show the path. Anything else is `run`, and the command is printed only on failure. `Touch` stays hidden. The caller's description is not also printed |
+| `Execute(Touch(...))` | Hidden. The caller keeps its own status line |
+| `Progress(...)` | A `[progress]` checkpoint, printed from the action, including under `-Q`. The `Progress(...)` description is not built |
+| Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
+| Ctrl-C | One subdued `interrupted — finishing in-flight actions...` line. Tasks already running are left to finish, and those lines look the same as any other status line. No new tasks are started. When they have finished: `finished in-flight actions`, then `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. That close is printed when the job runner returns. `-Q` never writes SCons's own `scons: Build interrupted.` line, so that text is not the cue. The fraction is actions completed against the actions that were going to run. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and stops what is still running, with no closing line. The per-job `Error -2` list is dropped |
+| Before the first action | The sconstruct `begin` checkpoint: `40 sconscripts · 1 variant · 0/2244 actions`. A variant is the build cell, counted once however many sconscripts use it. There is no separate plan line |
+| Successful build | `[completed] build succeeded · 820 ran · 12645 up to date · 842 test cases · 36 nested`. Zero clauses are omitted. `nested` is every uncounted `Execute` line. Test cases come from the roll-up, including cases that were not printed. A no-op build is `[completed] build up to date · 13465 actions`. No whole-build timer. Nothing is added on failure or Ctrl-C. (Phase 1 used `[done]` here; `[done]` is now the clean close of a delegated `[launch]` — see [`terse-delegated-output.md`](terse-delegated-output.md).) |
+
+Text the action prints itself still appears as it happens. Only a child handed to `note_terse_child` is held back. `asciidoctor` does that. An unlabelled `asciidoctor` command is spelled `asciidoc`.
+
+### Tests
+
+A test binary keeps one roll-up line: `[pass|fail|skip|xfail|xpass] sconscript · variant · test · duration · binary — 11/12 cases, 40/52 assertions, 1 failed`. The roll-up status and the binary name are quiet badges: the same colour as a highlight, without the bold bright background. A `test-case` uses the same status text in the status colour, not a badge, and colours only the case leaf. The duration is subdued (`4 ms`, `1.2 s`, `12 s`). Passing fractions stay plain. Only non-zero extras follow, in the status colour (`1 failed`, `1 aborted`, `1 skipped`, `1 xfailed`). On a roll-up, no assertion total is a notice badge: `no assertions`. The yellow is the notice colour, not the bright highlight. On a `test-case` the same words are a bold notice, not a label. Status tokens share a six-column field, so `[ok]` lines up with `[pass]`, `[warn]`, `[fail]`, and `[skip]`. `[error]`, `[xfail]`, and `[xpass]` run one column past it.
+
+A binary with several cases prints a failing case before that roll-up: assertion text, then `→ [fail] … · test-case · duration · binary/case — 1/3 assertions`. A leading `→` means the line is not in the action total. A nested `copy` or `move` uses it too. Only the case leaf is coloured. Passing cases stay hidden unless `--show-test-cases` is set. That flag requires `--terse-output`. A Cuppa test that is one executable is only the roll-up, and it says `no assertions` rather than `1/1`. `run` and `benchmark` stay `[ok]`.
+
+`None`, `0`, and any other falsy return are success, matching SCons. A truthy return or an exception is failure. `KeyboardInterrupt` and `SystemExit` propagate with no status line.
+
+**Interaction:** `--terse-output` implies quieter success paths; it does **not** imply
+`--minimal-output`. Combined with it, a clean run is still one line, and failure output is
+filtered to errors and warnings. That is documented on the output page.
+
+## Implementation sketch
 
 | Area | Likely touch |
 |------|----------------|
-| CLI | `cuppa/core/base_options.py` — `--terse-output` |
-| Env | `construct.py` — `cuppa_env['terse_output']` |
-| Progress | `cuppa/progress.py` — **`ProgressReporter`** facade + `NotifyProgress.call_callbacks` |
-| Spawn | `output_processor.py` — defer printing until summary when terse + success |
-| Tests | Unit: mock progress events; integration: line-count ceiling on minimal example |
+| CLI and precedence | `cuppa/core/output_options.py` — normal/terse choice, modifiers, validation, processor requirements |
+| Env | `construct.py` asks `output_options` to resolve `cuppa_env['terse_output']` after configuration is loaded |
+| Progress | `cuppa/progress.py` — the progress action prints a `[progress]` checkpoint; `PRINT_CMD_LINE_FUNC` drops `Progress(...)` and stashes tool commands |
+| Spawn | `output_processor.py` — buffer child lines; one success line, or reprint the command |
+| Tests | Unit: stash, success, warning, failure; integration: clean compile hides the command |
 
-**Phase 1 hook for Phase 2:** introduce a small reporter API (name TBD in PR) that Phase 1 calls
-from existing events only (`sconstruct_begin`, `begin`, `started`, `finished`, spawn success).
-Phase 2 adds denominators and `action_done` without rewriting terse formatting twice.
+The reporter is the functions in `cuppa/progress.py`: `terse_counts_prefix`,
+`format_terse_line`, `spell_terse_action`, `render_terse_spawn`, and `terse_print_cmd_line`.
+`terse_counts_prefix()` is the cell tally and overall percent. It does not rewrite the rest of the status line.
+Do not key human text off the `Progress(...)` description.
 
-Open design choice for PR: suppress SCons's default `Progress( … )` line via quieter action
-descriptions vs custom reporter registered on `NotifyProgress.call_callbacks`.
+### Progress lines
+
+Without `--terse-output`, `Progress(...)` lines are printed. `-Q` omits them: `progress_action`
+only builds the description when the logger is at info. Under `--terse-output` that description
+is not built. The checkpoint below is printed from the progress action, including under `-Q`.
+
+### Terse progress checkpoints
+
+Under `--terse-output`, do not print `Progress(...)`. Print one checkpoint when a sconstruct,
+sconscript, or variant begins, and one when it ends. The line is a build-transcript checkpoint,
+not an action, so it does not move the tally. Without `--terse-output`, keep today's
+`Progress(...)` text, and `-Q` still omits it.
+
+```text
+sconstruct    0% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · begin · 40 sconscripts · 1 variant · 0/2244 actions
+sconscript    3% [progress] test/trading_limit_management/sconscript · begin · 1 variant · 24/58 actions
+variant       3% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · begin · 24/58 actions
+variant       4% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · end · 58/58 actions
+sconscript    4% [progress] test/trading_limit_management/sconscript · end · 1 variant · 58/58 actions
+sconstruct  100% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · end · 40 sconscripts · 1 variant · 2244/2244 actions
+```
+
+The scope word is subdued and padded to `sconstruct`. The percent is the whole build, in the
+same column as today, and it stays plain. `[progress]` is info and bold. Status lines are
+indented so `[ok]` starts in that same column. The indent is one space while the cell tally
+reserves three digits. Past 999 the tally is wider, so the progress line takes the extra
+column and the action lines are not indented. `→` lines keep the same `[status]` column.
+`begin` and `end` are bold in the plain ink, the same as an action such as `compile`.
+On a dark console that ink is bold white. Bold alone uses the terminal's bold colour,
+which there is the info blue. A middot separates them from the summary. Summary words
+and punctuation are subdued. The numbers stay plain.
+
+The path is not the `_build/...` directory. A sconstruct or sconscript checkpoint names that
+file. The leaf and the directory before it are info. Anything above that is subdued, so
+`test/sconscript` is all info and `test/reference_data/margin_specs/sconscript` mutes
+`test/reference_data/`. A variant checkpoint is the sconscript directory plus the build cell
+(`gcc16_dbg_x86_64_cxx2c`). The directory rule is the same, and the cell is coloured as on an
+action line: subdued, with `dbg`, `rel`, and `cov` left plain. The sconstruct path is always
+`~/...` when the file is under the home directory, including when it sits inside the project.
+Other paths stay project-relative. Spell the line from the progress event and its env. Do not
+parse the `Progress(...)` sentence.
+
+A method that builds a node sets `cuppa_terse_action`. Unlabelled commands stay `run`.
+`GenerateHtmlTestReport` is `test-report`, `CollateTestReportIndex` is `test-index`,
+`GenerateBittenReport` is `bitten-report`, the profiles merge is `profiles`, the module map
+is `module-map`, a package amend is `amend`, Boost's `b2` build is `b2`, and its toolset
+file is `boost-toolset`. `--terse-output-show-actions` prints the raw SCons action, subdued,
+after a status line. It requires `--terse-output` and is off by default. Checkpoints do not
+print it. The output page lists the words.
+
+`started` and `finished` are the variant's begin and end. The printed word is `begin` or
+`end` at every scope.
+
+The percent is actions accounted for in this process, the same ratio as a status line. The
+fraction is scoped by the leading word: the whole build, every variant of that sconscript, or
+that one cell. A variant line does not also say `1 variant`. Before the first begin line,
+each registered action is asked whether SCons already considers it up to date. Those that
+are count immediately, so a begin line can open at `164/164` and the percent includes that
+work. A later visit does not count them again. This check runs only under `--terse-output`:
+nothing else shows the tally, and the check is not free. A file that looks current can still
+be rebuilt when this build regenerates an input it uses. That run does not move the tally a
+second time. Read the ledger. Do not credit the checkpoint itself. Sample the counts when
+the line is printed.
+
+The opening plan (`40 sconscripts · 1 variant · 2244 actions`) folds into the sconstruct
+`begin` line. Do not print it again on its own. The sconstruct fraction is `done/total`, so
+begin and end match. `[completed]` stays the whole-build closing status. It is not a checkpoint.
+
+`-Q` still drops SCons banners and the old `Progress(...)` description. The checkpoint stays.
+It is part of `--terse-output`, as `[ok]`, `[completed]`, and `[interrupted]` are. There is no
+flag to hide it. Add one only if a real build shows the begin/end pairs are too many. Forty
+sconscripts with one variant each are about a hundred and sixty of these lines, including a
+build that is already up to date.
+
+These forms were declined:
+
+- A cell fraction in front, like an action line. The fraction would change meaning with the
+  scope word, and the action prefix would stop meaning one thing.
+- `[begin]` and `[end]` as the badge. Easy to scan, and it drops the shared `[progress]` label.
+- A longer `Progress(...)` sentence. It keeps the build-directory path and the old chrome.
+- End lines only. Half the noise, and no mark while a long scope is still open. A later
+  quieter choice, not the default.
+- A periodic whole-build line. It repeats the percent and does not say which scope moved.
+
+`progress_action` builds its description only at info, which is why `-Q` hides `Progress(...)`.
+The checkpoint cannot depend on that description. Print it from the progress action when
+`--terse-output` is set, including under `-Q`. Leave the description in place for every other
+mode.
 
 ---
 
-## Phase 2 — hierarchical progress (counts and percentages)
+## Counting (done with the flag)
 
-### What you asked for
+The tally once queued here as a later slice is done in [#353](https://github.com/ja11sop/cuppa/pull/353)
+with `--terse-output`. It is not a follow-on.
 
-Example layout: 4 sconscripts (projects), 3 variants each, 38 tracked actions per
-(sconscript, variant) cell — show **where we are** at each level, e.g.
+- One action is one status line that stands alone: compile, link, archive, index, a top-level copy, a test roll-up. A status line that is not in that total leads with `→`, whether or not a parent line is visible. That covers a `test-case` and a nested `copy` or `move`. The caller of the nested copy still counts as one. `[completed]` is not an action and is not a status line, so it has no arrow.
+- Several targets that share an executor count once. Archive and index are two slots, because they are two status lines.
+- The total is the actions reachable from the targets being built. Anything SCons decides is up to date is already done, not missing. A walk that finds nothing keeps the full set, so a failed lookup does not show an empty tally.
+- The prefix is ` 19/182 ·  10%`. The subdued fraction is this sconscript and variant, so two scripts show different totals. The plain-coloured percent is completed actions over total actions for the whole build. Counts reserve three digits and the percent three (` 25/ 56 ·  10%`) so `100%` does not shift the status column; past 999 they grow. A `→` line is indented so its `[status]` stays in that column. Do not print "which script we are in". Under `-j` the numbers only increase.
+- No ETA, and no tally on `[completed]`.
+- The ledger registers each executor when `NotifyProgress.add` records the node. Spawn exits and Python actions both move it. Up-to-date nodes are credited when SCons visits them and skips them. That visit prints nothing. Nested copies and `test-case` lines do not count.
 
-```text
-scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%
-[ok] test/sconscript · gcc15_dbg_x86_64_cxx2c · compile main.cpp
-```
-
-Nested bracket intuition `[66%][33%][92%]` is useful mentally, but **do not multiply level
-percentages** for an “overall” bar — levels are not independent stages. Prefer a **single honest
-rollup**:
-
-```text
-overall = completed_actions / total_actions   (all active sconscript × variant cells)
-```
-
-Optional secondary fields: `scripts i/N`, `variant j/M` (within current sconscript), `actions k/T`
-(within current variant cell).
-
-### What cuppa already knows
-
-| Level | Today | Gap |
-|-------|-------|-----|
-| Sconstruct | `sconstruct_begin` / `sconstruct_end` sentinels | — |
-| Sconscript | `Begin` / `End` per `env['sconscript_file']` | No “2 of 4 scripts” until we count active scripts |
-| Variant | `Starting` / `Finished` keyed by `parent(build_dir)` (includes sconscript segment) | No “1 of 3 variants” until we count variants for that script |
-| Target / action | `NotifyProgress.add(env, nodes)` on method outputs | **No per-action completion event** — only dependency ordering |
-
-So hierarchy **display** is feasible; **per-action completion** needs new instrumentation.
-
-### SCons / cuppa constraints (honest)
-
-1. **Graph is declarative.** Totals can be accumulated during `NotifyProgress.add()` once we define
-   what counts as one “action” (each registered node vs each spawn — see below).
-2. **Parallel builds.** Actions finish out of order; show `35/38 completed`, not “now building step
-   35”.
-3. **Sentinel progress nodes ≠ compile actions.** `Starting`/`Finished` bracket a variant; they do
-   not fire once per object file. Per-target progress cannot reuse those events alone.
-4. **Completion signal (pick in Phase 2 PR):**
-
-   | Source | Covers | Misses |
-   |--------|--------|--------|
-   | **A. Spawn wrapper exit** (`output_processor`) | Compile/link/test processes cuppa spawns | Pure Python `Action`s, some installers |
-   | **B. Wrap `NotifyProgress.add` + SCons `Command`/`Action` post-hooks** | Theoretically everything | Invasive; easy to miss a builder path |
-   | **C. SCons task progress / `-Q` integration** | Whatever SCons counts | Fights cuppa’s custom spawn; version-dependent |
-
-   **Recommendation:** start Phase 2 with **A + ledger populated in `add()`**, document gaps for
-   non-spawn actions; revisit **B** only if gaps matter in practice.
-
-5. **Script order.** “Project 2 of 4” follows **active `--scripts` order**, not filesystem order,
-   unless we deliberately sort — state the rule in docs.
-
-### Phase 2 slices (after Phase 1 terse lines ship)
-
-| Slice | Deliverable |
-|-------|-------------|
-| F | **`ProgressLedger`** — register totals per (sconscript, variant) in `NotifyProgress.add` |
-| G | **`action_done` hook** — increment on successful spawn (and optionally other hooks) |
-| H | **Terse line prefix** — `scripts i/N · variant j/M · actions k/T · overall P%` |
-| I | **Docs + integration** — multi-sconscript fixture; parallel build still monotonic counts |
-
-Optional later: `--progress-format=nested|flat|overall-only`.
-
-### Phase 1 must not foreclose Phase 2
-
-- Terse formatting goes through **one reporter**, not ad hoc `print` in spawn and progress.
-- Success lines reserve an optional **leading counts segment** (empty in Phase 1 is fine).
-- Do not key human-readable progress off SCons `Progress( … )` description strings — they change.
+A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does not survive `-j`, so it was not built. Level percentages are not multiplied. There is no `--progress-format`.
 
 ---
 
-## Work slices (Phase 1)
+## Work slices
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | A | Design + issue | This document |
-| B | `--terse-output` flag + env | No behaviour yet; docs stub |
-| C | Success one-liner | Hook finish event; colour via existing `colourise` |
-| D | Failure path parity | Ensure commands + diagnostics still visible |
-| E | Integration + docs | Compare before/after transcript in Antora or design note |
-| F–I | Hierarchical counts / overall % | Phase 2 — see above; separate PR after Phase 1 |
+| B | `--terse-output` flag + env | Done in [#353](https://github.com/ja11sop/cuppa/pull/353) |
+| C | Success one-liner | Done in #353 |
+| D | Failure path parity | Done in #353 |
+| E | Integration + docs | Done in #353 |
+| F–I | Cell fraction and overall percent | Done in #353. Not the `scripts i/N · variants j/M` sketch |
+| J | Terse `[progress]` checkpoints | Done on [#353](https://github.com/ja11sop/cuppa/pull/353). Replaces `Progress(...)` under `--terse-output`, and stays under `-Q` |
 
 ## Refusal rules
 
@@ -195,20 +335,34 @@ Optional later: `--progress-format=nested|flat|overall-only`.
 | Multiply level percentages for “overall” | Refuse; use completed/total actions |
 | Promise sequential “step 35 of 38” under `-j` | Refuse; counts are completion tallies |
 
-## 1.8.0 candidacy
+## Overriding a saved transcript
 
-| Factor | Assessment |
-|--------|------------|
-| User value | High for large projects |
-| Risk | Medium — touches progress + spawn + logging |
-| Size | Phase 1 medium; Phase 2 medium+ |
-| Depends on | None strictly; cleaner alongside native output plan |
+The transcript is one choice: normal, or terse. `--normal-output` is the
+normal transcript. It exists so a command line can beat `--terse-output`
+saved in `configure.conf`, `~/.cuppaconfig`, or `default_options`. Passing
+both transcript flags is an options error. The saved choice is
+`terse_output`: true is terse and false is normal.
 
-**Suggested:** **1.8.0 target** — ship **Phase 1 (slices A–E)** in the 1.8.0 bundle (see ROADMAP
-§1.8.0 cycle focus). **Phase 2 (F–I)** can be 1.8.0 follow-on or 1.9.0 depending on ledger/spawn
-hook effort. Prefer terse Phase 1 over native output if scope is tight.
+`get_option` returns the command line when one was passed, and otherwise the
+saved or coded default. It caches that answer. The transcript is read after
+`configure.load()` has merged the configuration into `default_options`.
+Reading it earlier would keep the unconfigured value for the rest of the run.
+
+`--show-test-cases` and `--terse-output-show-actions` apply only while the
+transcript is terse. A saved copy is ignored on a normal run. Passing either
+on the command line of a normal run is an error.
+
+`--native-output`, when it exists, is not a third transcript. It chooses how
+a warning or failure is drawn, in either transcript.
+
+## Release
+
+The console bundle slipped from the original 1.8.0 candidacy. The flag, the tally, and the
+`[progress]` checkpoints are done for 1.12.0 on [#353](https://github.com/ja11sop/cuppa/pull/353).
+Mark this plan **shipped** and move it to `design/archive/` when 1.12.0 is released.
 
 ## Related
 
+- [`terse-delegated-output.md`](terse-delegated-output.md) — next: `source → product` file fields, delegated CMake/`b2` bookends, muted nested children, and the false `archive` spelling of `cp` onto a `.a`.
 - [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) — semantic HTML for reports, not live build log.
 - Scratchpad **stderr vs stdout** — validate before any global stream split.

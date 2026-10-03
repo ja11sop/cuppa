@@ -23,10 +23,10 @@ from contextlib import contextmanager
 # Names below are the usual ANSI / terminal names (SGR 90 "bright black", SGR 37 "white"),
 # not "dim black/white": we are not using the DIM attribute, and renaming them DIM_* would
 # invite reintroducing Style.DIM. Bright black typically renders as a dark grey.
-GREY_256 = "\x1b[38;5;244m"       # mid grey — subdued on a light background
+GREY_256         = "\x1b[38;5;244m"  # light mid grey — subdued on a light background
 GREY_256_ON_DARK = "\x1b[38;5;247m"  # slightly lighter mid grey — subdued on dark glass
-BRIGHT_BLACK = "\x1b[90m"   # SGR 90 — dark ink; subdued fallback on a light background
-WHITE = "\x1b[37m"          # SGR 37 — light ink; subdued fallback on a dark background
+BRIGHT_BLACK     = "\x1b[90m"        # SGR 90 — dark ink; subdued fallback on a light background
+WHITE            = "\x1b[37m"        # SGR 37 — light ink; subdued fallback on a dark background
 
 # The convention COLORFGBG reports: the last field is the background colour index, and 7 or 15
 # means a light background. Anything else is treated as dark, which is the safe assumption.
@@ -93,6 +93,25 @@ class Colouriser(object):
             return text
         else:
             return colorama.Style.BRIGHT + text + colorama.Style.RESET_ALL
+
+
+    def emphasise_plain( self, text ):
+        """Bold in the plain ink.
+
+        ``SGR 1`` alone uses the terminal's bold colour. On a dark console
+        that colour is the info blue, so the ink is set to white first. A
+        256-colour slot keeps the bold from lifting it. A light console can
+        use bold alone: the plain ink is already dark.
+        """
+        if not self.use_colour:
+            return text
+        if console_background() == 'light':
+            return self.emphasise( text )
+        if supports_256_colours():
+            ink = "\x1b[38;5;15m"
+        else:
+            ink = colorama.Fore.LIGHTWHITE_EX
+        return colorama.Style.BRIGHT + ink + text + colorama.Style.RESET_ALL
 
 
     def subdue( self, text ):
@@ -164,6 +183,30 @@ class Colouriser(object):
             return self.start_highlight( meaning ) + text + colorama.Style.RESET_ALL
 
 
+    def badge( self, meaning, text ):
+        """A quieter chip than ``highlight``: same colour, plain text."""
+        if not self.use_colour:
+            return text
+        return self.start_badge( meaning ) + text + colorama.Style.RESET_ALL
+
+
+    def case_notice( self, text ):
+        """Bold ``no assertions`` on a test-case.
+
+        On a light console the ink is the ordinary notice yellow, the same
+        yellow as a notice badge background. ``SGR 1`` plus ``Fore.YELLOW``
+        would lift that to bright yellow, so the 256-colour slot is used and
+        bold only changes the weight.
+        """
+        if not self.use_colour:
+            return text
+        if console_background() == 'light' and supports_256_colours():
+            return colorama.Style.BRIGHT + "\x1b[38;5;3m" + text + colorama.Style.RESET_ALL
+        if console_background() == 'light':
+            return colorama.Fore.YELLOW + text + colorama.Style.RESET_ALL
+        return self.emphasise( self.colour( 'notice', text ) )
+
+
     def start_colour( self, meaning ):
         if self.use_colour:
             return self._start_colour( meaning )
@@ -173,6 +216,12 @@ class Colouriser(object):
     def start_highlight( self, meaning ):
         if self.use_colour:
             return self._start_highlight( meaning )
+        return ''
+
+
+    def start_badge( self, meaning ):
+        if self.use_colour:
+            return self._start_badge( meaning )
         return ''
 
 
@@ -223,6 +272,26 @@ class Colouriser(object):
             return colorama.Fore.BLUE
         elif meaning == 'message':
             return ''
+
+    def _start_badge( self, meaning ):
+        """The highlight colour without SGR 1.
+
+        SGR 1 bolds the text and lifts the background onto the bright colour.
+        A badge keeps that meaning's ordinary background and a plain foreground,
+        so notice stays notice-yellow and success stays the quieter green.
+        On a dark console, success text is black. On a light console, success
+        and notice text use the paper colour. The other badges keep the
+        highlight's foreground.
+        """
+        sequence = self._start_highlight( meaning ).replace( colorama.Style.BRIGHT, '' )
+        if console_background() == 'light' and meaning in ( 'success', 'passed', 'notice' ):
+            # SGR 37 is the theme's "white", often a grey on a light glass. The
+            # bright-white slot is the paper colour, so the badge reads as a cut-out.
+            return sequence.replace( colorama.Fore.WHITE, colorama.Fore.LIGHTWHITE_EX )
+        if meaning in ( 'success', 'passed' ):
+            sequence = sequence.replace( colorama.Fore.WHITE, colorama.Fore.BLACK )
+        return sequence
+
 
     def _start_highlight( self, meaning ):
         if meaning == 'error':
@@ -287,8 +356,17 @@ def as_colour( meaning, text ):
 def as_highlighted( meaning, text ):
     return colouriser.highlight( meaning, text )
 
+def as_badge( meaning, text ):
+    return colouriser.badge( meaning, text )
+
+def as_case_notice( text ):
+    return colouriser.case_notice( text )
+
 def as_emphasised( text ):
     return colouriser.emphasise( text )
+
+def as_emphasised_plain( text ):
+    return colouriser.emphasise_plain( text )
 
 def as_subdued( text ):
     return colouriser.subdue( text )

@@ -100,7 +100,8 @@
   font-weight: 700;
 }
 
-.cuppa-output .cuppa-label {
+.cuppa-output .cuppa-label,
+.cuppa-output .cuppa-badge {
   background: var(--cuppa-output-meaning, var(--cuppa-console-text, #1b1b1b));
   border-radius: 0.15em;
   box-decoration-break: clone;
@@ -112,7 +113,6 @@
    * the chip to one row: horizontal inset only, height capped to the line box.
    */
   display: inline-block;
-  font-weight: 700;
   line-height: 1;
   margin: 0;
   max-height: 1em;
@@ -122,6 +122,18 @@
   padding-inline: 0.25em;
   vertical-align: text-bottom;
   -webkit-box-decoration-break: clone;
+}
+
+.cuppa-output .cuppa-label {
+  font-weight: 700;
+}
+
+.cuppa-output .cuppa-badge {
+  font-weight: 400;
+}
+
+.cuppa-output .cuppa-unexpected-success.cuppa-badge {
+  color: #000;
 }
 
 /*

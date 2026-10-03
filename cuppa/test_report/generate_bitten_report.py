@@ -13,7 +13,7 @@ import os
 import six
 
 # cuppa imports
-from cuppa.progress import NotifyProgress
+from cuppa.progress import NotifyProgress, label_terse_action
 from cuppa.utility.python2to3 import escape
 
 
@@ -89,6 +89,7 @@ class GenerateBittenReportMethod(object):
         builder = GenerateReportBuilder( final_dir )
         env['BUILDERS']['GenerateBittenReport'] = env.Builder( action=builder.GenerateBittenReport, emitter=builder.emitter )
         report = env.GenerateBittenReport( [], source )
+        label_terse_action( report, "bitten-report" )
         NotifyProgress.add( env, report )
         return report
 

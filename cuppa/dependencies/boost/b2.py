@@ -14,6 +14,7 @@ import platform
 
 # Cuppa Imports
 import cuppa.build_platform
+import cuppa.progress
 
 from cuppa.output_processor   import IncrementalSubProcess, ToolchainProcessor
 from cuppa.colourise          import as_emphasised, as_notice, as_info
@@ -181,13 +182,38 @@ class BuildB2(object):
         ) )
 
         process_b2_build = ProcessB2Build( self._version )
+        args = [ b2_build_script ]
+        command_text = " ".join( args )
+        cuppa.progress.label_terse_action(
+                target, "build-b2", paths="product", shared=True,
+        )
+        terse = bool( env.get( 'terse_output' ) )
+
+        def process_line( line, _processor=process_b2_build, _env=env, _terse=terse ):
+            rendered = _processor( line )
+            if _terse:
+                if rendered:
+                    cuppa.progress.write_terse_muted_child( rendered, _env )
+                return None
+            return rendered
 
         try:
-            IncrementalSubProcess.Popen(
-                process_b2_build,
-                [ b2_build_script ],
-                cwd=build_script_path
+            if terse:
+                cuppa.progress.write_terse_launch(
+                        "build-b2",
+                        None,
+                        env,
+                        command=command_text,
+                        target=target,
+                )
+            returncode = IncrementalSubProcess.Popen(
+                    process_line,
+                    args,
+                    cwd=build_script_path,
+                    suppress_output=terse,
             )
+            if returncode:
+                return returncode
 
             b2_exe_path = process_b2_build.exe_path()
 
@@ -203,6 +229,10 @@ class BuildB2(object):
 
             logger.debug( "Copying b2 exe from [{}] to [{}]".format( as_info( b2_binary_path ), as_notice( target[0].path ) ) )
             shutil.copy( b2_binary_path, target[0].path )
+            if terse:
+                cuppa.progress.write_terse_nested_copy(
+                        b2_binary_path, target[0].path, env, target=target,
+                )
 
         except OSError as error:
             logger.critical( "Error building b2 [{}]".format( str( error.args ) ) )

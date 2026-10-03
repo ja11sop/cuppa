@@ -89,6 +89,77 @@ def test_subdued_without_256_colours_picks_ink_toward_the_background( plain_envi
     assert start_subdued() == WHITE
 
 
+def test_a_badge_uses_the_ordinary_colour_without_bold( plain_environment ):
+    """SGR 1 bolds the text and lifts the background. A badge leaves it off."""
+    import colorama
+
+    from cuppa.colourise import as_badge, as_highlighted
+
+    passed = as_badge( "success", "[pass]" )
+    loud = as_highlighted( "success", "[pass]" )
+    notice = as_badge( "notice", "no assertions" )
+    loud_notice = as_highlighted( "notice", "no assertions" )
+    assert colorama.Style.BRIGHT not in passed
+    assert colorama.Style.BRIGHT in loud
+    assert colorama.Back.GREEN in passed
+    assert colorama.Fore.BLACK in passed
+    assert colorama.Fore.WHITE not in passed
+    assert colorama.Back.YELLOW in notice
+    assert colorama.Fore.WHITE in notice
+    assert colorama.Back.YELLOW in loud_notice
+    assert colorama.Style.BRIGHT not in notice
+
+
+def test_plain_bold_on_a_dark_console_is_white_not_info( plain_environment ):
+    """SGR 1 alone is the terminal's bold colour, info blue on a dark glass."""
+    import colorama
+
+    from cuppa.colourise import as_emphasised, as_emphasised_plain
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'dark' )
+    plain_environment.setenv( 'TERM', 'xterm-256color' )
+    text = as_emphasised_plain( 'compile' )
+    assert colorama.Style.BRIGHT in text
+    assert '\x1b[38;5;15m' in text
+    assert colorama.Fore.BLUE not in text
+    assert text != as_emphasised( 'compile' )
+
+    plain_environment.delenv( 'TERM', raising=False )
+    plain_environment.delenv( 'COLORTERM', raising=False )
+    fallback = as_emphasised_plain( 'compile' )
+    assert colorama.Style.BRIGHT in fallback
+    assert colorama.Fore.LIGHTWHITE_EX in fallback
+    assert colorama.Fore.BLUE not in fallback
+
+
+def test_plain_bold_on_a_light_console_is_bold_alone( plain_environment ):
+    from cuppa.colourise import as_emphasised, as_emphasised_plain
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'light' )
+    assert as_emphasised_plain( 'compile' ) == as_emphasised( 'compile' )
+
+
+def test_a_light_console_uses_paper_text_and_a_dull_bold_notice( plain_environment ):
+    """Light glass: badge text is the paper colour, and a case notice stays dull yellow."""
+    import colorama
+
+    from cuppa.colourise import as_badge, as_case_notice
+
+    plain_environment.setenv( 'CUPPA_CONSOLE_BACKGROUND', 'light' )
+    plain_environment.setenv( 'TERM', 'xterm-256color' )
+    passed = as_badge( 'success', '[pass]' )
+    notice = as_badge( 'notice', 'no assertions' )
+    case = as_case_notice( 'no assertions' )
+    assert colorama.Fore.LIGHTWHITE_EX in passed
+    assert colorama.Fore.BLACK not in passed
+    assert colorama.Back.GREEN in passed
+    assert colorama.Fore.LIGHTWHITE_EX in notice
+    assert colorama.Back.YELLOW in notice
+    assert colorama.Style.BRIGHT in case
+    assert '\x1b[38;5;3m' in case
+    assert colorama.Fore.YELLOW not in case
+
+
 def test_remove_notice_and_remove_error_meanings( plain_environment ):
     from cuppa.colourise import as_remove_error, as_remove_notice, as_error, as_warning
     assert as_remove_notice( 'x' ) == as_warning( 'x' )
