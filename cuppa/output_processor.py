@@ -36,6 +36,17 @@ from cuppa.progress import (
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
+# CSI / OSC sequences from toolchain native colour (GCC/Clang ``always``).
+_ANSI_ESCAPE_RE = re.compile( r'\x1b\[[0-9;:?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)' )
+
+
+def strip_ansi( text ):
+    """Remove ANSI escapes so Cuppa interpretors can still classify the line."""
+    if not text or '\x1b' not in text:
+        return text
+    return _ANSI_ESCAPE_RE.sub( '', text )
+
+
 def command_available( command ):
     try:
         with open(os.devnull) as devnull:
@@ -354,11 +365,16 @@ class SpawnedProcessor(object):
         from cuppa.cpp.cxx_profiles_report import profiles_scope_from_construction_env
 
         self._profiles_scope = profiles_scope_from_construction_env( scons_env )
+        native = bool( scons_env.get( 'native_output' ) )
+        # --minimal-output is cleared when --native-output is set; keep a guard.
+        minimal = False if native else scons_env['minimal_output']
         self._processor = ToolchainProcessor(
                 scons_env['toolchain'],
-                scons_env['minimal_output'],
+                minimal,
                 scons_env['ignore_duplicates'],
-                self._profiles_scope )
+                self._profiles_scope,
+                native_output=native,
+        )
         self._terse = bool( scons_env.get( 'terse_output' ) )
         self._buffered = []
 
@@ -403,11 +419,19 @@ class SpawnedProcessor(object):
 
 class ToolchainProcessor:
 
-    def __init__( self, toolchain, minimal_output, ignore_duplicates, profiles_scope=None ):
+    def __init__(
+            self,
+            toolchain,
+            minimal_output,
+            ignore_duplicates,
+            profiles_scope=None,
+            native_output=False,
+    ):
         self.toolchain              = toolchain
         self.minimal_output         = minimal_output
         self.ignore_duplicates      = ignore_duplicates
         self._profiles_scope        = profiles_scope
+        self.native_output          = bool( native_output )
         self.errors                 = 0
         self.warnings               = 0
         self.start_time             = time.time()
@@ -453,26 +477,25 @@ class ToolchainProcessor:
 
     def __call__( self, line ):
 
+        # Native colour puts CSI in the line. Classify on the plain text; emit
+        # the original (coloured) body so caret/note formatting stays intact.
+        plain = strip_ansi( line ) if self.native_output else line
+
         inventory_mode = self._inventory_report_mode()
         profile_diagnostic = None
-        if inventory_mode and _is_keep_going_cascade_error( line ):
+        if inventory_mode and _is_keep_going_cascade_error( plain ):
             self._cascade_link_error = True
 
         if self._profiles_scope is not None:
-            if ProfilesDiagnosticCollector.record_line( self._profiles_scope, line ):
+            if ProfilesDiagnosticCollector.record_line( self._profiles_scope, plain ):
                 return None
             if inventory_mode:
-                profile_diagnostic = parse_profiles_diagnostic( line )
+                profile_diagnostic = parse_profiles_diagnostic( plain )
 
-        ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
+        ( matches, interpretor, error_id, warning_id ) = self.interpret( plain )
 
         if matches:
-            highlights  = interpretor['highlight']
-            display     = interpretor['display']
-            meaning     = interpretor['meaning']
-            file        = interpretor['file']
-            message     = ''
-            colour_meaning = meaning
+            meaning = interpretor['meaning']
             profile_inventory_error = (
                 inventory_mode
                 and meaning == 'error'
@@ -484,11 +507,49 @@ class ToolchainProcessor:
                 profile_error_id = ProfilesDiagnosticCollector.next_profile_display_error_id()
                 self.errors -= 1
             elif inventory_mode and meaning == 'error':
-                if _is_keep_going_cascade_error( line ):
+                if _is_keep_going_cascade_error( plain ):
                     self._cascade_link_error = True
                 else:
                     ProfilesDiagnosticCollector.record_non_profile_error()
                     self._non_profile_errors_tallied += 1
+
+            if self.native_output:
+                # Keep Cuppa's error/warning banners; pass the toolchain line through.
+                message = self.filtered_line( line + "\n", meaning )
+                if not message:
+                    if meaning == 'error':
+                        self.errors -= 1
+                    elif meaning == 'warning':
+                        self.warnings -= 1
+                    return None
+                if profile_inventory_error:
+                    return (
+                            as_highlighted(
+                                    'warning',
+                                    " = Error " + str( profile_error_id ) + " = ",
+                            )
+                            + "\n"
+                            + message
+                    )
+                if meaning == 'error':
+                    return (
+                            as_highlighted( meaning, " = Error " + str( error_id ) + " = " )
+                            + "\n"
+                            + message
+                    )
+                if meaning == 'warning':
+                    return (
+                            as_highlighted( meaning, " = Warning " + str( warning_id ) + " = " )
+                            + "\n"
+                            + message
+                    )
+                return message
+
+            highlights  = interpretor['highlight']
+            display     = interpretor['display']
+            file        = interpretor['file']
+            message     = ''
+            colour_meaning = meaning
 
             if profile_inventory_error:
                 colour_meaning = 'warning'
@@ -534,6 +595,8 @@ class ToolchainProcessor:
             return message
         if inventory_mode and profile_diagnostic:
             self._profile_violation_lines_seen = True
+            if self.native_output:
+                return self.filtered_line( line, 'warning' )
             coloured = as_colour( 'warning', line ) + "\n"
             return self.filtered_line( coloured, 'warning' )
         return self.filtered_line( line )

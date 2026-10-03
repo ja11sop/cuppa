@@ -235,6 +235,7 @@ class Construct(object):
                 'scons_output',
                 'standard_output',
                 'minimal_output',
+                'native_output',
                 'terse_output',
                 'offline',
                 'ignore_duplicates',
@@ -906,6 +907,13 @@ class Construct(object):
 
                     if not cuppa.core.output_options.skips_spawn_processor( cuppa_env ):
                         cuppa.output_processor.Processor.install( env )
+                        if cuppa_env.get( 'native_output' ):
+                            env['native_output'] = True
+                            flags = []
+                            if hasattr( toolchain, 'native_output_flags' ):
+                                flags = list( toolchain.native_output_flags( env ) or [] )
+                            if flags:
+                                env.AppendUnique( CCFLAGS = flags )
                         if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
                             env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
                             env['terse_output'] = True

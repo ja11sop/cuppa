@@ -27,8 +27,8 @@ continues in parallel where it does not block the console slices.
 | Console: `cuppa --info` | **Done on master** — [`cuppa-info.md`](design/plans/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
 | Console: channel map + mode banners | **Done on master** — [`console-channels.md`](design/plans/console-channels.md), [`console-mode-banners.md`](design/plans/console-mode-banners.md) ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
 | Console: `--scons-output` | **Done on master** — spawn-only half of `--raw-output`; colour stays ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
-| Console: `--terse-output` | **Done** — status lines, tally, test badges, graceful Ctrl-C, `[progress]` checkpoints, `--normal-output`, file fields, and delegated CMake/`b2`: [`terse-build-output.md`](design/plans/terse-build-output.md), [`terse-delegated-output.md`](design/plans/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
-| Console: optional `--native-output` | **Optional** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) if scope allows |
+| Console: `--terse-output` | **Done on master** — status lines, tally, test badges, graceful Ctrl-C, `[progress]` checkpoints, `--normal-output`, file fields, and delegated CMake/`b2`: [`terse-build-output.md`](design/plans/terse-build-output.md), [`terse-delegated-output.md`](design/plans/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
+| Console: optional `--native-output` | **In progress** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) on `feature/native-output` |
 | Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — E / archive-progress / publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
@@ -592,12 +592,12 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **done** for **1.12.0** ([#353](https://github.com/ja11sop/cuppa/pull/353)). `Progress(...)` lines stay; `-Q` still omits them |
-| `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | [`terse-delegated-output.md`](design/plans/terse-delegated-output.md); **done** for **1.12.0** on `feature/terse-output` ([#353](https://github.com/ja11sop/cuppa/pull/353)). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **done on master** for **1.12.0** ([#353](https://github.com/ja11sop/cuppa/pull/353)). Not shipped until the release |
+| `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | [`terse-delegated-output.md`](design/plans/terse-delegated-output.md); **done on master** for **1.12.0** ([#353](https://github.com/ja11sop/cuppa/pull/353)). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.12.0** (first console slice) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.12.0** |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | CMake/Ninja job-count fix (serial default + explicit affinity-sized `--parallel N`) on [#319](https://github.com/ja11sop/cuppa/pull/319) / [#318](https://github.com/ja11sop/cuppa/issues/318) — **live soak done** 2026-09-21. `--parallel=N` CLI remains [#298](https://github.com/ja11sop/cuppa/issues/298). Design: [`parallel-job-count.md`](design/plans/parallel-job-count.md). |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); optional 1.12.0 |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); **in progress** on `feature/native-output`; optional 1.12.0 |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)
