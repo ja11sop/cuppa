@@ -37,12 +37,14 @@ set. `--minimal-output` filters Cuppa's processed build messages and needs that 
 
 `--native-output` is a **modifier**, not a third transcript. It chooses how spawned compile and
 link diagnostics are drawn under the normal or terse transcript: the toolchain's own lines pass
-through (including ANSI colour when the tool emits it), and Cuppa still counts them for
-`[warn]` / `[error]` and terse tallies. It does not restyle Cuppa console reports or mute
-delegated CMake/Ninja child lines under `--terse-output` (those are already passthrough text).
-Prefer it over `--raw-output` when you want native diagnostics but still need Cuppa progress
-and status lines. Combining it with `--minimal-output` keeps `--native-output` and ignores
-`--minimal-output` with a one-time warning, because passthrough has no Cuppa classifier filter.
+through (including ANSI colour and caret/note layout when the tool emits them). Cuppa still
+classifies those lines (ANSI is stripped only for matching), prints the usual
+`= Error N =` / `= Warning N =` banners, and closes with `=== Errors N ===` when the process
+fails. It does not restyle Cuppa console reports or mute delegated CMake/Ninja child lines
+under `--terse-output` (those are already passthrough text). Prefer it over `--raw-output`
+when you want native diagnostics but still need Cuppa progress and status lines. Combining it
+with `--minimal-output` keeps `--native-output` and ignores `--minimal-output` with a one-time
+warning, because the Cuppa filter would hide non-classified native context lines.
 
 === Terse output
 

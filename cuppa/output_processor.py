@@ -36,6 +36,17 @@ from cuppa.progress import (
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
 
+# CSI / OSC sequences from toolchain native colour (GCC/Clang ``always``).
+_ANSI_ESCAPE_RE = re.compile( r'\x1b\[[0-9;:?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)' )
+
+
+def strip_ansi( text ):
+    """Remove ANSI escapes so Cuppa interpretors can still classify the line."""
+    if not text or '\x1b' not in text:
+        return text
+    return _ANSI_ESCAPE_RE.sub( '', text )
+
+
 def command_available( command ):
     try:
         with open(os.devnull) as devnull:
@@ -466,18 +477,22 @@ class ToolchainProcessor:
 
     def __call__( self, line ):
 
+        # Native colour puts CSI in the line. Classify on the plain text; emit
+        # the original (coloured) body so caret/note formatting stays intact.
+        plain = strip_ansi( line ) if self.native_output else line
+
         inventory_mode = self._inventory_report_mode()
         profile_diagnostic = None
-        if inventory_mode and _is_keep_going_cascade_error( line ):
+        if inventory_mode and _is_keep_going_cascade_error( plain ):
             self._cascade_link_error = True
 
         if self._profiles_scope is not None:
-            if ProfilesDiagnosticCollector.record_line( self._profiles_scope, line ):
+            if ProfilesDiagnosticCollector.record_line( self._profiles_scope, plain ):
                 return None
             if inventory_mode:
-                profile_diagnostic = parse_profiles_diagnostic( line )
+                profile_diagnostic = parse_profiles_diagnostic( plain )
 
-        ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
+        ( matches, interpretor, error_id, warning_id ) = self.interpret( plain )
 
         if matches:
             meaning = interpretor['meaning']
@@ -492,16 +507,43 @@ class ToolchainProcessor:
                 profile_error_id = ProfilesDiagnosticCollector.next_profile_display_error_id()
                 self.errors -= 1
             elif inventory_mode and meaning == 'error':
-                if _is_keep_going_cascade_error( line ):
+                if _is_keep_going_cascade_error( plain ):
                     self._cascade_link_error = True
                 else:
                     ProfilesDiagnosticCollector.record_non_profile_error()
                     self._non_profile_errors_tallied += 1
 
             if self.native_output:
-                # Count via interpretors; emit the toolchain's own line unchanged.
-                # ``print`` adds the newline (coloured path embeds ``\\n`` for banners).
-                return self.filtered_line( line, meaning )
+                # Keep Cuppa's error/warning banners; pass the toolchain line through.
+                message = self.filtered_line( line + "\n", meaning )
+                if not message:
+                    if meaning == 'error':
+                        self.errors -= 1
+                    elif meaning == 'warning':
+                        self.warnings -= 1
+                    return None
+                if profile_inventory_error:
+                    return (
+                            as_highlighted(
+                                    'warning',
+                                    " = Error " + str( profile_error_id ) + " = ",
+                            )
+                            + "\n"
+                            + message
+                    )
+                if meaning == 'error':
+                    return (
+                            as_highlighted( meaning, " = Error " + str( error_id ) + " = " )
+                            + "\n"
+                            + message
+                    )
+                if meaning == 'warning':
+                    return (
+                            as_highlighted( meaning, " = Warning " + str( warning_id ) + " = " )
+                            + "\n"
+                            + message
+                    )
+                return message
 
             highlights  = interpretor['highlight']
             display     = interpretor['display']

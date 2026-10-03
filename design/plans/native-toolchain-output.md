@@ -75,9 +75,10 @@ In `construct.py` / `output_processor.py`:
 
 - When `native_output` is true and not `raw_output`, install spawn that:
   - Appends `native_output_flags` to compile/link invocations (via env or wrapper).
-  - Uses `IncrementalSubProcess` / Windows pipe path but **`processor=None`** passthrough
-    (or a no-op processor that only applies duplicate filtering on raw lines if cheap).
-- **Do not** strip ANSI from child output.
+  - Passes the toolchain line through (keep ANSI and caret/note layout).
+  - Strips ANSI **only for Cuppa classification**, so `= Error N =` banners and
+    `=== Errors N ===` still work when `-fdiagnostics-color=always` is set.
+- **Do not** strip ANSI from the emitted body.
 
 ### `--minimal-output` interaction
 

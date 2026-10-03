@@ -42,19 +42,42 @@ def test_cl_native_output_flags_use_caret_diagnostics():
     assert flags == [ '/diagnostics:caret' ]
 
 
-def test_native_passthrough_keeps_the_toolchain_line_and_counts():
+def test_native_passthrough_keeps_the_toolchain_line_and_cuppa_banners():
     processor = ToolchainProcessor(
             _FakeToolchain,
             minimal_output=False,
             ignore_duplicates=False,
             native_output=True,
     )
-    assert processor( _ERROR_LINE ) == _ERROR_LINE
-    assert processor( _WARNING_LINE ) == _WARNING_LINE
+    error = processor( _ERROR_LINE )
+    assert "= Error 1 =" in error
+    assert _ERROR_LINE in error
+    warning = processor( _WARNING_LINE )
+    assert "= Warning 1 =" in warning
+    assert _WARNING_LINE in warning
     assert processor( _PLAIN_LINE ) == _PLAIN_LINE
     assert processor.errors == 1
     assert processor.warnings == 1
-    assert "= Error " not in processor( _ERROR_LINE )
+    assert processor.summary( 1 )
+    assert "Errors 1" in processor.summary( 1 )
+
+
+def test_native_passthrough_classifies_ansi_coloured_lines():
+    coloured_error = (
+            "\x1b[01m\x1b[31mmain.cpp:4:5:\x1b[0m "
+            "\x1b[01m\x1b[31merror:\x1b[0m use of undeclared identifier 'Missing'"
+    )
+    processor = ToolchainProcessor(
+            _FakeToolchain,
+            minimal_output=False,
+            ignore_duplicates=False,
+            native_output=True,
+    )
+    out = processor( coloured_error )
+    assert "= Error 1 =" in out
+    assert coloured_error in out
+    assert processor.errors == 1
+    assert "Errors 1" in processor.summary( 1 )
 
 
 def test_default_processor_still_recolours_errors():
@@ -80,6 +103,8 @@ def test_spawned_processor_honours_native_env_flag():
             "sconscript_file": "./test/sconscript",
     }
     spawned = SpawnedProcessor( env )
-    assert spawned( _ERROR_LINE ) == _ERROR_LINE
+    out = spawned( _ERROR_LINE )
+    assert "= Error 1 =" in out
+    assert _ERROR_LINE in out
     assert spawned._processor.native_output is True
     assert spawned._processor.errors == 1
