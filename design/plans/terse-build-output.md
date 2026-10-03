@@ -1,7 +1,7 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
 - **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); follow-on [`terse-delegated-output.md`](terse-delegated-output.md) (file fields + CMake/`b2`); `cuppa/progress.py`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-02
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
@@ -363,5 +363,6 @@ Mark this plan **shipped** and move it to `design/archive/` when 1.12.0 is relea
 
 ## Related
 
+- [`terse-delegated-output.md`](terse-delegated-output.md) — next: `source → product` file fields, delegated CMake/`b2` bookends, muted nested children, and the false `archive` spelling of `cp` onto a `.a`.
 - [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) — semantic HTML for reports, not live build log.
 - Scratchpad **stderr vs stdout** — validate before any global stream split.

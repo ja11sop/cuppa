@@ -61,7 +61,8 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
 | [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Phase 0 still open | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
-| [`terse-build-output.md`](terse-build-output.md) | Build transcript | **This pull request.** Must not restyle lists, trees, or mode banners |
+| [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
+| [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Proposal. Transform `source → product`; `delegate … [launch] … · start ·` bookend and muted `→` children |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Optional. Must not recolour console reports |
 | `--scons-output` | Build transcript | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). No separate plan; the matrix above is the spec |
 | `console-stream-split` (ROADMAP) | Which file descriptor | Orthogonal. Do not decide it inside terse or native |
