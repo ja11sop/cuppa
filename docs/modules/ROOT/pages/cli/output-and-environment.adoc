@@ -83,16 +83,16 @@ TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from th
   variant working copy. The product uses `<working>/` when it lives in that cell.
 * **Transfer** (`copy`, `move`, `expand`, `render`, and a run that writes a file):
   `source → dest`. Staging a `.a` with `cp` is `copy`, never `archive`.
-* **Aggregate** (`link`, `link-shared`, `archive`, `package`, …): the product basename.
+* **Aggregate** (`link`, `link-shared`, `archive`, `package`, ...): the product basename.
 * **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `b2`): a short
-  summary such as `-B _build/…`, not a stamp name like `cmake.build.complete`.
+  summary such as `-B _build/...`, not a stamp name like `cmake.build.complete`.
 
 Colour for both ends of an arrow matches transfer colouring: directories subdued,
 filenames info and bold, `→` subdued. `<working>/` and `<final>/` are this variant's
 build locations. `<artefacts>/` is this variant's artefact location, either its flat
 folder or a report directory that contains this variant and sconscript. Any other path
 under the artefacts root is written as itself. Authors may register further tokens
-(Boost extract is `<boost>/`). Each `[progress] … · begin` prints location maps
+(Boost extract is `<boost>/`). Each `[progress] ... · begin` prints location maps
 for that scope. They lead with `→ [location]` (notice colour, not bold, not
 the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
 begin line. Variant maps are `<working>`, `<final>`, and `<artefacts>`; Boost
@@ -114,7 +114,7 @@ A long foreign graph (CMake/Ninja, Boost `b2`) is announced before its child lin
 [source]
 ----
 delegate     0% [launch] gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x --parallel 1
-             → [1/75] Building CXX object …
+             → [1/75] Building CXX object ...
    2/  8 ·  25% [done]  gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x --parallel 1
 ----
 
@@ -134,7 +134,7 @@ triggering build cell. That is an author override on the node
 (`label_terse_action(..., shared=True)`), not something Cuppa infers from
 `Depends`. `shared` is plain; `_across_variants` is subdued. Bootstrap's file
 cell is the extract product (`<boost>/b2`). Copying the engine binary there is
-an uncounted nested `copy` (`→ … · copy · <boost>/…/engine/b2 → <boost>/b2`)
+an uncounted nested `copy` (`→ ... · copy · <boost>/.../engine/b2 → <boost>/b2`)
 and does not itself close the `[launch]` span.
 
 A method names its own action. A compiler command is spelled from the tool, not from a
