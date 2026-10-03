@@ -1,10 +1,10 @@
 # Plan: terse file fields and delegated builders
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`terse-build-output.md`](terse-build-output.md) (Phase 1, done for 1.12.0);
   [`native-toolchain-output.md`](native-toolchain-output.md); [`console-channels.md`](console-channels.md);
   [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md); Boost `b2` via
-  `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-output` follow-on
+  `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-delegated`
 - **Updated:** 2026-10-03
 - **Impact:** minor — presentation and delegated-builder wiring under `--terse-output`; default
   transcript unchanged
@@ -145,31 +145,35 @@ A **delegated action** is a Cuppa status line whose useful work is a foreign too
 
 ```text
 variant     0% [progress] gcc16_dbg_x86_64_cxx2c · begin · 0/8 actions
-delegate    0% [launch] cmake-build · start · -B _build/gcc16_dbg_x86_64_cxx2c · --parallel 1
+delegate     0% [launch] gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/gcc16_dbg_x86_64_cxx2c --parallel 1
              → [1/75] Scanning '…/except.cpp' for CXX dependencies
              → [2/75] Scanning '…/endpoint.cpp' for CXX dependencies
              → …
              → [74/75] Linking CXX executable bench/corosio_bench
-   2/  8 · 25% [ok]   gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/gcc16_dbg_x86_64_cxx2c
+   2/  8 ·  25% [done]  gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/gcc16_dbg_x86_64_cxx2c --parallel 1
 ```
+
+When a sconscript label is present on the close line, the launch line includes it too (same
+field order as a status line: `sconscript · variant · action · summary`).
 
 That opening line has to say, before a long foreign graph starts (google-cloud-cpp can run for
 hours): Cuppa is handing off, and a stream of subordinate lines is about to follow. The early
 draft `action … [action] …` said "action" twice and named neither the handoff nor the wait.
+Corosio soak then showed that putting only the action after `[launch]` lost the variant and
+made the close harder to reattach after a long muted wall.
 
 ### Naming the opening bookend
 
-The Phase 1 checkpoint grammar is `scope · percent · [badge] · label · edge · summary`.
-`sconstruct` / `sconscript` / `variant` are scopes; `[progress]` is the badge; `begin` / `end`
-are edges. The delegated opener needs the same three slots, with no repeated stem.
-
-What each slot should mean here:
+Phase 1 checkpoints use `scope · percent · [badge] · path · edge · summary`. The delegated
+opener keeps the same **chrome** (padded scope word, percent, badge) but after the badge it
+**mirrors the status line fields**, not a checkpoint path/edge. Association with the counted
+close matters more than begin/end symmetry.
 
 | Slot | Job |
 |------|-----|
 | Scope word | What kind of announcement this is (not a build-graph scope) |
-| Badge | That Cuppa is commencing a long handoff, distinct from `[progress]` and from `[ok]` |
-| Edge | Phase of that handoff (`start`), because the close is the counted status line, not `end` |
+| Badge | That Cuppa is commencing a long handoff, distinct from `[progress]` and from unit `[ok]` |
+| Fields | Same as the close: sconscript (when present) · variant · action · summary — no `start` edge |
 
 #### Scope word candidates
 
@@ -189,51 +193,62 @@ What each slot should mean here:
 | `[execute]` | Verb-like | Collides with SCons `env.Execute` | Avoid |
 | `[command]` | Suggests argv | On the clean path we **hide** argv; the badge would promise the wrong thing | Avoid |
 | `[initiate]` | Accurate | Stiff; uncommon in build UIs | Weaker than `[launch]` |
-| `[start]` | Clear | Then the edge `start` doubles it (`[start] … · start ·`) | Only if the edge is dropped |
-| `[launch]` | Strong — commencing something that will run | Mild overlap with edge `start` | Best badge: distinct from `[progress]`, no API collision, implies a run that may take time |
+| `[start]` | Clear | Fine if there is no edge; weaker than `[launch]` for "long handoff commencing" | Acceptable alternative |
+| `[launch]` | Strong — commencing something that will run | Mild redundancy with a former edge `start` | **Recommend**; drop the edge |
 | `[running]` | Suggests in progress | The line is printed **before** children; "running" is slightly early | Better on a heartbeat than on the opener |
+
+#### Close badge (delegated) and whole-build rename
+
+| Badge | Role | Notes |
+|-------|------|-------|
+| `[ok]` | Ordinary unit success (compile, copy, …) | Keep for non-delegated actions |
+| `[done]` | Clean close of a `[launch]` span | Signals end of a longer sequence; same six-column width as `[ok]` |
+| `[warn]` / `[error]` | Delegated failure path | Unchanged |
+| `[completed]` | Whole-build close (was Phase 1 `[done]`) | Frees `[done]` for delegated close; clearer than `[finished]` (clashes with Progress `finished` / `finished in-flight actions`) |
 
 #### Combinations
 
 | Form | Read as | Verdict |
 |------|---------|---------|
 | `action … [action] … · start ·` | "an action action" | Reject — redundant, uninformative |
-| `delegate … [action] … · start ·` | handoff, but badge still vague | Better than double action; badge still weak |
-| `action … [spawn] … · start ·` | Cuppa SPAWN confusion | Reject |
-| `action … [execute] … · start ·` | SCons Execute confusion | Reject |
-| `spawn … [action] … · start ·` | SPAWN as scope | Reject |
-| `spawn … [initiate] … · start ·` | SPAWN + stiff badge | Reject |
-| `action … [command] … · start ·` | implies argv will show | Reject on clean path |
-| `action … [launch] … · start ·` | launch is good; scope still says little | Acceptable |
-| `delegate … [launch] … · start ·` | handoff + commencing long work | **Recommend** |
-| `delegate … [launch] …` (no edge) | same, shorter | Reserve if `launch` + `start` feels heavy in soak |
-| `delegate … [start] …` (no edge) | handoff + start in the badge | Good alternative; loses the begin/start edge parallel |
+| `delegate … [launch] … · start ·` + action only | handoff, but no variant; `start` noisy after soak | Reject after corosio soak |
+| `delegate … [launch] …` + action only | shorter, still missing variant | Reject after soak |
+| `delegate … [launch] …` + status fields, close `[ok]` | good association; close still looks like a unit | Acceptable smaller change |
+| `delegate … [launch] …` + status fields, close `[done]` | handoff + span close; needs whole-build rename | **Recommend** |
+| `delegate … [start] …` (no edge) | handoff + start in the badge | Weaker than `[launch]` |
 
 #### Recommendation
 
 Use:
 
 ```text
-delegate    0% [launch] cmake-build · start · -B _build/gcc16_dbg_x86_64_cxx2c · --parallel 1
+delegate     0% [launch] gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/gcc16_dbg_x86_64_cxx2c --parallel 1
+             → …
+   2/  8 ·  25% [done]  gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/gcc16_dbg_x86_64_cxx2c --parallel 1
+
+[completed] build succeeded · …
 ```
 
 - **`delegate`** — scope word: this line is a handoff announcement, not a sconstruct/variant
   checkpoint and not "one more ordinary action".
 - **`[launch]`** — badge: Cuppa is about to start a foreign graph that may take a long time.
-  Keep `[progress]` for real scope checkpoints.
-- **`start`** — edge: opening phase; the counted `[ok]` / `[warn]` / `[error]` is the close.
-  If soak finds `launch` + `start` noisy, drop the edge and keep `[launch]` only.
+  Keep `[progress]` for real scope checkpoints. No `· start ·` edge (`[launch]` already implies it).
+- **Fields after the badge** — mirror the counted close (`sconscript · variant · action · summary`
+  when sconscript is present). Under `--parallel` the variant on `[launch]` is essential.
+- **`[done]`** — clean delegated close (complement of `[launch]`). Ordinary actions stay `[ok]`.
+- **`[completed]`** — whole-build close; Phase 1's `[done] build succeeded` moves here so the
+  word is not overloaded.
 
-Colour: treat like a progress checkpoint — subdued scope word, plain percent, info+bold badge
-(or notice if we want launch to feel more urgent than progress; default to the same treatment as
-`[progress]` unless soak says otherwise).
+Colour: treat `[launch]` like `[progress]` (info+bold); variant/action/summary colouring matches
+the status line so the rhyme is visual as well as structural.
 
 ### Rules
 
 | Piece | Choice | Rationale |
 |-------|--------|-----------|
-| Opening bookend | scope `delegate`, badge `[launch]`, edge `start` | Names the handoff and the long commence; no repeated stem; `[progress]` stays for sconstruct/sconscript/variant |
-| Closing bookend | the ordinary counted status line | Already in the tally; do not add a second end checkpoint |
+| Opening bookend | scope `delegate`, badge `[launch]`, status-line fields (no edge) | Names the handoff; mirrors the close for association; `[progress]` stays for scope checkpoints |
+| Closing bookend | counted status line with `[done]` on clean delegated success | Span close, not a second `end` checkpoint; `[warn]`/`[error]` unchanged |
+| Whole-build close | `[completed] build …` | Was `[done]`; frees `[done]` for delegated close |
 | Child lines | lead with the same `→` indent as nested `Execute` / `test-case` | One visual language for "not in the Cuppa action total" |
 | Child line body | subdued (muted) text | Subservient to Cuppa chrome; still readable |
 | Child status badge | optional; default **off** for Ninja progress | Ninja already has `[n/N]`. A Cuppa `[ok]` on every scan line is noise. Reserve a badge for classified warn/error lines if we filter later |
@@ -249,7 +264,7 @@ Colour: treat like a progress checkpoint — subdued scope word, plain percent, 
 | **C. Indent without mute** | Less colour risk | Still fights Cuppa chrome on a busy dark/light console | Weaker than A |
 | **D. Hide all foreign lines unless warn/error** | Quietest | Users lose the only progress signal during a long `cmake --build` | Refuse as default; could be a later opt-in |
 | **E. Parse Ninja into Cuppa status lines** (`→ [ok] compile · …`) | Familiar Cuppa grammar | Fragile; fights `--native-output`; out of scope (`console-cmake-clone`) | Refuse |
-| **F. Use `[progress]` for the launch bookend** | No new badge | Overloads scope checkpoints; `begin`/`end` pair expectation | Prefer `delegate` / `[launch]` / `start` |
+| **F. Use `[progress]` for the launch bookend** | No new badge | Overloads scope checkpoints; `begin`/`end` pair expectation | Prefer `delegate` / `[launch]` + status fields |
 
 ### Wiring (`command.run` and friends)
 
@@ -269,8 +284,8 @@ Under `--terse-output` it should:
 5. Avoid the stash-flush reprint of argv on the clean path (either do not stash the full argv when
    a launch bookend was emitted, or consume it without `_write_command`).
 
-Boost `b2` should use the same helper. Method labels `b2` / `boost-toolset` already exist; only
-the presentation path is missing.
+Boost `b2` should use the same helper. Method labels `build-b2` / `b2` /
+`boost-toolset` already exist; only the presentation path is missing.
 
 ### CMake-specific file cell
 
@@ -281,6 +296,32 @@ the presentation path is missing.
 | `cmake-install` | `--target install` / prefix when known |
 
 Do not show `cmake.build.complete`.
+
+### Shared tools (author override)
+
+Some tools are built once and required by every variant (Boost bootstrap ``build-b2``,
+the toolchain ``boost-toolset`` jam). Cuppa does **not** infer that from the Depends
+graph. The method author who wired the call graph sets an override on the node:
+
+```python
+cuppa.progress.label_terse_action( nodes, "build-b2", shared=True )
+# or shared="shared_across_variants" / another explicit string
+```
+
+Default behaviour is unchanged: launch and close show the triggering variant cell.
+With ``shared``, that slot becomes the shared label instead:
+
+```text
+delegate     0% [launch] shared_across_variants · build-b2 · tools/build/src/engine/b2
+   1/  8 ·   3% [done]  shared_across_variants · build-b2 · tools/build/src/engine/b2
+```
+
+The file cell is the engine binary (directory subdued, ``b2`` info+bold). Copying that
+binary to the extract root stays inside the same action. Colour: ``shared`` plain (like
+``dbg`` in a cell); ``_across_variants`` subdued. Sconscript (when present) is unchanged.
+Per-variant ``b2`` library builds do not set this flag. ``boost-toolset`` is also
+``shared_across_variants``; if the ``._jam`` already exists, SCons treats it as up to
+date and there is no status line.
 
 ### Staging copies after CMake
 
@@ -317,10 +358,12 @@ instead of a raw `cp` and a false `archive`.
 | B | File-field Transform for `compile` / `compile-*` / `markdown` / `asciidoc` | Unit tests on `_file_field`; docs table |
 | C | Speller: `cp`/`copy` before archive-suffix heuristic | Fixes false `archive` |
 | D | Label staging copies (CMake package path + any `command.run` cp) | Integration soak on a package publisher |
-| E | Delegated launch bookend (`delegate … [launch] … · start ·`) + muted `→` child stream helper | `progress.py` + `command.run` |
+| E | Delegated launch bookend (`delegate … [launch]` + status fields) + muted `→` child stream helper | `progress.py` + `command.run`; no `start` edge |
 | F | CMake summaries on configure/build/install status lines | Drop stamp filenames |
 | G | Boost `b2` on the same helper | Parity with CMake |
 | H | Docs: output page patterns + delegated section | Antora + changelog for the release that ships it |
+| I | Soak tweak: launch mirrors close fields; clean close `[done]`; whole-build `[completed]` | After corosio soak |
+| J | `shared_across_variants` author override for build-wide tools | Bootstrap `b2`; not graph-inferred |
 
 ## Refusal rules
 
@@ -332,16 +375,20 @@ instead of a raw `cp` and a false `archive`.
 | Scope `action` with badge `[action]` | Refuse; redundant and silent about the long handoff |
 | Make transform `source → product` the default outside `--terse-output` | Refuse; only the terse file cell changes |
 | Infer `archive` from a `.a` target for any tool | Refuse; that is the bug being fixed |
+| Infer “shared across variants” from Depends | Refuse; author sets `label_terse_action(..., shared=True)` |
 
 ## Success criteria
 
 1. A clean `cmake-build` under `--terse-output -Q` shows
-   `delegate … [launch] … · start ·`, muted indented Ninja lines, and one counted `[ok]` —
-   without a leading raw `cmake --build …` argv.
+   `delegate … [launch] <variant> · cmake-build · …`, muted indented Ninja lines, and one
+   counted `[done]` — without a leading raw `cmake --build …` argv. When sconscript is on
+   the close line, it is on the launch line too.
 2. Staging libraries show as `copy` with `source → dest`, never as `archive` from `cp`.
-3. A native `compile` shows `source → <working>/….o`.
-4. Boost `b2` uses the same delegated presentation.
-5. Failure still prints argv and enough foreign output to diagnose.
+3. A native `compile` shows `source → <working>/….o` and still closes with `[ok]`.
+4. Boost `b2` uses the same delegated presentation (library builds per variant;
+   bootstrap `BuildB2` with `shared_across_variants`).
+5. Failure still prints argv and enough foreign output to diagnose (`[warn]` / `[error]`).
+6. A successful whole build ends with `[completed] build succeeded` (not `[done]`).
 
 ## Related
 

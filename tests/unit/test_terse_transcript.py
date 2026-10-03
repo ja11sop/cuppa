@@ -22,10 +22,12 @@ def _reset_progress_ledger():
     progress.reset_progress_ledger()
     progress.reset_build_interrupted()
     progress.take_terse_status_emitted()
+    progress.take_terse_launch()
     yield
     progress.reset_progress_ledger()
     progress.reset_build_interrupted()
     progress.take_terse_status_emitted()
+    progress.take_terse_launch()
 
 
 def _variant_env():
@@ -77,6 +79,7 @@ def test_tool_commands_are_stashed_instead_of_printed(capsys):
 def test_common_statuses_share_a_column_and_error_runs_past_it():
     env = _variant_env()
     ok = progress.format_terse_line( "ok", "g++ -c a.cpp", [ "a.o" ], [ "a.cpp" ], env )
+    done = progress.format_terse_line( "done", "cmake --build x", [ "stamp" ], [], env )
     warned = progress.format_terse_line( "warn", "g++ -c a.cpp", [ "a.o" ], [ "a.cpp" ], env )
     error = progress.format_terse_line( "error", "g++ -c a.cpp", [ "a.o" ], [ "a.cpp" ], env )
     passed = progress.format_terse_result_line( "pass", env, "test", "binary" )
@@ -84,6 +87,7 @@ def test_common_statuses_share_a_column_and_error_runs_past_it():
     skipped = progress.format_terse_result_line( "skip", env, "test", "test-case" )
     xfail = progress.format_terse_result_line( "xfail", env, "test", "binary" )
     assert ok.index( "test/" ) == warned.index( "test/" ) == passed.index( "test/" )
+    assert done.index( "test/" ) == ok.index( "test/" )
     assert failed.index( "test/" ) == skipped.index( "test/" ) == ok.index( "test/" )
     assert error.index( "test/" ) == xfail.index( "test/" ) == ok.index( "test/" ) + 1
 
@@ -96,7 +100,10 @@ def test_success_line_names_sconscript_variant_action_and_source():
             ["test/orders/src/hello.cpp"],
             _variant_env(),
     )
-    assert line == "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · test/orders/src/hello.cpp"
+    assert line == (
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · "
+            "test/orders/src/hello.cpp → _build/hello.o"
+    )
 
 
 def test_action_spelling_separates_archive_index_and_link():
@@ -110,9 +117,33 @@ def test_action_spelling_separates_archive_index_and_link():
     assert progress.spell_terse_action("/usr/bin/g++-16 -o buy_sell_ladder buy_sell_ladder.o", ["buy_sell_ladder"]) == "link"
     assert progress.spell_terse_action("g++ -shared -o libfoo.so a.o", ["libfoo.so"]) == "link-shared"
     assert progress.spell_terse_action("pysassc theme.scss theme.css", ["theme.css"]) == "run"
+    assert progress.spell_terse_action(
+            "cp -f build/libboost_corosio.a working/libboost_corosio.a",
+            ["working/libboost_corosio.a"],
+    ) == "copy"
+    assert progress.spell_terse_action(
+            "ar rc libquince.a a.o",
+            ["libquince.a"],
+    ) == "archive"
     assert progress.format_terse_line(
             "error", "g++ -o buy_sell_ladder buy_sell_ladder.o", ["buy_sell_ladder"], ["buy_sell_ladder.o"], env,
     ) == "[error] test/orders · gcc16_dbg_x86_64_cxx2c · link · buy_sell_ladder"
+
+
+def test_staging_cp_of_a_static_library_is_copy_with_transfer_field():
+    env = _layout_env()
+    env.pop( "_variant" )
+    line = progress.format_terse_line(
+            "ok",
+            "cp -f build/libboost_corosio.a working/libboost_corosio.a",
+            [ env["abs_build_dir"] + "/libboost_corosio.a" ],
+            [ "/proj/_build/reference_guide/gcc16/dbg/x86_64/cxx2c/cmake-build/libboost_corosio.a" ],
+            env,
+    )
+    assert "· copy ·" in line
+    assert "→" in line
+    assert "libboost_corosio.a" in line
+    assert "· archive ·" not in line
 
 
 def test_scons_builders_are_named_and_tar_is_not_a_compile():
@@ -328,7 +359,7 @@ def test_a_program_run_stays_a_single_name():
     assert "→" not in line
 
 
-def test_markdown_and_asciidoc_show_the_source_path():
+def test_markdown_and_asciidoc_show_source_to_product():
     markdown = progress.format_terse_line(
             "ok",
             "markdown",
@@ -336,8 +367,7 @@ def test_markdown_and_asciidoc_show_the_source_path():
             [ "user_guides/intro.md" ],
             _variant_env(),
     )
-    assert markdown.endswith( "· markdown · user_guides/intro.md" )
-    assert "→" not in markdown
+    assert markdown.endswith( "· markdown · user_guides/intro.md → intro.html" )
 
 
 def test_an_unlabelled_asciidoctor_command_is_asciidoc():
@@ -365,7 +395,8 @@ def test_python_action_success_is_only_the_status_line( capsys ):
     assert seen == [["theme.scss"]]
     out = capsys.readouterr().out
     assert out.strip() == (
-            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile-scss · theme.scss"
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile-scss · "
+            "theme.scss → theme.css"
     )
     assert "CompileScssAction" not in out
     assert progress.take_terse_command()[0] is None
@@ -401,7 +432,8 @@ def test_a_clean_child_tool_is_hidden( capsys ):
     assert wrapped( target=[node], source=["accounts.adoc"], env=env ) is None
     out = capsys.readouterr().out
     assert out.strip() == (
-            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · accounts.adoc"
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · "
+            "accounts.adoc → accounts_template.asciidoc"
     )
     assert "asciidoctor" not in out
     assert "Writing" not in out
@@ -425,7 +457,8 @@ def test_a_child_warning_is_printed_before_the_summary( capsys ):
     assert "WARNING:" in out
     assert "AsciidocToHtmlRunner" not in out
     assert out.rstrip().endswith(
-            "[warn] test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · accounts.adoc"
+            "[warn] test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · "
+            "accounts.adoc → accounts_template.asciidoc"
     )
 
 
@@ -445,7 +478,8 @@ def test_a_child_error_line_is_summarised_without_failing_the_action( capsys ):
     out = capsys.readouterr().out
     assert "ERROR:" in out
     assert out.rstrip().endswith(
-            "[error] test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · accounts.adoc"
+            "[error] test/orders · gcc16_dbg_x86_64_cxx2c · asciidoc · "
+            "accounts.adoc → accounts_template.asciidoc"
     )
 
 
@@ -498,7 +532,8 @@ def test_python_action_failure_prints_the_description_then_the_summary( capsys )
     out = capsys.readouterr().out
     assert out.startswith( "scss failed\ncompiling theme.scss\n" )
     assert out.rstrip().endswith(
-            "[error] test/orders · gcc16_dbg_x86_64_cxx2c · compile-scss · theme.scss"
+            "[error] test/orders · gcc16_dbg_x86_64_cxx2c · compile-scss · "
+            "theme.scss → theme.css"
     )
 
 
@@ -556,14 +591,20 @@ def test_clean_run_is_one_line_and_a_warning_reprints_the_command():
     ok = progress.render_terse_spawn(
             0, 0, 0, ["note\n"], "g++ -c test/orders/hello.cpp", ["hello.o"], source, env, "",
     )
-    assert ok == ["[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · test/orders/hello.cpp"]
+    assert ok == [
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · "
+            "test/orders/hello.cpp → hello.o"
+    ]
 
     warned = progress.render_terse_spawn(
             0, 0, 1, ["warn line\n"], "g++ -c test/orders/hello.cpp", ["hello.o"], source, env,
             " === Warnings 1 === ",
     )
     assert warned[0] == "g++ -c test/orders/hello.cpp"
-    assert warned[-1] == "[warn] test/orders · gcc16_dbg_x86_64_cxx2c · compile · test/orders/hello.cpp"
+    assert warned[-1] == (
+            "[warn] test/orders · gcc16_dbg_x86_64_cxx2c · compile · "
+            "test/orders/hello.cpp → hello.o"
+    )
     assert "warn line" in warned
     assert "[ok]" not in "\n".join(warned)
 
@@ -575,7 +616,7 @@ def test_failed_run_prints_the_command_before_the_error_summary():
     assert failed[0] == "g++ -c hello.cpp"
     assert "bad" in failed
     assert "summary" in failed
-    assert failed[-1] == "[error] compile · hello.cpp"
+    assert failed[-1] == "[error] compile · hello.cpp → hello.o"
 
 
 def test_spawn_folds_a_clean_run_and_discards_the_stash(capsys):
@@ -586,7 +627,10 @@ def test_spawn_folds_a_clean_run_and_discards_the_stash(capsys):
     assert spawned("noise the compiler wrote") is None
     spawned.finish(0)
     out = capsys.readouterr().out
-    assert out.strip() == "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · test/orders/hello.cpp"
+    assert out.strip() == (
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · compile · "
+            "test/orders/hello.cpp → hello.o"
+    )
     assert "noise" not in out
     assert progress.take_terse_command()[0] is None
 
@@ -600,7 +644,7 @@ def test_spawn_reprints_the_command_when_the_tool_fails(capsys):
     out = capsys.readouterr().out
     assert out.startswith( "g++ -c hello.cpp\n" )
     assert "bad.cpp: error" in out
-    assert out.rstrip().endswith( "[error] compile · hello.cpp" )
+    assert out.rstrip().endswith( "[error] compile · hello.cpp → hello.o" )
     assert "[ok]" not in out
 
 
@@ -625,13 +669,18 @@ def test_compile_shows_the_source_tree_not_the_variant_working_copy( tmp_path ):
             "_build/test/positions/gcc16/dbg/x86_64/cxx2c/working/"
             "deposit_and_withdrawal_simulator.cpp"
     )
+    env["abs_build_dir"] = str(
+            tmp_path / "_build" / "test" / "positions" / "gcc16" / "dbg" / "x86_64" / "cxx2c" / "working"
+    )
+    object_path = os.path.join( env["abs_build_dir"], "deposit_and_withdrawal_simulator.o" )
     expected = (
             "[ok]   test/positions · gcc16_dbg_x86_64_cxx2c · compile · "
-            "test/positions/deposit_and_withdrawal_simulator.cpp"
+            "test/positions/deposit_and_withdrawal_simulator.cpp → "
+            "<working>/deposit_and_withdrawal_simulator.o"
     )
     line = progress.format_terse_success(
             "g++ -c " + mirrored,
-            ["deposit_and_withdrawal_simulator.o"],
+            [object_path],
             [mirrored],
             env,
     )
@@ -640,7 +689,7 @@ def test_compile_shows_the_source_tree_not_the_variant_working_copy( tmp_path ):
     origin = _Node( "test/positions/deposit_and_withdrawal_simulator.cpp" )
     via_srcnode = progress.format_terse_success(
             "g++ -c " + mirrored,
-            ["deposit_and_withdrawal_simulator.o"],
+            [object_path],
             [_Node( mirrored, origin )],
             env,
     )
@@ -648,11 +697,12 @@ def test_compile_shows_the_source_tree_not_the_variant_working_copy( tmp_path ):
 
     missing = progress.format_terse_success(
             "g++ -c generated.cpp",
-            ["generated.o"],
+            [os.path.join( env["abs_build_dir"], "generated.o" )],
             ["_build/test/positions/gcc16/dbg/x86_64/cxx2c/working/generated.cpp"],
             env,
     )
     assert "_build/test/positions/" in missing
+    assert "→ <working>/generated.o" in missing
     assert "· compile ·" in missing
 
 
@@ -679,6 +729,7 @@ def test_compile_outside_the_project_is_home_relative_not_a_dotdot_climb( monkey
     assert (
             "· compile · ~/_cuppa/_download/"
             "git_https_github.com__j0nnyw_quince.git@master/src/mappers/tuple_mapper.cpp"
+            " → tuple_mapper.o"
     ) in line
     assert "../" not in line
 
@@ -688,7 +739,7 @@ def test_compile_outside_the_project_is_home_relative_not_a_dotdot_climb( monkey
             ["../../_cuppa/_download/src/cell.cpp"],
             env,
     )
-    assert "· compile · ~/_cuppa/_download/src/cell.cpp" in climbed
+    assert "· compile · ~/_cuppa/_download/src/cell.cpp → cell.o" in climbed
     assert "../" not in climbed
 
 
@@ -707,6 +758,7 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
     assert line == (
             "[ok]   <s>test/</s><i>orders</i> <s>·</s> <s>gcc16_</s>dbg<s>_x86_64_cxx2c</s> "
             "<s>·</s> <e>compile</e> <s>·</s> <s>test/orders/src/</s><e><i>hello.cpp</i></e>"
+            " <s>→</s> <e><i>hello.o</i></e>"
     )
 
     env = _variant_env()
@@ -1011,7 +1063,7 @@ def test_an_action_line_leads_with_the_cell_tally_and_overall_percent():
     first = _ActionNode()
     second = _ActionNode()
     progress.register_terse_actions( env, [ first, second ] )
-    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 ·  50% [ok]   " )
     assert _compile_line( env, second, "main.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
@@ -1022,19 +1074,19 @@ def test_a_progress_checkpoint_names_the_scope_and_does_not_count( monkeypatch, 
     progress.register_terse_actions( env, [ first, second ] )
     opened = progress.format_terse_progress_checkpoint( "started", None, None, env )
     assert opened == (
-            "variant     0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin · 0/2 actions"
+            "variant      0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin · 0/2 actions"
     )
     assert opened.index( "[progress]" ) == _compile_line( env, first, "hello.cpp" ).index( "[ok]" )
     assert "1 variant" not in opened
-    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 ·  50% [ok]   " )
     closed = progress.format_terse_progress_checkpoint( "finished", None, None, env )
     assert closed == (
-            "variant    50% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · end · 1/2 actions"
+            "variant     50% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · end · 1/2 actions"
     )
 
     script = progress.format_terse_progress_checkpoint( "begin", None, None, env )
     assert script == (
-            "sconscript 50% [progress] test/orders/sconscript · begin · 1 variant · 1/2 actions"
+            "sconscript  50% [progress] test/orders/sconscript · begin · 1 variant · 1/2 actions"
     )
 
     home = tmp_path / "home"
@@ -1050,7 +1102,7 @@ def test_a_progress_checkpoint_names_the_scope_and_does_not_count( monkeypatch, 
             "sconstruct_file": "sconstruct",
     }
     root = progress.format_terse_progress_checkpoint( "sconstruct_begin", None, None, outside )
-    assert root.startswith( "sconstruct 50% [progress] ~/other/sconstruct · begin · " )
+    assert root.startswith( "sconstruct  50% [progress] ~/other/sconstruct · begin · " )
     assert "1 sconscript · 1 variant · 1/2 actions" in root
     assert "../" not in root
     inside = {
@@ -1129,7 +1181,7 @@ def test_a_progress_checkpoint_colours_the_badge_and_the_leaf( monkeypatch ):
     monkeypatch.setattr( progress, "as_emphasised_plain", lambda text: "<e>" + text + "</e>" )
     env = _terse_env()
     line = progress.format_terse_progress_checkpoint( "begin", None, None, env )
-    assert line.startswith( "<s>sconscript</s>  0% <e><i>[progress]</i></e> " )
+    assert line.startswith( "<s>sconscript</s>   0% <e><i>[progress]</i></e> " )
     assert "<s>test/</s><i>orders/</i><i>sconscript</i><s> · </s><e>begin</e>" in line
     variant = progress.format_terse_progress_checkpoint( "started", None, None, env )
     assert "<s>test/</s><i>orders/</i>" in variant
@@ -1137,11 +1189,158 @@ def test_a_progress_checkpoint_colours_the_badge_and_the_leaf( monkeypatch ):
     assert "<e>begin</e>" in variant
 
 
+def test_delegated_launch_bookend_and_muted_children():
+    env = _terse_env()
+    first = _ActionNode()
+    second = _ActionNode()
+    progress.register_terse_actions( env, [ first, second ] )
+    launch = progress.format_terse_launch(
+            "cmake-build",
+            "-B _build/x --parallel 1",
+            env,
+    )
+    assert launch == (
+            "delegate     0% [launch] test/orders · gcc16_dbg_x86_64_cxx2c · "
+            "cmake-build · -B _build/x --parallel 1"
+    )
+    assert launch.index( "[launch]" ) == _compile_line( env, first, "hello.cpp" ).index( "[ok]" )
+    assert "· start ·" not in launch
+    child = progress.format_terse_muted_child( "[1/75] Building CXX object foo.cpp.o", env )
+    assert child.endswith( "→ [1/75] Building CXX object foo.cpp.o" )
+    assert "[ok]" not in child
+    done = progress.format_terse_line(
+            "done",
+            "cmake --build _build/x --parallel 1",
+            [ SimpleNamespace(
+                    path="cmake.build.complete",
+                    attributes=SimpleNamespace(
+                            cuppa_terse_action="cmake-build",
+                            cuppa_terse_summary="-B _build/x --parallel 1",
+                    ),
+            ) ],
+            [],
+            env,
+    )
+    assert " [done] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · " in done
+    assert "-B _build/x --parallel 1" in done
+    assert done.index( "test/" ) == _compile_line( env, first, "hello.cpp" ).index( "test/" )
+
+
+def test_delegated_summary_replaces_stamp_filename_on_status_line():
+    env = _terse_env()
+    stamp = SimpleNamespace(
+            path="cmake.build.complete",
+            attributes=SimpleNamespace(
+                    cuppa_terse_action="cmake-build",
+                    cuppa_terse_summary="-B _build/x --parallel 1",
+            ),
+    )
+    line = progress.format_terse_line(
+            "ok",
+            "cmake --build _build/x --parallel 1",
+            [ stamp ],
+            [],
+            env,
+    )
+    assert line == (
+            "[ok]   test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · "
+            "-B _build/x --parallel 1"
+    )
+    assert "cmake.build.complete" not in line
+
+
+def test_launch_bookend_suppresses_clean_argv_flush( capsys ):
+    env = _terse_env()
+    progress.stash_terse_command( "cmake --build _build/x", [ "stamp" ], [], env )
+    progress.write_terse_launch(
+            "cmake-build", "-B _build/x", env, command="cmake --build _build/x",
+    )
+    out = capsys.readouterr().out
+    assert out.startswith( "delegate" )
+    assert "[launch] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x" in out
+    assert "· start ·" not in out
+    assert "cmake --build _build/x\n" not in out
+    progress.flush_unconsumed_terse_command()
+    assert capsys.readouterr().out == ""
+    emitted, command = progress.take_terse_launch()
+    assert emitted
+    assert command == "cmake --build _build/x"
+
+
+def test_shared_across_variants_replaces_the_variant_cell( monkeypatch ):
+    env = _terse_env()
+    node = SimpleNamespace(
+            path="b2",
+            attributes=SimpleNamespace( cuppa_terse_action="build-b2" ),
+    )
+    progress.label_terse_action( [ node ], "build-b2", shared=True )
+    assert node.attributes.cuppa_terse_shared == "shared_across_variants"
+    line = progress.format_terse_line( "ok", "build b2", [ node ], [], env )
+    assert "· shared_across_variants · build-b2 ·" in line
+    assert "gcc16_dbg_x86_64_cxx2c" not in line
+    launch = progress.format_terse_launch( "build-b2", "tools/build", env, target=[ node ] )
+    assert "[launch] test/orders · shared_across_variants · build-b2" in launch
+    assert "gcc16_dbg_x86_64_cxx2c" not in launch
+
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    painted = progress._coloured_shared_label( "shared_across_variants" )
+    assert painted == "shared<s>_across_variants</s>"
+
+
+def test_build_b2_file_cell_colours_the_binary_leaf( monkeypatch ):
+    env = _terse_env()
+    node = SimpleNamespace(
+            path="b2",
+            attributes=SimpleNamespace(),
+    )
+    progress.label_terse_action(
+            [ node ],
+            "build-b2",
+            summary="tools/build/src/engine/b2",
+            paths="file",
+            shared=True,
+    )
+    line = progress.format_terse_line( "done", "./build.sh", [ node ], [], env )
+    assert "· build-b2 · tools/build/src/engine/b2" in line
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
+    monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    painted = progress.format_terse_line( "done", "./build.sh", [ node ], [], env )
+    assert "<s>tools/build/src/engine/</s><e><i>b2</i></e>" in painted
+
+
+def test_delegated_python_action_closes_with_done( capsys ):
+    env = _terse_env()
+    stamp = SimpleNamespace(
+            path="cmake.build.complete",
+            attributes=SimpleNamespace(
+                    cuppa_terse_action="cmake-build",
+                    cuppa_terse_summary="-B _build/x",
+            ),
+    )
+
+    def _action( target, source, env ):
+        progress.write_terse_launch(
+                "cmake-build", "-B _build/x", env, command="cmake --build _build/x",
+        )
+        progress.write_terse_muted_child( "[1/1] Linking", env )
+        return 0
+
+    progress.stash_terse_command( "cmake --build _build/x", [ stamp ], [], env )
+    wrapped = progress._TersePythonCallable( _action )
+    assert wrapped( target=[ stamp ], source=[], env=env ) == 0
+    out = capsys.readouterr().out
+    assert "[launch] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x" in out
+    assert "→ [1/1] Linking" in out
+    assert "[done] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x" in out
+    assert "[ok]" not in out
+
+
 def test_archive_and_index_are_two_slots_on_one_library():
     env = _terse_env()
     library = _ActionNode( slots=2 )
     progress.register_terse_actions( env, [ library ] )
-    assert _compile_line( env, library, "a.o" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, library, "a.o" ).startswith( "   1/  2 ·  50% [ok]   " )
     assert _compile_line( env, library, "a.o" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
@@ -1162,7 +1361,7 @@ def test_another_sconscript_changes_the_percent_not_the_cell_fraction():
     positions_node = _ActionNode()
     progress.register_terse_actions( orders, [ orders_node ] )
     progress.register_terse_actions( positions, [ positions_node ] )
-    assert _compile_line( orders, orders_node, "hello.cpp" ).startswith( "   1/  1 · 50% [ok]   " )
+    assert _compile_line( orders, orders_node, "hello.cpp" ).startswith( "   1/  1 ·  50% [ok]   " )
     assert _compile_line( positions, positions_node, "book.cpp" ).startswith( "   1/  1 · 100% [ok]   " )
 
 
@@ -1172,7 +1371,7 @@ def test_an_up_to_date_action_is_already_done():
     waiting = _ActionNode()
     progress.register_terse_actions( env, [ skipped, waiting ] )
     progress.note_up_to_date_action( skipped )
-    assert progress.terse_counts_prefix( env ) == "  1/  2 · 50%"
+    assert progress.terse_counts_prefix( env ) == "  1/  2 ·  50%"
     assert _compile_line( env, waiting, "hello.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
@@ -1183,7 +1382,7 @@ def test_actions_outside_the_requested_targets_are_not_in_the_total():
     other = _ActionNode()
     progress.register_terse_actions( env, [ root, child, other ] )
     progress.narrow_progress_ledger( [ root ] )
-    assert _compile_line( env, child, "hello.cpp" ).startswith( "   1/  2 · 50% [ok]   " )
+    assert _compile_line( env, child, "hello.cpp" ).startswith( "   1/  2 ·  50% [ok]   " )
     assert _compile_line( env, root, "app" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
@@ -1196,7 +1395,7 @@ def test_a_test_case_is_marked_and_does_not_move_the_tally():
             "pass", env, "test-case", "position_source_id/test_position_source_id",
             duration="0 ms", detail="8/8 assertions",
     )
-    plain = "  0/  1 ·  0%"
+    plain = "  0/  1 ·   0%"
     assert progress.terse_counts_prefix( env ) == plain
     assert case.startswith( ( " " * len( plain ) ) + "→ [pass] " )
     assert "·" not in case.split( "[pass]", 1 )[ 0 ]
@@ -1241,7 +1440,7 @@ def test_make_ready_counts_an_up_to_date_node():
     waiting = _ActionNode()
     progress.register_terse_actions( env, [ skipped, waiting ] )
     progress._credit_up_to_date_targets( [ skipped ] )
-    assert progress.terse_counts_prefix( env ) == "  1/  2 · 50%"
+    assert progress.terse_counts_prefix( env ) == "  1/  2 ·  50%"
 
 
 def test_the_tally_reserves_three_digits_and_the_arrow_keeps_the_status_column():
@@ -1251,7 +1450,7 @@ def test_the_tally_reserves_three_digits_and_the_arrow_keeps_the_status_column()
     for node in endpoint[ :18 ]:
         progress.note_up_to_date_action( node )
     counted = _compile_line( endpoint_env, endpoint[ 18 ], "decommission_endpoint.cpp" )
-    assert counted.startswith( "  19/182 · 10% [ok]   " )
+    assert counted.startswith( "  19/182 ·  10% [ok]   " )
 
     ethereum_env = _terse_env()
     ethereum_env[ "sconscript_file" ] = "./test/ethereum/sconscript"
@@ -1295,8 +1494,8 @@ def test_show_actions_appends_the_raw_command():
 
 def test_the_cell_tally_is_subdued_and_the_percentage_is_plain( monkeypatch ):
     monkeypatch.setattr( progress, "as_subdued", lambda text: "<subdued>{}</subdued>".format( text ) )
-    assert progress._colour_counts_prefix( " 19/182 · 10%" ) == (
-            "<subdued> 19/182 · </subdued>10%"
+    assert progress._colour_counts_prefix( " 19/182 ·  10%" ) == (
+            "<subdued> 19/182 · </subdued> 10%"
     )
 
 

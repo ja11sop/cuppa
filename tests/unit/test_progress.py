@@ -230,7 +230,7 @@ def test_sconstruct_end_confirms_a_successful_terse_build(capsys):
     progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
 
     out = capsys.readouterr().out
-    assert out.endswith( "[done] build succeeded\n" )
+    assert out.endswith( "[completed] build succeeded\n" )
     assert "[progress]" in out
     assert "· end" in out
     assert "Progress(" not in out
@@ -244,7 +244,7 @@ def test_sconstruct_end_calls_a_no_op_terse_build_up_to_date(capsys):
     progress_module.Progress("sconstruct_end", None, None, env)([], [], env)
 
     out = capsys.readouterr().out
-    assert out.endswith( "[done] build up to date\n" )
+    assert out.endswith( "[completed] build up to date\n" )
     assert "[progress]" in out
     assert "Progress(" not in out
 
@@ -280,7 +280,7 @@ def test_a_terse_build_summarises_the_plan_and_what_finished(capsys):
     progress_module.Progress("sconstruct_end", None, None, {"terse_output": True})([], [], {})
     out = capsys.readouterr().out
     assert "1 sconscript · 1 variant · 2/2 actions" in out
-    assert out.endswith("[done] build succeeded · 1 ran · 1 up to date · 2 test cases · 1 nested\n")
+    assert out.endswith("[completed] build succeeded · 1 ran · 1 up to date · 2 test cases · 1 nested\n")
 
 
 def test_an_interrupt_summarises_the_whole_build_not_only_the_drain(capsys):

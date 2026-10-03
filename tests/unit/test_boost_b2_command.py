@@ -194,3 +194,60 @@ def test_b2_command_omits_user_config_off_linux( monkeypatch ):
 
     assert "--ignore-site-config" in args
     assert not any( a.startswith( "--user-config=" ) for a in args )
+
+
+def test_build_b2_terse_emits_launch_and_muted_children( monkeypatch, tmp_path, capsys ):
+    import cuppa.progress as progress
+    from cuppa.dependencies.boost.b2 import BuildB2
+    from types import SimpleNamespace
+
+    progress.reset_progress_ledger()
+    progress.take_terse_launch()
+
+    location = tmp_path / "boost"
+    engine = location / "tools" / "build" / "src" / "engine"
+    engine.mkdir( parents=True )
+    ( engine / "b2" ).write_text( "", encoding="utf-8" )
+    dest = tmp_path / "out" / "b2"
+    dest.parent.mkdir()
+    dest.write_text( "", encoding="utf-8" )
+
+    def fake_popen( processor, args_list, **kwargs ):
+        assert kwargs.get( "suppress_output" ) is True
+        processor( "Building Boost.Build engine" )
+        processor( "gcc.compile c.o" )
+        return 0
+
+    monkeypatch.setattr(
+            "cuppa.dependencies.boost.b2.IncrementalSubProcess.Popen",
+            fake_popen,
+    )
+    env = {
+            "terse_output": True,
+            "variant": type( "V", (), { "name": lambda self: "dbg" } )(),
+            "toolchain": type( "T", (), { "name": lambda self: "gcc16" } )(),
+            "target_arch": "x86_64",
+            "abi": "cxx2c",
+            "sconscript_file": "./pkg/sconscript",
+    }
+    target = SimpleNamespace(
+            path=str( dest ),
+            attributes=SimpleNamespace(),
+    )
+    boost = SimpleNamespace(
+            local=lambda: str( location ),
+            numeric_version=lambda: 1.86,
+    )
+    assert BuildB2( boost )( [ target ], [], env ) is None
+    out = capsys.readouterr().out
+    assert "[launch] pkg · shared_across_variants · build-b2 · tools/build/src/engine/b2" in out
+    assert "→ Building Boost.Build engine" in out
+    assert "→ gcc.compile c.o" in out
+    assert "./build.sh\n" not in out
+    assert target.attributes.cuppa_terse_shared == "shared_across_variants"
+    assert target.attributes.cuppa_terse_action == "build-b2"
+    assert target.attributes.cuppa_terse_summary == "tools/build/src/engine/b2"
+    emitted, command = progress.take_terse_launch()
+    assert emitted
+    assert command == "./build.sh"
+

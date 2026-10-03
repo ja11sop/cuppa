@@ -48,8 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   this sconscript and variant's tally and the whole-build percent
   (`` 19/182 · 10%``). The fraction is that sconscript and variant; the
   percent is the whole build. Counts reserve three digits and the percent
-  two, and grow past that. A ``→`` line is indented so ``[status]`` stays
-  in that column. Work SCons finds up to date counts as already done.
+  three (so ``100%`` does not shift the status column), and grow past
+  that. A ``→`` line is indented so ``[status]`` stays in that column.
+  Work SCons finds up to date counts as already done.
   A status line that is not part of that tally leads with ``→``. A nested
   ``Execute`` is one of those lines: ``copy``, ``move``, ``delete``,
   ``mkdir``, ``chmod``, or ``run``. ``Touch`` stays hidden. A
@@ -64,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``1 variant · 24/58 actions``, or ``24/58 actions``). HTML test reports are ``test-report``, the index is ``test-index``,
   and a Bitten report is ``bitten-report``. Profiles merge is ``profiles``,
   a module map is ``module-map``, a package amend is ``amend``, Boost's
-  ``b2`` build is ``b2``, and its toolset file is ``boost-toolset``.
+  ``build-b2`` bootstrap, its ``b2`` library build, and its toolset file is
+  ``boost-toolset``.
   ``--terse-output-show-actions`` prints the raw action after the status
   line. On Windows the SCons child still speaks UTF-8, and a glyph the
   console cannot encode is replaced instead of ending the transcript.
@@ -73,16 +75,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the percent includes them. The opening totals are the sconstruct
   ``begin`` line, not a line of their own. ``-Q`` still
   hides SCons ``Progress(...)`` lines. The checkpoint stays.
-  ``[done]`` then reports how many ran, how many were up to date, the test
-  cases, and how many nested calls ran. A
-  successful build ends with ``[done] build succeeded``, or ``[done] build
-  up to date`` when no terse action ran. ``[done]`` has no tally. Does not
-  imply ``--minimal-output``. Refused with ``--raw-output`` or
-  ``--scons-output``. ``--normal-output`` selects the normal transcript
-  again. It overrides ``--terse-output``, including a choice saved in
-  ``configure.conf`` or ``~/.cuppaconfig``. Passing both transcript flags is
-  an options error. The saved key is ``terse_output``: true is terse and
-  false is normal.
+  ``[completed]`` then reports how many ran, how many were up to date, the
+  test cases, and how many nested calls ran. A successful build ends with
+  ``[completed] build succeeded``, or ``[completed] build up to date`` when
+  no terse action ran. ``[completed]`` has no tally. Does not imply
+  ``--minimal-output``. Refused with ``--raw-output`` or ``--scons-output``.
+  ``--normal-output`` selects the normal transcript again. It overrides
+  ``--terse-output``, including a choice saved in ``configure.conf`` or
+  ``~/.cuppaconfig``. Passing both transcript flags is an options error.
+  The saved key is ``terse_output``: true is terse and false is normal.
 - ``cuppa --scons-output``: leave SCons' own spawn in place so child output is not
   run through Cuppa's processor. Cuppa colour on logs and reports stays.
   ``--raw-output`` remains that plus no colour. Refused with ``--minimal-output``.
@@ -92,6 +93,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- ``--terse-output`` file cells and delegated builders: ``compile`` /
+  ``compile-*`` / ``markdown`` / ``asciidoc`` show ``source → product``;
+  ``cp`` / ``copy`` / ``install`` onto a ``.a`` spell as ``copy``, not
+  ``archive``; CMake and Boost ``b2`` print
+  ``delegate … [launch] <variant> · <action> · …`` then muted ``→`` child
+  lines, with a counted ``[done]`` close that names ``-B …`` (or the ``b2``
+  stage) instead of a stamp file.   Summary tokens inside the file cell are
+  space-separated (argv-like); middots stay between Cuppa fields. Ordinary
+  unit success stays ``[ok]``. The whole-build close is ``[completed]``
+  (was ``[done]``). ``cuppa.utility.command.run`` opts into that handoff
+  only when ``terse_action`` / ``terse_summary`` is set. Build-wide tools
+  may set ``label_terse_action(..., shared=True)`` so the variant slot
+  shows ``shared_across_variants`` instead of the triggering cell (Boost
+  bootstrap ``build-b2`` and ``boost-toolset``); this is an author override,
+  not graph inference.
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)
   print on stdout as console reports, so `-Q` and `-s` / `--quiet` no longer hide
   them. Info logs are unchanged. Channel map: ``design/plans/console-channels.md``.

@@ -14,6 +14,7 @@ import platform
 
 # Cuppa Imports
 import cuppa.build_platform
+import cuppa.progress
 
 from cuppa.output_processor   import IncrementalSubProcess, ToolchainProcessor
 from cuppa.colourise          import as_emphasised, as_notice, as_info
@@ -181,13 +182,44 @@ class BuildB2(object):
         ) )
 
         process_b2_build = ProcessB2Build( self._version )
+        args = [ b2_build_script ]
+        command_text = " ".join( args )
+        product = b2_exe_name( self._version )
+        try:
+            engine = os.path.relpath( build_script_path, self._location )
+        except ValueError:
+            engine = build_script_path
+        summary = os.path.join( engine, product ).replace( "\\", "/" )
+        cuppa.progress.label_terse_action(
+                target, "build-b2", summary=summary, paths="file", shared=True,
+        )
+        terse = bool( env.get( 'terse_output' ) )
+
+        def process_line( line, _processor=process_b2_build, _env=env, _terse=terse ):
+            rendered = _processor( line )
+            if _terse:
+                if rendered:
+                    cuppa.progress.write_terse_muted_child( rendered, _env )
+                return None
+            return rendered
 
         try:
-            IncrementalSubProcess.Popen(
-                process_b2_build,
-                [ b2_build_script ],
-                cwd=build_script_path
+            if terse:
+                cuppa.progress.write_terse_launch(
+                        "build-b2",
+                        summary,
+                        env,
+                        command=command_text,
+                        target=target,
+                )
+            returncode = IncrementalSubProcess.Popen(
+                    process_line,
+                    args,
+                    cwd=build_script_path,
+                    suppress_output=terse,
             )
+            if returncode:
+                return returncode
 
             b2_exe_path = process_b2_build.exe_path()
 

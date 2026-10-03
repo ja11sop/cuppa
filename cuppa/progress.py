@@ -102,7 +102,7 @@ def write_terse_build_completion( env ):
     suffix = ""
     if _summary_enabled:
         suffix = _progress_ledger.completion_clause( outcome == "up to date" )
-    sys.stdout.write( as_colour( "success", "[done]" ) + " build " + outcome + suffix + "\n" )
+    sys.stdout.write( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
     sys.stdout.flush()
 
 
@@ -438,6 +438,7 @@ def progress_action( label, event, sconscript, variant, env ):
 
 _terse_command = threading.local()
 _terse_children = threading.local()
+_terse_launch = threading.local()
 _pending_lock = threading.Lock()
 # Commands stashed by a job thread and not yet consumed by a spawn. A Python
 # action prints before it runs and never spawns, so the next print on that
@@ -462,7 +463,7 @@ class _ProgressLedger(object):
         self._total = 0
         self._narrowed = False
         self._action_digits = 3
-        self._percent_digits = 2
+        self._percent_digits = 3
         self._up_to_date = 0
         self._nested = 0
         self._test_cases = 0
@@ -477,7 +478,7 @@ class _ProgressLedger(object):
             self._total = 0
             self._narrowed = False
             self._action_digits = 3
-            self._percent_digits = 2
+            self._percent_digits = 3
             self._up_to_date = 0
             self._nested = 0
             self._test_cases = 0
@@ -776,7 +777,11 @@ class _ProgressLedger(object):
         return max( -gap, 0 )
 
     def _prefix_widths( self, percent ):
-        """Reserve three digits and two for the percent. Grow past 999 or 99."""
+        """Reserve three digits for the tally and three for the percent.
+
+        Percent needs three from the start so ``100%`` does not nudge ``[ok]``
+        one column past earlier `` 13%`` lines. Grow past 999 actions or 100%.
+        """
         widest = 0
         for bucket in self._cells.values():
             widest = max( widest, bucket[ "total" ], bucket[ "done" ] )
@@ -1063,11 +1068,11 @@ def _colour_counts_prefix( text ):
 
 
 def terse_counts_prefix( env=None ):
-    """`` 19/182 · 10%`` for this sconscript and variant, then the whole build.
+    """`` 19/182 ·  10%`` for this sconscript and variant, then the whole build.
 
-    Counts reserve three digits and the percent two, and grow past 999 or
-    99. Empty when nothing has been registered. The fraction is not a
-    position in the sconscript list.
+    Counts reserve three digits and the percent three (so ``100%`` does not
+    shift the status column), and grow past 999. Empty when nothing has been
+    registered. The fraction is not a position in the sconscript list.
     """
     if env is None:
         return ""
@@ -1124,7 +1129,10 @@ def _iter_nodes( nodes ):
         return [ nodes ]
 
 
-def label_terse_action( nodes, action, paths=None ):
+_SHARED_ACROSS_VARIANTS = "shared_across_variants"
+
+
+def label_terse_action( nodes, action, paths=None, summary=None, shared=None ):
     """Remember ``action`` on each product node. A later status line reads it.
 
     Do not label a node that has more than one tool action. A static library is
@@ -1133,17 +1141,31 @@ def label_terse_action( nodes, action, paths=None ):
 
     ``paths="transfer"`` prints ``source → dest`` even when the action word is
     shared with a single-file action (``run`` is both a program and a redirect).
+
+    ``summary`` replaces the file cell (delegated builders: ``-B …`` instead of
+    a stamp basename such as ``cmake.build.complete``).
+
+    ``shared`` replaces the variant cell when the author knows the tool is
+    build-wide (e.g. Boost bootstrap ``b2``). ``True`` means
+    ``shared_across_variants``. Not inferred from the Depends graph.
     """
-    if not action:
+    if not action and not summary and shared is None:
         return nodes
+    if shared is True:
+        shared = _SHARED_ACROSS_VARIANTS
     for node in _iter_nodes( nodes ):
         attributes = getattr( node, "attributes", None )
         if attributes is None:
             continue
         try:
-            attributes.cuppa_terse_action = action
+            if action:
+                attributes.cuppa_terse_action = action
             if paths:
                 attributes.cuppa_terse_paths = paths
+            if summary:
+                attributes.cuppa_terse_summary = summary
+            if shared is not None:
+                attributes.cuppa_terse_shared = str( shared )
         except Exception:
             continue
     return nodes
@@ -1164,6 +1186,29 @@ def _explicit_terse_action( target ):
             return label
     return ""
 
+
+def _explicit_terse_summary( target ):
+    """Method-supplied file-cell summary, from whichever target carries it."""
+    for node in _iter_nodes( target ):
+        attributes = getattr( node, "attributes", None )
+        if attributes is None:
+            continue
+        summary = str( getattr( attributes, "cuppa_terse_summary", "" ) or "" )
+        if summary:
+            return summary
+    return ""
+
+
+def _explicit_terse_shared( target ):
+    """Author-supplied shared-build label for the variant slot, or empty."""
+    for node in _iter_nodes( target ):
+        attributes = getattr( node, "attributes", None )
+        if attributes is None:
+            continue
+        shared = str( getattr( attributes, "cuppa_terse_shared", "" ) or "" )
+        if shared:
+            return shared
+    return ""
 
 def spell_terse_action( command, target, env=None ):
     """Short action word for one tool run. Not the Cuppa method name.
@@ -1249,6 +1294,24 @@ def _coloured_variant_cell( env ):
     if cell.endswith( "_" + name ):
         return as_subdued( cell[ : -len( name ) ] ) + name
     return as_subdued( cell )
+
+
+def _coloured_shared_label( text ):
+    """``shared`` plain; a suffix such as ``_across_variants`` subdued."""
+    text = str( text or "" )
+    if not text:
+        return ""
+    if text.startswith( "shared" ) and len( text ) > len( "shared" ):
+        return "shared" + as_subdued( text[ len( "shared" ): ] )
+    return text
+
+
+def _coloured_build_cell( env, target=None ):
+    """Variant cell, or an author-supplied shared label when present on ``target``."""
+    shared = _explicit_terse_shared( target )
+    if shared:
+        return _coloured_shared_label( shared )
+    return _coloured_variant_cell( env )
 
 
 def _slash( path ):
@@ -1543,23 +1606,47 @@ def _paths_style( nodes ):
 
 _TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
 _PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
-_SOURCE_ACTIONS = ( "markdown", "asciidoc" )
+_TRANSFORM_ACTIONS = ( "markdown", "asciidoc" )
+
+
+def _is_transform_action( action ):
+    text = str( action or "" )
+    return text == "compile" or text.startswith( "compile-" ) or text in _TRANSFORM_ACTIONS
+
+
+def _transform_field( target, source, env ):
+    """``source → product`` for compile and other one-input rewrites."""
+    directory, filename = _compile_file_parts( source, env )
+    source_text = _coloured_file( directory, filename ) if filename else ""
+    dest_token, dest_path = _locate( _node_path( _first_node( target ) ), env )
+    dest_text = _coloured_transfer_end( dest_token, dest_path, dest=True )
+    if not dest_text:
+        dest_text = _coloured_file( "", _node_basename( target ) )
+    if source_text and dest_text:
+        return source_text + " " + as_subdued( "→" ) + " " + dest_text
+    return source_text or dest_text
 
 
 def _file_field( action, target, source, env ):
+    summary = _explicit_terse_summary( target )
+    if summary:
+        if _paths_style( target ) == "file":
+            shown = str( summary ).replace( "\\", "/" )
+            directory, filename = os.path.split( shown )
+            if directory in ( "", "." ):
+                directory = ""
+            return _coloured_file( directory, filename or shown )
+        return as_subdued( summary )
     if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
         return _transfer_field( target, source, env )
     if action in _PATH_ACTIONS:
         return _path_action_field( _node_path( _first_node( target ) ), env )
-    if action == "compile" or str( action ).startswith( "compile-" ) or action in _SOURCE_ACTIONS:
-        directory, filename = _compile_file_parts( source, env )
-        if filename:
-            return _coloured_file( directory, filename )
+    if _is_transform_action( action ):
+        return _transform_field( target, source, env )
     # A test's targets are the logs. The program is the source.
     if action == "test":
         return _coloured_file( "", _node_basename( source ) or _node_basename( target ) )
     return _coloured_file( "", _node_basename( target ) )
-
 
 _STATUS_WIDTH = 6
 
@@ -1589,6 +1676,10 @@ def _status_marker( status ):
     elif status == "error":
         text = "[error]"
         painted = as_colour( "error", text )
+    elif status == "done":
+        # Clean close of a delegated ``[launch]`` span. Same column width as ``[ok]``.
+        text = "[done]"
+        painted = as_colour( "success", text )
     else:
         text = "[ok]"
         painted = as_colour( "success", text )
@@ -1730,7 +1821,7 @@ def format_terse_line( status, command, target, source, env, count=True ):
     script = _sconscript_label( env )
     if script:
         fields.append( _coloured_sconscript( script ) )
-    cell = _coloured_variant_cell( env )
+    cell = _coloured_build_cell( env, target )
     if cell:
         fields.append( cell )
     action = spell_terse_action( command, target, env )
@@ -1780,6 +1871,87 @@ def take_terse_children():
     return children
 
 
+def take_terse_launch():
+    """Return and clear a delegated launch noted on this job thread.
+
+    Returns ``(emitted, command)``. ``command`` is the argv to reprint on
+    failure when the launch bookend hid it on the clean path.
+    """
+    emitted = bool( getattr( _terse_launch, "emitted", False ) )
+    command = getattr( _terse_launch, "command", None )
+    _terse_launch.emitted = False
+    _terse_launch.command = None
+    _terse_launch.target = None
+    _terse_launch.source = None
+    _terse_launch.env = None
+    return emitted, command
+
+
+def format_terse_launch( action, summary, env, target=None ):
+    """``delegate P% [launch] [sconscript ·] variant · action · summary``.
+
+    Chrome matches a progress checkpoint; fields after the badge mirror the
+    counted close line so a long muted child wall can be reattached. Not in
+    the action total. ``target`` may carry a ``shared`` label for the cell.
+    """
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    counts = _progress_ledger.checkpoint_counts( script, cell )
+    percent = "{:>{}}%".format( counts[ "percent" ], counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    parts = [
+            lead + as_subdued( "{:<{}}".format( "delegate", _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( "[launch]" ) ),
+    ]
+    fields = []
+    if script:
+        fields.append( _coloured_sconscript( script ) )
+    painted_cell = _coloured_build_cell( env, target )
+    if painted_cell:
+        fields.append( painted_cell )
+    if action:
+        fields.append( _action_label( action ) )
+    file_text = ""
+    if target is not None:
+        file_text = _file_field( action, target, None, env )
+    if not file_text and summary:
+        file_text = as_subdued( str( summary ) )
+    if file_text:
+        fields.append( file_text )
+    line = " ".join( parts )
+    if fields:
+        line += " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
+    return line
+
+
+def write_terse_launch( action, summary, env, command=None, target=None ):
+    """Print a delegated launch bookend. No effect unless ``--terse-output``."""
+    if not _env_get( env, "terse_output" ):
+        return
+    _terse_launch.emitted = True
+    if command:
+        _terse_launch.command = command
+    line = format_terse_launch( action, summary, env, target=target )
+    note_terse_build_activity()
+    sys.stdout.write( line + "\n" )
+    sys.stdout.flush()
+
+
+def format_terse_muted_child( text, env ):
+    """One foreign child line: indented ``→`` and subdued body, no Cuppa badge."""
+    body = str( text or "" ).rstrip( "\n" )
+    return _uncounted_prefix( env, as_subdued( body ) )
+
+
+def write_terse_muted_child( text, env ):
+    """Stream one muted delegated child line. No effect unless ``--terse-output``."""
+    if not _env_get( env, "terse_output" ):
+        return
+    sys.stdout.write( format_terse_muted_child( text, env ) + "\n" )
+    sys.stdout.flush()
+
+
 def _output_severity( lines ):
     """``error`` if any line is an error, else ``warn``, else ``ok``.
 
@@ -1818,10 +1990,20 @@ def _write_command( cmd ):
 
 
 def flush_unconsumed_terse_command():
-    """Reprint a command whose action did not spawn on this thread."""
-    cmd, _target, _source, _env = take_terse_command()
-    _write_command( cmd )
+    """Reprint a command whose action did not spawn on this thread.
 
+    A delegated launch bookend already announced the job, so do not dump the
+    stashed argv on the clean path. Keep the command for a later failure line.
+    """
+    cmd, target, source, env = take_terse_command()
+    if getattr( _terse_launch, "emitted", False ):
+        if cmd and not getattr( _terse_launch, "command", None ):
+            _terse_launch.command = cmd
+            _terse_launch.target = target
+            _terse_launch.source = source
+            _terse_launch.env = env
+        return
+    _write_command( cmd )
 
 def _factory_args( body ):
     """Arguments of a ``Copy("dest", "src")`` style command."""
@@ -2192,12 +2374,12 @@ class _TersePythonCallable( object ):
         if take_terse_status_emitted():
             take_terse_command()
             take_terse_children()
+            take_terse_launch()
             if not take_terse_action_accounted():
                 # Nested copies printed the lines. This action still counts.
                 _account_and_prefix( target, env, count=True, mark=False )
             return
         _report_python_action( target, source, env, failed=failed )
-
 
 def _is_python_action_dump( command ):
     """True for SCons' default ``Name([...], [...])`` description.
@@ -2216,10 +2398,12 @@ def _report_python_action( target, source, env, failed ):
 
     A warning or failure prints the tool command and its output first, then
     the status line. A child noted with ``note_terse_child`` is that tool.
-    Otherwise the SCons description is used.
+    Otherwise the SCons description is used. A delegated launch that already
+    streamed muted children only reprints argv on failure.
     """
     command, stashed_target, stashed_source, stashed_env = take_terse_command()
     children = take_terse_children()
+    launched, launch_command = take_terse_launch()
     use_target = target or stashed_target
     use_source = source or stashed_source
     use_env = env or stashed_env or {}
@@ -2233,7 +2417,9 @@ def _report_python_action( target, source, env, failed ):
             severity = "error"
         elif child_severity == "warn" and severity == "ok":
             severity = "warn"
-    spell_command = command or ""
+    if launched and severity == "ok":
+        severity = "done"
+    spell_command = command or launch_command or ""
     if children and not _explicit_terse_action( use_target ):
         spell_command = children[0][0]
     status_line = format_terse_line(
@@ -2243,8 +2429,10 @@ def _report_python_action( target, source, env, failed ):
             use_source,
             use_env,
     )
-    if severity != "ok":
-        if children:
+    if severity not in ( "ok", "done" ):
+        if launched and launch_command:
+            _write_command( launch_command )
+        elif children:
             for child_command, lines, _child_failed in children:
                 _write_command( child_command )
                 for line in lines:
@@ -2254,7 +2442,6 @@ def _report_python_action( target, source, env, failed ):
     note_terse_build_activity()
     sys.stdout.write( status_line + "\n" )
     sys.stdout.flush()
-
 
 def _wrap_action( action ):
     """Replace a ``FunctionAction`` body without changing its build signature.

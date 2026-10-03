@@ -174,7 +174,7 @@ SCSS, copy, CMake, `Run`, and the other labelled methods are SCons `FunctionActi
 | Shell command (`g++`, `ar`, `ranlib`) | Unchanged spawn path: command and captured output, then the status line |
 | Ctrl-C | One subdued `interrupted — finishing in-flight actions...` line. Tasks already running are left to finish, and those lines look the same as any other status line. No new tasks are started. When they have finished: `finished in-flight actions`, then `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. That close is printed when the job runner returns. `-Q` never writes SCons's own `scons: Build interrupted.` line, so that text is not the cue. The fraction is actions completed against the actions that were going to run. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and stops what is still running, with no closing line. The per-job `Error -2` list is dropped |
 | Before the first action | The sconstruct `begin` checkpoint: `40 sconscripts · 1 variant · 0/2244 actions`. A variant is the build cell, counted once however many sconscripts use it. There is no separate plan line |
-| Successful build | `[done] build succeeded · 820 ran · 12645 up to date · 842 test cases · 36 nested`. Zero clauses are omitted. `nested` is every uncounted `Execute` line. Test cases come from the roll-up, including cases that were not printed. A no-op build is `[done] build up to date · 13465 actions`. No whole-build timer. Nothing is added on failure or Ctrl-C |
+| Successful build | `[completed] build succeeded · 820 ran · 12645 up to date · 842 test cases · 36 nested`. Zero clauses are omitted. `nested` is every uncounted `Execute` line. Test cases come from the roll-up, including cases that were not printed. A no-op build is `[completed] build up to date · 13465 actions`. No whole-build timer. Nothing is added on failure or Ctrl-C. (Phase 1 used `[done]` here; `[done]` is now the clean close of a delegated `[launch]` — see [`terse-delegated-output.md`](terse-delegated-output.md).) |
 
 Text the action prints itself still appears as it happens. Only a child handed to `note_terse_child` is held back. `asciidoctor` does that. An unlabelled `asciidoctor` command is spelled `asciidoc`.
 
@@ -271,10 +271,10 @@ the line is printed.
 
 The opening plan (`40 sconscripts · 1 variant · 2244 actions`) folds into the sconstruct
 `begin` line. Do not print it again on its own. The sconstruct fraction is `done/total`, so
-begin and end match. `[done]` stays the closing status. It is not a checkpoint.
+begin and end match. `[completed]` stays the whole-build closing status. It is not a checkpoint.
 
 `-Q` still drops SCons banners and the old `Progress(...)` description. The checkpoint stays.
-It is part of `--terse-output`, as `[ok]`, `[done]`, and `[interrupted]` are. There is no
+It is part of `--terse-output`, as `[ok]`, `[completed]`, and `[interrupted]` are. There is no
 flag to hide it. Add one only if a real build shows the begin/end pairs are too many. Forty
 sconscripts with one variant each are about a hundred and sixty of these lines, including a
 build that is already up to date.
@@ -301,11 +301,11 @@ mode.
 The tally once queued here as a later slice is done in [#353](https://github.com/ja11sop/cuppa/pull/353)
 with `--terse-output`. It is not a follow-on.
 
-- One action is one status line that stands alone: compile, link, archive, index, a top-level copy, a test roll-up. A status line that is not in that total leads with `→`, whether or not a parent line is visible. That covers a `test-case` and a nested `copy` or `move`. The caller of the nested copy still counts as one. `[done]` is not an action and is not a status line, so it has no arrow.
+- One action is one status line that stands alone: compile, link, archive, index, a top-level copy, a test roll-up. A status line that is not in that total leads with `→`, whether or not a parent line is visible. That covers a `test-case` and a nested `copy` or `move`. The caller of the nested copy still counts as one. `[completed]` is not an action and is not a status line, so it has no arrow.
 - Several targets that share an executor count once. Archive and index are two slots, because they are two status lines.
 - The total is the actions reachable from the targets being built. Anything SCons decides is up to date is already done, not missing. A walk that finds nothing keeps the full set, so a failed lookup does not show an empty tally.
-- The prefix is ` 19/182 · 10%`. The subdued fraction is this sconscript and variant, so two scripts show different totals. The plain-coloured percent is completed actions over total actions for the whole build. Counts reserve three digits and the percent two (` 25/ 56 · 10%`); past 999 or 99 they grow. A `→` line is indented so its `[status]` stays in that column. Do not print "which script we are in". Under `-j` the numbers only increase.
-- No ETA, and no tally on `[done]`.
+- The prefix is ` 19/182 ·  10%`. The subdued fraction is this sconscript and variant, so two scripts show different totals. The plain-coloured percent is completed actions over total actions for the whole build. Counts reserve three digits and the percent three (` 25/ 56 ·  10%`) so `100%` does not shift the status column; past 999 they grow. A `→` line is indented so its `[status]` stays in that column. Do not print "which script we are in". Under `-j` the numbers only increase.
+- No ETA, and no tally on `[completed]`.
 - The ledger registers each executor when `NotifyProgress.add` records the node. Spawn exits and Python actions both move it. Up-to-date nodes are credited when SCons visits them and skips them. That visit prints nothing. Nested copies and `test-case` lines do not count.
 
 A sketch of `scripts 2/4 · variants 1/3 · actions 35/38 · overall 68%` does not survive `-j`, so it was not built. Level percentages are not multiplied. There is no `--progress-format`.

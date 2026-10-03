@@ -36,7 +36,9 @@ class CopyFilesMethod:
             # Progress comes from MethodWithProgress wrapping Install on the
             # sconscript env — do not NotifyProgress.add again here.
             copied = env.Install( destination, filtered_nodes )
-            return cuppa.progress.label_terse_action( copied, "copy" )
+            return cuppa.progress.label_terse_action(
+                    copied, "copy", paths="transfer",
+            )
         return []
 
     @classmethod

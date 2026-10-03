@@ -198,17 +198,48 @@ class BoostLibraryAction(object):
         )
 
         processor = B2OutputProcessor( env, self._verbose_build, self._verbose_config, self._toolchain )
-
-        returncode = IncrementalSubProcess.Popen(
-                processor,
-                args,
-                cwd=self._location
+        terse = bool( env.get( 'terse_output' ) )
+        command_text = " ".join( str( token ) for token in args )
+        launch_summary = self._stage_dir
+        if self._libraries:
+            launch_summary = "{} · {} {}".format(
+                    self._stage_dir,
+                    len( self._libraries ),
+                    "lib" if len( self._libraries ) == 1 else "libs",
+            )
+        cuppa.progress.label_terse_action(
+                target, "b2", summary=launch_summary,
         )
 
-        summary = processor.summary( returncode )
+        if terse:
+            cuppa.progress.write_terse_launch(
+                    "b2", launch_summary, env, command=command_text, target=target,
+            )
 
-        if summary:
-            print( summary )
+            def muted_line( line, _processor=processor, _env=env ):
+                rendered = _processor( line )
+                if rendered:
+                    cuppa.progress.write_terse_muted_child( rendered, _env )
+                return None
+
+            returncode = IncrementalSubProcess.Popen(
+                    muted_line,
+                    args,
+                    cwd=self._location,
+                    suppress_output=True,
+            )
+            tool_summary = processor.summary( returncode )
+            if tool_summary and returncode:
+                print( tool_summary )
+        else:
+            returncode = IncrementalSubProcess.Popen(
+                    processor,
+                    args,
+                    cwd=self._location
+            )
+            tool_summary = processor.summary( returncode )
+            if tool_summary:
+                print( tool_summary )
 
         if returncode:
             return returncode
@@ -389,7 +420,8 @@ class BoostLibraryBuilder(object):
 
 
         b2 = env.Command( b2_exe( self._boost.numeric_version(), self._boost.local() ), [], BuildB2( self._boost ) )
-        cuppa.progress.label_terse_action( b2, "b2" )
+        # Bootstrap is once per extract, not per build cell — author override.
+        cuppa.progress.label_terse_action( b2, "build-b2", shared=True )
         env.NoClean( b2 )
 
         if built_libraries:
@@ -400,8 +432,12 @@ class BoostLibraryBuilder(object):
 
                 toolset_target = os.path.join( self._boost.local(), env['toolchain'].name() + "._jam" )
                 toolset_config_jam = env.Command( toolset_target, [], WriteToolsetConfigJam() )
-                cuppa.progress.label_terse_action( toolset_config_jam, "boost-toolset" )
+                # One jam per toolchain extract; dbg/rel share it.
+                cuppa.progress.label_terse_action(
+                        toolset_config_jam, "boost-toolset", shared=True,
+                )
                 env.Requires( built_libraries, toolset_config_jam )
+                env.Requires( toolset_config_jam, b2 )
 
         install_dir = linktype == 'shared' and env['abs_final_dir'] or env['abs_build_dir']
 

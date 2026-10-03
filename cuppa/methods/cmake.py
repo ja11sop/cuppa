@@ -25,6 +25,7 @@ from cuppa.buildsys.cmake import (
         cmake_build_command,
         cmake_build_jobs,
         cmake_configure_command,
+        resolve_cmake_generator,
 )
 from cuppa.package_managers.package_amend import (
         amend_package_manifest_enabled,
@@ -51,9 +52,38 @@ def cmake_build_tree_path( working_dir, build_dir ):
     return os.path.join( _node_abspath( working_dir ), build_dir )
 
 
-def _command_nodes( env, target, source, command, working_dir, clean_paths=None, terse_action=None ):
-    nodes = env.Command( target, source, run( command, working_dir=working_dir ) )
-    cuppa.progress.label_terse_action( nodes, terse_action )
+def _terse_summary_parts( *parts ):
+    """Join non-empty summary tokens with spaces for a delegated file cell.
+
+    These are argv-like fragments (``-B …``, ``-G Ninja``), not Cuppa status
+    fields. Spaces keep them pasteable; middots stay between sconscript /
+    variant / action / file on the status line.
+    """
+    return " ".join( str( part ) for part in parts if part )
+
+def _command_nodes(
+        env,
+        target,
+        source,
+        command,
+        working_dir,
+        clean_paths=None,
+        terse_action=None,
+        terse_summary=None,
+):
+    nodes = env.Command(
+            target,
+            source,
+            run(
+                    command,
+                    working_dir=working_dir,
+                    terse_summary=terse_summary,
+                    terse_action=terse_action,
+            ),
+    )
+    cuppa.progress.label_terse_action(
+            nodes, terse_action, summary=terse_summary,
+    )
     if clean_paths:
         for path in clean_paths:
             if path:
@@ -105,6 +135,12 @@ class CMakeConfigureMethod(object):
                 include_build_type=include_build_type,
                 include_cxx_compiler=include_cxx_compiler,
         )
+        summary_parts = []
+        if build_dir:
+            summary_parts.append( '-B {}'.format( build_dir ) )
+        resolved_generator = resolve_cmake_generator( generator )
+        if resolved_generator:
+            summary_parts.append( '-G {}'.format( resolved_generator ) )
         return _command_nodes(
                 env,
                 target,
@@ -113,6 +149,7 @@ class CMakeConfigureMethod(object):
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
                 terse_action='cmake-configure',
+                terse_summary=_terse_summary_parts( *summary_parts ) or None,
         )
 
     @classmethod
@@ -150,6 +187,9 @@ class CMakeBuildMethod(object):
                 jobs=resolved_jobs,
                 cmake=cmake,
         )
+        summary_parts = [ '-B {}'.format( build_dir ) ]
+        if resolved_jobs is not None:
+            summary_parts.append( '--parallel {}'.format( resolved_jobs ) )
         return _command_nodes(
                 env,
                 target,
@@ -158,6 +198,7 @@ class CMakeBuildMethod(object):
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
                 terse_action='cmake-build',
+                terse_summary=_terse_summary_parts( *summary_parts ),
         )
 
     @classmethod
@@ -196,6 +237,9 @@ class CMakeInstallMethod(object):
                 target=cmake_target,
                 cmake=cmake,
         )
+        summary_parts = [ '--target {}'.format( cmake_target ) ]
+        if build_dir:
+            summary_parts.insert( 0, '-B {}'.format( build_dir ) )
         return _command_nodes(
                 env,
                 target,
@@ -204,8 +248,8 @@ class CMakeInstallMethod(object):
                 working_dir,
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
                 terse_action='cmake-install',
+                terse_summary=_terse_summary_parts( *summary_parts ),
         )
-
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( 'CMakeInstall', cls() )

@@ -76,22 +76,58 @@ A line is `[ok]`, `[warn]`, or `[error]`, then the sconscript, the build cell
 tools, so `gcc-ranlib-16` is `index`. A method may name its own action. Anything else is
 `run`. A known SCons builder is named from its command: `tar`, `zip`, `text` (`Textfile`
 and `Substfile`), `jar`, `javac`, `m4`, `lex`, `yacc`, `swig`, `rpcgen`, `rpm`, and the
-TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from the path. A
-compile shows the source in the project tree, not the variant working copy, with the
-directory subdued and the filename info and bold. `markdown` and `asciidoc` do the same.
-A source outside the project is shown from `~` when it lives under the home directory,
-otherwise as an absolute path. `copy`, `expand`, `render`, and a run that writes a file
-show `source → dest`. The source is subdued, the destination directory is subdued, and
-the destination filename is info and bold. `<working>/` and `<final>/` are this
-variant's build locations. `<artifacts>/` is this variant's artefact location, either
-its flat folder or a report directory that contains this variant and sconscript. Any
-other path under the artefacts root is written as itself. Link, archive, and a program
-run show the product name. The sconscript leaf is info-coloured and any leading path is
-subdued. The action is bold in the plain ink. On a dark console that is bold white, so it does not turn info-blue or compete with the filename. In the build cell only the variant name (`dbg`, `rel`,
-`cov`) is plain. Status tokens share a six-column field, so `[ok]` lines up with
-`[pass]` and `[warn]`. `[error]`, `[xfail]`, and `[xpass]` run one column past it.
+TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from the path. The **file** cell follows the action class:
+
+* **Transform** (`compile`, `compile-*`, `markdown`, `asciidoc`): `source → product`.
+  The source is the project-tree path (or `~/...` under the home directory), not the
+  variant working copy. The product uses `<working>/` when it lives in that cell.
+* **Transfer** (`copy`, `move`, `expand`, `render`, and a run that writes a file):
+  `source → dest`. Staging a `.a` with `cp` is `copy`, never `archive`.
+* **Aggregate** (`link`, `link-shared`, `archive`, `package`, …): the product basename.
+* **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `b2`): a short
+  summary such as `-B _build/…`, not a stamp name like `cmake.build.complete`.
+
+Colour for both ends of an arrow matches transfer colouring: directories subdued,
+filenames info and bold, `→` subdued. `<working>/` and `<final>/` are this variant's
+build locations. `<artifacts>/` is this variant's artefact location, either its flat
+folder or a report directory that contains this variant and sconscript. Any other path
+under the artefacts root is written as itself. The sconscript leaf is info-coloured and
+any leading path is subdued. The action is bold in the plain ink. On a dark console that
+is bold white, so it does not turn info-blue or compete with the filename. In the build
+cell only the variant name (`dbg`, `rel`, `cov`) is plain. Status tokens share a
+six-column field, so `[ok]` lines up with `[pass]` and `[warn]`. `[error]`, `[xfail]`,
+and `[xpass]` run one column past it.
 `--terse-output-show-actions` appends the raw SCons action, subdued, after the status
 line. It is off unless you are checking a name, and it requires `--terse-output`.
+
+==== Delegated builders
+
+A long foreign graph (CMake/Ninja, Boost `b2`) is announced before its child lines:
+
+[source]
+----
+delegate     0% [launch] gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x --parallel 1
+             → [1/75] Building CXX object …
+   2/  8 ·  25% [done]  gcc16_dbg_x86_64_cxx2c · cmake-build · -B _build/x --parallel 1
+----
+
+`delegate` is the scope word (a handoff, not a sconstruct/variant checkpoint).
+`[launch]` marks the commence. Fields after the badge mirror the counted close line
+(`sconscript · variant · action · summary` when sconscript is present) so a long muted
+wall can be reattached under `--parallel`. A clean close uses `[done]` (complement of
+`[launch]`); ordinary unit actions still use `[ok]`. `[warn]` / `[error]` are unchanged.
+Child lines use the same `→` indent as nested `Execute` / `test-case`, with subdued
+text and no Cuppa status badge. The full argv stays hidden on a clean run and is
+reprinted on failure. Prefer `env.Install` / `CopyFiles` / labelled `Command` for
+staging copies so they stay ordinary `copy` transfers, not a delegated launch.
+
+A tool that is built once for every variant (Boost bootstrap `build-b2`, the
+toolchain `.jam`) may label itself `shared_across_variants` instead of the
+triggering build cell. That is an author override on the node
+(`label_terse_action(..., shared=True)`), not something Cuppa infers from
+`Depends`. `shared` is plain; `_across_variants` is subdued. Bootstrap's file
+cell is the engine binary (`tools/build/src/engine/b2`); copying that binary
+to the extract root stays inside the same action.
 
 A method names its own action. A compiler command is spelled from the tool, not from a
 method label. Anything still unnamed is `run`.
@@ -127,7 +163,8 @@ method label. Anything still unnamed is `run`.
 | package amend (`--amend-package-manifest`) | `amend`
 | `Build`, `Compile`, link | `compile`, `link`, `link-shared`
 | static library | `archive`, then `index`
-| Boost `b2` | `b2`
+| Boost bootstrap (`BuildB2`) | `build-b2`
+| Boost `b2` library build | `b2`
 | Boost toolset config | `boost-toolset`
 | `PublishPackage` archive | `package`
 | `PublishPackage` upload | `publish`
@@ -154,9 +191,10 @@ A status line that is not in the action total starts with `→`. That includes a
 and a nested copy or move.
 
 The sconstruct `begin` checkpoint carries the sconscript, variant, and action totals.
-`[done]` then reports how many ran, how many were already up to date, the test
+`[completed]` then reports how many ran, how many were already up to date, the test
 cases, and how many nested calls ran. It does not repeat the running tally. A no-op
-build is `[done] build up to date`.
+build is `[completed] build up to date`. A clean delegated close uses `[done]` instead
+of `[ok]`; see <<_delegated_builders>>.
 
 ==== The running tally
 
@@ -164,7 +202,8 @@ An action line leads with this sconscript and variant's tally and the percent of
 whole build, ` 19/182 · 10%`. The subdued fraction is that one cell, so another
 sconscript has its own total. The percent is plain-coloured. It is how many of this
 run's actions have been accounted for, out of the actions that are going to run. Counts
-reserve three digits and the percent two, and grow past 999 or 99. A `→` line is
+reserve three digits and the percent three (so `100%` does not shift the status
+column), and grow past 999. A `→` line is
 indented so `[status]` stays in the same column. Actions SCons finds up to date are
 included in both numbers. They are counted when SCons visits them, and that visit does
 not print a line.

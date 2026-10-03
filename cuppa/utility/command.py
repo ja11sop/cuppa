@@ -42,28 +42,59 @@ def _resolve_executable( args_list, working_dir ):
 
 class run:
 
-    def __init__( self, command, working_dir=None, completion_file=None ):
+    def __init__(
+            self,
+            command,
+            working_dir=None,
+            completion_file=None,
+            terse_summary=None,
+            terse_action=None,
+    ):
 
         from SCons.Node import Node
 
         self._command = command
         self._working_dir = isinstance( working_dir, Node ) and working_dir.abspath or working_dir
         self._completion_file = completion_file
+        self._terse_summary = terse_summary
+        self._terse_action = terse_action
 
 
     def __call__( self, target, source, env ):
 
         from SCons.Script import Touch
+        import cuppa.progress as progress
 
         captured_lines = []
+        terse = bool( env.get( 'terse_output' ) )
+        # Launch bookend + muted children only when the caller opts in (CMake,
+        # b2, …). A plain ``run("cp …")`` stays on the ordinary Python-action
+        # path so staging copies are not announced as delegated builds.
+        delegated = terse and (
+                self._terse_summary is not None or self._terse_action is not None
+        )
+        if delegated:
+            action = self._terse_action or progress.spell_terse_action(
+                    self._command, target, env,
+            )
+            summary = self._terse_summary if self._terse_summary is not None else self._command
+            progress.write_terse_launch(
+                    action, summary, env, command=self._command, target=target,
+            )
 
         def process_stdout( line ):
             captured_lines.append( line )
-            sys.stdout.write( line + '\n' )
+            if delegated:
+                progress.write_terse_muted_child( line, env )
+            else:
+                sys.stdout.write( line + '\n' )
 
         def process_stderr( line ):
             captured_lines.append( line )
-            sys.stderr.write( line + '\n' )
+            if delegated:
+                progress.write_terse_muted_child( line, env )
+            else:
+                sys.stderr.write( line + '\n' )
 
         def log_failure_detail():
             detail = select_failure_detail_lines( captured_lines )
@@ -91,6 +122,9 @@ class run:
                     args_list,
                     cwd=self._working_dir,
                     scons_env=env,
+                    # Popen2 reprints argv unless suppressed; under terse the
+                    # launch bookend or the counted status line owns that role.
+                    suppress_output=terse,
             )
             if return_code < 0:
                 logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( self._command ), as_error( str(-return_code) ) ) )

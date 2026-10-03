@@ -153,6 +153,11 @@ def spell_tool_command( command, target ):
         return ""
     if tool in ( "asciidoctor", "asciidoctor-pdf" ):
         return "asciidoc"
+    # Transfers before archive-suffix: ``cp … libfoo.a`` is a copy, not archive.
+    if tool in ( "cp", "copy", "install", "install.exe" ):
+        return "copy"
+    if tool in ( "mv", "move" ):
+        return "move"
     # Versioned indexers (``gcc-ranlib-16``) must win over the ``.a`` suffix.
     if "ranlib" in tool:
         return "index"
