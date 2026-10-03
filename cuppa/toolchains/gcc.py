@@ -312,6 +312,11 @@ class Gcc(object):
         return "gcc"
 
 
+    def native_output_flags( self, env ):
+        """Flags that turn on GCC's own diagnostic colour for piped spawn."""
+        return [ '-fdiagnostics-color=always' ]
+
+
     def describe( self ):
         from cuppa.toolchains.describe import describe_toolchain
         return describe_toolchain( self )

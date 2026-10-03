@@ -13,7 +13,8 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--raw-output` | Disable Cuppa colour and do not install the spawn processor
 | `--scons-output` | Do not install the spawn processor; keep Cuppa colour on logs and reports
 | `--standard-output` | Keep Cuppa processing but disable colour
-| `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`
+| `--minimal-output` | Reduce processed output to errors and warnings. Refused with `--raw-output` or `--scons-output`. Ignored with a warning when `--native-output` is set
+| `--native-output` | Pass toolchain diagnostic lines through with the tool's own colour. Not a third transcript: works with `--normal-output` or `--terse-output`. Adds toolchain colour flags (GCC `-fdiagnostics-color=always`, Clang `-fcolor-diagnostics`, MSVC `/diagnostics:caret`) and skips Cuppa re-colouring. Cuppa still counts errors and warnings for terse status. Refused with `--raw-output` or `--scons-output`
 | `--normal-output` | The normal transcript: each command, with Cuppa's processed tool output. Overrides a terse choice saved in a configuration file. Do not combine with `--terse-output`
 | `--terse-output` | One `[ok]`, `[warn]`, or `[error]` line per tool run (`sconscript · variant · action file`). The command is reprinted only on warning or failure. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q`. Refused with `--raw-output` or `--scons-output`. Do not combine with `--normal-output`
 | `--terse-output-show-actions` | With `--terse-output`, print the raw SCons action after each status line. For checking the action names. Requires `--terse-output`
@@ -31,6 +32,17 @@ output. These options let you change one layer without accidentally hiding anoth
 leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode` are console
 reports, not info logs, so they stay. `--verbosity=LEVEL` overrides the level `-Q` or `-s` would
 set. `--minimal-output` filters Cuppa's processed build messages and needs that processor, so it cannot be combined with `--raw-output` or `--scons-output`.
+
+=== Native toolchain output
+
+`--native-output` is a **modifier**, not a third transcript. It chooses how spawned compile and
+link diagnostics are drawn under the normal or terse transcript: the toolchain's own lines pass
+through (including ANSI colour when the tool emits it), and Cuppa still counts them for
+`[warn]` / `[error]` and terse tallies. It does not restyle Cuppa console reports or mute
+delegated CMake/Ninja child lines under `--terse-output` (those are already passthrough text).
+Prefer it over `--raw-output` when you want native diagnostics but still need Cuppa progress
+and status lines. Combining it with `--minimal-output` keeps `--native-output` and ignores
+`--minimal-output` with a one-time warning, because passthrough has no Cuppa classifier filter.
 
 === Terse output
 

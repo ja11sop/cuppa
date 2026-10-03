@@ -419,6 +419,11 @@ class Cl(object):
         return "cl"
 
 
+    def native_output_flags( self, env ):
+        """Flags that improve MSVC diagnostic layout (colour is console-owned)."""
+        return [ '/diagnostics:caret' ]
+
+
     def describe( self ):
         from cuppa.toolchains.describe import describe_toolchain
         return describe_toolchain( self )

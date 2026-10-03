@@ -1,8 +1,8 @@
 # Plan: native coloured toolchain output (`--native-output`)
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); issue to file when work starts
-- **Updated:** 2026-08-11
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md) (done on master [#353](https://github.com/ja11sop/cuppa/pull/353)); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Updated:** 2026-10-03
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Why
@@ -96,12 +96,12 @@ output, classification may be unavailable. Options (pick one in implementation P
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| A | Design + issue | This document; file umbrella issue |
-| B | `--native-output` flag + env key | `core/output_options.py` owns registration, precedence, and validation |
-| C | Toolchain `native_output_flags` | GCC/Clang/MSVC initial mapping |
-| D | Passthrough spawn branch | `output_processor.py`; tests with fake toolchain lines |
-| E | Docs + CLI reference | Interactions with other output flags |
-| F | Integration smoke | Build with `--native-output` on gcc and clang cells |
+| A | Design + issue | This document (no separate issue required) |
+| B | `--native-output` flag + env key | Done — `core/output_options.py`; refuse raw/scons; ignore minimal with warn |
+| C | Toolchain `native_output_flags` | Done — GCC/Clang/MSVC initial mapping |
+| D | Passthrough spawn branch | Done — `ToolchainProcessor(native_output=…)`; unit tests |
+| E | Docs + CLI reference | Done — Antora + changelog |
+| F | Integration smoke | Optional soak on gcc/clang cells before merge |
 
 ## Refusal rules
 
@@ -112,7 +112,7 @@ output, classification may be unavailable. Options (pick one in implementation P
 | Re-parse native ANSI into cuppa meanings | Refuse; passthrough or nothing |
 | `--native-output` on `--raw-output` | Refuse or no-op with clear message |
 
-## 1.8.0 candidacy
+## 1.12.0 candidacy
 
 | Factor | Assessment |
 |--------|------------|
@@ -121,7 +121,7 @@ output, classification may be unavailable. Options (pick one in implementation P
 | Size | Small–medium (one flag + toolchain hooks + spawn branch) |
 | Docs | Small CLI + methods note |
 
-**Suggested:** strong **1.8.0** candidate as slice B–E; pair with [`terse-build-output.md`](terse-build-output.md) only if progress work lands in the same cycle (orthogonal but same console area).
+**Suggested:** optional **1.12.0** slice after terse (#353). Orthogonal to the transcript choice.
 
 ## Related follow-on (separate)
 

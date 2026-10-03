@@ -121,3 +121,36 @@ def test_terse_and_minimal_together_keep_the_processor():
     assert env["terse_output"] is True
     assert env["minimal_output"] is True
     assert output_options.skips_spawn_processor(env) is False
+
+
+def test_native_output_keeps_the_processor_and_colour():
+    env = _ColourEnv(native_output=True)
+    output_options.process_output_options(env)
+    assert env["native_output"] is True
+    assert env.colour_enabled is True
+    assert output_options.skips_spawn_processor(env) is False
+
+
+def test_native_output_refuses_scons_or_raw_spawn_skip():
+    for flags in ( {"native_output": True, "scons_output": True},
+                   {"native_output": True, "raw_output": True} ):
+        env = _ColourEnv(**flags)
+        with pytest.raises(SCons.Errors.StopError) as caught:
+            output_options.process_output_options(env)
+        assert "--native-output" in str(caught.value)
+
+
+def test_native_output_ignores_minimal_with_a_warning(caplog):
+    env = _ColourEnv(native_output=True, minimal_output=True)
+    output_options.process_output_options(env)
+    assert env["native_output"] is True
+    assert env["minimal_output"] is False
+    assert "--minimal-output is ignored with --native-output" in caplog.text
+
+
+def test_native_and_terse_together_keep_the_processor():
+    env = _ColourEnv(native_output=True, terse_output=True)
+    output_options.process_output_options(env)
+    assert env["native_output"] is True
+    assert env["terse_output"] is True
+    assert output_options.skips_spawn_processor(env) is False

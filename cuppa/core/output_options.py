@@ -14,7 +14,7 @@ reconstruct that matrix.
 import SCons.Errors
 
 import cuppa.core.options
-from cuppa.log import reset_logging_format
+from cuppa.log import logger, reset_logging_format
 
 
 def add_output_options( add_option ):
@@ -33,7 +33,14 @@ def add_output_options( add_option ):
 
     add_option( '--minimal-output', dest='minimal_output', action='store_true',
                             help="Show only errors and warnings in the output. Requires Cuppa's "
-                                 "spawn processor; refused with --raw-output or --scons-output" )
+                                 "spawn processor; refused with --raw-output or --scons-output. "
+                                 "Ignored with a warning when --native-output is set" )
+
+    add_option( '--native-output', dest='native_output', action='store_true',
+                            help="Pass toolchain diagnostic lines through with the tool's own "
+                                 "colour. Not a third transcript: works with --normal-output or "
+                                 "--terse-output. Enables toolchain colour flags and skips Cuppa "
+                                 "re-colouring. Refused with --raw-output or --scons-output" )
 
     add_option( '--normal-output', dest='normal_output', action='store_true',
                             help="Print the normal transcript. Overrides --terse-output, including "
@@ -87,6 +94,7 @@ def process_output_options( env ):
     env['scons_output']    = bool( env.get_option( 'scons_output' ) )
     env['standard_output'] = bool( env.get_option( 'standard_output' ) )
     env['minimal_output']  = bool( env.get_option( 'minimal_output' ) )
+    env['native_output']   = bool( env.get_option( 'native_output' ) )
     env['ignore_duplicates'] = bool( env.get_option( 'ignore_duplicates' ) )
     env['show_test_output'] = bool( env.get_option( 'show-test-output' ) )
     env['suppress_process_output'] = bool(
@@ -113,11 +121,21 @@ def process_output_options( env ):
             "--terse-output-show-actions requires --terse-output",
     )
 
+    # Native passthrough cannot classify lines the way --minimal-output needs.
+    if env['native_output'] and env['minimal_output']:
+        logger.warn(
+                "--minimal-output is ignored with --native-output "
+                "(passthrough has no Cuppa error/warning filter)"
+        )
+        env['minimal_output'] = False
+
     processor_flags = []
     if env['minimal_output']:
         processor_flags.append( '--minimal-output' )
     if env['terse_output']:
         processor_flags.append( '--terse-output' )
+    if env['native_output']:
+        processor_flags.append( '--native-output' )
     if processor_flags and skips_spawn_processor( env ):
         blockers = []
         if env['raw_output']:

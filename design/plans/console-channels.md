@@ -41,7 +41,7 @@ colour, or who launches the child. They do not restyle console reports.
 | `--standard-output` | on | off | today |
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
 | `--terse-output` | on; success folded to one line | on | Done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
-| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | planned modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
+| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | In progress on `feature/native-output`. Modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
 | `--scons-output` | **off** | unchanged | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |
 

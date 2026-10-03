@@ -354,11 +354,16 @@ class SpawnedProcessor(object):
         from cuppa.cpp.cxx_profiles_report import profiles_scope_from_construction_env
 
         self._profiles_scope = profiles_scope_from_construction_env( scons_env )
+        native = bool( scons_env.get( 'native_output' ) )
+        # --minimal-output is cleared when --native-output is set; keep a guard.
+        minimal = False if native else scons_env['minimal_output']
         self._processor = ToolchainProcessor(
                 scons_env['toolchain'],
-                scons_env['minimal_output'],
+                minimal,
                 scons_env['ignore_duplicates'],
-                self._profiles_scope )
+                self._profiles_scope,
+                native_output=native,
+        )
         self._terse = bool( scons_env.get( 'terse_output' ) )
         self._buffered = []
 
@@ -403,11 +408,19 @@ class SpawnedProcessor(object):
 
 class ToolchainProcessor:
 
-    def __init__( self, toolchain, minimal_output, ignore_duplicates, profiles_scope=None ):
+    def __init__(
+            self,
+            toolchain,
+            minimal_output,
+            ignore_duplicates,
+            profiles_scope=None,
+            native_output=False,
+    ):
         self.toolchain              = toolchain
         self.minimal_output         = minimal_output
         self.ignore_duplicates      = ignore_duplicates
         self._profiles_scope        = profiles_scope
+        self.native_output          = bool( native_output )
         self.errors                 = 0
         self.warnings               = 0
         self.start_time             = time.time()
@@ -467,12 +480,7 @@ class ToolchainProcessor:
         ( matches, interpretor, error_id, warning_id ) = self.interpret( line )
 
         if matches:
-            highlights  = interpretor['highlight']
-            display     = interpretor['display']
-            meaning     = interpretor['meaning']
-            file        = interpretor['file']
-            message     = ''
-            colour_meaning = meaning
+            meaning = interpretor['meaning']
             profile_inventory_error = (
                 inventory_mode
                 and meaning == 'error'
@@ -489,6 +497,17 @@ class ToolchainProcessor:
                 else:
                     ProfilesDiagnosticCollector.record_non_profile_error()
                     self._non_profile_errors_tallied += 1
+
+            if self.native_output:
+                # Count via interpretors; emit the toolchain's own line unchanged.
+                # ``print`` adds the newline (coloured path embeds ``\\n`` for banners).
+                return self.filtered_line( line, meaning )
+
+            highlights  = interpretor['highlight']
+            display     = interpretor['display']
+            file        = interpretor['file']
+            message     = ''
+            colour_meaning = meaning
 
             if profile_inventory_error:
                 colour_meaning = 'warning'
@@ -534,6 +553,8 @@ class ToolchainProcessor:
             return message
         if inventory_mode and profile_diagnostic:
             self._profile_violation_lines_seen = True
+            if self.native_output:
+                return self.filtered_line( line, 'warning' )
             coloured = as_colour( 'warning', line ) + "\n"
             return self.filtered_line( coloured, 'warning' )
         return self.filtered_line( line )
