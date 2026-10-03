@@ -126,7 +126,14 @@ def display_path( path ):
 
 
 def _console_encoding( encoding=None ):
+    """The encoding of the console a person is reading, not the pipe.
+
+    The SCons child is asked for UTF-8 so a terse middle dot survives the
+    pipe. ``CUPPA_CONSOLE_ENCODING`` is the wrapper's console, so a cp1252
+    window still gets ASCII trees instead of glyphs it cannot print.
+    """
     return ( encoding
+             or os.environ.get( 'CUPPA_CONSOLE_ENCODING' )
              or getattr( sys.stdout, 'encoding', None )
              or locale.getpreferredencoding()
              or 'ascii' )

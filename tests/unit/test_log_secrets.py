@@ -1,4 +1,5 @@
 import io
+import sys
 
 import pytest
 
@@ -87,6 +88,7 @@ def test_run_scons_appends_cuppa_mode_and_masks_stdout( monkeypatch, capsys ):
     assert captured['args'][0] == "scons"
     assert captured['args'][-1] == "--cuppa-mode"
     assert captured['env']['PYTHONIOENCODING'] == "utf-8"
+    assert captured['env'].get( 'CUPPA_CONSOLE_ENCODING' ) == sys.stdout.encoding
     assert captured['args'][1:-1] == [ "-D", "--dbg" ]
     printed = capsys.readouterr().out
     assert "s3cret-value" not in printed
@@ -110,3 +112,38 @@ def test_a_legacy_pipe_byte_does_not_drop_the_terse_status( monkeypatch, capsys 
     printed = capsys.readouterr().out
     assert "[ok]" in printed
     assert "hello.cpp" in printed
+
+
+class _Cp1252Stdout( object ):
+
+    encoding = "cp1252"
+
+    def __init__( self ):
+        self.parts = []
+
+    def write( self, text ):
+        text.encode( "cp1252" )
+        self.parts.append( text )
+
+    def flush( self ):
+        return None
+
+
+def test_a_glyph_the_console_cannot_encode_does_not_stop_the_transcript( monkeypatch ):
+    """Box drawing on a cp1252 console must not kill SCons or drop the heading."""
+    out = _Cp1252Stdout()
+    monkeypatch.setattr( "cuppa.__main__.sys.stdout", out )
+    process = _FakeProcess( "" )
+    process.stdout = _PipeBytes( "  \u251c\u2500\u2500 BY TOOLCHAIN VARIANT\n".encode( "utf-8" ) )
+
+    def fake_popen( args, **kwargs ):
+        return process
+
+    monkeypatch.setattr( "cuppa.__main__.subprocess.Popen", fake_popen )
+    monkeypatch.setattr( "cuppa.__main__.inject_inventory_ignore_errors", lambda args: args )
+
+    assert run_scons( [] ) == 0
+    assert process.killed is False
+    printed = "".join( out.parts )
+    assert "BY TOOLCHAIN VARIANT" in printed
+    assert "\u251c" not in printed

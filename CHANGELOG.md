@@ -66,7 +66,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a module map is ``module-map``, a package amend is ``amend``, Boost's
   ``b2`` build is ``b2``, and its toolset file is ``boost-toolset``.
   ``--terse-output-show-actions`` prints the raw action after the status
-  line. Before the first
+  line. On Windows the SCons child still speaks UTF-8, and a glyph the
+  console cannot encode is replaced instead of ending the transcript.
+  Before the first
   begin line, actions SCons already considers up to date are counted, so
   the percent includes them. The opening totals are the sconstruct
   ``begin`` line, not a line of their own. ``-Q`` still

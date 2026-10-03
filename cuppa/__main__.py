@@ -30,10 +30,8 @@ class LineConsumer(object):
             if line:
                 if self.processor:
                     line = self.processor( line )
-                    if line:
-                        sys.stdout.write( line )
-                else:
-                    sys.stdout.write( line )
+                if line:
+                    _write_transcript( line )
 
 
 class MaskSecrets(object):
@@ -53,6 +51,25 @@ class MaskSecrets(object):
         for secret, mask in six.iteritems(self.secrets):
             message = message.replace( secret, mask )
         return message
+
+
+def _write_transcript( line ):
+    """Copy one child line to this process.
+
+    The child speaks UTF-8. This console may still be cp1252. A glyph it
+    cannot encode must not end the transcript or kill the build.
+    """
+    try:
+        sys.stdout.write( line )
+        return
+    except UnicodeEncodeError:
+        pass
+    encoding = getattr( sys.stdout, "encoding", None ) or "ascii"
+    try:
+        safe = line.encode( encoding, errors="replace" ).decode( encoding, errors="replace" )
+    except LookupError:
+        safe = line.encode( "ascii", errors="replace" ).decode( "ascii" )
+    sys.stdout.write( safe )
 
 
 def _decode_child_line( line ):
@@ -129,6 +146,12 @@ def run_scons( args_list ):
         # cp1252, and the reader, which expects UTF-8, would stop there.
         propagated_env = os.environ.copy()
         propagated_env["PYTHONIOENCODING"] = "utf-8"
+        # Glyphs follow the console the wrapper is writing to. The child's
+        # own stdout is the UTF-8 pipe, which would otherwise look capable
+        # of box drawing that this console cannot print.
+        console_encoding = getattr( sys.stdout, "encoding", None )
+        if console_encoding:
+            propagated_env["CUPPA_CONSOLE_ENCODING"] = console_encoding
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,
