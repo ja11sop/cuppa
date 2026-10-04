@@ -40,8 +40,8 @@ colour, or who launches the child. They do not restyle console reports.
 | default / `--normal-output` | on, interpreted | on | today. `--normal-output` is how a command line beats a saved `--terse-output` |
 | `--standard-output` | on | off | today |
 | `--minimal-output` | on, errors and warnings only | on | today; needs the interpreter |
-| `--terse-output` | on; success folded to one line | on | **This pull request.** Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
-| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | planned modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
+| `--terse-output` | on; success folded to one line | on | Done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Build/test/coverage transcript only. `[progress]` checkpoints replace `Progress(...)` and stay under `-Q` |
+| `--native-output` | on; diagnostic body passes through | toolchain's own colour on that body | In progress on `feature/native-output`. Modifier, not a transcript. On a warning or failure, in normal or terse, show the toolchain's own lines and still count them |
 | `--scons-output` | **off** | unchanged | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
 | `--raw-output` | off | off | today. Implies the spawn half of `--scons-output` |
 
@@ -71,8 +71,8 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 
 1. **Mode banners** — done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)). Smallest change that makes the report channel real, and the `-Q` soak bug.
 2. **`--scons-output`** — done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). Split it out of `--raw-output` so the matrix exists in code before terse and native land.
-3. **Terse Phase 1** — this pull request. Transcript only, citing this matrix.
-4. **Native output** — optional, same family, after the matrix is in code.
+3. **Terse** — done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Transcript only, citing this matrix.
+4. **Native output** — optional next; same family, after the matrix is in code.
 5. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
 
 Stream split waits until someone measures where lines go today. It is not a starter.

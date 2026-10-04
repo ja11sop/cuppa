@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
+  the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
+  ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal
+  or terse transcript, not a third mode. Cuppa still classifies lines (stripping
+  ANSI for matching), prints ``= Error N =`` / ``= Warning N =`` banners, and
+  the ``=== Errors N ===`` summary. ``--minimal-output`` is ignored with a
+  warning. Refused with ``--raw-output`` or ``--scons-output``.
 - ``cuppa --terse-output``: one status line per tool run,
   ``[ok|warn|error] sconscript · variant · action file``. A compile names the
   source in the project tree, or ``~/...`` when the file lives under the home
