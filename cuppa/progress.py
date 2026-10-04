@@ -1182,16 +1182,29 @@ def label_terse_action( nodes, action, paths=None, summary=None, shared=None ):
     return nodes
 
 
-def label_terse_location( env, name, path, scope="sconscript", build_folder=None ):
+def location_source_kind( location ):
+    """``archive`` or ``repository`` from a resolved ``Location``."""
+    kind_fn = getattr( location, "source_kind", None )
+    if callable( kind_fn ):
+        kind = str( kind_fn() or "" ).strip()
+        if kind:
+            return kind
+    return "repository"
+
+
+def label_terse_location( env, name, path, scope="sconscript", build_folder=None, kind="" ):
     """Register a named root for terse file cells and begin-line maps.
 
     Built-in tokens (``working``, ``final``, ``artefacts``, ``variant``) come
     from the env on variant begin. Authors and Cuppa add extras such as
     ``fmt`` or ``boost``. ``scope`` is ``sconstruct``, ``sconscript``, or
     ``variant``. Sconstruct-scoped maps print under ``[progress] · read``,
-    not on sconstruct begin. ``build_folder`` is the first segment under
-    ``abs_build_root`` for this tree (usually ``Location.local_folder()``).
-    Not inferred from ``_download`` folder names.
+    not on sconstruct begin. ``<packages>`` is variant-scoped: the extract
+    dir follows the package tool variant. ``build_folder`` is the first
+    segment under ``abs_build_root`` for this tree (usually
+    ``Location.local_folder()``). ``kind`` is ``root``, ``repository``,
+    ``archive``, or ``package`` on read-phase maps. Not inferred from
+    ``_download`` folder names.
     """
     token = str( name or "" ).strip().strip( "<>" )
     if not token or not path:
@@ -1203,7 +1216,8 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
     script = "" if scope == "sconstruct" else _sconscript_label( env )
     cell = _variant_cell( env ) if scope == "variant" else ""
     folder = str( build_folder or "" ).replace( "\\", "/" ).strip( "/" )
-    entry = ( scope, script, cell, token, abs_path, folder )
+    kind = str( kind or "" ).strip()
+    entry = ( scope, script, cell, token, abs_path, folder, kind )
     with _terse_locations_lock:
         kept = [
                 item for item in _terse_locations
@@ -1216,9 +1230,14 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
         ]
         kept.append( entry )
         _terse_locations[:] = kept
-    if scope == "sconstruct" and _env_get( env, "terse_output" ) and not _env_get( env, "clean" ):
-        write_terse_read_checkpoint( env )
-        _emit_sconstruct_location_map( token, abs_path, env )
+    if (
+            scope == "sconstruct"
+            and token != "packages"
+            and _env_get( env, "terse_output" )
+            and not _env_get( env, "clean" )
+            and _terse_read_written
+    ):
+        _emit_sconstruct_location_map( token, abs_path, env, kind=kind )
 
 
 def _author_locations():
@@ -1581,9 +1600,11 @@ def _strip_artifact_folder( relative, env ):
 
 
 def _unpack_location( item ):
+    if len( item ) >= 7:
+        return item[0], item[1], item[2], item[3], item[4], item[5], item[6]
     if len( item ) >= 6:
-        return item[0], item[1], item[2], item[3], item[4], item[5]
-    return item[0], item[1], item[2], item[3], item[4], ""
+        return item[0], item[1], item[2], item[3], item[4], item[5], ""
+    return item[0], item[1], item[2], item[3], item[4], "", ""
 
 
 def _with_variant_token( relative, env ):
@@ -1627,11 +1648,19 @@ def _is_project_root( path, env ):
     return False
 
 
+_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages" ) )
+
+
 def _nested_author_match( abs_path, env ):
-    """Distinct nested tokens from outer root to innermost. One token per path."""
+    """Distinct nested tokens from a category root to the innermost.
+
+    ``dependencies`` and ``packages`` are category roots. A package extract
+    under the download root is ``<packages>/<boost_package>``, not
+    ``<dependencies>/<packages>/<boost_package>``.
+    """
     by_root = {}
     for item in _author_locations():
-        _scope, _script, _cell, token, root, _folder = _unpack_location( item )
+        _scope, _script, _cell, token, root, _folder, _kind = _unpack_location( item )
         if _is_project_root( root, env ):
             continue
         relative = _rel_inside( abs_path, root )
@@ -1647,16 +1676,21 @@ def _nested_author_match( abs_path, env ):
     ranked = sorted( by_root.values(), key=lambda item: item[0] )
     _length, inner_token, inner_relative, inner_key = ranked[ -1 ]
     tokens = []
-    for _length, token, _relative, key in ranked:
+    for _length, token, _relative, key in reversed( ranked ):
         contained = (
                 inner_key == key
                 or inner_key.startswith( key + os.sep )
                 or inner_key.startswith( key + "/" )
         )
-        if contained and token not in tokens:
+        if not contained:
+            continue
+        if token not in tokens:
             tokens.append( token )
+        if token in _CATEGORY_LOCATION_TOKENS:
+            break
     if not tokens:
         tokens = [ inner_token ]
+    tokens.reverse()
     return ">/<" .join( tokens ), inner_relative
 
 
@@ -1665,7 +1699,7 @@ def _token_for_build_folder( folder ):
     if not folder:
         return ""
     for item in _author_locations():
-        _scope, _script, _cell, token, root, mapped = _unpack_location( item )
+        _scope, _script, _cell, token, root, mapped, _kind = _unpack_location( item )
         mapped = mapped or os.path.basename( str( root ).rstrip( "\\/" ) )
         if os.path.normcase( mapped ) == os.path.normcase( folder ):
             return token
@@ -1976,21 +2010,33 @@ def _location_map_prefix( env ):
     return ( " " * indent ) + as_subdued( "→" ) + " " + badge
 
 
-def _coloured_location_value( shown, env ):
+def _coloured_location_value( shown, env, kind="" ):
     """Path on a location map. Same roles as the parent checkpoint path.
 
     ``_build/`` (and other prefixes) subdued; sconscript leaf info; ``dbg`` /
     ``rel`` / ``cov`` plain; remaining layout dirs subdued; last component
-    info+bold.
+    info+bold. Root and package maps are vocabulary: every path segment
+    and the slashes between them are info+bold
+    (``~/_cuppa/_download``, ``abseil-cpp/20250814.2``). A nested parent
+    token on the value (``<dependencies>/gcc16_rel_...``) stays subdued;
+    only the identity this map defines is vocabulary.
     """
     shown = str( shown or "" ).replace( "\\", "/" )
     if not shown:
         return ""
-    parts = [ part for part in shown.split( "/" ) if part ]
-    if shown.startswith( "/" ):
+    vocabulary = str( kind or "" ) in ( "root", "package" )
+    parent = ""
+    identity = shown
+    if vocabulary:
+        while identity.startswith( "<" ) and ">/" in identity:
+            token, rest = identity.split( ">/", 1 )
+            parent += token + ">/"
+            identity = rest
+    parts = [ part for part in identity.split( "/" ) if part ]
+    if identity.startswith( "/" ):
         parts = [ "" ] + parts
     if not parts:
-        return ""
+        return as_subdued( parent ) if parent else ""
     script_parts = [
             part for part in _sconscript_label( env ).replace( "\\", "/" ).split( "/" ) if part
     ]
@@ -1999,7 +2045,9 @@ def _coloured_location_value( shown, env ):
     painted = []
     last = len( parts ) - 1
     for index, part in enumerate( parts ):
-        if index == last and part:
+        if vocabulary and part:
+            painted.append( as_emphasised( as_info( part ) ) )
+        elif index == last and part:
             painted.append( as_emphasised( as_info( part ) ) )
         elif name and part == name:
             painted.append( part )
@@ -2007,7 +2055,11 @@ def _coloured_location_value( shown, env ):
             painted.append( as_info( part ) )
         else:
             painted.append( as_subdued( part ) )
-    return as_subdued( "/" ).join( painted )
+    slash = as_emphasised( as_info( "/" ) ) if vocabulary else as_subdued( "/" )
+    value = slash.join( painted )
+    if parent:
+        return as_subdued( parent ) + value
+    return value
 
 
 def _location_badge():
@@ -2023,26 +2075,49 @@ def _location_map_rhs( token, path, env ):
     if str( token ) not in ( "working", "final", "artefacts" ):
         parents = []
         for item in _author_locations():
-            _scope, _script, _cell, other, root, _folder = _unpack_location( item )
+            _scope, _script, _cell, other, root, _folder, _kind = _unpack_location( item )
             if other == token or _is_project_root( root, env ):
                 continue
             relative = _rel_inside( abs_path, root )
-            if relative:
-                parents.append( ( len( os.path.normpath( root ) ), relative ) )
+            if relative is not None:
+                parents.append( ( len( os.path.normpath( root ) ), relative, other ) )
         if parents:
             parents.sort( reverse=True )
-            return parents[0][1]
+            for _length, relative, other in parents:
+                if str( token ) == "packages" and other == "dependencies" and relative:
+                    return "<dependencies>/" + relative
+                if relative:
+                    return relative
     shown = _project_display( abs_path, env ) or _home_display( abs_path )
     return _with_variant_token( shown, env )
 
 
-def format_terse_location_line( token, path, env, scope="variant" ):
-    """``→ [location] [sconscript ·] [variant ·] <token> = path``.
+def _declared_dependency_names( env ):
+    """``default_dependencies`` names, as strings."""
+    return [ str( name ) for name in ( _env_get( env, "default_dependencies" ) or [] ) ]
+
+
+def _location_is_transitive( token, env ):
+    """True when a mapped dependency is outside ``default_dependencies``.
+
+    Roots are never transitive. With no declared list, nothing is marked.
+    """
+    if str( token ) in _CATEGORY_LOCATION_TOKENS:
+        return False
+    declared = _declared_dependency_names( env )
+    if not declared:
+        return False
+    return str( token ) not in set( declared )
+
+
+def format_terse_location_line( token, path, env, scope="variant", kind="" ):
+    """``→ [location] [sconscript ·] [variant ·] <token> = path [· kind] [· transitive]``.
 
     Identity fields let a map reattach when ``-j`` splits it from its
     ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
     Sconstruct-scoped maps omit both identity cells (the ``read`` line
-    already names the sconstruct).
+    already names the sconstruct). Read-phase kinds are ``root``,
+    ``repository``, ``archive``, and     ``package``. ``transitive`` is info-coloured (declared maps stay unmarked).
     """
     shown = _location_map_rhs( token, path, env )
     fields = []
@@ -2054,8 +2129,16 @@ def format_terse_location_line( token, path, env, scope="variant" ):
         cell = _coloured_variant_cell( env )
         if cell:
             fields.append( cell )
-    value = "<" + str( token ) + ">" + as_subdued( " = " ) + _coloured_location_value( shown, env )
+    value = (
+            "<" + str( token ) + ">"
+            + as_subdued( " = " )
+            + _coloured_location_value( shown, env, kind=kind )
+    )
     fields.append( value )
+    if kind and scope == "sconstruct":
+        fields.append( as_subdued( kind ) )
+        if _location_is_transitive( token, env ):
+            fields.append( as_info( "transitive" ) )
     lead = _location_map_prefix( env )
     return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
 
@@ -2081,24 +2164,41 @@ def _builtin_location_maps( env ):
 def format_terse_location_maps( scope, env ):
     """Location-map lines for one checkpoint begin. Empty on end events."""
     lines = []
-    if scope == "variant":
-        for token, path in _builtin_location_maps( env ):
-            lines.append( format_terse_location_line( token, path, env, scope=scope ) )
     if scope == "sconstruct":
         script = ""
         cell = ""
     else:
         script = _sconscript_label( env )
         cell = _variant_cell( env )
-    for item in _author_locations():
-        item_scope, item_script, item_cell, token, path, _folder = _unpack_location( item )
+
+    def _matches( item_scope, item_script, item_cell ):
         if item_scope != scope:
-            continue
+            return False
         if item_script and script and item_script != script:
-            continue
+            return False
         if scope == "variant" and item_cell and cell and item_cell != cell:
+            return False
+        return True
+
+    if scope == "variant":
+        for item in _author_locations():
+            item_scope, item_script, item_cell, token, path, _folder, kind = _unpack_location( item )
+            if token != "packages" or not _matches( item_scope, item_script, item_cell ):
+                continue
+            lines.append( format_terse_location_line(
+                    token, path, env, scope=scope, kind=kind,
+            ) )
+        for token, path in _builtin_location_maps( env ):
+            lines.append( format_terse_location_line( token, path, env, scope=scope ) )
+    for item in _author_locations():
+        item_scope, item_script, item_cell, token, path, _folder, kind = _unpack_location( item )
+        if token == "packages":
             continue
-        lines.append( format_terse_location_line( token, path, env, scope=item_scope ) )
+        if not _matches( item_scope, item_script, item_cell ):
+            continue
+        lines.append( format_terse_location_line(
+                token, path, env, scope=item_scope, kind=kind,
+        ) )
     return lines
 
 
@@ -2669,28 +2769,121 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     sys.stdout.flush()
 
 
+def _factory_owner( factory ):
+    """Class a ``cls.create`` classmethod is bound to, else ``None``."""
+    owner = getattr( factory, "__self__", None )
+    if isinstance( owner, type ):
+        return owner
+    return None
+
+
+def _dependency_kind_from_factory( factory ):
+    """Map a ``env['dependencies']`` factory to a read-checkpoint kind.
+
+    Factories are stored as ``cls.create``, so attributes live on the class,
+    not the callable. ``package`` is a GitLab/Conan package; ``archive`` is a
+    source tarball (Boost, URL zip/tar); ``repository`` is an SCM or path
+    location. ``None`` means no map kind (system Qt).
+    """
+    owner = _factory_owner( factory )
+    targets = []
+    if factory is not None:
+        targets.append( factory )
+    if owner is not None:
+        targets.append( owner )
+    if not targets:
+        return "repository"
+    for target in targets:
+        if getattr( target, "_package_manager", None ) or getattr( target, "_package", None ):
+            return "package"
+        if getattr( target, "_conanfile", None ) is not None or getattr( target, "_requires", None ) is not None:
+            return "package"
+    for target in targets:
+        name = getattr( target, "_name", None )
+        if name in ( "qt4", "qt5" ):
+            return None
+        if name == "boost":
+            return "archive"
+        spec = getattr( target, "_default_location", None )
+        if spec:
+            from cuppa.location import Location
+            return Location.source_kind_for( spec )
+        if callable( getattr( target, "location_option", None ) ):
+            return "repository"
+    return "repository"
+
+
+def _sconstruct_dependency_maps():
+    """Sconstruct location entries that are dependencies, not category roots."""
+    seen = set()
+    entries = []
+    for item in _author_locations():
+        scope, _script, _cell, token, _path, _folder, kind = _unpack_location( item )
+        if scope != "sconstruct":
+            continue
+        if token in _CATEGORY_LOCATION_TOKENS or kind == "root":
+            continue
+        if token in seen:
+            continue
+        seen.add( token )
+        entries.append( ( token, kind ) )
+    return entries
+
+
+def _declared_transitive_suffix( declared_n, transitive_n ):
+    """`` (35 declared, 7 transitive)`` bound to the preceding count."""
+    return (
+            as_subdued( " (" )
+            + str( declared_n )
+            + as_subdued( " declared, " )
+            + str( transitive_n )
+            + as_subdued( " transitive)" )
+    )
+
+
 def _read_checkpoint_summary( env ):
-    names = list( _env_get( env, "default_dependencies" ) or [] )
-    if not names:
+    """Resolved graph first; declared/transitive hang off that total.
+
+    ``41 dependencies (35 declared, 6 transitive) · 33 repositories · 8 packages``
+    when traveling-manifest packages join the maps. Without extras, just
+    ``35 dependencies · 33 repositories · 2 packages``. Kind counts stay
+    unqualified; map lines mark ``transitive`` only.
+    """
+    declared = _declared_dependency_names( env )
+    mapped = _sconstruct_dependency_maps()
+    mapped_names = [ token for token, _kind in mapped ]
+    ordered = []
+    seen = set()
+    for name in declared + mapped_names:
+        if name in seen:
+            continue
+        seen.add( name )
+        ordered.append( name )
+    if not ordered:
         return ""
     factories = _env_get( env, "dependencies" ) or {}
-    parts = [ _counted_phrase( len( names ), "dependency", "dependencies" ) ]
-    if isinstance( factories, dict ) and any( name in factories for name in names ):
-        location_n = 0
-        package_n = 0
-        for name in names:
-            factory = factories.get( name )
-            if factory is not None and (
-                    getattr( factory, "_package", None ) is not None
-                    or getattr( factory, "_package_manager", None )
-            ):
-                package_n += 1
-            else:
-                location_n += 1
-        if location_n:
-            parts.append( _counted_phrase( location_n, "location", "locations" ) )
-        if package_n:
-            parts.append( _counted_phrase( package_n, "package", "packages" ) )
+    kinds = { token: kind for token, kind in mapped if kind }
+    counts = {}
+    for name in ordered:
+        kind = kinds.get( name )
+        if not kind and isinstance( factories, dict ):
+            kind = _dependency_kind_from_factory( factories.get( name ) )
+        if not kind or kind == "root":
+            continue
+        counts[ kind ] = counts.get( kind, 0 ) + 1
+    extra = [ name for name in mapped_names if name not in set( declared ) ]
+    dep_phrase = _counted_phrase( len( ordered ), "dependency", "dependencies" )
+    if extra:
+        dep_phrase += _declared_transitive_suffix( len( declared ), len( extra ) )
+    parts = [ dep_phrase ]
+    for kind, singular, plural in (
+            ( "repository", "repository", "repositories" ),
+            ( "package", "package", "packages" ),
+            ( "archive", "archive", "archives" ),
+    ):
+        n = counts.get( kind, 0 )
+        if n:
+            parts.append( _counted_phrase( n, singular, plural ) )
     return _join_subdued( parts )
 
 
@@ -2732,12 +2925,14 @@ def write_terse_read_checkpoint( env ):
     sys.stdout.flush()
 
 
-def _emit_sconstruct_location_map( token, path, env ):
-    if token in _written_sconstruct_maps:
+def _emit_sconstruct_location_map( token, path, env, kind="" ):
+    if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )
     sys.stdout.write(
-            format_terse_location_line( token, path, env, scope="sconstruct" ) + "\n"
+            format_terse_location_line(
+                    token, path, env, scope="sconstruct", kind=kind,
+            ) + "\n"
     )
     sys.stdout.flush()
 

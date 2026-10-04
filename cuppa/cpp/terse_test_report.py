@@ -7,7 +7,6 @@
 #   Terse test lines
 #-------------------------------------------------------------------------------
 
-import os
 import sys
 
 import cuppa.progress
@@ -66,9 +65,17 @@ def colour_test_name( status, name, case=False ):
     return _paint( status, text )
 
 
-def _write( env, status, action, name, nanos, detail ):
+def _write( env, status, action, name, nanos, detail, case_name=None ):
     if action == "test-case":
-        name = colour_test_name( status, name, case=True )
+        prefix, leaf = cuppa.progress.located_program_parts( name, env )
+        head = as_subdued( prefix )
+        if leaf:
+            head = head + leaf + as_subdued( "/" )
+        case = case_name
+        if case is None:
+            text = str( name or "" )
+            case = text.rsplit( "/", 1 )[ -1 ] if "/" in text else text
+        name = head + colour_test_name( status, case, case=True )
     elif action == "test":
         prefix, leaf = cuppa.progress.located_program_parts( name, env )
         name = as_subdued( prefix ) + colour_test_name( status, leaf )
@@ -105,8 +112,10 @@ def write_case( env, program, test_case, nanos ):
     total = _count( test_case.get( "total" ) )
     passed = _count( test_case.get( "passed" ) )
     detail = assertion_clause( passed, total, label=False )
-    name = os.path.basename( str( program or "" ) ) + "/" + str( test_case.get( "name" ) or "" )
-    _write( env, case_status( raw ), "test-case", name, nanos, detail )
+    _write(
+            env, case_status( raw ), "test-case", program, nanos, detail,
+            case_name=str( test_case.get( "name" ) or "" ),
+    )
 
 
 def _status_phrase( count, label, meaning ):

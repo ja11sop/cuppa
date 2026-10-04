@@ -121,12 +121,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   split them from the ``[progress]`` begin; authors register extras such as
   ``<boost>`` with ``label_terse_location``. Location libraries and the
   dependencies root register sconstruct-scoped tokens under
-  ``[progress] · read`` (``<dependencies>/<fmt>/…``,
-  ``_build/<fmt>/<variant>/working/…``). ``link``, ``archive``, and ``index``
+  ``[progress] · read`` (``<dependencies>/<fmt>/...``,
+  ``_build/<fmt>/<variant>/working/...``). Read maps carry a kind
+  (``root`` / ``repository`` / ``archive`` / ``package``); the read summary
+  counts those kinds from registered maps after default ``BuildWith``
+  (so traveling-manifest packages are included). When the resolved set is
+  larger than ``default_dependencies``, the line is
+  ``N dependencies (D declared, T transitive)``. Transitive maps append
+  ``· transitive`` (info colour); declared maps stay unmarked.
+  ``<packages>`` prints on variant
+  begin as ``<dependencies>/<package-tool-variant>``. Root and package map
+  values paint every path segment and the slashes between them info+bold;
+  a nested parent token on the value stays subdued. ``link``, ``archive``, and ``index``
   name the located product (``<final>/…`` or ``_build/<fmt>/<variant>/final/…``),
   not a bare leaf; ``run`` / ``test`` / ``benchmark`` use that same located
   program cell (``<final>/…``) so a test lines up with the ``link`` that built
-  it. The artefacts-root token is
+  it; ``test-case`` mutes ``<final>/`` (and the slash before the case) but
+  leaves the binary name plain. GitLab package extracts nest as
+  ``<packages>/<boost_package>/…``. The artefacts-root token is
   British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
   alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)

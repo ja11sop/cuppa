@@ -102,7 +102,8 @@ TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from th
   dependency archive). `index` uses the same path as the archive. Unmapped
   products stay a basename. `run` / `test` / `benchmark` use the same located
   program (`<final>/management`) so a test lines up with the `link` that built
-  it. A redirected run stays `program → output`. `test-case` stays `program/case`.
+  it. A redirected run stays `program → output`. `test-case` uses the same located
+  program prefix (`<final>/management/case`) with the case leaf in the status colour.
 * **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `b2`): a short
   summary such as `-B _build/...`, not a stamp name like `cmake.build.complete`.
 
@@ -113,15 +114,29 @@ folder or a report directory that contains this variant and sconscript. Any othe
 under the artefacts root is written as itself. Authors may register further tokens
 (Boost extract is `<boost>/`). `sconstruct 0% [progress] ... · read` prints during
 SCons reading with sconstruct-scoped maps (`<dependencies>`, `<fmt>`, `...`). Those
-are not repeated on sconstruct begin. Each later `[progress] … · begin` prints
+are not repeated on sconstruct begin. Read maps name a kind (`root`,
+`repository`, `archive`, `package`). The read summary counts those kinds
+(`N dependencies · R repositories · P packages · A archives`). When traveling-manifest
+packages join the maps, that becomes
+`N dependencies (D declared, T transitive) · ...`. Those extra maps append
+`· transitive` (info colour); declared maps stay unmarked.
+Package identity is `name/version`; `<packages>` is
+the extract dir for this cell and prints on variant begin as
+`<dependencies>/gcc16_rel_x86_64_cxx2c` (package tool variant, which may be
+`rel` while the project cell is `dbg`). Each later `[progress] ... · begin` prints
 location maps for that scope. They lead with `→ [location]` (notice colour, not bold, not
 the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
-begin line. Variant maps are `<variant>`, `<working>`, `<final>`, and `<artefacts>`
+begin line. Variant maps are `<packages>` (when a package extract exists),
+`<variant>`, `<working>`, `<final>`, and `<artefacts>`
 (`<working>` / `<final>` paths substitute `<variant>` for the tool-variant
 directory). Boost and other extract trees nest under `<dependencies>` when they
-sit in that root. The path uses the
+sit in that root. GitLab package extracts nest under `<packages>`
+(`<packages>/<boost_package>/...`) using the registration `_name`. The path uses the
 same colour roles as the progress path: sconscript leaf info, `dbg` / `rel` /
-`cov` plain, last component info+bold. The sconscript leaf is info-coloured and
+`cov` plain, last component info+bold. Root and package maps
+(`~/_cuppa/_download`, `abseil-cpp/20250814.2`) paint every path segment
+and the slashes between them info+bold. A nested parent token on the value
+(`<dependencies>/gcc16_rel_x86_64_cxx2c`) stays subdued. The sconscript leaf is info-coloured and
 any leading path is subdued. The action is bold in the plain ink. On a dark console that
 is bold white, so it does not turn info-blue or compete with the filename. In the build
 cell only the variant name (`dbg`, `rel`, `cov`) is plain. Status tokens share a

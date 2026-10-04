@@ -1012,6 +1012,31 @@ def test_the_case_leaf_is_coloured_and_the_counts_stay_plain( monkeypatch ):
     assert "1 failed" in terse_test_report.rollup_detail( 11, 1, 1, 0, 0, 12, assertions=( 40, 52 ) )
 
 
+def test_test_case_binary_name_stays_plain( monkeypatch, capsys ):
+    from cuppa.cpp import terse_test_report
+
+    monkeypatch.setattr( terse_test_report, "as_colour", lambda meaning, text: "<{}>{}</>".format( meaning, text ) )
+    monkeypatch.setattr( terse_test_report, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    env = _layout_env()
+    env["terse_output"] = True
+    env["show_test_cases"] = True
+    terse_test_report.write_case(
+            env,
+            env["abs_final_dir"] + "/management",
+            {
+                "name": "test_management",
+                "status": "passed",
+                "passed": 11,
+                "total": 11,
+            },
+            1_000_000,
+    )
+    out = capsys.readouterr().out
+    assert "<s><final>/</s>management<s>/</s>" in out
+    assert "<s>management</s>" not in out
+    assert "<success>test_management</>" in out
+
+
 def test_a_reported_test_line_replaces_the_generic_status( capsys ):
     def _action( target, source, env ):
         progress.note_terse_status_emitted()
@@ -1386,6 +1411,46 @@ def test_location_path_colours_the_sconscript_leaf_like_progress( monkeypatch ):
     assert "<i>test</i>" in boost
 
 
+def test_root_and_package_maps_paint_every_segment_info_bold( monkeypatch ):
+    env = _layout_env()
+    env["terse_output"] = True
+    download = "/home/u/_cuppa/_download"
+    extract = download + "/gcc16_rel_x86_64_cxx2c"
+    boost = extract + "/boost/1.92"
+    progress.label_terse_location(
+            env, "dependencies", download, scope="sconstruct", kind="root",
+    )
+    progress.label_terse_location(
+            env, "packages", extract, scope="variant", kind="root",
+    )
+    progress.label_terse_location(
+            env, "boost_package", boost, scope="sconstruct",
+            build_folder="boost/1.92", kind="package",
+    )
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
+    monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    root = progress.format_terse_location_line(
+            "dependencies", download, env, scope="sconstruct", kind="root",
+    )
+    assert "<e><i>_cuppa</i></e>" in root
+    assert "<e><i>_download</i></e>" in root
+    assert "<e><i>/</i></e>" in root
+    assert "<s>_cuppa</s>" not in root
+    package = progress.format_terse_location_line(
+            "boost_package", boost, env, scope="sconstruct", kind="package",
+    )
+    assert "<e><i>boost</i></e>" in package
+    assert "<e><i>1.92</i></e>" in package
+    assert "<e><i>/</i></e>" in package
+    extract_line = progress.format_terse_location_line(
+            "packages", extract, env, scope="variant", kind="root",
+    )
+    assert "<e><i>gcc16_rel_x86_64_cxx2c</i></e>" in extract_line
+    assert "<s><dependencies>/</s>" in extract_line
+    assert "<e><i><dependencies></i></e>" not in extract_line
+
+
 def test_location_library_compile_nests_dependency_and_variant_tokens():
     env = _layout_env()
     env["abs_build_root"] = "/proj/_build"
@@ -1452,6 +1517,11 @@ def test_same_extract_two_names_uses_one_token():
     )
     assert "· compile · <dependencies>/<date>/src/tz.cpp → tz.o" in line
     assert "<quince_date_lib>" not in line
+    alias = progress.format_terse_location_line(
+            "quince_date_lib", date, env, scope="sconstruct", kind="repository",
+    )
+    assert "git_https_github.com__HowardHinnant_date.git@master" in alias
+    assert "~/_cuppa/_download/git_https" not in alias
 
 
 def test_clean_does_not_print_read_checkpoint_or_maps( capsys ):
@@ -1480,6 +1550,47 @@ def test_develop_location_does_not_nest_under_dependencies():
     )
     assert "· compile · <libfoo>/src/foo.cpp → foo.o" in line
     assert "<dependencies>/<libfoo>" not in line
+
+
+def test_package_extract_nests_under_packages_not_dependencies():
+    env = _layout_env()
+    env["abs_build_root"] = "/proj/_build"
+    download = "/home/u/_cuppa/_download"
+    extract = download + "/gcc16_rel_x86_64_cxx2c"
+    boost = extract + "/boost/1.92"
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct", kind="root" )
+    progress.label_terse_location(
+            env, "packages", extract, scope="variant", kind="root",
+    )
+    progress.label_terse_location(
+            env, "boost_package", boost, scope="sconstruct",
+            build_folder="boost/1.92", kind="package",
+    )
+    line = progress.format_terse_success(
+            "g++ -c " + boost + "/include/boost/config.hpp",
+            [ "config.o" ],
+            [ boost + "/include/boost/config.hpp" ],
+            env,
+    )
+    assert "· compile · <packages>/<boost_package>/include/boost/config.hpp → config.o" in line
+    assert "<dependencies>/<packages>" not in line
+    mapped = progress.format_terse_location_line(
+            "boost_package", boost, env, scope="sconstruct", kind="package",
+    )
+    assert "<boost_package> =" in mapped
+    assert "boost/1.92" in mapped
+    assert mapped.rstrip().endswith( "package" ) or "· package" in mapped
+    packages = progress.format_terse_location_line(
+            "packages", extract, env, scope="variant",
+    )
+    assert "<packages> =" in packages
+    assert "<dependencies>/gcc16_rel_x86_64_cxx2c" in packages
+    maps = progress.format_terse_location_maps( "variant", env )
+    assert maps and "<packages>" in maps[0]
+    assert "<dependencies>/gcc16_rel_x86_64_cxx2c" in maps[0]
+    assert any( "<variant>" in line for line in maps )
+    read_maps = progress.format_terse_location_maps( "sconstruct", env )
+    assert all( "<packages>" not in line for line in read_maps )
 
 
 def test_link_archive_index_use_located_product( capsys ):
@@ -1539,8 +1650,7 @@ def test_link_archive_index_use_located_product( capsys ):
             18_000_000,
     )
     case = capsys.readouterr().out
-    assert "· test-case · 18 ms · management/rejects_a_cross — 1/3 assertions" in case
-    assert "<final>" not in case
+    assert "· test-case · 18 ms · <final>/management/rejects_a_cross — 1/3 assertions" in case
 
 
 def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
@@ -1556,18 +1666,22 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
     download = "/home/u/_cuppa/_download"
     fmt = download + "/git_https_github.com__fmtlib_fmt.git@master"
     progress.write_terse_read_checkpoint( env )
-    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
-    progress.label_terse_location( env, "fmt", fmt, scope="sconstruct" )
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct", kind="root" )
+    progress.label_terse_location( env, "fmt", fmt, scope="sconstruct", kind="repository" )
     progress.write_terse_read_checkpoint( env )
     out = capsys.readouterr().out
     assert out.count( "[progress]" ) == 1
     assert "· read ·" in out
     assert "0%" in out
     assert "2 dependencies" in out
-    assert "1 location" in out
+    assert "1 repository" in out
     assert "1 package" in out
+    assert "location" not in out.split( "[progress]", 1 )[1].split( "\n", 1 )[0]
     assert "<dependencies> =" in out
+    assert "· root" in out
     assert "<fmt> =" in out
+    assert "· repository" in out
+    assert "<packages>" not in out
     assert "git_https_github.com__fmtlib_fmt.git@master" in out
     loc = [ line for line in out.splitlines() if "[location]" in line ][0]
     assert loc.startswith( " " )
@@ -1576,6 +1690,128 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
     assert "<dependencies>" not in begin
     assert "<fmt>" not in begin
     assert "· begin" in begin
+
+
+def test_read_checkpoint_classifies_classmethod_factories( capsys ):
+    class Fmt:
+        _name = "fmt"
+        _default_location = "git+https://github.com/fmtlib/fmt.git@master"
+
+        @classmethod
+        def create( cls, env ):
+            return None
+
+    class Pkg:
+        _name = "abseil_cpp"
+        _package = "abseil-cpp"
+        _package_manager = "gitlab"
+
+        @classmethod
+        def create( cls, env ):
+            return None
+
+    class Boost:
+        _name = "boost"
+
+        @classmethod
+        def create( cls, env ):
+            return None
+
+    class Tarball:
+        _name = "widget"
+        _default_location = "https://example.com/widget-1.2.tar.gz"
+
+        @classmethod
+        def create( cls, env ):
+            return None
+
+    env = _layout_env()
+    env["terse_output"] = True
+    env["sconstruct_file"] = "sconstruct"
+    env["sconstruct_dir"] = "/proj"
+    env["default_dependencies"] = [ "fmt", "abseil_cpp", "boost", "widget" ]
+    env["dependencies"] = {
+            "fmt": Fmt.create,
+            "abseil_cpp": Pkg.create,
+            "boost": Boost.create,
+            "widget": Tarball.create,
+    }
+    progress.write_terse_read_checkpoint( env )
+    out = capsys.readouterr().out
+    assert "4 dependencies" in out
+    assert "1 repository" in out
+    assert "1 package" in out
+    assert "2 archives" in out
+
+
+def test_read_checkpoint_counts_transitive_packages_after_maps( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["sconstruct_file"] = "sconstruct"
+    env["sconstruct_dir"] = "/proj"
+    env["default_dependencies"] = [ "fmt", "boost_package" ]
+    env["dependencies"] = {
+            "fmt": SimpleNamespace(),
+            "boost_package": SimpleNamespace( _package="boost", _package_manager="gitlab" ),
+            "abseil_cpp": SimpleNamespace( _package="abseil-cpp", _package_manager="gitlab" ),
+    }
+    download = "/home/u/_cuppa/_download"
+    fmt = download + "/git_https_github.com__fmtlib_fmt.git@master"
+    progress.label_terse_location(
+            env, "dependencies", download, scope="sconstruct", kind="root",
+    )
+    progress.label_terse_location( env, "fmt", fmt, scope="sconstruct", kind="repository" )
+    progress.label_terse_location(
+            env, "boost_package", download + "/gcc16_rel_x86_64_cxx2c/boost/1.92",
+            scope="sconstruct", build_folder="boost/1.92", kind="package",
+    )
+    progress.label_terse_location(
+            env, "abseil_cpp", download + "/gcc16_rel_x86_64_cxx2c/abseil-cpp/20250814.2",
+            scope="sconstruct", build_folder="abseil-cpp/20250814.2", kind="package",
+    )
+    progress.write_terse_read_checkpoint( env )
+    out = capsys.readouterr().out
+    header = out.split( "\n", 1 )[0]
+    assert "3 dependencies (2 declared, 1 transitive)" in header
+    assert "1 repository" in header
+    assert "2 packages" in header
+    assert " · 2 declared" not in header
+    assert "<abseil_cpp> =" in out
+    abseil = [ line for line in out.splitlines() if "<abseil_cpp>" in line ][0]
+    assert abseil.rstrip().endswith( "transitive" )
+    fmt_line = [ line for line in out.splitlines() if "<fmt>" in line ][0]
+    assert "transitive" not in fmt_line
+    assert "declared" not in fmt_line
+    root = [ line for line in out.splitlines() if "<dependencies>" in line ][0]
+    assert "transitive" not in root
+    assert header.count( "[progress]" ) == 1
+
+
+def test_transitive_location_word_is_info_coloured( monkeypatch ):
+    env = _layout_env()
+    env["default_dependencies"] = [ "fmt" ]
+    monkeypatch.setattr( progress, "as_subdued", lambda text: "<s>" + text + "</s>" )
+    monkeypatch.setattr( progress, "as_info", lambda text: "<i>" + text + "</i>" )
+    monkeypatch.setattr( progress, "as_emphasised", lambda text: "<e>" + text + "</e>" )
+    line = progress.format_terse_location_line(
+            "abseil_cpp",
+            "/home/u/_cuppa/_download/gcc16_rel_x86_64_cxx2c/abseil-cpp/20250814.2",
+            env, scope="sconstruct", kind="package",
+    )
+    assert "<i>transitive</i>" in line
+    assert "<s>transitive</s>" not in line
+    assert "<s>package</s>" in line
+
+
+def test_location_source_kind_for_archive_and_repository():
+    from cuppa.location import Location
+    assert Location.source_kind_for(
+            "https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.bz2",
+    ) == "archive"
+    assert Location.source_kind_for(
+            "git+https://github.com/fmtlib/fmt.git@master",
+    ) == "repository"
+    assert Location.source_kind_for( "/tmp/libfoo" ) == "repository"
 
 
 def test_variant_working_map_substitutes_variant_token():

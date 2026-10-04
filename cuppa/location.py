@@ -1188,6 +1188,30 @@ class Location(object):
         return self._location
 
 
+    @classmethod
+    def source_kind_for( cls, location ):
+        """``archive`` or ``repository`` from a location spec (URL, archive, path)."""
+        location = str( location or "" )
+        if not location:
+            return "repository"
+        if location.startswith( "file:" ):
+            location = pip_download.url_to_path( location )
+        if not pip_is_url( location ):
+            return "archive" if pip_is_archive_file( location ) else "repository"
+        parsed = urlparse( location )
+        path = unquote( parsed.path or "" )
+        if str( parsed.scheme or "" ).startswith( "http" ) and cls.url_is_download_archive_url( path ):
+            return "archive"
+        if pip_is_archive_file( path ) or pip_is_archive_file( os.path.basename( path ) ):
+            return "archive"
+        return "repository"
+
+
+    def source_kind( self ):
+        """``archive`` or ``repository`` for this resolved location."""
+        return self.source_kind_for( getattr( self, "_location", "" ) or "" )
+
+
     def remote_location( self ):
         """Configured remote / source string for display (not the local checkout).
 

@@ -228,7 +228,7 @@ dependency's resolved tree.
 | C | `[progress] · read` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Done |
 | D | Unit tests + soak on a multi-location project | Unit done; soak: skip maps on `-c`; unique nest; indent |
 | G | Located product cells on `link` / `archive` / `index` | Follow-on; dest `_locate`, not a transform |
-| E | `<packages>` nesting when package roots are known | May follow B/C |
+| E | `<packages>` nesting when package roots are known | Done; extract on variant begin; identity `name/version` on read |
 | F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[progress] · read` | After C; stay under `-Q`; not configure logs |
 
 ## Non-goals
@@ -284,8 +284,25 @@ dependency's resolved tree.
 9. `link` / `archive` / `index` (and other aggregates) show the located product
    (`<final>/management`, `_build/<fmt>/<variant>/final/libfmt.a`), not a bare
    leaf. `run` / `test` / `benchmark` use the same located program cell so a
-   test lines up with the `link` that produced it. `test-case` stays
-   `program/case`.
+   test lines up with the `link` that produced it. `test-case` uses that same
+   muted `<final>/`, a plain binary name, then the coloured case
+   (`<final>/management/case`).
+10. Package identity maps print at read as `name/version · package`.
+    Source tarballs print as `local_folder · archive`. SCM trees print as
+    `local_folder · repository`. The read summary counts those kinds from
+    each `default_dependencies` factory's class (`cls.create` is a
+    classmethod; attributes live on the class). The read line is printed
+    after default `BuildWith`, so traveling-manifest packages are in the
+    totals. When they are, the line is
+    `N dependencies (D declared, T transitive) · …`. Transitive maps
+    append `· transitive` (info colour); declared maps stay unmarked. `<packages>` prints on variant begin as
+    `<dependencies>/<package-tool-variant>` (often `rel` while the cell is
+    `dbg`). Paths rewrite as `<packages>/<boost_package>/...`. Develop package
+    trees stay un-nested. Root and package map values paint every path
+    segment and the slashes between them info+bold; a nested parent token
+    on the value (`<dependencies>/…`) stays subdued. Two names on one
+    extract share the same folder identity on the map (not a home-prefixed
+    path).
 
 ## Related
 

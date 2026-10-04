@@ -783,7 +783,7 @@ class RunPatchedBoostTest:
         working_dir  = self._working_dir and self._working_dir or os.path.split( executable )[0]
         program_path = source[0].path
         notifier     = Notify(env, env['show_test_output'])
-        notifier.bind_program( os.path.basename( program_path ) )
+        notifier.bind_program( program_path )
 
         if cuppa.build_platform.name() == "Windows":
             executable = '"' + executable + '"'

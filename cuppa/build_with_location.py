@@ -267,6 +267,7 @@ class base(object):
         import cuppa.progress
         cuppa.progress.label_terse_location(
                 env, name, local, scope="sconstruct", build_folder=folder,
+                kind=cuppa.progress.location_source_kind( location ),
         )
 
 

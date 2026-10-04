@@ -78,15 +78,18 @@ class BuildWithMethod:
     @classmethod
     def init_env_for_variant( cls, sconscript_exports ):
         env = sconscript_exports['env']
-        if env.get( 'terse_output' ):
+        terse = bool( env.get( 'terse_output' ) )
+        if terse:
             import cuppa.progress
-            cuppa.progress.write_terse_read_checkpoint( env )
             root = env.get( 'dependencies_root' )
             if root:
                 cuppa.progress.label_terse_location(
-                        env, "dependencies", root, scope="sconstruct",
+                        env, "dependencies", root, scope="sconstruct", kind="root",
                 )
         if env['default_dependencies']:
             env['_pre_sconscript_phase_'] = True
             env.BuildWith( env['default_dependencies'] )
             env['_pre_sconscript_phase_'] = False
+        if terse:
+            import cuppa.progress
+            cuppa.progress.write_terse_read_checkpoint( env )

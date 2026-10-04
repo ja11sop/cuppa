@@ -421,10 +421,12 @@ class BoostLibraryBuilder(object):
 
         b2 = env.Command( b2_exe( self._boost.numeric_version(), self._boost.local() ), [], BuildB2( self._boost ) )
         # Bootstrap is once per extract, not per build cell — author override.
+        loc = getattr( self._boost, "_location", None )
         cuppa.progress.label_terse_location(
                 env, "boost", self._boost.local(),
                 scope="sconstruct",
                 build_folder=os.path.basename( str( self._boost.local() ).rstrip( "\\/" ) ),
+                kind=cuppa.progress.location_source_kind( loc ),
         )
         cuppa.progress.label_terse_action( b2, "build-b2", paths="product", shared=True )
         env.NoClean( b2 )  # follow-up: ordinary -c should remove this (deep-clean.md)
