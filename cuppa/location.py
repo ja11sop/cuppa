@@ -429,11 +429,11 @@ class Location(object):
             hasher.update( as_byte_str( local_folder ) )
             digest = hasher.hexdigest()
             short_digest = digest[-8:]
-            name_hint = self._name_hint
-            if not name_hint:
-                name_hint = is_url( path ) and short_name_from_url( path ) or local_folder
-                name_hint = name_hint[:8]
-            local_folder = name_hint + short_digest
+            # Prefix from the URL/path only. Terse ``_name_hint`` must not change
+            # on-disk names (MAX_PATH hash is display-independent).
+            prefix = is_url( path ) and short_name_from_url( path ) or local_folder
+            prefix = prefix[:8]
+            local_folder = prefix + short_digest
 
         return local_folder
 

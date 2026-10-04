@@ -29,5 +29,24 @@ def test_windows_folder_name_from_path_hashes_string(monkeypatch, tmp_path):
     folder = location.folder_name_from_path(str(include))
     assert isinstance(folder, str)
     assert len(folder) > 0
-    # name_hint (up to 8 chars) + 8-char digest suffix
+    # path prefix (up to 8 chars) + 8-char digest suffix
     assert len(folder) <= 16
+
+
+@pytest.mark.unit
+def test_windows_folder_hash_ignores_terse_name_hint(monkeypatch):
+    """``name_hint`` is terse-only; hashed MAX_PATH names stay URL-derived."""
+    from urllib.parse import urlparse
+
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    location = Location.__new__(Location)
+    location._cuppa_env = {}
+    location.url_replacement_char = "_"
+    url = urlparse("git+https://example.com/org/widget.git@master")
+    location._name_hint = None
+    unnamed = location.folder_name_from_path(url)
+    location._name_hint = "widget"
+    named = location.folder_name_from_path(url)
+    assert unnamed == named
+    assert not named.startswith( "widget" )
+    assert len( unnamed ) == 16

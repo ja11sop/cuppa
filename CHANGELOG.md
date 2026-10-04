@@ -168,6 +168,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repeat ``cuppa: location: [warn]``. A failed ``git ls-remote`` default-branch
   probe no longer ``StopError``s when ``location_default_branch`` can still
   name the on-disk tree.
+- Windows MAX_PATH location hashes stay URL-derived. Terse ``name_hint``
+  must not change on-disk folder names (list/remove identity).
 
 ### Security
 
