@@ -1159,15 +1159,21 @@ class Location(object):
 
     def _terse_retrieve( self ):
         import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
         return cuppa.progress.terse_resolve_child_enabled(
-                self._cuppa_env, self._terse_token(),
+                env, self._terse_token(),
         )
 
 
     def _terse_child( self, badge, *fields, status="ok", remark="" ):
         import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
         return cuppa.progress.write_terse_resolve_child(
-                self._cuppa_env, badge, self._terse_token(), *fields,
+                env, badge, self._terse_token(), *fields,
                 status=status, remark=remark,
         )
 
