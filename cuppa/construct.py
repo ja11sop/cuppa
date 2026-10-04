@@ -943,6 +943,17 @@ class Construct(object):
                                     'show_test_cases' in cuppa_env
                                     and cuppa_env['show_test_cases']
                             )
+                        else:
+                            # Quiet+TTY: clear Working before SCons echoes each
+                            # tool command (SPAWN itself uses suppress_output).
+                            try:
+                                from cuppa.utility.heartbeat import diverting
+                                if diverting():
+                                    env['PRINT_CMD_LINE_FUNC'] = (
+                                            cuppa.progress.heartbeat_print_cmd_line
+                                    )
+                            except Exception:
+                                pass
 
                     env['toolchain']       = toolchain
                     env['variant']         = variant
@@ -1034,6 +1045,15 @@ class Construct(object):
             cuppa_env['empty_env']['sconstruct_file'] = cuppa_env.get( 'sconstruct_file' ) or "sconstruct"
             cuppa_env['empty_env']['sconstruct_dir'] = cuppa_env.get( 'sconstruct_dir' ) or ""
             cuppa_env['empty_env']['base_path'] = cuppa_env.get( 'base_path' ) or ""
+        else:
+            try:
+                from cuppa.utility.heartbeat import diverting
+                if diverting():
+                    cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = (
+                            cuppa.progress.heartbeat_print_cmd_line
+                    )
+            except Exception:
+                pass
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 

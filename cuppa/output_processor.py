@@ -56,11 +56,11 @@ def _clear_heartbeat():
         pass
 
 
-def _suppress_heartbeat():
+def _suppress_heartbeat( advance=True ):
     """Hold the quiet heartbeat for a whole spawn (clear + no redraw)."""
     try:
         from cuppa.utility.heartbeat import suppress as suppress_heartbeat
-        suppress_heartbeat()
+        suppress_heartbeat( advance=advance )
     except Exception:
         pass
 
@@ -177,10 +177,11 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
-            # Hold the TTY heartbeat for the whole spawn: clear once, then do
-            # not redraw while the command (often via the cuppa launcher's
-            # stdout pipe) owns the console.
-            _suppress_heartbeat()
+            # Hold the TTY heartbeat for the whole spawn. When suppress_output
+            # is set, SCons already printed the command via PRINT_CMD_LINE_FUNC
+            # (which revealed the status row); do not advance again or every
+            # tool line is preceded by a blank row.
+            _suppress_heartbeat( advance=not suppress_output )
             held_heartbeat = True
             if not suppress_output:
                 sys.stdout.write( " ".join(args_list) + "\n" )

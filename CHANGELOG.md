@@ -13,11 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps generating info records but folds them onto one subdued
   ``Working <spinner> <message>`` status line (width from the controlling TTY;
   VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; spinner ~12.5/s).
-  Held for the whole tool spawn so piped stdout cannot race a redraw onto the
-  command line. Works with ``--terse-output``. Cleared before terse/transcript
-  writes, warnings, errors, and console reports. Pipelines and CI stay silent.
-  Git/download progress bars remain off under quiet. ``--verbosity=`` still
-  wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+  ``PRINT_CMD_LINE_FUNC`` reveals the status row before SCons echoes each tool
+  command (``SPAWN`` itself does not reprint); the spawn hold then skips a
+  second newline so commands are not blank-padded. Works with ``--terse-output``.
+  Cleared before terse/transcript writes, warnings, errors, and console reports.
+  Pipelines and CI stay silent. Git/download progress bars remain off under
+  quiet. ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal

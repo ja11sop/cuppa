@@ -369,3 +369,26 @@ def test_create_build_envs_installs_terse_command_printer(monkeypatch):
     assert envs[0]["env"]["PRINT_CMD_LINE_FUNC"] is terse_print_cmd_line
     assert envs[0]["env"]["terse_output"] is True
     assert built == ["dbg"]
+
+
+def test_create_build_envs_installs_heartbeat_command_printer(monkeypatch):
+    from cuppa.progress import heartbeat_print_cmd_line
+
+    monkeypatch.setattr(
+            "cuppa.output_processor.Processor.install",
+            lambda env: None,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.heartbeat.diverting",
+            lambda: True,
+    )
+    construct, toolchain, cuppa_env, built = _create_build_envs_fixture(
+            default_variants=["dbg"],
+            option_flags={"dbg": True},
+    )
+    cuppa_env["raw_output"] = False
+    cuppa_env["scons_output"] = False
+    cuppa_env["terse_output"] = False
+    envs = construct.create_build_envs(toolchain, cuppa_env)
+    assert envs[0]["env"]["PRINT_CMD_LINE_FUNC"] is heartbeat_print_cmd_line
+    assert built == ["dbg"]

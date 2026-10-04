@@ -24,8 +24,8 @@ from SCons.Script import Action
 def _write_terse_stdout( text ):
     """Write a terse transcript fragment; clear the quiet heartbeat first."""
     try:
-        from cuppa.utility.heartbeat import clear as clear_heartbeat
-        clear_heartbeat()
+        from cuppa.utility.heartbeat import reveal as reveal_heartbeat
+        reveal_heartbeat()
     except Exception:
         pass
     sys.stdout.write( text )
@@ -3040,6 +3040,28 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
             ) + "\n"
     )
     sys.stdout.flush()
+
+
+def heartbeat_print_cmd_line( cmd, target, source, env ):
+    """SCons ``PRINT_CMD_LINE_FUNC`` when the quiet+TTY heartbeat is diverting.
+
+    Must clear ``Working`` *before* writing the command to the stdout pipe.
+    ``posix_spawn`` uses ``suppress_output=True``, so ``Popen2`` never prints
+    the command itself — SCons prints here first, then SPAWN runs. Clearing
+    only inside ``Popen2`` leaves the launcher free to append the command to
+    the status row.
+    """
+    try:
+        from cuppa.utility.heartbeat import diverting, reveal
+        if diverting():
+            reveal()
+    except Exception:
+        pass
+    sys.stdout.write( cmd + "\n" )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def terse_print_cmd_line( cmd, target, source, env ):

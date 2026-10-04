@@ -169,8 +169,8 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees, mode banners, and any other console report. |
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
-| Terse overlap | **Clear before each terse stdout line** (`progress._write_terse_stdout`) and before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
-| Status shape | **`Working <spinner> <message>`** — spinner ~12.5/s; width from the controlling TTY fd; VT100 wrap-off (`\x1b[?7l`) + erase-EOL (`\x1b[K`) while shown; **suppress for whole spawn** so piped stdout cannot race a redraw. |
+| Terse overlap | **Reveal before each terse stdout line** (`progress._write_terse_stdout`) and clear before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
+| Status shape | **`Working <spinner> <message>`** — spinner ~12.5/s; width from the controlling TTY fd; VT100 wrap-off (`\x1b[?7l`) + erase-EOL (`\x1b[K`) while shown; **reveal in `PRINT_CMD_LINE_FUNC` before the pipe write** (SCons prints before `SPAWN`); **suppress for whole spawn** with `advance=False` when the command was already printed so rows are not blank-padded. |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 
@@ -210,3 +210,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Phase 0 spikes A/B | Done (A simulated; B by catalogue gap analysis) |
 | Settled primary approach | **(1) + throttle**; fallback (2) |
 | Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, clear before terse/report/warn, Antora + unit tests |
+| Soak fix: command overpaint | Done — `heartbeat_print_cmd_line` reveals before SCons echoes each tool line; `posix_spawn` holds without a second newline |

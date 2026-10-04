@@ -269,6 +269,48 @@ def test_spawn_suppress_advances_line_and_defers_redraw():
     assert 'Updating [libfoo] during spawn' in _status_body( stream )
 
 
+def test_reveal_before_print_cmd_line_then_suppress_without_blank():
+    """PRINT_CMD_LINE must clear Working before the pipe write; SPAWN must not
+    insert a second newline (blank row between every tool command)."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Using [/tmp]' in _status_body( stream )
+
+    from cuppa.progress import heartbeat_print_cmd_line
+    import cuppa.progress as progress_module
+    out = io.StringIO()
+    real_stdout = progress_module.sys.stdout
+    progress_module.sys.stdout = out
+    try:
+        heartbeat_print_cmd_line( '/usr/bin/g++ -c foo.cpp', [], [], {} )
+    finally:
+        progress_module.sys.stdout = real_stdout
+
+    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
+    assert hb._last_line == ''
+    assert stream.getvalue().endswith( '\n' )
+    after_reveal = stream.getvalue()
+
+    # posix_spawn path: command already printed — hold without advancing again.
+    hb.suppress( advance=False )
+    assert hb._suppress_depth == 1
+    added = stream.getvalue()[ len( after_reveal ): ]
+    assert '\n' not in added
+    hb.allow()
+
+    # No status visible → reveal must not inject blank lines between commands.
+    before_second = stream.getvalue()
+    progress_module.sys.stdout = out
+    try:
+        heartbeat_print_cmd_line( '/usr/bin/g++ -c bar.cpp', [], [], {} )
+    finally:
+        progress_module.sys.stdout = real_stdout
+    assert stream.getvalue() == before_second
+    assert out.getvalue().endswith( '/usr/bin/g++ -c bar.cpp\n' )
+
+
 def test_spawn_transcript_clears_heartbeat( monkeypatch ):
     stream = io.StringIO()
     clock = FakeClock()

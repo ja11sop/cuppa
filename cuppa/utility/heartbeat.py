@@ -295,18 +295,39 @@ def clear():
         _clear_unlocked( advance=False )
 
 
-def suppress():
+def reveal():
+    """Erase ``Working`` and advance off that row before a stdout transcript line.
+
+    SCons prints tool commands via ``PRINT_CMD_LINE_FUNC`` *before* ``SPAWN``.
+    Clearing inside ``Popen`` is too late: the ``cuppa`` launcher may already
+    have echoed the command onto the status row. Call this from the print
+    hook *before* writing to the stdout pipe.
+
+    No-op when nothing is on the status row. Advances only when a status
+    line was visible, so consecutive commands do not insert blank rows.
+    """
+    with _draw_lock:
+        if not _last_line and not _body:
+            return
+        advance = bool( _last_line )
+        _clear_unlocked( advance=advance )
+
+
+def suppress( advance=True ):
     """Clear and hold the heartbeat for a spawn / transcript burst.
 
     Nested: each ``suppress()`` needs a matching ``allow()``. While held,
-    INFO is remembered but not drawn. Advances a newline on the TTY so the
-    ``cuppa`` launcher's piped stdout cannot append to the status row (clear
-    alone leaves the cursor on that row; the pipe write is a different fd).
+    INFO is remembered but not drawn.
+
+    When ``advance`` is true, ends the status row with a newline so the
+    ``cuppa`` launcher's piped stdout cannot append to ``Working``. Use
+    ``advance=False`` when ``PRINT_CMD_LINE_FUNC`` already called
+    ``reveal()`` and printed the command (``posix_spawn`` path).
     """
     global _suppress_depth
     with _draw_lock:
         _suppress_depth += 1
-        _clear_unlocked( advance=True )
+        _clear_unlocked( advance=advance )
 
 
 def allow():
