@@ -224,9 +224,9 @@ dependency's resolved tree.
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
 | A | This plan + ROADMAP / design index + amend terse-delegated refusal | First commit |
-| B | Nested `_locate` + `<variant>` + transform sources use locator | Core display |
-| C | `[progress] · read` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Maps hang under `read`, not `begin` |
-| D | Unit tests + soak on a multi-location project | |
+| B | Nested `_locate` + `<variant>` + transform sources use locator | Done |
+| C | `[progress] · read` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Done |
+| D | Unit tests + soak on a multi-location project | Unit done; soak on a consumer project |
 | E | `<packages>` nesting when package roots are known | May follow B/C |
 | F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[progress] · read` | After C; stay under `-Q`; not configure logs |
 

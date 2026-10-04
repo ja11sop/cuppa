@@ -119,7 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tree. Begin checkpoints print location maps
   (``→ [location] <sconscript> · <variant> · <working> = …``) so ``-j`` can
   split them from the ``[progress]`` begin; authors register extras such as
-  ``<boost>`` with ``label_terse_location``. The artefacts-root token is
+  ``<boost>`` with ``label_terse_location``. Location libraries and the
+  dependencies root register sconstruct-scoped tokens under
+  ``[progress] · read`` (``<dependencies>/<fmt>/…``,
+  ``_build/<fmt>/<variant>/working/…``). The artefacts-root token is
   British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
   alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)

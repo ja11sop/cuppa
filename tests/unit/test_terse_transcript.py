@@ -1386,6 +1386,98 @@ def test_location_path_colours_the_sconscript_leaf_like_progress( monkeypatch ):
     assert "<i>test</i>" in boost
 
 
+def test_location_library_compile_nests_dependency_and_variant_tokens():
+    env = _layout_env()
+    env["abs_build_root"] = "/proj/_build"
+    env["tool_variant_dir"] = "gcc16/dbg/x86_64/cxx2c"
+    download = "/home/u/_cuppa/_download"
+    folder = "git_https_github.com__fmtlib_fmt.git@master"
+    fmt = download + "/" + folder
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
+    progress.label_terse_location(
+            env, "fmt", fmt, scope="sconstruct", build_folder=folder,
+    )
+    line = progress.format_terse_success(
+            "g++ -c " + fmt + "/src/format.cc",
+            [ "/proj/_build/" + folder + "/gcc16/dbg/x86_64/cxx2c/working/src/format.o" ],
+            [ fmt + "/src/format.cc" ],
+            env,
+    )
+    assert "· compile · <dependencies>/<fmt>/src/format.cc → " in line
+    assert "_build/<fmt>/<variant>/working/src/format.o" in line
+    assert "git_https" not in line
+
+
+def test_develop_location_does_not_nest_under_dependencies():
+    env = _layout_env()
+    download = "/home/u/_cuppa/_download"
+    develop = "/home/u/src/libfoo"
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
+    progress.label_terse_location( env, "libfoo", develop, scope="sconstruct" )
+    line = progress.format_terse_success(
+            "g++ -c " + develop + "/src/foo.cpp",
+            [ "foo.o" ],
+            [ develop + "/src/foo.cpp" ],
+            env,
+    )
+    assert "· compile · <libfoo>/src/foo.cpp → foo.o" in line
+    assert "<dependencies>/<libfoo>" not in line
+
+
+def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["sconstruct_file"] = "sconstruct"
+    env["sconstruct_dir"] = "/proj"
+    env["default_dependencies"] = [ "fmt", "boost_package" ]
+    env["dependencies"] = {
+            "fmt": SimpleNamespace(),
+            "boost_package": SimpleNamespace( _package="boost", _package_manager="gitlab" ),
+    }
+    download = "/home/u/_cuppa/_download"
+    fmt = download + "/git_https_github.com__fmtlib_fmt.git@master"
+    progress.write_terse_read_checkpoint( env )
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
+    progress.label_terse_location( env, "fmt", fmt, scope="sconstruct" )
+    progress.write_terse_read_checkpoint( env )
+    out = capsys.readouterr().out
+    assert out.count( "[progress]" ) == 1
+    assert "· read ·" in out
+    assert "0%" in out
+    assert "2 dependencies" in out
+    assert "1 location" in out
+    assert "1 package" in out
+    assert "<dependencies> =" in out
+    assert "<fmt> =" in out
+    assert "git_https_github.com__fmtlib_fmt.git@master" in out
+    progress.write_terse_progress_checkpoint( "sconstruct_begin", None, None, env )
+    begin = capsys.readouterr().out
+    assert "<dependencies>" not in begin
+    assert "<fmt>" not in begin
+    assert "· begin" in begin
+
+
+def test_variant_working_map_substitutes_variant_token():
+    env = _layout_env()
+    env["tool_variant_dir"] = "gcc16/dbg/x86_64/cxx2c"
+    line = progress.format_terse_location_line(
+            "working", env[ "abs_build_dir" ], env, scope="variant",
+    )
+    assert "<working> =" in line
+    assert "<variant>" in line
+    assert "gcc16/dbg/x86_64/cxx2c" not in line.split( "<working>", 1 )[ -1 ]
+
+
+def test_variant_begin_prints_variant_token_map( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["tool_variant_dir"] = "gcc16/dbg/x86_64/cxx2c"
+    progress.write_terse_progress_checkpoint( "started", None, None, env )
+    out = capsys.readouterr().out
+    assert "· <variant> =" in out
+    assert "gcc16/dbg/x86_64/cxx2c" in out
+
+
 def test_delegated_python_action_closes_with_done( capsys ):
     env = _terse_env()
     stamp = SimpleNamespace(

@@ -249,6 +249,26 @@ class base(object):
         else:
             self._linktype = linktype
 
+        self._register_terse_location( env )
+
+
+    def _register_terse_location( self, env ):
+        name = getattr( self, "_name", None )
+        location = getattr( self, "_location", None )
+        if not name or location is None:
+            return
+        local = location.local()
+        if not local:
+            return
+        folder = ""
+        local_folder = getattr( location, "local_folder", None )
+        if callable( local_folder ):
+            folder = local_folder()
+        import cuppa.progress
+        cuppa.progress.label_terse_location(
+                env, name, local, scope="sconstruct", build_folder=folder,
+        )
+
 
     def __call__( self, env, toolchain, variant ):
         if self._try_consume_location_stage( env ):
