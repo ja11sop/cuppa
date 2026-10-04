@@ -19,6 +19,7 @@ import time
 
 # Match download.ProgressReporter's TTY interval.
 _INTERVAL_S = 0.35
+_ELLIPSIS = '\u2026'
 
 _quiet_console = False
 _suppress_below = logging.WARN
@@ -28,8 +29,31 @@ _owns_stream = False
 _last_emit = 0.0
 _pending = None
 _last_line = ''
-_width = 0
+_columns = None  # None → ask the terminal; set for tests
 _clock = time.monotonic
+
+
+def _terminal_columns():
+    """Columns available for one physical status line (never wrap)."""
+    if _columns is not None:
+        return max( 1, int( _columns ) )
+    try:
+        import shutil
+        return max( 1, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
+    except Exception:
+        return 80
+
+
+def _fit_plain( plain, cols ):
+    """Truncate plain text to ``cols`` visible columns with an ellipsis."""
+    text = plain or ''
+    if cols < 1:
+        cols = 1
+    if len( text ) <= cols:
+        return text
+    if cols == 1:
+        return _ELLIPSIS
+    return text[ : cols - 1 ] + _ELLIPSIS
 
 
 def quiet_console():
@@ -62,7 +86,7 @@ def multi_line_progress_allowed():
 def reset():
     """Stop diversion and restore a clean status line."""
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _last_emit, _pending, _last_line, _width
+    global _stream, _owns_stream, _last_emit, _pending, _last_line, _columns
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -77,7 +101,7 @@ def reset():
     _last_emit = 0.0
     _pending = None
     _last_line = ''
-    _width = 0
+    _columns = None
 
 
 def configure_quiet_console(
@@ -87,6 +111,7 @@ def configure_quiet_console(
         is_tty=None,
         owns_stream=None,
         clock=None,
+        columns=None,
 ):
     """Enable quiet console, with TTY heartbeat when appropriate.
 
@@ -94,15 +119,20 @@ def configure_quiet_console(
     Without a TTY, keep classic quiet levels. With ``--terse-output``, the
     heartbeat still runs so long waits between transcript lines stay alive;
     terse writers clear this line before each stdout write.
+
+    Status text is truncated to the terminal width so ``\\r`` rewrite never
+    wraps (a wrapped line cannot be cleared by a single carriage return).
     """
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _clock
+    global _stream, _owns_stream, _clock, _columns
 
     reset()
     if clock is not None:
         _clock = clock
+    if columns is not None:
+        _columns = columns
     if not quiet_kind:
         return
 
@@ -159,46 +189,37 @@ def flush_pending():
 
 def clear():
     """Blank the status line so a report or warn/error can replace it."""
-    global _pending, _last_line, _width, _last_emit
+    global _pending, _last_line, _last_emit
     _pending = None
     if not _heartbeat_active or _stream is None:
         _last_line = ''
-        _width = 0
         return
-    if not _last_line and not _width:
+    if not _last_line:
         return
-    try:
-        import shutil
-        cols = max( _width, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
-    except Exception:
-        cols = max( _width, 80 )
+    cols = _terminal_columns()
     try:
         _stream.write( '\r' + ( ' ' * cols ) + '\r' )
         _stream.flush()
     except Exception:
         pass
     _last_line = ''
-    _width = 0
     # Allow the next INFO to show immediately after a clear.
     _last_emit = 0.0
 
 
 def _flush( now ):
-    global _pending, _last_emit, _last_line, _width
+    global _pending, _last_emit, _last_line
     if _pending is None or _stream is None:
         return
     from cuppa.colourise import as_subdued
     from cuppa.output_processor import strip_ansi
-    from cuppa.utility.storage import pad_visible, visible_len
+    from cuppa.utility.storage import pad_visible
 
-    plain = strip_ansi( _pending )
+    cols = _terminal_columns()
+    # Fit *before* colour so ANSI does not inflate the column budget, and so
+    # the rewritten line never wraps (``\\r`` only returns within one row).
+    plain = _fit_plain( strip_ansi( _pending ), cols )
     styled = as_subdued( plain )
-    _width = max( _width, visible_len( styled ), visible_len( _last_line ) )
-    try:
-        import shutil
-        cols = max( _width, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
-    except Exception:
-        cols = max( _width, 80 )
     try:
         _stream.write( '\r' + pad_visible( styled, cols ) )
         _stream.flush()

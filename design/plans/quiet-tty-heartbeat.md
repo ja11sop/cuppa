@@ -118,7 +118,7 @@ TTY without multi-line info).
 |-----------|-------------------------------|-------------------------|-----------------|
 | Generality | **good** — new `logger.info` participates | **ok** — only if marked | **poor** |
 | Quiet honesty | **good** — if StreamHandler suppresses INFO and bars stay gated off | **good** — never touches INFO emission | **good** |
-| TTY quality | **good** — with ≥0.35s throttle; clear before warn/report | **good** — fewer updates by construction | **ok** — sparse |
+| TTY quality | **good** — with ≥0.35s throttle; truncate to terminal width (no wrap); clear before warn/report | **good** — fewer updates by construction | **ok** — sparse |
 | SCons fit | **ok** — needs INFO diversion; does not fight SCons `-Q` itself | **good** — no logger-level change | **good** |
 | Cost | **ok** — one stack change + re-gate 3 progress sites; flicker rules | **poor** — audit ~58 waitable sites + ongoing drift | **ok** short-term / **poor** long-term |
 | CI / non-TTY | **good** — `open_progress_stream()` already silent without TTY | **good** | **good** |

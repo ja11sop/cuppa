@@ -92,11 +92,51 @@ def test_configure_keeps_heartbeat_for_terse_gaps():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
+def test_fit_plain_truncates_with_ellipsis():
+    assert hb._fit_plain( 'short', 80 ) == 'short'
+    assert hb._fit_plain( 'abcdefghij', 5 ) == 'abcd' + hb._ELLIPSIS
+    assert hb._fit_plain( 'ab', 1 ) == hb._ELLIPSIS
+
+
+def test_long_info_stays_on_one_physical_line():
+    """``\\r`` cannot clear a wrapped line — never write past the terminal width."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    cols = 40
+    hb.configure_quiet_console(
+            'warn', stream=stream, is_tty=True, owns_stream=False,
+            clock=clock, columns=cols,
+    )
+    long_msg = (
+            'Updating [git+ssh://git@example.com/org/very_long_repo_name@master] '
+            'in [/home/jamie/_cuppa/_download/git_ssh_…/] on '
+            "<RevOptions git: rev='master'> at [master rev. abcdef]"
+    )
+    assert len( long_msg ) > cols
+    logger.info( long_msg )
+    # Strip ANSI / CR for a visible-width check on the status body.
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility.storage import visible_len
+    body = strip_ansi( stream.getvalue() ).lstrip( '\r' ).rstrip( ' ' )
+    assert visible_len( body ) <= cols
+    assert body.endswith( hb._ELLIPSIS )
+    assert body.startswith( 'Updating [' )
+
+    clock.advance( 0.40 )
+    logger.info( 'Using package [tip]' )
+    body2 = strip_ansi( stream.getvalue().split( '\r' )[-1] ).rstrip( ' ' )
+    assert visible_len( body2 ) <= cols
+    assert 'Using package [tip]' in body2
+    # Previous long tail must not remain after the rewrite.
+    assert 'very_long_repo_name' not in body2
+
+
 def test_info_rewrites_throttled_status_line():
     stream = io.StringIO()
     clock = FakeClock()
     hb.configure_quiet_console(
             'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
+            columns=120,
     )
     assert hb.diverting() is True
     assert logger.isEnabledFor( logging.INFO )
