@@ -31,27 +31,31 @@ That distinction is load-bearing:
 - Read work has **no action tally**. Inventing `11%` or `0/36` on a read line
   would lie. Percent is `N/A` (or a blank percent cell) until Building.
 
-Do **not** reuse `[progress]` for this. That badge is a build-graph checkpoint
-(`begin` / `end` / variant `started`). The read envelope is SCons's
-"Reading SConscript files"; Cuppa adds one structured line inside it.
+Prefer **`[progress] · read`**, not a new `[read]` badge. Checkpoint chrome stays
+`[progress]`; the action cell is `read`, same slot as `begin` / `end`. That
+matches SCons "Reading SConscript files" without a third badge family next to
+`[progress]` and `[location]`. The delegated-plan refusal is only "do not reuse
+`begin`/`end` for CMake/`b2`" — a new action name on the same chrome is fine.
+Not `[pre-read]` (it is during reading). Not `[configure]` (`~/.cuppaconfig`).
+Not `[process]`.
 
 ### Settled read-phase line
 
 ```text
-sconstruct  N/A [read] ~/coding/clearpool_cuppa/cplx_dex/order_matcher/sconstruct · resolve · 19 dependencies · 12 location · 7 package
+sconstruct  N/A [progress] ~/src/app/sconstruct · read · 19 dependencies · 12 location · 7 package
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
               → [location] <quince> = git_https_github.com__j0nnyw_quince.git@master
 scons: done reading SConscript files.
 scons: Building targets ...
-sconstruct  11% [progress] ~/coding/clearpool_cuppa/cplx_dex/order_matcher/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
+sconstruct  11% [progress] ~/src/app/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
 ```
 
 | Piece | Choice | Why |
 |-------|--------|-----|
-| Badge | `[read]` | Matches SCons "Reading…". Not `[pre-read]` (it is during reading, not before). Not `[configure]` (that is `~/.cuppaconfig`). Not `[process]` (too vague). |
-| Action | `resolve` | The material work is resolving location/package trees. `build-graph` overclaims: action counts are not known yet. |
+| Badge | `[progress]` | Same checkpoint chrome as `begin` / `end`. Do not invent `[read]`. |
+| Action | `read` | Same cell as `begin`. Summary after that: dependency counts, not action tallies. |
 | Tally | `N/A` | Ledger is built from `NotifyProgress.add` during sconscript evaluation; it is not complete until Building. |
 | Maps | Hang here, **not** on `[progress] · begin` | Tokens must exist for later read-phase one-liners. Do not reprint the same maps on sconstruct begin. |
 | Variant maps | Stay on variant `[progress] · begin` | `<working>` / `<final>` / `<artefacts>` / `<variant>` are build-layout, not resolve. |
@@ -67,17 +71,17 @@ Those `logger.info("Updating […]")` lines are **not** ordinary configure
 commentary. They mutate trees, can take seconds, and `-Q` currently hides
 them. They sit between log and transcript.
 
-Under `--terse-output` they become **uncounted children of `[read]`**, using
-the same `→` indent as nested copies / `[location]`:
+Under `--terse-output` they become **uncounted children of `[progress] · read`**,
+using the same `→` indent as nested copies / `[location]`:
 
 ```text
-sconstruct  N/A [read] ~/…/sconstruct · resolve · 10 dependencies · 8 location · 2 package
+sconstruct  N/A [progress] ~/src/app/sconstruct · read · 10 dependencies · 8 location · 2 package
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [update] <fmt> · main · 9197f515
               → [location] <rapidjson> = git_https_github.com__miloyip_rapidjson.git@master
               → [update] <rapidjson> · master · 24b5e7a
-              → [clone] <moo> · master · cplx_dex_r1.16-2-g54ee95d
+              → [clone] <libfoo> · master · a1b2c3d
 ```
 
 Stay under `-Q` (like `[progress]`, unlike `cuppa: configure: [info]`). Failure
@@ -102,10 +106,9 @@ compile · ~/_cuppa/_download/git_https_github.com__fmtlib_fmt.git@master/src/fo
        → _build/git_https_github.com__fmtlib_fmt.git@master/gcc16/dbg/x86_64/cxx2c/working/src/format.o
 ```
 
-Projects already have short registration names. Example from
-`order_matcher/sconstruct`: `fmt`, `date`, `quince`, `quince-postgresql`,
-`cpp_jwt`, … plus packages such as `boost_package`, and many `develop=` siblings
-under `../../cplx_core/…`.
+Projects already have short registration names on `location_dependency` /
+`package_dependency` (`fmt`, `date`, `quince`, `boost_package`, …) and often
+`develop=` trees beside the project.
 
 ## Settled design
 
@@ -120,17 +123,17 @@ and fights the existing `<working>` / `<final>` vocabulary.
 Nested roots stay truthful and scale to packages:
 
 ```text
-sconstruct  N/A [read] …/sconstruct · resolve · …
+sconstruct  N/A [progress] ~/src/app/sconstruct · read · …
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
               → [location] <quince> = git_https_github.com__j0nnyw_quince.git@master
               → [location] <quince-postgresql> = git_https_github.com__j0nnyw_quince_postgresql.git@master
-sconstruct  11% [progress] …/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
-              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <variant> = gcc16/dbg/x86_64/cxx2c
-              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <working> = _build/test/matching_engine/<variant>/working
-              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <final> = _build/test/matching_engine/<variant>/final
-              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <artefacts> = _artefacts
+sconstruct  11% [progress] ~/src/app/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
+              → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <variant> = gcc16/dbg/x86_64/cxx2c
+              → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <working> = _build/test/orders/<variant>/working
+              → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <final> = _build/test/orders/<variant>/final
+              → [location] test/orders · gcc16_dbg_x86_64_cxx2c · <artefacts> = _artefacts
 
 compile · <dependencies>/<fmt>/src/format.cc → _build/<fmt>/<variant>/working/src/format.o
 compile · <dependencies>/<date>/src/tz.cpp → _build/<date>/<variant>/working/src/tz.o
@@ -139,7 +142,7 @@ compile · <dependencies>/<quince>/src/sql.cpp → _build/<quince>/<variant>/wor
 
 Later (same grammar): `<packages>/<boost_package>/…`. Develop trees that are not
 under `dependencies_root` keep a non-nested map
-(`<baa> = ../../cplx_core/baa` or `~/…`) — only nest when the resolved `local()`
+(`<libfoo> = ../libfoo` or `~/…`) — only nest when the resolved `local()`
 is contained in a registered parent root.
 
 **Reject** `<fmt_working>` / `<fmt_final>` as the default design.
@@ -153,7 +156,7 @@ same nested rule once the parent root for that extract is known
 Use the name Cuppa already registers for `BuildWith` / `default_dependencies` /
 removal selectors — not URL leaf guessing.
 
-Real `order_matcher` tokens:
+Example tokens (public location/package names):
 
 | Registration `_name` | Typical resolved source root (offline download) |
 |----------------------|--------------------------------------------------|
@@ -161,9 +164,8 @@ Real `order_matcher` tokens:
 | `date` | `…/git_https_github.com__HowardHinnant_date.git@master` |
 | `quince` | `…/git_https_github.com__j0nnyw_quince.git@master` |
 | `quince-postgresql` | `…/git_https_github.com__j0nnyw_quince_postgresql.git@master` |
-| `cpp_jwt` | `…/git_https_github.com__j0nnyw_cpp-jwt.git@master` |
-| `boost_package` | package/develop tree (`../../packages/boost` or registry extract) |
-| `baa` (etc.) | develop `../../cplx_core/baa` when develop is active; else download folder |
+| `boost_package` | package/develop tree (`../packages/boost` or registry extract) |
+| `libfoo` (develop) | `../libfoo` when develop is active; else download folder |
 
 Accept `<boost_package>` (do not invent `<boost>` from the package slug) so
 tokens stay aligned with selectors; authors who want `<boost>` already control
@@ -184,9 +186,10 @@ dependency's resolved tree.
 1. **Parent roots** — sconstruct-scoped `<dependencies>` from `dependencies_root`;
    add `<packages>` when a package install/develop root is known (same nesting
    grammar; may land in a second slice if package path discovery is thicker).
-2. **Read-phase checkpoint** — emit one `sconstruct N/A [read] … · resolve · …`
-   line when resolve starts (not a `NotifyProgress` node). Print sconstruct-scoped
-   maps under it. Do not reprint them on `sconstruct [progress] · begin`.
+2. **Read-phase checkpoint** — emit one
+   `sconstruct N/A [progress] … · read · …` line when resolve starts (not a
+   `NotifyProgress` node). Print sconstruct-scoped maps under it. Do not reprint
+   them on `sconstruct [progress] · begin`.
 3. **Per-dep source map** — on location/package resolve,
    `label_terse_location(env, dep._name, local(), scope="sconstruct")`. Map RHS
    shown relative to parent when nested (`git_https_…@master`), else project/`~/`
@@ -204,7 +207,7 @@ dependency's resolved tree.
 7. **Hooks** — `cuppa/build_with_location.py` (`create` /
    `build_library_from_source`) and the existing Boost
    `label_terse_location` call site; package path in a follow-up slice if needed.
-8. **Tests** — unit cases with `order_matcher`-shaped paths (`fmt` / `date` /
+8. **Tests** — unit cases with location-library paths (`fmt` / `date` /
    `quince` folders under a fake dependencies root +
    `_build/<folder>/<tool_variant>/working/…`); update Boost location
    expectations to nested form.
@@ -215,10 +218,10 @@ dependency's resolved tree.
 |-------|-------------|-------|
 | A | This plan + ROADMAP / design index + amend terse-delegated refusal | First commit |
 | B | Nested `_locate` + `<variant>` + transform sources use locator | Core display |
-| C | `[read]` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Maps hang under `[read]`, not `[progress] · begin` |
-| D | Unit tests + `order_matcher` soak | |
+| C | `[progress] · read` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Maps hang under `read`, not `begin` |
+| D | Unit tests + soak on a multi-location project | |
 | E | `<packages>` nesting when package roots are known | May follow B/C |
-| F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[read]` | After C; stay under `-Q`; not configure logs |
+| F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[progress] · read` | After C; stay under `-Q`; not configure logs |
 
 ## Non-goals
 
@@ -227,8 +230,8 @@ dependency's resolved tree.
 - Guessing tokens from URL leaves
 - Changing on-disk layout or `local_folder` naming
 - Restyling console reports or non-terse transcripts
-- Turning cuppaconfig / version / default-profile / sconscript-list info logs into `[read]` children
-- Reusing `[progress]` for the SCons reading envelope
+- Turning cuppaconfig / version / default-profile / sconscript-list info logs into `[progress] · read` children
+- Inventing a `[read]` badge instead of `[progress] · read`
 
 ## Refusal rules
 
@@ -239,13 +242,14 @@ dependency's resolved tree.
 | Guess `<date>` from a URL when `_name` is `quince_date_lib` | Refuse; token is registration `_name` |
 | Change storage folder naming to short names | Refuse; display-only rewrite |
 | Hang sconstruct-scoped maps only on `[progress] · begin` | Refuse; too late for read-phase update lines |
-| Reuse `[progress]` for SCons reading | Refuse; reserved for build-graph checkpoints |
-| Give `[read]` an action tally / percent | Refuse; ledger does not exist yet (`N/A`) |
+| Invent a `[read]` badge | Refuse; action cell is `read` on existing `[progress]` chrome |
+| Reuse `[progress] · begin` / `end` for CMake/`b2` | Refuse; that is the delegated-plan rule, unchanged |
+| Give `[progress] · read` an action tally / percent | Refuse; ledger does not exist yet (`N/A`) |
 | Ship inside the native-output PR | Refuse; already landed as [#354](https://github.com/ja11sop/cuppa/pull/354) |
 
-## Success criteria (soak on `order_matcher`)
+## Success criteria (soak)
 
-1. `[read] · resolve` prints before `scons: Building targets ...`, with
+1. `[progress] · read` prints before `scons: Building targets ...`, with
    `<dependencies>` and per-dep maps for `fmt`, `date`, `quince`, … using
    registration names. Those maps are **not** repeated on sconstruct
    `[progress] · begin`.
@@ -253,9 +257,9 @@ dependency's resolved tree.
    `<dependencies>/<fmt>/src/format.cc → _build/<fmt>/<variant>/working/src/format.o`
    (and the same for `date` / `quince`).
 3. Project-local sources stay as today
-   (`test/matching_engine/response_translator.cpp → <working>/…`).
-4. Develop-active `baa` maps to the develop path without falsely nesting under
-   `<dependencies>`.
+   (`test/orders/widget.cpp → <working>/…`).
+4. A develop-active location maps to the develop path without falsely nesting
+   under `<dependencies>`.
 5. Existing Boost terse location updated to the nested convention; unit tests
    green.
 

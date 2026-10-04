@@ -74,7 +74,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 2. **`--scons-output`** — done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). Split it out of `--raw-output` so the matrix exists in code before terse and native land.
 3. **Terse** — done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Transcript only, citing this matrix.
 4. **Native output** — done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)).
-5. **Terse dependency locations** — next; nested maps for dependency/package trees under terse. Sconstruct-scoped maps hang under a `[read]` line during SCons reading, not under `[progress] · begin`.
+5. **Terse dependency locations** — next; nested maps for dependency/package trees under terse. Sconstruct-scoped maps hang under `[progress] · read` during SCons reading, not under `[progress] · begin`.
 6. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
 
 Stream split waits until someone measures where lines go today. It is not a starter.
