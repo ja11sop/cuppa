@@ -30,7 +30,7 @@ continues in parallel where it does not block the console slices.
 | Console: `--terse-output` | **Done on master** — status lines, tally, test badges, graceful Ctrl-C, `[progress]` checkpoints, `--normal-output`, file fields, and delegated CMake/`b2`: [`terse-build-output.md`](design/plans/terse-build-output.md), [`terse-delegated-output.md`](design/plans/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
 | Console: optional `--native-output` | **Done on master** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) ([#354](https://github.com/ja11sop/cuppa/pull/354)) |
 | Console: terse dependency location maps | **Done on master** — nested maps + `[prepare]`/`[ready]` · `resolve`: [`terse-dependency-locations.md`](design/plans/terse-dependency-locations.md) ([#355](https://github.com/ja11sop/cuppa/pull/355)) |
-| Console: quiet+TTY heartbeat | **Phase 0** — evaluate logger rewrite vs marked-long vs cherry-pick before any product surface: [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) |
+| Console: quiet+TTY heartbeat | **Phase 0** — evaluate logger rewrite vs marked-long vs cherry-pick before any product surface: [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) ([#356](https://github.com/ja11sop/cuppa/pull/356)) |
 | Transitive GitLab packages (deeper graph) | **Carry-forward** — [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — E / archive-progress / publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
@@ -495,7 +495,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `console-stop-error-reporting` | Normalise Options Error tree + short StopError for surprising refusals | Low | [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md); cascade `-n` first instance |
 | `console-channels` | Map log / console report / build transcript / heartbeat, and the spawn-mode matrix | Low | [`console-channels.md`](design/plans/console-channels.md); `--scons-output` done [#352](https://github.com/ja11sop/cuppa/pull/352) |
 | `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as console reports so `-Q` / `-s` do not hide them | Low | Done on master [#351](https://github.com/ja11sop/cuppa/pull/351). [`console-mode-banners.md`](design/plans/console-mode-banners.md) |
-| `quiet-tty-heartbeat` | Quiet+TTY configure liveness; Phase 0 evaluates logger rewrite vs marked-long vs cherry-pick | Low | [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md); large consume-tip `-Q --cascade-plan` soak |
+| `quiet-tty-heartbeat` | Quiet+TTY configure liveness; Phase 0 evaluates logger rewrite vs marked-long vs cherry-pick | Low | [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) ([#356](https://github.com/ja11sop/cuppa/pull/356)); large consume-tip `-Q --cascade-plan` soak |
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 
 ### Out of scope (storage)
