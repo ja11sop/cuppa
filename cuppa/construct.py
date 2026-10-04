@@ -274,25 +274,44 @@ class Construct(object):
 
 
     @classmethod
-    def _set_verbosity_level( cls, cuppa_env ):
-        verbosity = None
+    def _set_verbosity_level( cls, cuppa_env, apply_quiet_heartbeat=False ):
+        """Apply Cuppa logger quiet / verbosity.
 
-        ## Check if -Q was passed on the command-line
-        scons_no_progress = cuppa_env.get_option( 'no_progress' )
-        if scons_no_progress:
-            verbosity = 'warn'
-
-        ## Check if -s, --quiet or --silent was passed on the command-line
-        scons_silent = cuppa_env.get_option( 'silent' )
-        if scons_silent:
-            verbosity = 'error'
+        Early call (before output options): classic quiet levels so configure
+        load stays quiet. After ``process_output_options``, call again with
+        ``apply_quiet_heartbeat=True`` so quiet+TTY can divert INFO onto the
+        heartbeat status line (unless ``--terse-output`` already provides
+        resolve/location liveness).
+        """
+        from cuppa.utility import heartbeat as quiet_heartbeat
 
         cuppa_verbosity = cuppa_env.get_option( 'verbosity' )
         if cuppa_verbosity:
-            verbosity = cuppa_verbosity
+            quiet_heartbeat.reset()
+            set_logging_level( cuppa_verbosity )
+            return
 
-        if verbosity:
-            set_logging_level( verbosity )
+        quiet_kind = None
+        ## Check if -s, --quiet or --silent was passed on the command-line
+        if cuppa_env.get_option( 'silent' ):
+            quiet_kind = 'error'
+        ## Check if -Q was passed on the command-line
+        elif cuppa_env.get_option( 'no_progress' ):
+            quiet_kind = 'warn'
+
+        if not quiet_kind:
+            return
+
+        if not apply_quiet_heartbeat:
+            quiet_heartbeat.reset()
+            set_logging_level( quiet_kind )
+            return
+
+        terse = cuppa_env.get_option( 'terse_output' )
+        quiet_heartbeat.configure_quiet_console(
+                quiet_kind,
+                terse_output=bool( terse ),
+        )
 
 
     @classmethod
@@ -387,6 +406,9 @@ class Construct(object):
         # choice never arrives and a later read cannot see it either.
         self._configure.load()
         cuppa.core.output_options.process_output_options( cuppa_env )
+        # Re-apply quiet now that terse/normal is known: quiet+TTY (and not
+        # terse) diverts INFO onto the heartbeat status line.
+        self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 

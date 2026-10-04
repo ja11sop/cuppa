@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import atexit
-import logging
 import os.path
 import signal
 import sys
@@ -18,7 +17,6 @@ import threading
 from cuppa.colourise import (
         as_badge, as_colour, as_emphasised, as_emphasised_plain, as_info, as_notice, as_subdued,
 )
-from cuppa.log import logger
 
 from SCons.Script import Action
 
@@ -419,7 +417,9 @@ def progress_action( label, event, sconscript, variant, env ):
 
     # Terse checkpoints are printed by ``Progress`` itself, including under
     # ``-Q``. The description would also print ``Progress(...)`` at info.
-    if not _env_get( env, "terse_output" ) and logger.isEnabledFor( logging.INFO ):
+    # Quiet console keeps the info description off (heartbeat is separate).
+    from cuppa.utility.heartbeat import multi_line_progress_allowed
+    if not _env_get( env, "terse_output" ) and multi_line_progress_allowed():
         stage = ""
         name  = ""
         if label.startswith("#"):

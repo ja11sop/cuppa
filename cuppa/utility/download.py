@@ -15,7 +15,6 @@ for secret masking — those pipes are not TTYs and are consumed line-by-line.
 
 from __future__ import print_function
 
-import logging
 import os
 import shutil
 import subprocess
@@ -31,7 +30,6 @@ except ImportError:
     from urllib2 import urlopen, Request, HTTPError
 
 from cuppa.colourise import as_emphasised, as_info, as_subdued
-from cuppa.log import logger
 from cuppa.utility.python2to3 import Exception as CuppaException
 from cuppa.utility.storage import human_size, pad_visible, visible_len
 
@@ -344,7 +342,8 @@ def _content_length( response ):
 
 def _maybe_reporter( show_progress, reporter, action ):
     if show_progress is None:
-        show_progress = logger.isEnabledFor( logging.INFO )
+        from cuppa.utility.heartbeat import multi_line_progress_allowed
+        show_progress = multi_line_progress_allowed()
     if not show_progress:
         return None
     if reporter is not None:
@@ -589,7 +588,8 @@ def download_file(
 ):
     """Download ``url`` to ``dest_path`` via a ``.partial`` file then rename.
 
-    ``show_progress`` defaults to True when the cuppa logger is at INFO or finer.
+    ``show_progress`` defaults to True when multi-line progress is allowed
+    (INFO or finer, and not under quiet console).
     Pass an existing ``ProgressReporter`` for tests; otherwise one is created on the
     progress stream (controlling tty when available).
 

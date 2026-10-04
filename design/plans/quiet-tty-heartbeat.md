@@ -1,9 +1,9 @@
 # Plan: TTY liveness when info logs are quiet
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
 - **Updated:** 2026-10-04
-- **Impact:** `minor` when a quiet+TTY liveness surface ships; `none` while Phase 0 / evaluating
+- **Impact:** `minor`
 - **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356)
 
 ## Problem
@@ -207,4 +207,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Phase 0 inventory | Done |
 | Phase 0 spikes A/B | Done (A simulated; B by catalogue gap analysis) |
 | Settled primary approach | **(1) + throttle**; fallback (2) |
-| Implementation | Next PR after this Phase 0 settlement lands |
+| Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, console-report clear, Antora + unit tests |

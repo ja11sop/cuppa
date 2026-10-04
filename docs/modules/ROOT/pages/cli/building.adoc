@@ -140,8 +140,8 @@ on xref:cli/inspect-and-maintain.adoc#clean-remove-purge-wipe[Inspect and mainta
 | Not a substitute for running `cuppa`; see xref:cli/output-and-environment.adoc#cuppa-mode[The `cuppa` wrapper and `--cuppa-mode`]
 
 | `-Q`
-| Suppress SCons reading/building progress messages
-| Keep commands and Cuppa output while making inventories easier to read
+| Suppress SCons reading/building progress and Cuppa multi-line info logs
+| Keep commands, warnings, and console reports. On a TTY, a subdued one-line status shows the latest info so configure does not look hung (see xref:cli/output-and-environment.adoc[Output and environment])
 
 | `-s` / `--silent`
 | Suppress command lines as well as SCons progress

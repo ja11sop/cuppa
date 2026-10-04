@@ -19,6 +19,11 @@ import sys
 
 def write_report_lines( lines, out=None ):
     """Emit report lines unprefixed — tree glyphs do not survive log labels."""
+    try:
+        from cuppa.utility.heartbeat import clear as clear_heartbeat
+        clear_heartbeat()
+    except Exception:
+        pass
     stream = out if out is not None else sys.stdout
     for line in lines:
         stream.write( line + "\n" )
