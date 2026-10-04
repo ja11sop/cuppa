@@ -241,7 +241,7 @@ def test_report_clears_heartbeat():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
-def test_spawn_suppress_holds_heartbeat_until_allow():
+def test_spawn_suppress_advances_line_and_defers_redraw():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -252,13 +252,20 @@ def test_spawn_suppress_holds_heartbeat_until_allow():
     hb.suppress()
     assert hb._last_line == ''
     assert hb._suppress_depth == 1
-    # INFO during a spawn is remembered, not drawn (piped stdout race).
+    # Newline so piped stdout cannot append to the Working row.
+    assert stream.getvalue().endswith( '\n' )
+    # INFO during a spawn is remembered, not drawn.
     before = stream.getvalue()
     logger.info( 'Updating [libfoo] during spawn' )
     assert stream.getvalue() == before
+    assert hb._pending == 'Updating [libfoo] during spawn'
 
     hb.allow()
     assert hb._suppress_depth == 0
+    # allow() must not redraw — launcher may still be flushing the command.
+    assert stream.getvalue() == before
+    clock.advance( 0.15 )
+    logger.info( 'Updating [libfoo] during spawn' )
     assert 'Updating [libfoo] during spawn' in _status_body( stream )
 
 

@@ -292,43 +292,55 @@ def flush_pending():
 def clear():
     """Blank the status line so a report, warn/error, or transcript can replace it."""
     with _draw_lock:
-        _clear_unlocked()
+        _clear_unlocked( advance=False )
 
 
 def suppress():
     """Clear and hold the heartbeat for a spawn / transcript burst.
 
     Nested: each ``suppress()`` needs a matching ``allow()``. While held,
-    INFO is remembered but not drawn (avoids racing piped stdout).
+    INFO is remembered but not drawn. Advances a newline on the TTY so the
+    ``cuppa`` launcher's piped stdout cannot append to the status row (clear
+    alone leaves the cursor on that row; the pipe write is a different fd).
     """
     global _suppress_depth
     with _draw_lock:
         _suppress_depth += 1
-        _clear_unlocked()
+        _clear_unlocked( advance=True )
 
 
 def allow():
-    """End a ``suppress()`` region; redraw the latest pending INFO if any."""
+    """End a ``suppress()`` region.
+
+    Does **not** redraw immediately: the launcher may still be flushing the
+    command we wrote to the stdout pipe. The next ``show_info`` after the
+    spawn paints ``Working`` again.
+    """
     global _suppress_depth
     with _draw_lock:
         if _suppress_depth > 0:
             _suppress_depth -= 1
-        if _suppress_depth == 0 and _pending is not None:
-            _flush_unlocked( _clock() )
 
 
-def _clear_unlocked():
+def _clear_unlocked( advance=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
     _cancel_pulse()
-    _pending = None
+    # Keep ``_pending`` when suppressing so INFO during a spawn can show later;
+    # a plain clear (warn/report) drops it.
+    if not advance:
+        _pending = None
     _body = None
     if not _heartbeat_active or _stream is None:
         _last_line = ''
         _wrap_disabled = False
         return
     try:
-        # Erase the status row and restore autowrap for real transcript lines.
-        _stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
+        # Erase the status row and restore autowrap. ``advance`` ends the row
+        # so piped stdout starts on the next line instead of after ``Working``.
+        text = '\r' + _ERASE_EOL + _WRAP_ON
+        if advance:
+            text += '\n'
+        _stream.write( text )
         _stream.flush()
     except Exception:
         pass
