@@ -28,8 +28,14 @@ That distinction is load-bearing:
 - `cuppa: location: [info] Updating […]` already runs in the read phase. If
   those become terse one-liners that say `<fmt>`, the map must exist **before**
   the first `sconstruct [progress] · begin`.
-- Read work has **no action tally**. Inventing `11%` or `0/36` on a read line
-  would lie. Percent is `N/A` (or a blank percent cell) until Building.
+- Read work has **no action fraction** (`4/36`). The **percent** column still
+  applies: it is actions accounted this run, and it starts at zero
+  ([`terse-build-output.md`](terse-build-output.md)). `[progress] · read` is the
+  first checkpoint, so **`0%`**. `N/A` would break the column now that the line
+  uses `[progress]` chrome. Do not invent `0/36` — the denominator does not
+  exist yet. After sconscripts are evaluated, `[progress] · begin` may jump
+  (up-to-date nodes count as done). That jump is the ledger appearing, not work
+  done during `read`. Git update/clone does not move the percent.
 
 Prefer **`[progress] · read`**, not a new `[read]` badge. Checkpoint chrome stays
 `[progress]`; the action cell is `read`, same slot as `begin` / `end`. That
@@ -42,7 +48,7 @@ Not `[process]`.
 ### Settled read-phase line
 
 ```text
-sconstruct  N/A [progress] ~/src/app/sconstruct · read · 19 dependencies · 12 location · 7 package
+sconstruct   0% [progress] ~/src/app/sconstruct · read · 19 dependencies · 12 location · 7 package
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
@@ -56,7 +62,8 @@ sconstruct  11% [progress] ~/src/app/sconstruct · begin · 6 sconscripts · 1 v
 |-------|--------|-----|
 | Badge | `[progress]` | Same checkpoint chrome as `begin` / `end`. Do not invent `[read]`. |
 | Action | `read` | Same cell as `begin`. Summary after that: dependency counts, not action tallies. |
-| Tally | `N/A` | Ledger is built from `NotifyProgress.add` during sconscript evaluation; it is not complete until Building. |
+| Percent | `0%` | Same column as every `[progress]` line. Nothing in the action ledger is accounted yet. Not `N/A`. |
+| Fraction | omit | No `0/36` / `0/0`. The denominator is not known until sconscripts have been added. |
 | Maps | Hang here, **not** on `[progress] · begin` | Tokens must exist for later read-phase one-liners. Do not reprint the same maps on sconstruct begin. |
 | Variant maps | Stay on variant `[progress] · begin` | `<working>` / `<final>` / `<artefacts>` / `<variant>` are build-layout, not resolve. |
 
@@ -75,7 +82,7 @@ Under `--terse-output` they become **uncounted children of `[progress] · read`*
 using the same `→` indent as nested copies / `[location]`:
 
 ```text
-sconstruct  N/A [progress] ~/src/app/sconstruct · read · 10 dependencies · 8 location · 2 package
+sconstruct   0% [progress] ~/src/app/sconstruct · read · 10 dependencies · 8 location · 2 package
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [update] <fmt> · main · 9197f515
@@ -123,7 +130,7 @@ and fights the existing `<working>` / `<final>` vocabulary.
 Nested roots stay truthful and scale to packages:
 
 ```text
-sconstruct  N/A [progress] ~/src/app/sconstruct · read · …
+sconstruct   0% [progress] ~/src/app/sconstruct · read · …
               → [location] <dependencies> = ~/_cuppa/_download
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
               → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
@@ -187,7 +194,7 @@ dependency's resolved tree.
    add `<packages>` when a package install/develop root is known (same nesting
    grammar; may land in a second slice if package path discovery is thicker).
 2. **Read-phase checkpoint** — emit one
-   `sconstruct N/A [progress] … · read · …` line when resolve starts (not a
+   `sconstruct 0% [progress] … · read · …` line when resolve starts (not a
    `NotifyProgress` node). Print sconstruct-scoped maps under it. Do not reprint
    them on `sconstruct [progress] · begin`.
 3. **Per-dep source map** — on location/package resolve,
@@ -244,12 +251,13 @@ dependency's resolved tree.
 | Hang sconstruct-scoped maps only on `[progress] · begin` | Refuse; too late for read-phase update lines |
 | Invent a `[read]` badge | Refuse; action cell is `read` on existing `[progress]` chrome |
 | Reuse `[progress] · begin` / `end` for CMake/`b2` | Refuse; that is the delegated-plan rule, unchanged |
-| Give `[progress] · read` an action tally / percent | Refuse; ledger does not exist yet (`N/A`) |
+| Print `N/A` in the percent column | Refuse; `[progress]` uses `0%` until the ledger accounts actions |
+| Print `0/36` (or `0/0`) on `[progress] · read` | Refuse; no action denominator yet |
 | Ship inside the native-output PR | Refuse; already landed as [#354](https://github.com/ja11sop/cuppa/pull/354) |
 
 ## Success criteria (soak)
 
-1. `[progress] · read` prints before `scons: Building targets ...`, with
+1. `[progress] · read` prints at `0%` before `scons: Building targets ...`, with
    `<dependencies>` and per-dep maps for `fmt`, `date`, `quince`, … using
    registration names. Those maps are **not** repeated on sconstruct
    `[progress] · begin`.
