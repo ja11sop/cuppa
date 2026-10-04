@@ -83,7 +83,6 @@ def reset():
 def configure_quiet_console(
         quiet_kind,
         *,
-        terse_output=False,
         stream=None,
         is_tty=None,
         owns_stream=None,
@@ -92,8 +91,9 @@ def configure_quiet_console(
     """Enable quiet console, with TTY heartbeat when appropriate.
 
     ``quiet_kind`` is ``'warn'`` (``-Q``), ``'error'`` (``-s``), or ``None``.
-    With ``--terse-output``, keep classic quiet levels (terse already shows
-    resolve/location liveness). Without a TTY, keep classic quiet levels.
+    Without a TTY, keep classic quiet levels. With ``--terse-output``, the
+    heartbeat still runs so long waits between transcript lines stay alive;
+    terse writers clear this line before each stdout write.
     """
     from cuppa.log import set_logging_level
 
@@ -108,10 +108,6 @@ def configure_quiet_console(
 
     _quiet_console = True
     _suppress_below = logging.WARN if quiet_kind == 'warn' else logging.ERROR
-
-    if terse_output:
-        set_logging_level( quiet_kind )
-        return
 
     if stream is None:
         from cuppa.utility.download import open_progress_stream

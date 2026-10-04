@@ -75,7 +75,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 3. **Terse** — done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Transcript only, citing this matrix.
 4. **Native output** — done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)).
 5. **Terse dependency locations** — done on [#355](https://github.com/ja11sop/cuppa/pull/355); nested maps for dependency/package trees under terse. Resolve uses a `[prepare]` / `[ready]` bookend during SCons reading; maps print live under `[prepare]`; retrieve children print after the work. Not under `[progress] · begin`.
-6. **Heartbeat** — done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + ~0.35s throttle under quiet+TTY (off with `--terse-output` / non-TTY / `--verbosity=`). Banners and warns clear the status line.
+6. **Heartbeat** — done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + ~0.35s throttle under quiet+TTY (off for non-TTY / `--verbosity=`; on with `--terse-output`, cleared before each transcript line). Banners and warns clear the status line.
 
 Stream split waits until someone measures where lines go today. It is not a starter.
 

@@ -21,6 +21,16 @@ from cuppa.colourise import (
 from SCons.Script import Action
 
 
+def _write_terse_stdout( text ):
+    """Write a terse transcript fragment; clear the quiet heartbeat first."""
+    try:
+        from cuppa.utility.heartbeat import clear as clear_heartbeat
+        clear_heartbeat()
+    except Exception:
+        pass
+    sys.stdout.write( text )
+
+
 _interrupt_announced = False
 _abort_announced = False
 _interrupt_finished = False
@@ -81,14 +91,14 @@ def write_terse_interrupt_finish():
         if _abort_announced or _interrupt_finished or not _interrupt_announced:
             return
         _interrupt_finished = True
-    sys.stdout.write( as_subdued( "finished in-flight actions" ) + "\n" )
+    _write_terse_stdout( as_subdued( "finished in-flight actions" ) + "\n" )
     summary = ""
     if _summary_enabled:
         summary = _progress_ledger.interrupt_summary()
     line = as_notice( "[interrupted]" )
     if summary:
         line += " " + summary
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
 
 
@@ -100,7 +110,7 @@ def write_terse_build_completion( env ):
     suffix = ""
     if _summary_enabled:
         suffix = _progress_ledger.completion_clause( outcome == "up to date" )
-    sys.stdout.write( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
+    _write_terse_stdout( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
     sys.stdout.flush()
 
 
@@ -2227,7 +2237,7 @@ def write_terse_nested_copy( source, dest, env, target=None ):
             env,
             count=False,
     )
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
     note_terse_nested_action()
 
@@ -2421,7 +2431,7 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
         _terse_launch.command = command
     line = format_terse_launch( action, summary, env, target=target )
     note_terse_build_activity()
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
 
 
@@ -2435,7 +2445,7 @@ def write_terse_muted_child( text, env ):
     """Stream one muted delegated child line. No effect unless ``--terse-output``."""
     if not _env_get( env, "terse_output" ):
         return
-    sys.stdout.write( format_terse_muted_child( text, env ) + "\n" )
+    _write_terse_stdout( format_terse_muted_child( text, env ) + "\n" )
     sys.stdout.flush()
 
 
@@ -2473,7 +2483,7 @@ def take_terse_command():
 
 def _write_command( cmd ):
     if cmd:
-        sys.stdout.write( cmd + "\n" )
+        _write_terse_stdout( cmd + "\n" )
 
 
 def flush_unconsumed_terse_command():
@@ -2600,7 +2610,7 @@ def _present_executed_command( command, target, source, env, failed ):
     else:
         use_target, use_source = target, source
         spell = ""
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_line(
                     "error" if failed else "ok",
                     spell,
@@ -2765,11 +2775,11 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     line = format_terse_progress_checkpoint( event, sconscript, variant, env )
     if not line:
         return
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
-            sys.stdout.write( map_line + "\n" )
+            _write_terse_stdout( map_line + "\n" )
     sys.stdout.flush()
 
 
@@ -2926,7 +2936,7 @@ def write_terse_resolve_prepare( env ):
         summary = _counted_phrase(
                 len( declared ), "declared dependency", "declared dependencies",
         )
-    sys.stdout.write( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
+    _write_terse_stdout( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
     sys.stdout.flush()
 
 
@@ -2943,7 +2953,7 @@ def write_terse_resolve_ready( env ):
     if not _terse_prepare_written:
         write_terse_resolve_prepare( env )
     _terse_ready_written = True
-    sys.stdout.write(
+    _write_terse_stdout(
             _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
             + "\n"
     )
@@ -3011,7 +3021,7 @@ def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="
     """Print a retrieve child after the work. True when emitted."""
     if not terse_resolve_child_enabled( env, token ):
         return False
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_resolve_child(
                     env, badge, token, *fields, status=status, remark=remark,
             ) + "\n"
@@ -3024,7 +3034,7 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
     if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_location_line(
                     token, path, env, scope="sconstruct", kind=kind,
             ) + "\n"
@@ -3190,7 +3200,7 @@ def _report_python_action( target, source, env, failed ):
         elif command and not _is_python_action_dump( command ):
             _write_command( command )
     note_terse_build_activity()
-    sys.stdout.write( status_line + "\n" )
+    _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
 
 def _wrap_action( action ):

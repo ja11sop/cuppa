@@ -280,8 +280,8 @@ class Construct(object):
         Early call (before output options): classic quiet levels so configure
         load stays quiet. After ``process_output_options``, call again with
         ``apply_quiet_heartbeat=True`` so quiet+TTY can divert INFO onto the
-        heartbeat status line (unless ``--terse-output`` already provides
-        resolve/location liveness).
+        heartbeat status line (including under ``--terse-output``, where the
+        status line fills gaps between transcript lines).
         """
         from cuppa.utility import heartbeat as quiet_heartbeat
 
@@ -307,11 +307,7 @@ class Construct(object):
             set_logging_level( quiet_kind )
             return
 
-        terse = cuppa_env.get_option( 'terse_output' )
-        quiet_heartbeat.configure_quiet_console(
-                quiet_kind,
-                terse_output=bool( terse ),
-        )
+        quiet_heartbeat.configure_quiet_console( quiet_kind )
 
 
     @classmethod
@@ -406,8 +402,8 @@ class Construct(object):
         # choice never arrives and a later read cannot see it either.
         self._configure.load()
         cuppa.core.output_options.process_output_options( cuppa_env )
-        # Re-apply quiet now that terse/normal is known: quiet+TTY (and not
-        # terse) diverts INFO onto the heartbeat status line.
+        # Re-apply quiet once output options are settled: quiet+TTY diverts
+        # INFO onto the heartbeat status line (works with terse and normal).
         self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )

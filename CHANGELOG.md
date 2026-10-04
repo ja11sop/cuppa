@@ -9,13 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal (and
-  without ``--terse-output``), Cuppa keeps generating info records but folds
-  them onto one subdued ``\r``-rewritten status line (throttled) instead of
-  multi-line ``cuppa: … [info]`` logs. Warnings, errors, and console reports
-  clear the line first. Pipelines and CI stay silent. Git/download progress
-  bars remain off under quiet. ``--verbosity=`` still wins and disables the
-  status line. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+- Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
+  keeps generating info records but folds them onto one subdued
+  ``\r``-rewritten status line (throttled) instead of multi-line
+  ``cuppa: … [info]`` logs. Works with ``--terse-output`` so long waits
+  between transcript lines stay alive; terse writers clear the status line
+  before each stdout write. Warnings, errors, and console reports clear it
+  too. Pipelines and CI stay silent. Git/download progress bars remain off
+  under quiet. ``--verbosity=`` still wins and disables the status line.
+  Plan: ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal

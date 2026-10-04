@@ -64,14 +64,32 @@ def test_configure_without_tty_uses_classic_quiet():
     assert hb.multi_line_progress_allowed() is False
 
 
-def test_configure_with_terse_skips_heartbeat():
+def test_configure_keeps_heartbeat_for_terse_gaps():
+    """Terse transcript and heartbeat coexist; clear before each terse line."""
     stream = io.StringIO()
+    clock = FakeClock()
     hb.configure_quiet_console(
-            'warn', terse_output=True, stream=stream, is_tty=True,
+            'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
     )
     assert hb.quiet_console() is True
-    assert hb.diverting() is False
-    assert not logger.isEnabledFor( logging.INFO )
+    assert hb.diverting() is True
+    assert logger.isEnabledFor( logging.INFO )
+
+    logger.info( 'Updating [libfoo]' )
+    assert 'Updating [libfoo]' in stream.getvalue()
+
+    from cuppa.progress import _write_terse_stdout
+    out = io.StringIO()
+    import cuppa.progress as progress_module
+    real_stdout = progress_module.sys.stdout
+    progress_module.sys.stdout = out
+    try:
+        _write_terse_stdout( '  1/2 · 10% [ok] … · compile a.cpp\n' )
+    finally:
+        progress_module.sys.stdout = real_stdout
+    assert out.getvalue().endswith( 'compile a.cpp\n' )
+    # Heartbeat status line was cleared before the transcript write.
+    assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
 def test_info_rewrites_throttled_status_line():

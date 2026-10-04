@@ -90,9 +90,10 @@ messages in well under a second). The hung-looking case is sparse: one
 `Updating [name]…` (or `Downloading…`) then seconds of network with **no further
 INFO** — git/download progress is already off under `-Q`.
 
-`--terse-output` already prints `[location]` maps and retrieve children on
-stdout under `-Q`. Heartbeat is for **quiet without terse**, and for gaps where
-no transcript line prints.
+`--terse-output` prints `[location]` maps and action lines on stdout under
+`-Q`. Heartbeat still runs with terse: it covers **gaps between** transcript
+lines (long retrieve/update/delegate waits). Terse writers clear the status
+line before each stdout write so the two channels do not fight.
 
 #### 3. Existing rewrite surfaces under `-Q`
 
@@ -168,7 +169,7 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees, mode banners, and any other console report. |
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
-| Terse overlap | Heartbeat must not fight terse `[location]` / resolve children. Prefer: no heartbeat while a terse resolve bookend is active, **or** clear heartbeat before each terse stdout line. Settle exact rule in the implementation PR against a dual soak (`-Q` and `-Q --terse-output`). |
+| Terse overlap | **Clear before each terse stdout line** (`progress._write_terse_stdout`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 
@@ -207,4 +208,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Phase 0 inventory | Done |
 | Phase 0 spikes A/B | Done (A simulated; B by catalogue gap analysis) |
 | Settled primary approach | **(1) + throttle**; fallback (2) |
-| Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, console-report clear, Antora + unit tests |
+| Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, clear before terse/report/warn, Antora + unit tests |
