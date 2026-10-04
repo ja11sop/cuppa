@@ -1,9 +1,9 @@
 # Plan: TTY liveness when info logs are quiet
 
-- **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); project **B** `-Q --cascade-plan` soak
-- **Updated:** 2026-09-29
-- **Impact:** `minor` when a quiet+TTY liveness surface ships; `none` while proposal-only / evaluating
+- **Status:** in progress
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
+- **Updated:** 2026-10-04
+- **Impact:** `minor` when a quiet+TTY liveness surface ships; `none` while Phase 0 / evaluating
 
 ## Problem
 
@@ -51,8 +51,8 @@ evidence that a later implementation PR does not reopen the ranking.
 
 1. How cuppa and SCons `-Q` / quiet interact with logger handlers (who writes
    where; can a cuppa handler see INFO when SCons quiet is on?).
-2. Rough catalogue of configure-time `logger.info` on a large tip (project **B**
-   or a fixture of similar width): count, rate, themes (location update, gitlab
+2. Rough catalogue of configure-time `logger.info` on a large consume tip (or a
+   fixture of similar width): count, rate, themes (location update, gitlab
    using package, construct, …).
 3. Existing rewrite surfaces (`remote_check_progress`, git `--progress`, download
    bars) and whether they already run under `-Q`.
@@ -71,7 +71,7 @@ evidence that a later implementation PR does not reopen the ranking.
 ### Spikes (small, disposable)
 
 - **Spike A (approach 1):** temporary logging handler that, on TTY + quiet,
-  rewrites the latest INFO onto one subdued line; run project **B**
+  rewrites the latest INFO onto one subdued line; run a large consume tip
   `--cascade-plan -Q` and note flicker / missed phases / handler conflicts.
 - **Spike B (approach 2):** mark only Location update + one gitlab “Using
   package” path; same soak; note coverage gaps vs A.
@@ -110,7 +110,7 @@ Until that table is filled, **do not** start a product implementation PR.
 | Item | Status |
 |------|--------|
 | Problem / candidate ranking | Done (this proposal) |
-| Phase 0 inventory | Not started |
+| Phase 0 inventory | In progress |
 | Phase 0 spikes A/B | Not started |
 | Settled primary approach | **Open** |
 | Implementation | Blocked on settle |

@@ -60,7 +60,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`console-mode-banners.md`](console-mode-banners.md) | Mode chips move from log to console report | Done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
-| [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Phase 0 still open | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
+| [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Phase 0 in progress | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
 | [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
 | [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)). Must not recolour console reports |
@@ -75,7 +75,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 3. **Terse** — done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Transcript only, citing this matrix.
 4. **Native output** — done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)).
 5. **Terse dependency locations** — done on [#355](https://github.com/ja11sop/cuppa/pull/355); nested maps for dependency/package trees under terse. Resolve uses a `[prepare]` / `[ready]` bookend during SCons reading; maps print live under `[prepare]`; retrieve children print after the work. Not under `[progress] · begin`.
-6. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
+6. **Heartbeat** — Phase 0 in progress (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
 
 Stream split waits until someone measures where lines go today. It is not a starter.
 
