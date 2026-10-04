@@ -10,16 +10,24 @@
 """TTY liveness while ``-Q`` / ``-s`` suppress multi-line info logs.
 
 See ``design/plans/quiet-tty-heartbeat.md``. Not a console report: clear this
-line before reports, warnings, and errors. Silent without a controlling TTY.
+line before reports, warnings, errors, and build transcript lines. Silent
+without a controlling TTY.
 """
 
 import logging
+import os
+import threading
 import time
 
 
 # Match download.ProgressReporter's TTY interval.
 _INTERVAL_S = 0.35
 _ELLIPSIS = '\u2026'
+# ASCII spinner — widely available; advances while a status line is held.
+_SPINNER = ( '|', '/', '-', '\\' )
+# ``Working / `` — fixed visible prefix so the eye can skip heartbeat lines.
+_WORKING = 'Working'
+
 
 _quiet_console = False
 _suppress_below = logging.WARN
@@ -28,15 +36,30 @@ _stream = None
 _owns_stream = False
 _last_emit = 0.0
 _pending = None
+_body = None  # last plain message (without Working/spinner)
 _last_line = ''
-_columns = None  # None → ask the terminal; set for tests
+_columns = None  # None → ask the TTY; set for tests
+_spin = 0
 _clock = time.monotonic
+_pulse = None
+_pulse_lock = threading.Lock()
+_pulse_enabled = True
 
 
 def _terminal_columns():
-    """Columns available for one physical status line (never wrap)."""
+    """Columns for one physical status line.
+
+    Prefer the progress TTY's file descriptor. Under the ``cuppa`` launcher
+    stdout/stderr are pipes, so ``shutil.get_terminal_size()`` falls back to
+    80 and the status line looks arbitrarily narrow.
+    """
     if _columns is not None:
         return max( 1, int( _columns ) )
+    if _stream is not None:
+        try:
+            return max( 1, os.get_terminal_size( _stream.fileno() ).columns )
+        except Exception:
+            pass
     try:
         import shutil
         return max( 1, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
@@ -54,6 +77,11 @@ def _fit_plain( plain, cols ):
     if cols == 1:
         return _ELLIPSIS
     return text[ : cols - 1 ] + _ELLIPSIS
+
+
+def _prefix():
+    """``Working / `` (spinner advances while the line is held)."""
+    return "{} {} ".format( _WORKING, _SPINNER[ _spin % len( _SPINNER ) ] )
 
 
 def quiet_console():
@@ -83,10 +111,49 @@ def multi_line_progress_allowed():
     return logger.isEnabledFor( logging.INFO )
 
 
+def _cancel_pulse():
+    global _pulse
+    with _pulse_lock:
+        if _pulse is not None:
+            try:
+                _pulse.cancel()
+            except Exception:
+                pass
+            _pulse = None
+
+
+def _arm_pulse():
+    """Keep the spinner moving while a status line is held (long waits)."""
+    global _pulse
+    with _pulse_lock:
+        if _pulse is not None:
+            try:
+                _pulse.cancel()
+            except Exception:
+                pass
+            _pulse = None
+        if not _pulse_enabled or not _heartbeat_active or not _body:
+            return
+        timer = threading.Timer( _INTERVAL_S, _on_pulse )
+        timer.daemon = True
+        _pulse = timer
+        timer.start()
+
+
+def _on_pulse():
+    global _spin
+    if not _heartbeat_active or not _body:
+        return
+    _spin = ( _spin + 1 ) % len( _SPINNER )
+    _draw( _body )
+    _arm_pulse()
+
+
 def reset():
     """Stop diversion and restore a clean status line."""
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _last_emit, _pending, _last_line, _columns
+    global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
+    global _columns, _spin, _pulse_enabled, _clock
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -100,8 +167,12 @@ def reset():
     _owns_stream = False
     _last_emit = 0.0
     _pending = None
+    _body = None
     _last_line = ''
     _columns = None
+    _spin = 0
+    _pulse_enabled = True
+    _clock = time.monotonic
 
 
 def configure_quiet_console(
@@ -112,6 +183,7 @@ def configure_quiet_console(
         owns_stream=None,
         clock=None,
         columns=None,
+        pulse=True,
 ):
     """Enable quiet console, with TTY heartbeat when appropriate.
 
@@ -120,19 +192,20 @@ def configure_quiet_console(
     heartbeat still runs so long waits between transcript lines stay alive;
     terse writers clear this line before each stdout write.
 
-    Status text is truncated to the terminal width so ``\\r`` rewrite never
-    wraps (a wrapped line cannot be cleared by a single carriage return).
+    Status text is truncated to the **TTY** width (not piped stdout) so ``\\r``
+    rewrite never wraps. Each line is ``Working <spinner> <message>``.
     """
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _clock, _columns
+    global _stream, _owns_stream, _clock, _columns, _pulse_enabled
 
     reset()
     if clock is not None:
         _clock = clock
     if columns is not None:
         _columns = columns
+    _pulse_enabled = bool( pulse )
     if not quiet_kind:
         return
 
@@ -188,9 +261,11 @@ def flush_pending():
 
 
 def clear():
-    """Blank the status line so a report or warn/error can replace it."""
-    global _pending, _last_line, _last_emit
+    """Blank the status line so a report, warn/error, or transcript can replace it."""
+    global _pending, _body, _last_line, _last_emit
+    _cancel_pulse()
     _pending = None
+    _body = None
     if not _heartbeat_active or _stream is None:
         _last_line = ''
         return
@@ -208,23 +283,35 @@ def clear():
 
 
 def _flush( now ):
-    global _pending, _last_emit, _last_line
+    global _pending, _last_emit, _body, _spin
     if _pending is None or _stream is None:
+        return
+    _body = _pending
+    _pending = None
+    _spin = ( _spin + 1 ) % len( _SPINNER )
+    _draw( _body )
+    _last_emit = now
+    _arm_pulse()
+
+
+def _draw( body ):
+    """Write one ``Working <spinner> <message>`` line fitted to the TTY width."""
+    global _last_line
+    if _stream is None or body is None:
         return
     from cuppa.colourise import as_subdued
     from cuppa.output_processor import strip_ansi
     from cuppa.utility.storage import pad_visible
 
     cols = _terminal_columns()
-    # Fit *before* colour so ANSI does not inflate the column budget, and so
-    # the rewritten line never wraps (``\\r`` only returns within one row).
-    plain = _fit_plain( strip_ansi( _pending ), cols )
-    styled = as_subdued( plain )
+    prefix = _prefix()
+    # Fit the message into the columns left after the Working/spinner prefix.
+    budget = max( 1, cols - len( prefix ) )
+    plain = _fit_plain( strip_ansi( body ), budget )
+    styled = as_subdued( prefix + plain )
     try:
         _stream.write( '\r' + pad_visible( styled, cols ) )
         _stream.flush()
     except Exception:
         pass
     _last_line = styled
-    _last_emit = now
-    _pending = None

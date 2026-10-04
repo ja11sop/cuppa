@@ -169,7 +169,8 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees, mode banners, and any other console report. |
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
-| Terse overlap | **Clear before each terse stdout line** (`progress._write_terse_stdout`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
+| Terse overlap | **Clear before each terse stdout line** (`progress._write_terse_stdout`) and before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
+| Status shape | **`Working <spinner> <message>`** — spinner pulses while the line is held; width from the controlling TTY fd (not piped stdout); truncate to one physical row. |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 

@@ -47,6 +47,21 @@ def strip_ansi( text ):
     return _ANSI_ESCAPE_RE.sub( '', text )
 
 
+def _clear_heartbeat():
+    """Drop the quiet+TTY status line before a transcript line replaces it."""
+    try:
+        from cuppa.utility.heartbeat import clear as clear_heartbeat
+        clear_heartbeat()
+    except Exception:
+        pass
+
+
+def _emit_transcript( line ):
+    """Print one build-transcript line; clear the quiet heartbeat first."""
+    _clear_heartbeat()
+    print( line )
+
+
 def command_available( command ):
     try:
         with open(os.devnull) as devnull:
@@ -72,11 +87,11 @@ class LineConsumer:
                     if self.processor:
                         line = self.processor( line )
                         if line:
-                            print( line )
+                            _emit_transcript( line )
                     else:
-                        print( line )
+                        _emit_transcript( line )
         except UnicodeDecodeError as error:
-            print( "WARNING: Ignoring unicode error {}".format( error ) )
+            _emit_transcript( "WARNING: Ignoring unicode error {}".format( error ) )
 
 
 
@@ -144,6 +159,7 @@ class IncrementalSubProcess:
             close_fds = platform.system() == "Windows" and False or True
 
             if not suppress_output:
+                _clear_heartbeat()
                 sys.stdout.write( " ".join(args_list) + "\n" )
 
             popen_kwargs = dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
@@ -243,9 +259,9 @@ class Stream(object):
                     if self._processor:
                         line = self._processor( line )
                         if line:
-                            print( line )
+                            _emit_transcript( line )
                     else:
-                        print( line )
+                        _emit_transcript( line )
             self._queue.task_done()
         except Queue.Empty:
             logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
@@ -398,7 +414,7 @@ class SpawnedProcessor(object):
         if not self._terse:
             summary = self.summary( returncode )
             if summary:
-                print( summary )
+                _emit_transcript( summary )
             return
 
         command, target, source, env = take_terse_command()
@@ -413,7 +429,7 @@ class SpawnedProcessor(object):
                 env,
                 self.summary( returncode ),
         ):
-            print( line )
+            _emit_transcript( line )
 
 
 

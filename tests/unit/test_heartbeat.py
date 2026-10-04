@@ -12,8 +12,10 @@ import pytest
 
 from cuppa import log as log_mod
 from cuppa.log import logger, set_logging_level
+from cuppa.output_processor import strip_ansi
 from cuppa.utility import heartbeat as hb
 from cuppa.utility.console_report import write_report_lines
+from cuppa.utility.storage import visible_len
 
 
 pytestmark = pytest.mark.unit
@@ -28,6 +30,23 @@ class FakeClock( object ):
 
     def advance( self, seconds ):
         self.now += seconds
+
+
+def _configure( stream, clock, columns=120 ):
+    hb.configure_quiet_console(
+            'warn',
+            stream=stream,
+            is_tty=True,
+            owns_stream=False,
+            clock=clock,
+            columns=columns,
+            pulse=False,
+    )
+
+
+def _status_body( stream ):
+    """Last CR-separated status fragment, ANSI stripped, trailing pad removed."""
+    return strip_ansi( stream.getvalue().split( '\r' )[-1] ).rstrip( ' ' )
 
 
 @pytest.fixture( autouse=True )
@@ -68,19 +87,18 @@ def test_configure_keeps_heartbeat_for_terse_gaps():
     """Terse transcript and heartbeat coexist; clear before each terse line."""
     stream = io.StringIO()
     clock = FakeClock()
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
-    )
+    _configure( stream, clock )
     assert hb.quiet_console() is True
     assert hb.diverting() is True
     assert logger.isEnabledFor( logging.INFO )
 
     logger.info( 'Updating [libfoo]' )
     assert 'Updating [libfoo]' in stream.getvalue()
+    assert 'Working' in _status_body( stream )
 
     from cuppa.progress import _write_terse_stdout
-    out = io.StringIO()
     import cuppa.progress as progress_module
+    out = io.StringIO()
     real_stdout = progress_module.sys.stdout
     progress_module.sys.stdout = out
     try:
@@ -98,15 +116,23 @@ def test_fit_plain_truncates_with_ellipsis():
     assert hb._fit_plain( 'ab', 1 ) == hb._ELLIPSIS
 
 
+def test_working_prefix_and_spinner_on_status_line():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=80 )
+    logger.info( 'Updating [libfoo]' )
+    body = _status_body( stream )
+    assert body.startswith( 'Working ' )
+    assert body[ len( 'Working ' ) ] in hb._SPINNER
+    assert 'Updating [libfoo]' in body
+
+
 def test_long_info_stays_on_one_physical_line():
     """``\\r`` cannot clear a wrapped line — never write past the terminal width."""
     stream = io.StringIO()
     clock = FakeClock()
     cols = 40
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False,
-            clock=clock, columns=cols,
-    )
+    _configure( stream, clock, columns=cols )
     long_msg = (
             'Updating [git+ssh://git@example.com/org/very_long_repo_name@master] '
             'in [/home/jamie/_cuppa/_download/git_ssh_…/] on '
@@ -114,30 +140,41 @@ def test_long_info_stays_on_one_physical_line():
     )
     assert len( long_msg ) > cols
     logger.info( long_msg )
-    # Strip ANSI / CR for a visible-width check on the status body.
-    from cuppa.output_processor import strip_ansi
-    from cuppa.utility.storage import visible_len
-    body = strip_ansi( stream.getvalue() ).lstrip( '\r' ).rstrip( ' ' )
+    body = _status_body( stream )
     assert visible_len( body ) <= cols
+    assert body.startswith( 'Working ' )
     assert body.endswith( hb._ELLIPSIS )
-    assert body.startswith( 'Updating [' )
 
     clock.advance( 0.40 )
     logger.info( 'Using package [tip]' )
-    body2 = strip_ansi( stream.getvalue().split( '\r' )[-1] ).rstrip( ' ' )
+    body2 = _status_body( stream )
     assert visible_len( body2 ) <= cols
     assert 'Using package [tip]' in body2
     # Previous long tail must not remain after the rewrite.
     assert 'very_long_repo_name' not in body2
 
 
+def test_terminal_columns_prefer_stream_fileno( monkeypatch ):
+    """Piped stdout makes ``shutil.get_terminal_size`` lie; use the TTY fd."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )  # columns override set — clear it to exercise fd path
+    hb._columns = None
+
+    class Size( object ):
+        columns = 160
+        lines = 40
+
+    monkeypatch.setattr( stream, 'fileno', lambda: 99 )
+    monkeypatch.setattr( hb.os, 'get_terminal_size', lambda fd: Size() )
+    assert hb._terminal_columns() == 160
+
+
 def test_info_rewrites_throttled_status_line():
     stream = io.StringIO()
     clock = FakeClock()
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
-            columns=120,
-    )
+    _configure( stream, clock, columns=120 )
+
     assert hb.diverting() is True
     assert logger.isEnabledFor( logging.INFO )
     assert hb.multi_line_progress_allowed() is False
@@ -148,6 +185,7 @@ def test_info_rewrites_throttled_status_line():
     assert '\r' in first
     assert 'cuppa:' not in first
     assert '[info]' not in first
+    assert 'Working' in first
 
     logger.info( 'Using package [a]' )  # within throttle window
     assert stream.getvalue() == first
@@ -160,11 +198,7 @@ def test_info_rewrites_throttled_status_line():
 def test_warn_clears_status_and_emits_multiline( monkeypatch ):
     stream = io.StringIO()
     clock = FakeClock()
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
-    )
-    # Point the cuppa log handler at a capture stream for the warn line.
-    from cuppa import log as log_mod
+    _configure( stream, clock )
     capture = io.StringIO()
     monkeypatch.setattr( log_mod._log_handler, 'stream', capture )
 
@@ -172,20 +206,17 @@ def test_warn_clears_status_and_emits_multiline( monkeypatch ):
     assert 'Updating [libfoo]' in stream.getvalue()
 
     logger.warn( 'something went wrong' )
-    # Status line blanked (spaces after a carriage return).
     assert '\r' in stream.getvalue()
     text = capture.getvalue()
     assert 'something went wrong' in text
-    # Level name is WARNING unless ``initialise_logging`` renamed it to warn.
     assert '[warn]' in text or '[WARNING]' in text
 
 
 def test_silent_quiet_suppresses_warn_multiline( monkeypatch ):
     stream = io.StringIO()
     hb.configure_quiet_console(
-            'error', stream=stream, is_tty=True, owns_stream=False,
+            'error', stream=stream, is_tty=True, owns_stream=False, pulse=False,
     )
-    from cuppa import log as log_mod
     capture = io.StringIO()
     monkeypatch.setattr( log_mod._log_handler, 'stream', capture )
 
@@ -200,24 +231,41 @@ def test_silent_quiet_suppresses_warn_multiline( monkeypatch ):
 def test_report_clears_heartbeat():
     stream = io.StringIO()
     clock = FakeClock()
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False, clock=clock,
-    )
+    _configure( stream, clock )
     logger.info( 'Updating [libfoo]' )
     assert 'Updating [libfoo]' in stream.getvalue()
 
     out = io.StringIO()
     write_report_lines( [ 'Running in CASCADE PLAN mode' ], out=out )
     assert out.getvalue() == 'Running in CASCADE PLAN mode\n'
-    # Clear wrote spaces over the status line.
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
+
+
+def test_spawn_transcript_clears_heartbeat( monkeypatch ):
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Using [/tmp]' in stream.getvalue()
+    assert hb._last_line
+
+    from cuppa import output_processor as op
+    printed = []
+    monkeypatch.setattr(
+            'builtins.print',
+            lambda *a, **k: printed.append( a[0] if a else '' ),
+    )
+    op._emit_transcript( '/usr/bin/g++ -c foo.cpp' )
+    assert printed == [ '/usr/bin/g++ -c foo.cpp' ]
+    # Status line blanked so the command does not share a row with Working.
+    assert hb._last_line == ''
+    assert hb._body is None
 
 
 def test_verbosity_override_resets_heartbeat():
     stream = io.StringIO()
-    hb.configure_quiet_console(
-            'warn', stream=stream, is_tty=True, owns_stream=False,
-    )
+    clock = FakeClock()
+    _configure( stream, clock )
     assert hb.diverting() is True
     hb.reset()
     set_logging_level( 'info' )
