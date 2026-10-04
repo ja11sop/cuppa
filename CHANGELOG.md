@@ -122,7 +122,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``<boost>`` with ``label_terse_location``. Location libraries and the
   dependencies root register sconstruct-scoped tokens under
   ``[progress] · read`` (``<dependencies>/<fmt>/…``,
-  ``_build/<fmt>/<variant>/working/…``). The artefacts-root token is
+  ``_build/<fmt>/<variant>/working/…``). ``link``, ``archive``, and ``index``
+  name the located product (``<final>/…`` or ``_build/<fmt>/<variant>/final/…``),
+  not a bare leaf; ``run`` / ``test`` / ``benchmark`` use that same located
+  program cell (``<final>/…``) so a test lines up with the ``link`` that built
+  it. The artefacts-root token is
   British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
   alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)

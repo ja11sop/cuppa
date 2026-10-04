@@ -97,7 +97,12 @@ TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from th
   variant working copy. The product uses `<working>/` when it lives in that cell.
 * **Transfer** (`copy`, `move`, `expand`, `render`, and a run that writes a file):
   `source → dest`. Staging a `.a` with `cp` is `copy`, never `archive`.
-* **Aggregate** (`link`, `link-shared`, `archive`, `package`, ...): the product basename.
+* **Aggregate** (`link`, `link-shared`, `archive`, `package`, ...): the located
+  product (`<final>/management`, or `_build/<fmt>/<variant>/final/libfmt.a` for a
+  dependency archive). `index` uses the same path as the archive. Unmapped
+  products stay a basename. `run` / `test` / `benchmark` use the same located
+  program (`<final>/management`) so a test lines up with the `link` that built
+  it. A redirected run stays `program → output`. `test-case` stays `program/case`.
 * **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `b2`): a short
   summary such as `-B _build/...`, not a stamp name like `cmake.build.complete`.
 

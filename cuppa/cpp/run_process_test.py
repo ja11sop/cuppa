@@ -108,7 +108,7 @@ class TestSuite(object):
             from cuppa.cpp.terse_test_report import write_process_case
             write_process_case(
                     self._scons_env,
-                    os.path.basename( test_case['name'] ),
+                    test_case.get( 'program_path' ) or os.path.basename( test_case['name'] ),
                     status,
                     test_case.get( 'expected' ),
                     cpu_times.wall,
@@ -399,6 +399,7 @@ class RunProcessTest(object):
         test_suite = TestSuite.create( suite, env )
 
         test_case = test_suite.enter_test( test, expected=self._expected )
+        test_case['program_path'] = program_path
 
         show_test_output = env['show_test_output']
 

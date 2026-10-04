@@ -1197,10 +1197,13 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
     if not token or not path:
         return
     abs_path = _to_abs( path, env )
-    script = _sconscript_label( env )
-    cell = _variant_cell( env )
+    if _is_project_root( abs_path, env ):
+        return
+    scope = str( scope or "sconscript" )
+    script = "" if scope == "sconstruct" else _sconscript_label( env )
+    cell = _variant_cell( env ) if scope == "variant" else ""
     folder = str( build_folder or "" ).replace( "\\", "/" ).strip( "/" )
-    entry = ( str( scope or "sconscript" ), script, cell, token, abs_path, folder )
+    entry = ( scope, script, cell, token, abs_path, folder )
     with _terse_locations_lock:
         kept = [
                 item for item in _terse_locations
@@ -1213,7 +1216,7 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
         ]
         kept.append( entry )
         _terse_locations[:] = kept
-    if str( scope or "sconscript" ) == "sconstruct" and _env_get( env, "terse_output" ):
+    if scope == "sconstruct" and _env_get( env, "terse_output" ) and not _env_get( env, "clean" ):
         write_terse_read_checkpoint( env )
         _emit_sconstruct_location_map( token, abs_path, env )
 
@@ -1609,6 +1612,54 @@ def _with_variant_token( relative, env ):
     return prefix + "/".join( out )
 
 
+def _is_project_root( path, env ):
+    """True when ``path`` is the sconstruct directory or project ``base_path``."""
+    if not path:
+        return False
+    path = os.path.normcase( os.path.normpath( path ) )
+    for key in ( "sconstruct_dir", "base_path" ):
+        root = _env_get( env, key, "" ) or ""
+        if not root:
+            continue
+        other = os.path.normcase( _to_abs( root, env ) )
+        if path == other:
+            return True
+    return False
+
+
+def _nested_author_match( abs_path, env ):
+    """Distinct nested tokens from outer root to innermost. One token per path."""
+    by_root = {}
+    for item in _author_locations():
+        _scope, _script, _cell, token, root, _folder = _unpack_location( item )
+        if _is_project_root( root, env ):
+            continue
+        relative = _rel_inside( abs_path, root )
+        if relative is None:
+            continue
+        key = os.path.normcase( os.path.normpath( root ) )
+        length = len( os.path.normpath( root ) )
+        existing = by_root.get( key )
+        if existing is None:
+            by_root[ key ] = ( length, token, relative, key )
+    if not by_root:
+        return None
+    ranked = sorted( by_root.values(), key=lambda item: item[0] )
+    _length, inner_token, inner_relative, inner_key = ranked[ -1 ]
+    tokens = []
+    for _length, token, _relative, key in ranked:
+        contained = (
+                inner_key == key
+                or inner_key.startswith( key + os.sep )
+                or inner_key.startswith( key + "/" )
+        )
+        if contained and token not in tokens:
+            tokens.append( token )
+    if not tokens:
+        tokens = [ inner_token ]
+    return ">/<" .join( tokens ), inner_relative
+
+
 def _token_for_build_folder( folder ):
     folder = str( folder or "" ).replace( "\\", "/" ).strip( "/" )
     if not folder:
@@ -1671,17 +1722,9 @@ def _locate( raw, env, allow_variant_roots=True ):
                 if rest:
                     body += "/" + _with_variant_token( rest, env )
                 return "", body
-    matches = []
-    for item in _author_locations():
-        _scope, _script, _cell, token, root, _folder = _unpack_location( item )
-        relative = _rel_inside( abs_path, root )
-        if relative is None:
-            continue
-        matches.append( ( len( os.path.normpath( root ) ), token, relative ) )
+    matches = _nested_author_match( abs_path, env )
     if matches:
-        matches.sort()
-        tokens = [ item[1] for item in matches ]
-        return ">/<".join( tokens ), matches[ -1 ][2]
+        return matches
     return "", _display_source_path( raw, env )
 
 
@@ -1738,6 +1781,7 @@ def _paths_style( nodes ):
 _TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
 _PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
 _TRANSFORM_ACTIONS = ( "markdown", "asciidoc" )
+_RUN_FILE_ACTIONS = ( "run", "test", "benchmark" )
 
 
 def _is_transform_action( action ):
@@ -1758,12 +1802,41 @@ def _transform_field( target, source, env ):
     return source_text or dest_text
 
 
+def _mapped_product_path( token, relative ):
+    """True when dest locate hit a token or a ``_build/<name>/…`` rewrite."""
+    if token:
+        return True
+    return "<" in str( relative or "" )
+
+
+def located_program_parts( path, env ):
+    """``('<final>/', 'management')`` or ``('', basename)`` when unmapped."""
+    raw = str( path or "" ).replace( "\\", "/" )
+    token, relative = _locate( raw, env )
+    leaf = os.path.basename( raw ) or raw
+    if not _mapped_product_path( token, relative ):
+        return "", leaf
+    relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+    directory, filename = os.path.split( relative ) if relative else ( "", "" )
+    if directory in ( "", "." ):
+        directory = ""
+    prefix = ( "<" + token + ">/" if token else "" ) + ( directory + "/" if directory else "" )
+    return prefix, filename or leaf
+
+
+def _located_product_field( target, env, require_map=True ):
+    """Product cell with dest colouring, or the leaf when the path is unmapped."""
+    raw = _node_path( _first_node( target ) )
+    token, relative = _locate( raw, env )
+    if require_map and not _mapped_product_path( token, relative ):
+        return _coloured_file( "", _node_basename( target ) )
+    shown = _coloured_transfer_end( token, relative, dest=True )
+    return shown or _coloured_file( "", _node_basename( target ) )
+
+
 def _file_field( action, target, source, env ):
     if _paths_style( target ) == "product" and action not in _TRANSFER_ACTIONS:
-        token, relative = _locate( _node_path( _first_node( target ) ), env )
-        shown = _coloured_transfer_end( token, relative, dest=True )
-        if shown:
-            return shown
+        return _located_product_field( target, env, require_map=False )
     summary = _explicit_terse_summary( target )
     if summary:
         if _paths_style( target ) == "file":
@@ -1779,10 +1852,10 @@ def _file_field( action, target, source, env ):
         return _path_action_field( _node_path( _first_node( target ) ), env )
     if _is_transform_action( action ):
         return _transform_field( target, source, env )
-    # A test's targets are the logs. The program is the source.
-    if action == "test":
-        return _coloured_file( "", _node_basename( source ) or _node_basename( target ) )
-    return _coloured_file( "", _node_basename( target ) )
+    if action in _RUN_FILE_ACTIONS:
+        program = source if _first_node( source ) is not None else target
+        return _located_product_field( program, env )
+    return _located_product_field( target, env )
 
 _STATUS_WIDTH = 6
 
@@ -1874,11 +1947,10 @@ def format_terse_duration( nanos ):
 
 
 def _uncounted_prefix( env, marker ):
-    """Indent ``→`` so ``[status]`` lines up with a counted line.
+    """Indent ``→`` so a nested status lines up with ``[ok]`` / ``[progress]``.
 
-    The arrow means this line is not in the action total. The gap is the
-    padded tally, minus one column for the arrow itself. Counted lines also
-    take the badge indent, and the arrow keeps that column.
+    When a cell tally exists, the gap is that prefix minus one column for the
+    arrow. Nested copies and test-cases with an empty ledger stay flush.
     """
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
     arrow = as_subdued( "→" )
@@ -1886,6 +1958,22 @@ def _uncounted_prefix( env, marker ):
         return arrow + " " + marker
     indent = _progress_ledger.action_line_indent()
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
+
+
+def _location_map_prefix( env ):
+    """Indent ``→ [location]`` to the ``[ok]`` or ``[progress]`` column."""
+    _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
+    badge = _location_badge()
+    if plain:
+        return _uncounted_prefix( env, badge )
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent_width = counts[ "percent_digits" ] + 1
+    column = (
+            _progress_ledger.progress_line_indent()
+            + _SCOPE_WIDTH + 1 + percent_width + 1
+    )
+    indent = max( column - 2, 0 )
+    return ( " " * indent ) + as_subdued( "→" ) + " " + badge
 
 
 def _coloured_location_value( shown, env ):
@@ -1932,17 +2020,18 @@ def _location_map_rhs( token, path, env ):
     if str( token ) == "variant":
         return _slash( path ).strip( "/" )
     abs_path = _to_abs( path, env )
-    parents = []
-    for item in _author_locations():
-        _scope, _script, _cell, other, root, _folder = _unpack_location( item )
-        if other == token:
-            continue
-        relative = _rel_inside( abs_path, root )
-        if relative:
-            parents.append( ( len( os.path.normpath( root ) ), relative ) )
-    if parents:
-        parents.sort( reverse=True )
-        return parents[0][1]
+    if str( token ) not in ( "working", "final", "artefacts" ):
+        parents = []
+        for item in _author_locations():
+            _scope, _script, _cell, other, root, _folder = _unpack_location( item )
+            if other == token or _is_project_root( root, env ):
+                continue
+            relative = _rel_inside( abs_path, root )
+            if relative:
+                parents.append( ( len( os.path.normpath( root ) ), relative ) )
+        if parents:
+            parents.sort( reverse=True )
+            return parents[0][1]
     shown = _project_display( abs_path, env ) or _home_display( abs_path )
     return _with_variant_token( shown, env )
 
@@ -1967,7 +2056,7 @@ def format_terse_location_line( token, path, env, scope="variant" ):
             fields.append( cell )
     value = "<" + str( token ) + ">" + as_subdued( " = " ) + _coloured_location_value( shown, env )
     fields.append( value )
-    lead = _uncounted_prefix( env, _location_badge() )
+    lead = _location_map_prefix( env )
     return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
 
 
@@ -2609,6 +2698,9 @@ def write_terse_read_checkpoint( env ):
     """Print ``sconstruct 0% [progress] … · read`` once during SCons reading."""
     global _terse_read_written
     if not _env_get( env, "terse_output" ):
+        return
+    if _env_get( env, "clean" ):
+        _terse_read_written = True
         return
     if _terse_read_written:
         return

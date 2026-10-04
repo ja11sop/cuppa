@@ -7,6 +7,7 @@
 #   Terse test lines
 #-------------------------------------------------------------------------------
 
+import os
 import sys
 
 import cuppa.progress
@@ -69,7 +70,8 @@ def _write( env, status, action, name, nanos, detail ):
     if action == "test-case":
         name = colour_test_name( status, name, case=True )
     elif action == "test":
-        name = colour_test_name( status, name, case=False )
+        prefix, leaf = cuppa.progress.located_program_parts( name, env )
+        name = as_subdued( prefix ) + colour_test_name( status, leaf )
     duration = cuppa.progress.format_terse_duration( nanos )
     line = cuppa.progress.format_terse_result_line(
             status, env, action, name, duration=duration, detail=detail,
@@ -103,7 +105,7 @@ def write_case( env, program, test_case, nanos ):
     total = _count( test_case.get( "total" ) )
     passed = _count( test_case.get( "passed" ) )
     detail = assertion_clause( passed, total, label=False )
-    name = program + "/" + str( test_case.get( "name" ) or "" )
+    name = os.path.basename( str( program or "" ) ) + "/" + str( test_case.get( "name" ) or "" )
     _write( env, case_status( raw ), "test-case", name, nanos, detail )
 
 

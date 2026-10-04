@@ -70,9 +70,9 @@ Only the **file** cell changes. The action word stays the verb. Do not invent a 
 | **Transform** | `source → product` | `compile`, `compile-*`, `markdown`, `asciidoc`, and any one-input rewrite that yields a different artefact | Names what was read and what was written. Matches CMake/Ninja expectation without dropping the source (the Phase 1 reason for source-only was cross-sconscript `.o` confusion; `<working>/` on the product removes that) |
 | **Transfer** | `source → dest` | `copy`, `move`, `expand`, `render`, Install, staging | Already settled. Location change, same kind of thing |
 | **Path** | path only | `delete`, `mkdir`, `chmod` | No useful second end |
-| **Aggregate** | product basename (or short product path) | `link`, `link-shared`, `archive`, `package`, `publish` | Many inputs already had their own lines; the product is the news |
-| **Side tool** | product basename | `index` (ranlib) | Touches an existing product |
-| **Run** | program basename, or `program → output` when redirected | `run`, `test`, `benchmark` | Already settled for redirect |
+| **Aggregate** | located product path | `link`, `link-shared`, `archive`, `package`, `publish` | Many inputs already had their own lines; the product is the news. Once `[location]` maps exist, the leaf is not enough: this variant's program is `<final>/management`, a dependency archive is `_build/<fmt>/<variant>/final/libfmt.a`. Not a transform: no object list, no `→`. Unmapped paths stay a basename. |
+| **Side tool** | located product path | `index` (ranlib) | Touches an existing product; same cell as the archive line |
+| **Run** | located program, or `program → output` when redirected | `run`, `test`, `benchmark` | Same dest locate as `link` so the binary matches the line that built it. `<final>/` subdued; the leaf keeps dest colouring on `run`/`benchmark` and the status badge on `test`. `test-case` stays `program/case` with the basename. Unmapped stays a basename. |
 | **Delegated** | summary of the foreign job, not the stamp name | `cmake-configure`, `cmake-build`, `cmake-install`, `b2`, … | Stamps (`cmake.build.complete`) are graph glue. Show `-B` / source / install prefix instead |
 | **Opaque** | omit the file cell, or a short label the method sets | rare labelled methods with no meaningful path | Prefer a method-supplied summary over a stamp |
 
@@ -110,15 +110,15 @@ directory subdued (`<working>/`); product filename info+bold. Same transfer colo
 | `markdown` / `asciidoc` | source | `source → dest` (html) | Transform |
 | `expand` / `render` | `source → dest` | keep | Transfer |
 | `copy` / `move` / Install | `source → dest` | keep; fix mis-spelled `cp` (below) | Transfer |
-| `link` / `link-shared` | product basename | keep | Aggregate |
-| `archive` | product basename | keep; only real archivers | Aggregate |
-| `index` | product basename | keep | Side tool |
-| `test` / `run` / `benchmark` | program / redirect | keep | Run |
+| `link` / `link-shared` | product basename | located product (`<final>/…` or `_build/<name>/<variant>/final/…`) | Aggregate |
+| `archive` | product basename | located product; only real archivers | Aggregate |
+| `index` | product basename | located product (same path as the archive) | Side tool |
+| `test` / `run` / `benchmark` | program / redirect | located program (`<final>/…`); redirect still `program → output` | Run |
 | `cmake-configure` | `cmake.configure.complete` | e.g. `-B <build_dir>` or source tree summary | Delegated |
 | `cmake-build` | `cmake.build.complete` | e.g. `-B <build_dir>` · Ninja (or generator) | Delegated |
 | `cmake-install` | `cmake.install.complete` | e.g. `--prefix …` or install target | Delegated |
 | `b2` | (labelled; path varies) | Boost build dir / `--prefix` style summary | Delegated |
-| `package` / `publish` | package stem | keep | Aggregate |
+| `package` / `publish` | package stem | located product when the dest is mapped | Aggregate |
 | `version` | generated file | keep (product) | Aggregate-ish |
 | nested `Execute` `copy` | `→ … · copy · source → dest` | keep | Transfer |
 | raw `cp` / `cp -f` via `command.run` | misspelled `archive` when dest is `.a` | label `copy` + Transfer field; never infer archive from suffix alone when the tool is `cp`/`copy` | Transfer |
@@ -406,6 +406,8 @@ instead of a raw `cp` and a false `archive`.
 | Scope `action` with badge `[action]` | Refuse; redundant and silent about the long handoff |
 | Make transform `source → product` the default outside `--terse-output` | Refuse; only the terse file cell changes |
 | Infer `archive` from a `.a` target for any tool | Refuse; that is the bug being fixed |
+| Turn `link` / `archive` into `objects → product` | Refuse; aggregate stays product-only; locate the dest |
+| Print `<final>/libfmt.a` for a dependency archive | Refuse; that token is this sconscript's final dir |
 | Infer “shared across variants” from Depends | Refuse; author sets `label_terse_action(..., shared=True)` |
 | Infer `<boost>` (or other tokens) by sniffing `_download` folder names | Refuse; structured registration only — see [`terse-dependency-locations.md`](terse-dependency-locations.md) |
 | Register Boost `bin.*` as a terse location | Refuse; ordinary `-c` does not wipe it |

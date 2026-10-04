@@ -226,7 +226,8 @@ dependency's resolved tree.
 | A | This plan + ROADMAP / design index + amend terse-delegated refusal | First commit |
 | B | Nested `_locate` + `<variant>` + transform sources use locator | Done |
 | C | `[progress] · read` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Done |
-| D | Unit tests + soak on a multi-location project | Unit done; soak on a consumer project |
+| D | Unit tests + soak on a multi-location project | Unit done; soak: skip maps on `-c`; unique nest; indent |
+| G | Located product cells on `link` / `archive` / `index` | Follow-on; dest `_locate`, not a transform |
 | E | `<packages>` nesting when package roots are known | May follow B/C |
 | F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[progress] · read` | After C; stay under `-Q`; not configure logs |
 
@@ -253,7 +254,8 @@ dependency's resolved tree.
 | Reuse `[progress] · begin` / `end` for CMake/`b2` | Refuse; that is the delegated-plan rule, unchanged |
 | Print `N/A` in the percent column | Refuse; `[progress]` uses `0%` until the ledger accounts actions |
 | Print `0/36` (or `0/0`) on `[progress] · read` | Refuse; no action denominator yet |
-| Ship inside the native-output PR | Refuse; already landed as [#354](https://github.com/ja11sop/cuppa/pull/354) |
+| Print `[progress] · read` maps on `-c` | Refuse; clean is not a build transcript |
+| Prefix every product with `<final>/` | Refuse; only this variant's final dir is `<final>` |
 
 ## Success criteria (soak)
 
@@ -270,6 +272,20 @@ dependency's resolved tree.
    under `<dependencies>`.
 5. Existing Boost terse location updated to the nested convention; unit tests
    green.
+6. `-c` / `--clean` does **not** print `[progress] · read` or sconstruct
+   location maps. Clean is resolve-then-remove; the map dump is noise next to
+   `Removed …` lines.
+7. Location maps under `[progress] · read` use the same `→` indent as variant
+   maps (align `[location]` with `[progress]`).
+8. Nested tokens are unique: one `<fmt>` even if sconstruct-scoped labels are
+   registered from several sconscripts; project-root `#` locations do not wrap
+   in-tree sources as `<app>/test/…`; two names on the same extract (e.g.
+   `date` and `quince_date_lib`) emit one token.
+9. `link` / `archive` / `index` (and other aggregates) show the located product
+   (`<final>/management`, `_build/<fmt>/<variant>/final/libfmt.a`), not a bare
+   leaf. `run` / `test` / `benchmark` use the same located program cell so a
+   test lines up with the `link` that produced it. `test-case` stays
+   `program/case`.
 
 ## Related
 

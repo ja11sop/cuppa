@@ -1407,6 +1407,64 @@ def test_location_library_compile_nests_dependency_and_variant_tokens():
     assert "_build/<fmt>/<variant>/working/src/format.o" in line
     assert "git_https" not in line
 
+    env["sconscript_file"] = "./test/orders/sconscript"
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
+    progress.label_terse_location(
+            env, "fmt", fmt, scope="sconstruct", build_folder=folder,
+    )
+    again = progress.format_terse_success(
+            "g++ -c " + fmt + "/src/format.cc",
+            [ "/proj/_build/" + folder + "/gcc16/dbg/x86_64/cxx2c/working/src/format.o" ],
+            [ fmt + "/src/format.cc" ],
+            env,
+    )
+    assert again.count( "<dependencies>" ) == 1
+    assert "<fmt>/<fmt>" not in again
+    assert "<dependencies>/<dependencies>" not in again
+
+
+def test_project_root_location_does_not_wrap_project_sources():
+    env = _layout_env()
+    env["sconstruct_dir"] = "/proj"
+    progress.label_terse_location( env, "app", "/proj", scope="sconstruct" )
+    line = progress.format_terse_success(
+            "g++ -c test/orders/widget.cpp",
+            [ env["abs_build_dir"] + "/widget.o" ],
+            [ "/proj/test/orders/widget.cpp" ],
+            env,
+    )
+    assert "· compile · test/orders/widget.cpp → <working>/widget.o" in line
+    assert "<app>" not in line
+
+
+def test_same_extract_two_names_uses_one_token():
+    env = _layout_env()
+    download = "/home/u/_cuppa/_download"
+    date = download + "/git_https_github.com__HowardHinnant_date.git@master"
+    progress.label_terse_location( env, "dependencies", download, scope="sconstruct" )
+    progress.label_terse_location( env, "date", date, scope="sconstruct" )
+    progress.label_terse_location( env, "quince_date_lib", date, scope="sconstruct" )
+    line = progress.format_terse_success(
+            "g++ -c " + date + "/src/tz.cpp",
+            [ "tz.o" ],
+            [ date + "/src/tz.cpp" ],
+            env,
+    )
+    assert "· compile · <dependencies>/<date>/src/tz.cpp → tz.o" in line
+    assert "<quince_date_lib>" not in line
+
+
+def test_clean_does_not_print_read_checkpoint_or_maps( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["clean"] = True
+    env["sconstruct_dir"] = "/proj"
+    progress.write_terse_read_checkpoint( env )
+    progress.label_terse_location(
+            env, "dependencies", "/home/u/_cuppa/_download", scope="sconstruct",
+    )
+    assert capsys.readouterr().out == ""
+
 
 def test_develop_location_does_not_nest_under_dependencies():
     env = _layout_env()
@@ -1422,6 +1480,67 @@ def test_develop_location_does_not_nest_under_dependencies():
     )
     assert "· compile · <libfoo>/src/foo.cpp → foo.o" in line
     assert "<dependencies>/<libfoo>" not in line
+
+
+def test_link_archive_index_use_located_product( capsys ):
+    env = _layout_env()
+    env["tool_variant_dir"] = "gcc16/dbg/x86_64/cxx2c"
+    env["abs_build_root"] = "/proj/_build"
+    linked = progress.format_terse_line(
+            "ok",
+            "g++ -o management management.o",
+            [ env["abs_final_dir"] + "/management" ],
+            [ env["abs_build_dir"] + "/management.o" ],
+            env,
+    )
+    assert "· link · <final>/management" in linked
+    assert "→" not in linked
+
+    folder = "git_https_github.com__fmtlib_fmt.git@master"
+    fmt = "/home/u/_cuppa/_download/" + folder
+    progress.label_terse_location( env, "dependencies", "/home/u/_cuppa/_download", scope="sconstruct" )
+    progress.label_terse_location(
+            env, "fmt", fmt, scope="sconstruct", build_folder=folder,
+    )
+    archive = "/proj/_build/" + folder + "/gcc16/dbg/x86_64/cxx2c/final/libfmt.a"
+    archived = progress.format_terse_line(
+            "ok", "ar rc libfmt.a format.o", [ archive ], [ fmt + "/src/format.cc" ], env,
+    )
+    indexed = progress.format_terse_line(
+            "ok", "ranlib libfmt.a", [ archive ], [], env,
+    )
+    assert "· archive · _build/<fmt>/<variant>/final/libfmt.a" in archived
+    assert "· index · _build/<fmt>/<variant>/final/libfmt.a" in indexed
+    ran = progress.format_terse_line(
+            "ok",
+            "management",
+            [ _LabelledNode( "run", env["abs_final_dir"] + "/management.stdout.log" ) ],
+            [ env["abs_final_dir"] + "/management" ],
+            env,
+    )
+    assert ran.endswith( "· run · <final>/management" )
+    env["terse_output"] = True
+    from cuppa.cpp.terse_test_report import write_case, write_rollup
+    write_rollup(
+            env, env["abs_final_dir"] + "/management", "pass", 8_000_000,
+            1, 0, 0, 0, 0, 1, assertions=( 8, 8 ),
+    )
+    out = capsys.readouterr().out
+    assert "· test · 8 ms · <final>/management — 1/1 cases, 8/8 assertions" in out
+    write_case(
+            env,
+            env["abs_final_dir"] + "/management",
+            {
+                "name": "rejects_a_cross",
+                "status": "failed",
+                "passed": 1,
+                "total": 3,
+            },
+            18_000_000,
+    )
+    case = capsys.readouterr().out
+    assert "· test-case · 18 ms · management/rejects_a_cross — 1/3 assertions" in case
+    assert "<final>" not in case
 
 
 def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
@@ -1450,6 +1569,8 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
     assert "<dependencies> =" in out
     assert "<fmt> =" in out
     assert "git_https_github.com__fmtlib_fmt.git@master" in out
+    loc = [ line for line in out.splitlines() if "[location]" in line ][0]
+    assert loc.startswith( " " )
     progress.write_terse_progress_checkpoint( "sconstruct_begin", None, None, env )
     begin = capsys.readouterr().out
     assert "<dependencies>" not in begin
@@ -1460,6 +1581,8 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
 def test_variant_working_map_substitutes_variant_token():
     env = _layout_env()
     env["tool_variant_dir"] = "gcc16/dbg/x86_64/cxx2c"
+    env["sconstruct_dir"] = "/proj"
+    progress.label_terse_location( env, "app", "/proj", scope="sconstruct" )
     line = progress.format_terse_location_line(
             "working", env[ "abs_build_dir" ], env, scope="variant",
     )
