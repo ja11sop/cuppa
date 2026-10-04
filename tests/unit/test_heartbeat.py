@@ -195,6 +195,27 @@ def test_info_rewrites_throttled_status_line():
     assert 'Using package [b]' in stream.getvalue()
 
 
+def test_stale_caption_drops_to_working_spinner_anchor():
+    """Last INFO is context, not truth — age it out; keep Working + spinner."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Using [/tmp]' in _status_body( stream )
+
+    clock.advance( hb._MESSAGE_HOLD_S )
+    hb._on_pulse()
+    body = _status_body( stream )
+    assert body.startswith( 'Working ' )
+    assert body[ len( 'Working ' ) ] in hb._SPINNER
+    assert 'Using [/tmp]' not in body
+    assert hb._body == ''
+
+    clock.advance( 0.15 )
+    logger.info( 'Updating [libfoo]' )
+    assert 'Updating [libfoo]' in _status_body( stream )
+
+
 def test_warn_clears_status_and_emits_multiline( monkeypatch ):
     stream = io.StringIO()
     clock = FakeClock()

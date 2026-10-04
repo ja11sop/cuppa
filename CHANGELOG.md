@@ -15,10 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; spinner ~12.5/s).
   ``PRINT_CMD_LINE_FUNC`` erases the status row in place before SCons echoes
   each tool command so the command reuses that row (no blank advance).
-  ``SPAWN`` itself does not reprint. Works with ``--terse-output``.
-  Cleared before terse/transcript writes, warnings, errors, and console reports.
-  Pipelines and CI stay silent. Git/download progress bars remain off under
-  quiet. ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+  ``SPAWN`` itself does not reprint. A diverted INFO caption ages out after one
+  message-hold interval, leaving ``Working`` + spinner until the next INFO.
+  Works with ``--terse-output``. Cleared before terse/transcript writes,
+  warnings, errors, and console reports. Pipelines and CI stay silent.
+  Git/download progress bars remain off under quiet. ``--verbosity=`` still
+  wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal

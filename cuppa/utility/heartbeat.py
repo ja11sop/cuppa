@@ -27,6 +27,9 @@ import time
 
 # Message changes throttle slightly slower than the spinner pulse.
 _MESSAGE_INTERVAL_S = 0.12
+# After this with no newer INFO, drop the caption and keep ``Working`` + spinner.
+# Same cadence as the message throttle: context is ephemeral; the anchor is not.
+_MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
 # ASCII spinner — widely available; advances while a status line is held.
@@ -47,7 +50,10 @@ _stream = None
 _owns_stream = False
 _last_emit = 0.0
 _pending = None
-_body = None  # last plain message (without Working/spinner)
+# Plain caption without Working/spinner. ``None`` = status off; ``''`` = anchor
+# only (spinner held after the last INFO aged out).
+_body = None
+_message_shown_at = 0.0
 _last_line = ''
 _columns = None  # None → ask the TTY; set for tests
 _spin = 0
@@ -149,7 +155,7 @@ def _arm_pulse():
         if (
                 not _pulse_enabled
                 or not _heartbeat_active
-                or not _body
+                or _body is None
                 or _suppress_depth
         ):
             return
@@ -159,13 +165,26 @@ def _arm_pulse():
         timer.start()
 
 
+def _expire_message_unlocked( now ):
+    """Drop a stale caption; keep ``Working`` + spinner until the next INFO."""
+    global _body, _message_shown_at
+    if not _body or not _message_shown_at:
+        return False
+    if ( now - _message_shown_at ) < _MESSAGE_HOLD_S:
+        return False
+    _body = ''
+    _message_shown_at = 0.0
+    return True
+
+
 def _on_pulse():
     global _spin
-    if not _heartbeat_active or not _body or _suppress_depth:
+    if not _heartbeat_active or _body is None or _suppress_depth:
         return
     with _draw_lock:
-        if not _heartbeat_active or not _body or _suppress_depth:
+        if not _heartbeat_active or _body is None or _suppress_depth:
             return
+        _expire_message_unlocked( _clock() )
         _spin = ( _spin + 1 ) % len( _SPINNER )
         _draw_unlocked( _body )
     _arm_pulse()
@@ -176,6 +195,7 @@ def reset():
     global _quiet_console, _suppress_below, _heartbeat_active
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
+    global _message_shown_at
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -190,6 +210,7 @@ def reset():
     _last_emit = 0.0
     _pending = None
     _body = None
+    _message_shown_at = 0.0
     _last_line = ''
     _columns = None
     _spin = 0
@@ -217,7 +238,9 @@ def configure_quiet_console(
 
     Status text is truncated to the **TTY** width (not piped stdout). Autowrap
     is disabled while the status line is shown so a mis-sized width cannot
-    leave wrapped debris. Each line is ``Working <spinner> <message>``.
+    leave wrapped debris. Each line is ``Working <spinner> <message>``; after
+    ``_MESSAGE_HOLD_S`` without a newer INFO the caption drops and only the
+    ``Working`` + spinner anchor remains until the next message.
     """
     from cuppa.log import set_logging_level
 
@@ -307,7 +330,7 @@ def reveal():
     No-op when nothing is on the status row.
     """
     with _draw_lock:
-        if not _last_line and not _body:
+        if not _last_line and _body is None:
             return
         _clear_unlocked( advance=False )
 
@@ -343,12 +366,14 @@ def allow():
 
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
+    global _message_shown_at
     _cancel_pulse()
     # Keep ``_pending`` when suppressing so INFO during a spawn can show later;
     # a plain clear / reveal (warn/report/transcript) drops it.
     if not keep_pending:
         _pending = None
     _body = None
+    _message_shown_at = 0.0
     if not _heartbeat_active or _stream is None:
         _last_line = ''
         _wrap_disabled = False
@@ -370,11 +395,12 @@ def _clear_unlocked( advance=False, keep_pending=False ):
 
 
 def _flush_unlocked( now ):
-    global _pending, _last_emit, _body, _spin
+    global _pending, _last_emit, _body, _spin, _message_shown_at
     if _pending is None or _stream is None or _suppress_depth:
         return
     _body = _pending
     _pending = None
+    _message_shown_at = now
     _spin = ( _spin + 1 ) % len( _SPINNER )
     _draw_unlocked( _body )
     _last_emit = now
@@ -382,7 +408,7 @@ def _flush_unlocked( now ):
 
 
 def _draw_unlocked( body ):
-    """Write one ``Working <spinner> <message>`` line fitted to the TTY width."""
+    """Write one ``Working <spinner> [<message>]`` line fitted to the TTY width."""
     global _last_line, _wrap_disabled
     if _stream is None or body is None or _suppress_depth:
         return
@@ -391,9 +417,14 @@ def _draw_unlocked( body ):
 
     cols = _terminal_columns()
     prefix = _prefix()
-    budget = max( 1, cols - len( prefix ) )
-    plain = _fit_plain( strip_ansi( body ), budget )
-    styled = as_subdued( prefix + plain )
+    if body:
+        budget = max( 1, cols - len( prefix ) )
+        plain = _fit_plain( strip_ansi( body ), budget )
+        text = prefix + plain
+    else:
+        # Anchor only — no trailing space after the spinner.
+        text = prefix.rstrip()
+    styled = as_subdued( text )
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with
