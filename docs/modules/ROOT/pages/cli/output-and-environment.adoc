@@ -111,8 +111,8 @@ filenames info and bold, `→` subdued. `<working>/` and `<final>/` are this var
 build locations. `<artefacts>/` is this variant's artefact location, either its flat
 folder or a report directory that contains this variant and sconscript. Any other path
 under the artefacts root is written as itself. Authors may register further tokens
-(Boost extract is `<boost>/`). `sconstruct 0% [progress] … · read` prints during
-SCons reading with sconstruct-scoped maps (`<dependencies>`, `<fmt>`, …). Those
+(Boost extract is `<boost>/`). `sconstruct 0% [progress] ... · read` prints during
+SCons reading with sconstruct-scoped maps (`<dependencies>`, `<fmt>`, `...`). Those
 are not repeated on sconstruct begin. Each later `[progress] … · begin` prints
 location maps for that scope. They lead with `→ [location]` (notice colour, not bold, not
 the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
