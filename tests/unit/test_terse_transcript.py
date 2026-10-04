@@ -1838,6 +1838,19 @@ def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatc
     assert "<warning>[collect]</warning>" in warn
     download = progress.format_terse_resolve_child( env, "download", "fmt" )
     assert "<success>[download]</success> <fmt>" in download
+    warned = progress.format_terse_resolve_child(
+            env, "update", "fmt", "develop", "abc123", status="warn",
+            remark="update failed, using available extract",
+    )
+    assert "<warning>[update]</warning>" in warned
+    assert "<warning>update failed, using available extract</warning>" in warned
+    version = progress.format_terse_resolve_child(
+            env, "version", "boost_package", "latest", status="warn",
+            remark="retrieve failed, using remembered 1.92",
+    )
+    assert "<warning>[version]</warning>" in version
+    assert "latest" in version
+    assert "<warning>retrieve failed, using remembered 1.92</warning>" in version
 
 
 def test_location_source_kind_for_archive_and_repository():

@@ -80,9 +80,14 @@ class base(object):
                     registry=cls._registry,
                     package=cls._package,
                     custom_token=getattr( cls, '_custom_token', None ),
+                    dependency_name=cls._name,
             )
         except GitlabLatestError as error:
-            logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
+            terse = False
+            if hasattr( env, "get" ):
+                terse = bool( env.get( "terse_output" ) )
+            if not terse:
+                logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
             raise SCons.Errors.StopError(
                     "Cannot resolve registry latest for package [{}]: {}".format(
                             cls._name,

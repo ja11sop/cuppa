@@ -1,13 +1,14 @@
 # Plan: terse dependency location maps
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-dep-locations`);
   companions [`terse-build-output.md`](terse-build-output.md) /
   [`terse-delegated-output.md`](terse-delegated-output.md) (done on master
   [#353](https://github.com/ja11sop/cuppa/pull/353)); channel map
   [`console-channels.md`](console-channels.md); native modifier
   [`native-toolchain-output.md`](native-toolchain-output.md) (done on master
-  [#354](https://github.com/ja11sop/cuppa/pull/354))
+  [#354](https://github.com/ja11sop/cuppa/pull/354)); PR
+  [#355](https://github.com/ja11sop/cuppa/pull/355)
 - **Updated:** 2026-10-04
 - **Impact:** minor — terse file cells, resolve bookends, and `[location]` maps;
   default transcript unchanged; on-disk layout unchanged
@@ -84,12 +85,43 @@ Print the `[location]` map **before** the retrieve, then the child **after**
 the work so its colour can match `[ok]` / `[warn]` / `[error]`. A slow clone
 still has the map as the in-flight cue; do not pre-colour a child as success.
 
+When a retrieve **warns but proceeds**, the child keeps the same badge and
+adds a remark that names both the failure and the fallback. Warn colour is
+not enough: a colourless paste must not read as the happy path.
+
+```text
+              → [update]   <nlohmann_json> · develop · v3.11.2-751-gd8d47be4a · update failed, using available extract
+```
+
+If that child printed, suppress the matching `cuppa: location: [warn]` log
+(`--verbosity` still has it). Same stand-down for info on success.
+
+GitLab `version="latest"` is its own child, not `[collect]` and not `[warn]`:
+
+```text
+              → [version]  <boost_package> · latest · retrieved as 1.92
+              → [version]  <boost_package> · latest · retrieve failed, using remembered 1.92
+              → [version]  <boost_package> · latest · error: retrieve failed, no version available
+```
+
+Token is the dependency `_name`. Success is `[ok]` colour; remembered-pin
+fallback is warn; no pin and no package is error and still `StopError`.
+
+A relative `@` location probes the remote default branch with `git ls-remote`
+**before** the `[location]` map. That is why `<application>` appears when
+online and the build dies on `ls-remote` when the network is down, even
+though `…application@master` is already on disk. Catch the probe failure,
+keep `location_default_branch`, and continue into retrieve (which then uses
+the update-failed remark if fetch also fails). Do not `StopError` on the
+probe when a local tree can still be used.
+
 | Work | Badge | Avoid |
 |------|--------|--------|
 | Existing SCM tree | `[update]` | |
 | New working copy | `[clone]` | |
 | Package archive from the registry | `[collect]` | `[fetch]` (sounds like `git fetch`) |
 | Source tarball | `[download]` | |
+| Registry `latest` pin | `[version]` | `[warn]` / `[collect]` |
 
 Ten-column field so they line up with `[location]` (pad outside the colour).
 Success uses the `[ok]` success colour; failure uses warn/error. Not an
@@ -192,8 +224,8 @@ dependency's resolved tree.
 ## Implementation sketch
 
 1. **Parent roots** — sconstruct-scoped `<dependencies>` from `dependencies_root`;
-   add `<packages>` when a package install/develop root is known (same nesting
-   grammar; may land in a second slice if package path discovery is thicker).
+   `<packages>` on variant begin as `<dependencies>/<package-tool-variant>`
+   (package tool variant, often `rel` while the cell is `dbg`).
 2. **Resolve bookend** — `[prepare]` before default `BuildWith`, live maps
    and retrieve children, `[ready]` after with resolved totals. Not a
    `NotifyProgress` node. Do not reprint maps on sconstruct
@@ -201,8 +233,8 @@ dependency's resolved tree.
 3. **Per-dep source map** — on location/package resolve,
    `label_terse_location(env, dep._name, local(), scope="sconstruct")`. Map RHS
    shown relative to parent when nested (`git_https_…@master`), else project/`~/`
-   display as today. Print the map as soon as the path is known if update
-   one-liners need the token on the next line.
+   display as today. Print the map as soon as the path is known; the retrieve
+   child prints after the work (status colour).
 4. **Build-tree rewrite** — extend `_locate` (not N new tokens): under
    `abs_build_root`, if the first segment equals a registered dep's
    `local_folder`, emit `_build/<name>/…`; then replace `env['tool_variant_dir']`
@@ -213,8 +245,8 @@ dependency's resolved tree.
    locator (today `_compile_file_parts` in `cuppa/progress.py` uses
    `_display_source_path` only, so tokens never apply to the left of `→`).
 7. **Hooks** — `cuppa/build_with_location.py` (`create` /
-   `build_library_from_source`) and the existing Boost
-   `label_terse_location` call site; package path in a follow-up slice if needed.
+   `build_library_from_source`), GitLab package identity maps, and the Boost
+   `label_terse_location` call site.
 8. **Tests** — unit cases with location-library paths (`fmt` / `date` /
    `quince` folders under a fake dependencies root +
    `_build/<folder>/<tool_variant>/working/…`); update Boost location
@@ -230,7 +262,7 @@ dependency's resolved tree.
 | D | Unit tests + soak on a multi-location project | Done |
 | G | Located product cells on `link` / `archive` / `index` | Done |
 | E | `<packages>` nesting when package roots are known | Done |
-| F | Live `→ [update]` / `[clone]` / `[collect]` / `[download]` under `[prepare]` | Done (unit); stay under `-Q`; not configure logs |
+| F | Live `→ [update]` / `[clone]` / `[collect]` / `[download]` / `[version]` under `[prepare]` | Done; remarks name failure+fallback; matching logger.warn stands down |
 
 ## Non-goals
 
@@ -241,7 +273,8 @@ dependency's resolved tree.
 - Restyling console reports or non-terse transcripts
 - Turning cuppaconfig / version / default-profile / sconscript-list info logs into `[prepare]` children
 - Reusing `[launch]` / `[done]` for resolve (those are the foreign-graph pair)
-- Buffering retrieve events until `[ready]` (hides slow work)
+- Buffering location maps until `[ready]` (hides slow work; retrieve children
+  already wait for the work so their colour can be status)
 
 ## Refusal rules
 
@@ -253,7 +286,7 @@ dependency's resolved tree.
 | Change storage folder naming to short names | Refuse; display-only rewrite |
 | Hang sconstruct-scoped maps only on `[progress] · begin` | Refuse; too late for resolve children |
 | Reuse `[launch]` / `[done]` for resolve | Refuse; those close a foreign graph |
-| Buffer `[update]` / `[clone]` / `[collect]` until `[ready]` | Refuse; the span exists so slow work is visible |
+| Buffer `[update]` / `[clone]` / `[collect]` maps until `[ready]` | Refuse; the `[location]` map is the in-flight cue. Children print after the work. Heartbeat owns remaining lag |
 | Reuse `[progress] · begin` / `end` for CMake/`b2` | Refuse; that is the delegated-plan rule, unchanged |
 | Print `N/A` in the percent column | Refuse; resolve bookends use `0%` |
 | Print `0/36` (or `0/0`) on `[prepare]` / `[ready]` | Refuse; no action denominator yet |
@@ -281,10 +314,12 @@ dependency's resolved tree.
    `Removed …` lines.
 7. Location maps under `[prepare]` use the same `→` indent as variant
    maps (align `[location]` with `[prepare]` / `[progress]`).
-8. Nested tokens are unique: one `<fmt>` even if sconstruct-scoped labels are
-   registered from several sconscripts; project-root `#` locations do not wrap
-   in-tree sources as `<app>/test/…`; two names on the same extract (e.g.
-   `date` and `quince_date_lib`) emit one token.
+8. Nested tokens are unique per registration `_name`: one `<fmt>` even if
+   sconstruct-scoped labels are registered from several sconscripts;
+   project-root `#` locations do not wrap in-tree sources as `<app>/test/…`.
+   Two names on the same extract (e.g. `date` and `quince_date_lib`) emit
+   **two** maps that share the folder identity; the traveling-manifest extra
+   appends `· transitive`, and declared maps stay unmarked.
 9. `link` / `archive` / `index` (and other aggregates) show the located product
    (`<final>/management`, `_build/<fmt>/<variant>/final/libfmt.a`), not a bare
    leaf. `run` / `test` / `benchmark` use the same located program cell so a

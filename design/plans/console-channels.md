@@ -64,7 +64,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
 | [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)). Must not recolour console reports |
-| [`terse-dependency-locations.md`](terse-dependency-locations.md) | Build transcript (terse file cells / `[location]` maps) | Next. Nested `<dependencies>/<name>/…` + shared `<variant>` |
+| [`terse-dependency-locations.md`](terse-dependency-locations.md) | Build transcript (terse file cells / `[location]` maps) | In progress on [#355](https://github.com/ja11sop/cuppa/pull/355). Nested `<dependencies>/<name>/…` + `[prepare]`/`[ready]` · `resolve` |
 | `--scons-output` | Build transcript | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). No separate plan; the matrix above is the spec |
 | `console-stream-split` (ROADMAP) | Which file descriptor | Orthogonal. Do not decide it inside terse or native |
 
@@ -74,7 +74,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 2. **`--scons-output`** — done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). Split it out of `--raw-output` so the matrix exists in code before terse and native land.
 3. **Terse** — done on master ([#353](https://github.com/ja11sop/cuppa/pull/353)). Transcript only, citing this matrix.
 4. **Native output** — done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)).
-5. **Terse dependency locations** — next; nested maps for dependency/package trees under terse. Resolve uses a `[prepare]` / `[ready]` bookend during SCons reading; maps and retrieve children are live under `[prepare]`, not under `[progress] · begin`.
+5. **Terse dependency locations** — in progress on [#355](https://github.com/ja11sop/cuppa/pull/355); nested maps for dependency/package trees under terse. Resolve uses a `[prepare]` / `[ready]` bookend during SCons reading; maps print live under `[prepare]`; retrieve children print after the work. Not under `[progress] · begin`.
 6. **Heartbeat** — still Phase 0 (evaluate logger rewrite vs marked events). Implementation stays blocked on that evaluation. Banners are the escape hatch it already depends on.
 
 Stream split waits until someone measures where lines go today. It is not a starter.

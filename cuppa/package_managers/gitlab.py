@@ -1475,7 +1475,7 @@ class GitlabPackageDependency:
         )
 
 
-    def _terse_collect( self, status="ok" ):
+    def _terse_collect( self, status="ok", remark="" ):
         import cuppa.progress
         return cuppa.progress.write_terse_resolve_child(
                 self._cuppa_env,
@@ -1483,6 +1483,7 @@ class GitlabPackageDependency:
                 self._dependency_name,
                 self.version(),
                 status=status,
+                remark=remark,
         )
 
 
@@ -1791,11 +1792,15 @@ class GitlabPackageDependency:
                                 .format( as_info( self._package_id ) )
                         )
                         return
-                    self._terse_collect( status="error" )
-                    logger.error( "Downloading package archives [{}] failed: {}".format(
-                            as_error( ", ".join( stems ) ),
-                            as_error( str( error.parameter ) ),
-                    ) )
+                    self._terse_collect(
+                            status="error",
+                            remark="collect failed, no package available",
+                    )
+                    if not terse:
+                        logger.error( "Downloading package archives [{}] failed: {}".format(
+                                as_error( ", ".join( stems ) ),
+                                as_error( str( error.parameter ) ),
+                        ) )
                     raise GitlabPackageDependencyException(
                         "Failed to download [{}]: {}".format(
                                 ", ".join( stems ),

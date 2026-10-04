@@ -115,6 +115,7 @@ def _concrete_from_registry( env, registry, package, custom_token=None ):
                 registry=registry,
                 package=package,
                 custom_token=custom_token,
+                allow_remembered_on_network_error=False,
         )
     except GitlabLatestError as error:
         raise SCons.Errors.StopError(

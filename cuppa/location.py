@@ -560,11 +560,15 @@ class Location(object):
                         if os.path.isfile( filename ):
                             os.remove( filename )
             except DownloadError as error:
-                self._terse_child( "download", status="error" )
-                logger.error( "Download of [{}] failed with error [{}]".format(
-                        as_error( location ),
-                        as_error( str( error.parameter ) )
-                ) )
+                self._terse_child(
+                        "download", status="error",
+                        remark="download failed, no extract available",
+                )
+                if not terse:
+                    logger.error( "Download of [{}] failed with error [{}]".format(
+                            as_error( location ),
+                            as_error( str( error.parameter ) )
+                    ) )
                 raise LocationException( error.parameter )
 
         return local_directory
@@ -609,13 +613,15 @@ class Location(object):
                     error = retry_error
             self._terse_child(
                     "update", branch or "", revision or version, status="warn",
+                    remark="update failed, using available extract",
             )
-            logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
-                    as_warning( location ),
-                    as_warning( local_dir_with_sub_dir ),
-                    ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                    as_warning( str(error) )
-            ) )
+            if not terse:
+                logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
+                        as_warning( location ),
+                        as_warning( local_dir_with_sub_dir ),
+                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                        as_warning( str(error) )
+                ) )
 
 
     def obtain_from_repository( self, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
@@ -644,14 +650,18 @@ class Location(object):
                 log_as = logger.warn
                 if attempt > max_attempts:
                     log_as = logger.error
-                    self._terse_child( "clone", status="error" )
+                    self._terse_child(
+                            "clone", status="error",
+                            remark="clone failed, no extract available",
+                    )
 
-                log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
-                        as_info( location ),
-                        as_notice( local_dir_with_sub_dir ),
-                        ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                        as_error( str(error) )
-                ) )
+                if not terse:
+                    log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
+                            as_info( location ),
+                            as_notice( local_dir_with_sub_dir ),
+                            ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
+                            as_error( str(error) )
+                    ) )
                 if attempt > max_attempts:
                     raise LocationException( str(error) )
 
@@ -935,6 +945,7 @@ class Location(object):
         self._offline = self.option_set('offline')
         offline = self._offline
         self._default_branch = self._cuppa_env['location_default_branch']
+        self._name_hint = name_hint
 
         location = self.replace_sconstruct_anchor( location )
         configured_location = location
@@ -1054,8 +1065,21 @@ class Location(object):
                             ) )
 
             elif scm_system and not offline:
-                self._default_branch = scm_system.remote_default_branch( repo_location )
-                if self._default_branch:
+                try:
+                    probed = scm_system.remote_default_branch( repo_location )
+                except Exception as error:
+                    probed = None
+                    if not self._terse_retrieve():
+                        logger.warn(
+                                "Could not probe default branch for [{}]: {}".format(
+                                        as_warning( str( repo_location ) ),
+                                        as_warning( str( error ) ),
+                                )
+                        )
+                if probed:
+                    self._default_branch = probed
+                    scm_location = location + probed
+                elif self._default_branch:
                     scm_location = location + self._default_branch
 
         elif( scm_system
@@ -1063,16 +1087,26 @@ class Location(object):
                 and not offline
                 and self.option_set('location_explicit_default_branch')
         ):
-            self._default_branch = scm_system.remote_default_branch( repo_location )
-            if self._default_branch:
-                scm_location = location + '@' + self._default_branch
+            try:
+                probed = scm_system.remote_default_branch( repo_location )
+            except Exception as error:
+                probed = None
+                if not self._terse_retrieve():
+                    logger.warn(
+                            "Could not probe default branch for [{}]: {}".format(
+                                    as_warning( str( repo_location ) ),
+                                    as_warning( str( error ) ),
+                            )
+                    )
+            if probed:
+                self._default_branch = probed
+                scm_location = location + '@' + probed
 
         location = scm_location
 
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse( self._location )
         self._sub_dir    = None
-        self._name_hint  = name_hint
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
@@ -1130,11 +1164,11 @@ class Location(object):
         )
 
 
-    def _terse_child( self, badge, *fields, status="ok" ):
+    def _terse_child( self, badge, *fields, status="ok", remark="" ):
         import cuppa.progress
         return cuppa.progress.write_terse_resolve_child(
                 self._cuppa_env, badge, self._terse_token(), *fields,
-                status=status,
+                status=status, remark=remark,
         )
 
 

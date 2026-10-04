@@ -17,6 +17,8 @@ under ``gitlab_package_latest_*`` (key suffix hashes ``registry|package``). Conf
 follows downloads-root scoping — project ``configure.conf`` when downloads live under the
 project, else ``~/.cuppaconfig`` — same model as source Boost ``boost_latest_version``.
 Offline replays that pin; missing archive fails (no silent older fallback).
+Online consume: a network failure with a remembered pin warns and reuses it
+instead of stopping configure.
 """
 
 from __future__ import print_function
@@ -34,7 +36,7 @@ except ImportError:  # pragma: no cover - Python 2
     from urllib import urlencode
     from urllib2 import Request, urlopen, HTTPError, URLError
 
-from cuppa.colourise import as_info, as_notice
+from cuppa.colourise import as_info, as_notice, as_warning
 from cuppa.configure import global_config_path, read_setting, upsert_setting
 from cuppa.log import logger
 from cuppa.package_managers.gitlab import registry_auth_headers
@@ -46,6 +48,11 @@ class GitlabLatestError( Exception ):
     def __init__( self, message ):
         Exception.__init__( self, message )
         self.parameter = message
+
+
+class GitlabLatestNetworkError( GitlabLatestError ):
+    """Registry list failed because the network was unreachable."""
+    pass
 
 
 def package_version_sort_key( version ):
@@ -233,7 +240,7 @@ def list_generic_package_versions( registry, package_name, custom_token=None, op
                     )
             )
         except URLError as error:
-            raise GitlabLatestError(
+            raise GitlabLatestNetworkError(
                     "GitLab Packages API failed for [{}]: {}".format( package_name, error )
             )
         except ( TypeError, ValueError ) as error:
@@ -274,11 +281,27 @@ def list_generic_package_versions( registry, package_name, custom_token=None, op
     return versions
 
 
-def resolve_latest_package_version( env, registry, package, custom_token=None, opener=None ):
+def _terse_version_row( env, token, remark, status="ok" ):
+    """``→ [version]  <boost_package> · latest · retrieved as 1.92``."""
+    if not token:
+        return False
+    import cuppa.progress
+    return cuppa.progress.write_terse_resolve_child(
+            env, "version", token, "latest", status=status, remark=remark,
+    )
+
+
+def resolve_latest_package_version(
+        env, registry, package, custom_token=None, opener=None,
+        allow_remembered_on_network_error=True, dependency_name=None,
+):
     """Resolve registry latest for ``package``; remember on success; offline uses cache.
 
-    Raises :class:`GitlabLatestError` when no version can be chosen.
+    Raises :class:`GitlabLatestError` when no version can be chosen. A network
+    failure (DNS, connection) with a remembered pin warns and reuses that pin
+    unless ``allow_remembered_on_network_error`` is false (publish).
     """
+    token = dependency_name or package
     offline = bool( env[ 'offline' ] ) if hasattr( env, '__contains__' ) and 'offline' in env else False
     if not offline and hasattr( env, 'get' ):
         offline = bool( env.get( 'offline' ) )
@@ -286,33 +309,72 @@ def resolve_latest_package_version( env, registry, package, custom_token=None, o
     if offline:
         stored = stored_registry_latest( env, registry, package )
         if stored:
-            logger.info(
-                    "Offline: using remembered registry latest [{}] for package [{}]".format(
-                            as_info( str( stored ) ),
-                            as_info( str( package ) ),
-                    )
-            )
+            if not _terse_version_row(
+                    env, token, "using remembered {}".format( stored ),
+            ):
+                logger.info(
+                        "Offline: using remembered registry latest [{}] for package [{}]".format(
+                                as_info( str( stored ) ),
+                                as_info( str( package ) ),
+                        )
+                )
             return str( stored )
+        _terse_version_row(
+                env, token, "error: retrieve failed, no version available",
+                status="error",
+        )
         raise GitlabLatestError(
                 "Offline and no remembered registry latest for package [{}] "
                 "(registry [{}])".format( package, registry )
         )
 
-    versions = list_generic_package_versions(
-            registry, package, custom_token=custom_token, opener=opener
-    )
+    try:
+        versions = list_generic_package_versions(
+                registry, package, custom_token=custom_token, opener=opener
+        )
+    except GitlabLatestNetworkError as error:
+        stored = stored_registry_latest( env, registry, package )
+        if allow_remembered_on_network_error and stored:
+            if not _terse_version_row(
+                    env, token,
+                    "retrieve failed, using remembered {}".format( stored ),
+                    status="warn",
+            ):
+                logger.warn(
+                        "Could not reach the GitLab registry for package [{}]: {}. "
+                        "Using remembered registry latest [{}]. "
+                        "Pass --offline to skip the probe.".format(
+                                as_warning( str( package ) ),
+                                as_warning( str( error ) ),
+                                as_info( str( stored ) ),
+                        )
+                )
+            return str( stored )
+        _terse_version_row(
+                env, token, "error: retrieve failed, no version available",
+                status="error",
+        )
+        raise
+
     latest = select_latest_version( versions )
     if not latest:
+        _terse_version_row(
+                env, token, "error: retrieve failed, no version available",
+                status="error",
+        )
         raise GitlabLatestError(
                 "No versions found in GitLab registry for package [{}] "
                 "(registry [{}])".format( package, registry )
         )
 
-    logger.info(
-            "Resolved registry latest for package [{}] to [{}]".format(
-                    as_info( str( package ) ),
-                    as_info( str( latest ) ),
-            )
-    )
+    if not _terse_version_row(
+            env, token, "retrieved as {}".format( latest ),
+    ):
+        logger.info(
+                "Resolved registry latest for package [{}] to [{}]".format(
+                        as_info( str( package ) ),
+                        as_info( str( latest ) ),
+                )
+        )
     remember_registry_latest( env, registry, package, latest )
     return latest

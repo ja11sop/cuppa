@@ -2986,24 +2986,34 @@ def terse_resolve_child_enabled( env, token ):
     return bool( _terse_prepare_written )
 
 
-def format_terse_resolve_child( env, badge, token, *fields, status="ok" ):
-    """``→ [update]   <fmt> · master · 9197f515``."""
+def format_terse_resolve_child( env, badge, token, *fields, status="ok", remark="" ):
+    """``→ [update]   <fmt> · master · 9197f515 · update failed, using available extract``."""
     lead = _location_map_prefix( env, _resolve_child_badge( badge, status ) )
     parts = [ "<" + str( token ) + ">" ]
     for field in fields:
         text = str( field or "" ).strip()
         if text:
             parts.append( text )
-    return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    text = str( remark or "" ).strip()
+    if text:
+        if status in ( "error", "fail" ):
+            painted = as_colour( "error", text )
+        elif status == "warn":
+            painted = as_colour( "warning", text )
+        else:
+            painted = as_colour( "success", text )
+        line += as_subdued( " · " ) + painted
+    return line
 
 
-def write_terse_resolve_child( env, badge, token, *fields, status="ok" ):
+def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="" ):
     """Print a retrieve child after the work. True when emitted."""
     if not terse_resolve_child_enabled( env, token ):
         return False
     sys.stdout.write(
             format_terse_resolve_child(
-                    env, badge, token, *fields, status=status,
+                    env, badge, token, *fields, status=status, remark=remark,
             ) + "\n"
     )
     sys.stdout.flush()

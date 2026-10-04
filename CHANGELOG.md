@@ -157,6 +157,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- GitLab ``version="latest"`` consume: if the Packages API is unreachable
+  (DNS or connection) and a remembered ``gitlab_package_latest_*`` pin
+  exists, warn and reuse it instead of ``StopError``. ``--offline`` still
+  skips the probe. Publish ``version="latest"`` still requires a live list.
+  Under ``--terse-output`` this is a ``[version]`` child (``retrieved as``,
+  ``retrieve failed, using remembered``, or hard ``no version available``).
+  SCM update that cannot fetch but has a local tree prints
+  ``update failed, using available extract`` on ``[update]`` and does not
+  repeat ``cuppa: location: [warn]``. A failed ``git ls-remote`` default-branch
+  probe no longer ``StopError``s when ``location_default_branch`` can still
+  name the on-disk tree.
+
 ### Security
 
 ## [1.11.0] - 2026-09-28
