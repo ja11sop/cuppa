@@ -241,7 +241,7 @@ def test_report_clears_heartbeat():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
-def test_spawn_suppress_advances_line_and_defers_redraw():
+def test_spawn_suppress_clears_in_place_and_defers_redraw():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -249,11 +249,14 @@ def test_spawn_suppress_advances_line_and_defers_redraw():
     assert 'Using [/tmp]' in _status_body( stream )
     assert hb._last_line
 
+    before_suppress = stream.getvalue()
     hb.suppress()
     assert hb._last_line == ''
     assert hb._suppress_depth == 1
-    # Newline so piped stdout cannot append to the Working row.
-    assert stream.getvalue().endswith( '\n' )
+    # In-place erase so the next stdout line reuses the status row.
+    added = stream.getvalue()[ len( before_suppress ): ]
+    assert '\n' not in added
+    assert added.endswith( hb._WRAP_ON )
     # INFO during a spawn is remembered, not drawn.
     before = stream.getvalue()
     logger.info( 'Updating [libfoo] during spawn' )
@@ -269,14 +272,14 @@ def test_spawn_suppress_advances_line_and_defers_redraw():
     assert 'Updating [libfoo] during spawn' in _status_body( stream )
 
 
-def test_reveal_before_print_cmd_line_then_suppress_without_blank():
-    """PRINT_CMD_LINE must clear Working before the pipe write; SPAWN must not
-    insert a second newline (blank row between every tool command)."""
+def test_reveal_before_print_cmd_line_reuses_status_row():
+    """PRINT_CMD_LINE clears Working in place; SPAWN must not insert a newline."""
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
     logger.info( 'Using [/tmp] for dependencies' )
     assert 'Using [/tmp]' in _status_body( stream )
+    before_reveal = stream.getvalue()
 
     from cuppa.progress import heartbeat_print_cmd_line
     import cuppa.progress as progress_module
@@ -290,17 +293,17 @@ def test_reveal_before_print_cmd_line_then_suppress_without_blank():
 
     assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
     assert hb._last_line == ''
-    assert stream.getvalue().endswith( '\n' )
+    revealed = stream.getvalue()[ len( before_reveal ): ]
+    assert '\n' not in revealed
     after_reveal = stream.getvalue()
 
-    # posix_spawn path: command already printed — hold without advancing again.
     hb.suppress( advance=False )
     assert hb._suppress_depth == 1
     added = stream.getvalue()[ len( after_reveal ): ]
     assert '\n' not in added
     hb.allow()
 
-    # No status visible → reveal must not inject blank lines between commands.
+    # No status visible → reveal is a no-op between commands.
     before_second = stream.getvalue()
     progress_module.sys.stdout = out
     try:

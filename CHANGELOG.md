@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps generating info records but folds them onto one subdued
   ``Working <spinner> <message>`` status line (width from the controlling TTY;
   VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; spinner ~12.5/s).
-  ``PRINT_CMD_LINE_FUNC`` reveals the status row before SCons echoes each tool
-  command (``SPAWN`` itself does not reprint); the spawn hold then skips a
-  second newline so commands are not blank-padded. Works with ``--terse-output``.
+  ``PRINT_CMD_LINE_FUNC`` erases the status row in place before SCons echoes
+  each tool command so the command reuses that row (no blank advance).
+  ``SPAWN`` itself does not reprint. Works with ``--terse-output``.
   Cleared before terse/transcript writes, warnings, errors, and console reports.
   Pipelines and CI stay silent. Git/download progress bars remain off under
   quiet. ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.

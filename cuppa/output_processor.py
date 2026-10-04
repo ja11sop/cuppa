@@ -177,11 +177,11 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
-            # Hold the TTY heartbeat for the whole spawn. When suppress_output
-            # is set, SCons already printed the command via PRINT_CMD_LINE_FUNC
-            # (which revealed the status row); do not advance again or every
-            # tool line is preceded by a blank row.
-            _suppress_heartbeat( advance=not suppress_output )
+            # Hold the TTY heartbeat for the whole spawn. Status was already
+            # revealed in place by PRINT_CMD_LINE_FUNC (or we erase in place
+            # here before echoing the command ourselves). Never advance — that
+            # left a blank row above every tool line.
+            _suppress_heartbeat( advance=False )
             held_heartbeat = True
             if not suppress_output:
                 sys.stdout.write( " ".join(args_list) + "\n" )

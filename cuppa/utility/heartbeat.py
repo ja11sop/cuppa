@@ -296,38 +296,36 @@ def clear():
 
 
 def reveal():
-    """Erase ``Working`` and advance off that row before a stdout transcript line.
+    """Erase ``Working`` in place before a stdout transcript line.
 
     SCons prints tool commands via ``PRINT_CMD_LINE_FUNC`` *before* ``SPAWN``.
     Clearing inside ``Popen`` is too late: the ``cuppa`` launcher may already
     have echoed the command onto the status row. Call this from the print
-    hook *before* writing to the stdout pipe.
+    hook *before* writing to the stdout pipe so the command reuses the same
+    physical row (no blank line).
 
-    No-op when nothing is on the status row. Advances only when a status
-    line was visible, so consecutive commands do not insert blank rows.
+    No-op when nothing is on the status row.
     """
     with _draw_lock:
         if not _last_line and not _body:
             return
-        advance = bool( _last_line )
-        _clear_unlocked( advance=advance )
+        _clear_unlocked( advance=False )
 
 
-def suppress( advance=True ):
+def suppress( advance=False ):
     """Clear and hold the heartbeat for a spawn / transcript burst.
 
     Nested: each ``suppress()`` needs a matching ``allow()``. While held,
     INFO is remembered but not drawn.
 
-    When ``advance`` is true, ends the status row with a newline so the
-    ``cuppa`` launcher's piped stdout cannot append to ``Working``. Use
-    ``advance=False`` when ``PRINT_CMD_LINE_FUNC`` already called
-    ``reveal()`` and printed the command (``posix_spawn`` path).
+    Clears in place by default. Pass ``advance=True`` only when a following
+    stdout write cannot reuse the status row (legacy / non-print-cmd paths).
+    Pending INFO is kept so it can show after ``allow()``.
     """
     global _suppress_depth
     with _draw_lock:
         _suppress_depth += 1
-        _clear_unlocked( advance=advance )
+        _clear_unlocked( advance=advance, keep_pending=True )
 
 
 def allow():
@@ -343,12 +341,12 @@ def allow():
             _suppress_depth -= 1
 
 
-def _clear_unlocked( advance=False ):
+def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
     _cancel_pulse()
     # Keep ``_pending`` when suppressing so INFO during a spawn can show later;
-    # a plain clear (warn/report) drops it.
-    if not advance:
+    # a plain clear / reveal (warn/report/transcript) drops it.
+    if not keep_pending:
         _pending = None
     _body = None
     if not _heartbeat_active or _stream is None:
@@ -357,7 +355,8 @@ def _clear_unlocked( advance=False ):
         return
     try:
         # Erase the status row and restore autowrap. ``advance`` ends the row
-        # so piped stdout starts on the next line instead of after ``Working``.
+        # when a following write cannot reuse it; prefer in-place erase when
+        # the next stdout line is written after this clear in the same process.
         text = '\r' + _ERASE_EOL + _WRAP_ON
         if advance:
             text += '\n'
