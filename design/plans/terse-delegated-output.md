@@ -407,7 +407,7 @@ instead of a raw `cp` and a false `archive`.
 | Make transform `source → product` the default outside `--terse-output` | Refuse; only the terse file cell changes |
 | Infer `archive` from a `.a` target for any tool | Refuse; that is the bug being fixed |
 | Infer “shared across variants” from Depends | Refuse; author sets `label_terse_action(..., shared=True)` |
-| Infer `<boost>` from `_download` | Refuse; author calls `label_terse_location` |
+| Infer `<boost>` (or other tokens) by sniffing `_download` folder names | Refuse; structured registration only — see [`terse-dependency-locations.md`](terse-dependency-locations.md) |
 | Register Boost `bin.*` as a terse location | Refuse; ordinary `-c` does not wipe it |
 | Change `env.NoClean(b2)` / cooperative library clean in this plan | Refuse; follow-up on [`deep-clean.md`](deep-clean.md) |
 
@@ -430,6 +430,10 @@ instead of a raw `cp` and a false `archive`.
 
 ## Follow-up (not this plan)
 
+Nested dependency location maps (`<dependencies>/<fmt>/…`, shared `<variant>`,
+structured registration from dependency `_name`) are tracked on
+[`terse-dependency-locations.md`](terse-dependency-locations.md).
+
 Boost `-c` vs extract `b2` vs library `bin.*` is tracked on
 [`deep-clean.md`](deep-clean.md). Today `env.NoClean(b2)` leaves the bootstrap
 binary, so the next build does not rebuild `b2` if it exists. That is the right
@@ -444,5 +448,6 @@ folders make the latter risky. Leave `NoClean(b2)` until that follow-up.
 - Phase 1 terse grammar and checkpoints: [`terse-build-output.md`](terse-build-output.md)
 - Channel map: [`console-channels.md`](console-channels.md)
 - Native diagnostic modifier: [`native-toolchain-output.md`](native-toolchain-output.md)
+- Dependency location maps: [`terse-dependency-locations.md`](terse-dependency-locations.md)
 - CMake drive / package staging: [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md)
 - Boost `-c` / extract `b2` / `bin.*`: [`deep-clean.md`](deep-clean.md)
