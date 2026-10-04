@@ -127,8 +127,19 @@ With `--offline`:
   fails later with the usual offline missing-archive error. Cuppa does **not** silently fall
   back to an older on-disk version; that would change the pin.
 
+Online, Cuppa still queries the registry. If that probe fails because the network is
+unreachable (DNS, connection) **and** a remembered version exists, configure **warns** and
+reuses the pin — the same version `--offline` would have used. Pass `--offline` to skip the
+probe. Under `--terse-output` that is a `[version]` child:
+`· latest · retrieve failed, using remembered 1.92` (warn). A live list prints
+`· latest · retrieved as 1.92`. No pin and no package is
+`· latest · error: retrieve failed, no version available` and still stops configure.
+Empty registry, HTTP errors, or a network failure with **no** remembered pin still
+fail at configure time. Publishing `version="latest"` does not reuse the pin on a network
+error; it still needs a live registry list.
+
 So the remembered value is “what registry latest resolved to,” not “proof the archive is on
-disk.” Empty registry or API failure also fails at configure time when online.
+disk.”
 
 [#boost-package]
 == Boost package

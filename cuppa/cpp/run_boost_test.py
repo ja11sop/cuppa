@@ -732,7 +732,7 @@ class RunBoostTest:
         working_dir  = self._working_dir and self._working_dir or os.path.split( executable )[0]
         program_path = source[0].path
         notifier     = Notify(env, env['show_test_output'])
-        notifier.bind_program( os.path.basename( program_path ) )
+        notifier.bind_program( program_path )
 
         if cuppa.build_platform.name() == "Windows":
             executable = '"' + executable + '"'
@@ -767,7 +767,7 @@ class RunBoostTest:
                                                   env )
             if terse_tests( env ):
                 from cuppa.cpp.terse_test_report import write_boost_rollup
-                write_boost_rollup( env, os.path.basename( program_path ), notifier._finished )
+                write_boost_rollup( env, program_path, notifier._finished )
 
             cuppa.test_report.cuppa_json.write_report( report_file_name_from( program_path ), tests )
 

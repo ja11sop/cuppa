@@ -429,11 +429,11 @@ class Location(object):
             hasher.update( as_byte_str( local_folder ) )
             digest = hasher.hexdigest()
             short_digest = digest[-8:]
-            name_hint = self._name_hint
-            if not name_hint:
-                name_hint = is_url( path ) and short_name_from_url( path ) or local_folder
-                name_hint = name_hint[:8]
-            local_folder = name_hint + short_digest
+            # Prefix from the URL/path only. Terse ``_name_hint`` must not change
+            # on-disk names (MAX_PATH hash is display-independent).
+            prefix = is_url( path ) and short_name_from_url( path ) or local_folder
+            prefix = prefix[:8]
+            local_folder = prefix + short_digest
 
         return local_folder
 
@@ -518,7 +518,9 @@ class Location(object):
             ) )
             self.extract( cached_archive, local_dir_with_sub_dir )
         else:
-            logger.info( "Downloading [{}]...".format( as_info( location ) ) )
+            terse = self._terse_retrieve()
+            if not terse:
+                logger.info( "Downloading [{}]...".format( as_info( location ) ) )
             try:
                 from cuppa.utility.download import DownloadError, download_file
                 import tempfile
@@ -531,10 +533,12 @@ class Location(object):
                             cached_archive,
                             label=os.path.basename( cached_archive ) or location,
                     )
-                    logger.info( "[{}] successfully downloaded to [{}]".format(
-                            as_info( location ),
-                            as_info( cached_archive )
-                    ) )
+                    if not terse:
+                        logger.info( "[{}] successfully downloaded to [{}]".format(
+                                as_info( location ),
+                                as_info( cached_archive )
+                        ) )
+                    self._terse_child( "download" )
                     self.extract( cached_archive, local_dir_with_sub_dir )
                 else:
                     handle, filename = tempfile.mkstemp( prefix='cuppa-download-' )
@@ -545,19 +549,26 @@ class Location(object):
                                 filename,
                                 label=os.path.basename( self._local_folder ) or location,
                         )
-                        logger.info( "[{}] successfully downloaded to [{}]".format(
-                                as_info( location ),
-                                as_info( filename )
-                        ) )
+                        if not terse:
+                            logger.info( "[{}] successfully downloaded to [{}]".format(
+                                    as_info( location ),
+                                    as_info( filename )
+                            ) )
+                        self._terse_child( "download" )
                         self.extract( filename, local_dir_with_sub_dir )
                     finally:
                         if os.path.isfile( filename ):
                             os.remove( filename )
             except DownloadError as error:
-                logger.error( "Download of [{}] failed with error [{}]".format(
-                        as_error( location ),
-                        as_error( str( error.parameter ) )
-                ) )
+                self._terse_child(
+                        "download", status="error",
+                        remark="download failed, no extract available",
+                )
+                if not terse:
+                    logger.error( "Download of [{}] failed with error [{}]".format(
+                            as_error( location ),
+                            as_error( str( error.parameter ) )
+                    ) )
                 raise LocationException( error.parameter )
 
         return local_directory
@@ -567,15 +578,18 @@ class Location(object):
         url, repository, branch, remote, revision = self.get_info( location, local_dir_with_sub_dir, full_url, vc_type )
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
-        logger.info( "Updating [{}] in [{}]{} at [{}]".format(
-                as_info( location ),
-                as_notice( local_dir_with_sub_dir ),
-                ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
-                as_info( version )
-        ) )
+        terse = self._terse_retrieve()
+        if not terse:
+            logger.info( "Updating [{}] in [{}]{} at [{}]".format(
+                    as_info( location ),
+                    as_notice( local_dir_with_sub_dir ),
+                    ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
+                    as_info( version )
+            ) )
         try:
             update( vcs_backend, local_dir_with_sub_dir, rev_options )
             logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
+            self._terse_child( "update", branch or "", revision or version )
             return
         except pip_exceptions.PipError as error:
             if (
@@ -585,22 +599,29 @@ class Location(object):
                 try:
                     git.Git.fetch_tags_force( local_dir_with_sub_dir )
                     update( vcs_backend, local_dir_with_sub_dir, rev_options )
-                    logger.info(
-                            "Remote tags had moved for [{}] in [{}]; "
-                            "forced tags and updated".format(
-                                    as_info( location ),
-                                    as_notice( local_dir_with_sub_dir ),
-                            )
-                    )
+                    self._terse_child( "update", branch or "", revision or version )
+                    if not terse:
+                        logger.info(
+                                "Remote tags had moved for [{}] in [{}]; "
+                                "forced tags and updated".format(
+                                        as_info( location ),
+                                        as_notice( local_dir_with_sub_dir ),
+                                )
+                        )
                     return
                 except Exception as retry_error:
                     error = retry_error
-            logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
-                    as_warning( location ),
-                    as_warning( local_dir_with_sub_dir ),
-                    ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
-                    as_warning( str(error) )
-            ) )
+            self._terse_child(
+                    "update", branch or "", revision or version, status="warn",
+                    remark="update failed, using available extract",
+            )
+            if not terse:
+                logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
+                        as_warning( location ),
+                        as_warning( local_dir_with_sub_dir ),
+                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                        as_warning( str(error) )
+                ) )
 
 
     def obtain_from_repository( self, location, full_url, local_dir_with_sub_dir, vc_type, vcs_backend ):
@@ -610,29 +631,37 @@ class Location(object):
             action = "Checking out"
         max_attempts = 2
         attempt = 1
+        terse = self._terse_retrieve()
         while attempt <= max_attempts:
-            logger.info( "{} [{}] into [{}]{}".format(
-                    action,
-                    as_info( location ),
-                    as_info( local_dir_with_sub_dir ),
-                    attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
-            ) )
+            if not terse or attempt > 1:
+                logger.info( "{} [{}] into [{}]{}".format(
+                        action,
+                        as_info( location ),
+                        as_info( local_dir_with_sub_dir ),
+                        attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
+                ) )
             try:
                 obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
                 logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
+                self._terse_child( "clone" )
                 break
             except pip_exceptions.PipError as error:
                 attempt = attempt + 1
                 log_as = logger.warn
                 if attempt > max_attempts:
                     log_as = logger.error
+                    self._terse_child(
+                            "clone", status="error",
+                            remark="clone failed, no extract available",
+                    )
 
-                log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
-                        as_info( location ),
-                        as_notice( local_dir_with_sub_dir ),
-                        ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
-                        as_error( str(error) )
-                ) )
+                if not terse:
+                    log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
+                            as_info( location ),
+                            as_notice( local_dir_with_sub_dir ),
+                            ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
+                            as_error( str(error) )
+                    ) )
                 if attempt > max_attempts:
                     raise LocationException( str(error) )
 
@@ -762,9 +791,11 @@ class Location(object):
             local_directory = os.path.join( base, self._local_folder )
 
             if full_url.scheme.startswith( 'http' ) and self.url_is_download_archive_url( full_url.path ):
+                self._label_terse_source( local_directory, "archive" )
                 return self.get_local_directory_for_download_url( location, sub_dir, local_directory )
 
             elif '+' in full_url.scheme:
+                self._label_terse_source( local_directory, "repository" )
                 return self.get_local_directory_for_repository( location, sub_dir, full_url, local_directory )
 
             return local_directory
@@ -914,6 +945,7 @@ class Location(object):
         self._offline = self.option_set('offline')
         offline = self._offline
         self._default_branch = self._cuppa_env['location_default_branch']
+        self._name_hint = name_hint
 
         location = self.replace_sconstruct_anchor( location )
         configured_location = location
@@ -1033,8 +1065,21 @@ class Location(object):
                             ) )
 
             elif scm_system and not offline:
-                self._default_branch = scm_system.remote_default_branch( repo_location )
-                if self._default_branch:
+                try:
+                    probed = scm_system.remote_default_branch( repo_location )
+                except Exception as error:
+                    probed = None
+                    if not self._terse_retrieve():
+                        logger.warn(
+                                "Could not probe default branch for [{}]: {}".format(
+                                        as_warning( str( repo_location ) ),
+                                        as_warning( str( error ) ),
+                                )
+                        )
+                if probed:
+                    self._default_branch = probed
+                    scm_location = location + probed
+                elif self._default_branch:
                     scm_location = location + self._default_branch
 
         elif( scm_system
@@ -1042,16 +1087,26 @@ class Location(object):
                 and not offline
                 and self.option_set('location_explicit_default_branch')
         ):
-            self._default_branch = scm_system.remote_default_branch( repo_location )
-            if self._default_branch:
-                scm_location = location + '@' + self._default_branch
+            try:
+                probed = scm_system.remote_default_branch( repo_location )
+            except Exception as error:
+                probed = None
+                if not self._terse_retrieve():
+                    logger.warn(
+                            "Could not probe default branch for [{}]: {}".format(
+                                    as_warning( str( repo_location ) ),
+                                    as_warning( str( error ) ),
+                            )
+                    )
+            if probed:
+                self._default_branch = probed
+                scm_location = location + '@' + probed
 
         location = scm_location
 
         self._location   = os.path.expanduser( location )
         self._full_url   = urlparse( self._location )
         self._sub_dir    = None
-        self._name_hint  = name_hint
 
         if extra_sub_path:
             if os.path.isabs( extra_sub_path ):
@@ -1084,6 +1139,43 @@ class Location(object):
                 as_info( self._version ),
                 as_notice( self._local_directory )
         ) )
+
+
+    def _terse_token( self ):
+        return str( getattr( self, "_name_hint", "" ) or "" ).strip()
+
+
+    def _label_terse_source( self, path, kind ):
+        token = self._terse_token()
+        if not token or not path:
+            return
+        import cuppa.progress
+        cuppa.progress.label_terse_location(
+                self._cuppa_env, token, path, scope="sconstruct",
+                build_folder=getattr( self, "_local_folder", "" ) or "",
+                kind=kind,
+        )
+
+
+    def _terse_retrieve( self ):
+        import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
+        return cuppa.progress.terse_resolve_child_enabled(
+                env, self._terse_token(),
+        )
+
+
+    def _terse_child( self, badge, *fields, status="ok", remark="" ):
+        import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
+        return cuppa.progress.write_terse_resolve_child(
+                env, badge, self._terse_token(), *fields,
+                status=status, remark=remark,
+        )
 
 
     def local( self ):
@@ -1186,6 +1278,30 @@ class Location(object):
 
     def location( self ):
         return self._location
+
+
+    @classmethod
+    def source_kind_for( cls, location ):
+        """``archive`` or ``repository`` from a location spec (URL, archive, path)."""
+        location = str( location or "" )
+        if not location:
+            return "repository"
+        if location.startswith( "file:" ):
+            location = pip_download.url_to_path( location )
+        if not pip_is_url( location ):
+            return "archive" if pip_is_archive_file( location ) else "repository"
+        parsed = urlparse( location )
+        path = unquote( parsed.path or "" )
+        if str( parsed.scheme or "" ).startswith( "http" ) and cls.url_is_download_archive_url( path ):
+            return "archive"
+        if pip_is_archive_file( path ) or pip_is_archive_file( os.path.basename( path ) ):
+            return "archive"
+        return "repository"
+
+
+    def source_kind( self ):
+        """``archive`` or ``repository`` for this resolved location."""
+        return self.source_kind_for( getattr( self, "_location", "" ) or "" )
 
 
     def remote_location( self ):

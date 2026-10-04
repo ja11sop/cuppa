@@ -119,7 +119,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tree. Begin checkpoints print location maps
   (``→ [location] <sconscript> · <variant> · <working> = …``) so ``-j`` can
   split them from the ``[progress]`` begin; authors register extras such as
-  ``<boost>`` with ``label_terse_location``. The artefacts-root token is
+  ``<boost>`` with ``label_terse_location``. Location libraries and the
+  dependencies root register sconstruct-scoped tokens during
+  ``[prepare]`` / ``[ready]`` (action ``resolve``, ``0%``) with live maps
+  and retrieve children (``[update]`` / ``[clone]`` / ``[collect]`` /
+  ``[download]``). ``[ready]`` prints resolved totals. ``[progress]`` stays
+  for sconstruct/sconscript/variant begin/end. Read maps carry a kind
+  (``root`` / ``repository`` / ``archive`` / ``package``); the close summary
+  counts those kinds from registered maps after default ``BuildWith``
+  (so traveling-manifest packages are included). When the resolved set is
+  larger than ``default_dependencies``, the line is
+  ``N dependencies (D declared, T transitive)``. Transitive maps append
+  ``· transitive`` (info colour); declared maps stay unmarked.
+  ``<packages>`` prints on variant
+  begin as ``<dependencies>/<package-tool-variant>``. Root and package map
+  values paint every path segment and the slashes between them info+bold;
+  a nested parent token on the value stays subdued. ``link``, ``archive``, and ``index``
+  name the located product (``<final>/…`` or ``_build/<fmt>/<variant>/final/…``),
+  not a bare leaf; ``run`` / ``test`` / ``benchmark`` use that same located
+  program cell (``<final>/…``) so a test lines up with the ``link`` that built
+  it; ``test-case`` mutes ``<final>/`` (and the slash before the case) but
+  leaves the binary name plain. GitLab package extracts nest as
+  ``<packages>/<boost_package>/…``. The artefacts-root token is
   British ``<artefacts>`` (env still accepts the US ``abs_artifacts_root``
   alias).
 - Mode banners (`Running in … mode`, including OFFLINE and cascade plan/collect/update)
@@ -135,6 +156,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- GitLab ``version="latest"`` consume: if the Packages API is unreachable
+  (DNS or connection) and a remembered ``gitlab_package_latest_*`` pin
+  exists, warn and reuse it instead of ``StopError``. ``--offline`` still
+  skips the probe. Publish ``version="latest"`` still requires a live list.
+  Under ``--terse-output`` this is a ``[version]`` child (``retrieved as``,
+  ``retrieve failed, using remembered``, or hard ``no version available``).
+  SCM update that cannot fetch but has a local tree prints
+  ``update failed, using available extract`` on ``[update]`` and does not
+  repeat ``cuppa: location: [warn]``. A failed ``git ls-remote`` default-branch
+  probe no longer ``StopError``s when ``location_default_branch`` can still
+  name the on-disk tree.
+- Windows MAX_PATH location hashes stay URL-derived. Terse ``name_hint``
+  must not change on-disk folder names (list/remove identity).
 
 ### Security
 

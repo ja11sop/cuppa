@@ -161,6 +161,59 @@ def test_resolve_latest_offline_without_memory_fails():
         )
 
 
+def test_resolve_latest_network_failure_uses_remembered( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'widget' )
+    gl.upsert_setting( conf, key, repr( '1.10' ) )
+
+    def opener( url, headers ):
+        raise gl.URLError( 'Temporary failure in name resolution' )
+
+    env = FakeEnv( offline=False )
+    assert gl.resolve_latest_package_version(
+            env, registry=registry, package='widget', opener=opener,
+    ) == '1.10'
+
+
+def test_resolve_latest_network_failure_without_memory_fails():
+    def opener( url, headers ):
+        raise gl.URLError( 'Temporary failure in name resolution' )
+
+    env = FakeEnv( offline=False )
+    with pytest.raises( gl.GitlabLatestNetworkError ):
+        gl.resolve_latest_package_version(
+                env,
+                registry='https://gitlab.example/api/v4/projects/1',
+                package='widget',
+                opener=opener,
+        )
+
+
+def test_resolve_latest_network_failure_does_not_recover_for_publish(
+        tmp_path, monkeypatch
+):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'widget' )
+    gl.upsert_setting( conf, key, repr( '1.10' ) )
+
+    def opener( url, headers ):
+        raise gl.URLError( 'Temporary failure in name resolution' )
+
+    env = FakeEnv( offline=False )
+    with pytest.raises( gl.GitlabLatestNetworkError ):
+        gl.resolve_latest_package_version(
+                env,
+                registry=registry,
+                package='widget',
+                opener=opener,
+                allow_remembered_on_network_error=False,
+        )
+
+
 def test_offline_resolve_keeps_remembered_pin_despite_older_on_disk(
         tmp_path, monkeypatch
 ):
@@ -251,7 +304,7 @@ def test_package_dependency_default_version_latest( monkeypatch ):
             version='latest',
     )
 
-    def fake_resolve( env, registry, package, custom_token=None, opener=None ):
+    def fake_resolve( env, registry, package, custom_token=None, opener=None, **kwargs ):
         assert package == 'widget'
         return '4.5'
 

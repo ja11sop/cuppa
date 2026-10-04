@@ -446,6 +446,9 @@ _pending_lock = threading.Lock()
 _pending_commands = {}
 _terse_locations = []
 _terse_locations_lock = threading.Lock()
+_terse_prepare_written = False
+_terse_ready_written = False
+_written_sconstruct_maps = set()
 
 
 class _ProgressLedger(object):
@@ -819,14 +822,18 @@ _progress_narrow_lock = threading.Lock()
 def reset_progress_ledger():
     """Drop registered actions. The next build counts from empty."""
     global _progress_narrowed, _summary_enabled
+    global _terse_prepare_written, _terse_ready_written
     _progress_ledger.reset()
     _current_action_target.value = None
     _terse_action_accounted.done = False
     _summary_enabled = False
+    _terse_prepare_written = False
+    _terse_ready_written = False
     with _progress_narrow_lock:
         _progress_narrowed = False
     with _terse_locations_lock:
         _terse_locations[:] = []
+        _written_sconstruct_maps.clear()
 
 
 def register_terse_actions( env, nodes ):
@@ -1178,21 +1185,42 @@ def label_terse_action( nodes, action, paths=None, summary=None, shared=None ):
     return nodes
 
 
-def label_terse_location( env, name, path, scope="sconscript" ):
+def location_source_kind( location ):
+    """``archive`` or ``repository`` from a resolved ``Location``."""
+    kind_fn = getattr( location, "source_kind", None )
+    if callable( kind_fn ):
+        kind = str( kind_fn() or "" ).strip()
+        if kind:
+            return kind
+    return "repository"
+
+
+def label_terse_location( env, name, path, scope="sconscript", build_folder=None, kind="" ):
     """Register a named root for terse file cells and begin-line maps.
 
-    Built-in tokens (``working``, ``final``, ``artefacts``) come from the env
-    on variant begin. Authors add extras such as ``boost``. ``scope`` is
-    ``sconstruct``, ``sconscript``, or ``variant`` — the map prints on that
-    begin checkpoint. Not inferred from ``_download``.
+    Built-in tokens (``working``, ``final``, ``artefacts``, ``variant``) come
+    from the env on variant begin. Authors and Cuppa add extras such as
+    ``fmt`` or ``boost``. ``scope`` is ``sconstruct``, ``sconscript``, or
+    ``variant``. Sconstruct-scoped maps print under ``[prepare]``,
+    not on sconstruct begin. ``<packages>`` is variant-scoped: the extract
+    dir follows the package tool variant. ``build_folder`` is the first
+    segment under ``abs_build_root`` for this tree (usually
+    ``Location.local_folder()``). ``kind`` is ``root``, ``repository``,
+    ``archive``, or ``package`` on read-phase maps. Not inferred from
+    ``_download`` folder names.
     """
     token = str( name or "" ).strip().strip( "<>" )
     if not token or not path:
         return
     abs_path = _to_abs( path, env )
-    script = _sconscript_label( env )
-    cell = _variant_cell( env )
-    entry = ( str( scope or "sconscript" ), script, cell, token, abs_path )
+    if _is_project_root( abs_path, env ):
+        return
+    scope = str( scope or "sconscript" )
+    script = "" if scope == "sconstruct" else _sconscript_label( env )
+    cell = _variant_cell( env ) if scope == "variant" else ""
+    folder = str( build_folder or "" ).replace( "\\", "/" ).strip( "/" )
+    kind = str( kind or "" ).strip()
+    entry = ( scope, script, cell, token, abs_path, folder, kind )
     with _terse_locations_lock:
         kept = [
                 item for item in _terse_locations
@@ -1205,6 +1233,14 @@ def label_terse_location( env, name, path, scope="sconscript" ):
         ]
         kept.append( entry )
         _terse_locations[:] = kept
+    if (
+            scope == "sconstruct"
+            and token != "packages"
+            and _env_get( env, "terse_output" )
+            and not _env_get( env, "clean" )
+            and _terse_prepare_written
+    ):
+        _emit_sconstruct_location_map( token, abs_path, env, kind=kind )
 
 
 def _author_locations():
@@ -1372,6 +1408,9 @@ def _under( path, root ):
 
 def _to_abs( raw, env ):
     """Absolute path. Relative node paths are from the project root, as SCons stores them."""
+    text = str( raw or "" )
+    if text.startswith( "~" ):
+        return os.path.normpath( os.path.expanduser( text ) )
     if os.path.isabs( raw ):
         return os.path.normpath( raw )
     anchor = _env_get( env, "base_path" ) or os.getcwd()
@@ -1491,12 +1530,19 @@ def _display_source_path( raw, env ):
 
 
 def _compile_file_parts( source, env ):
-    """Source location in the project tree, or ``~/...`` when it lives outside."""
+    """Source location: project path, nested tokens, or ``~/...``."""
     node = _first_node( source )
     raw = _origin_path( node, env ) if node is not None else ""
-    shown = _display_source_path( raw, env )
+    token, relative = _locate( raw, env, allow_variant_roots=False )
+    if token:
+        relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+        prefix = "<" + token + ">"
+        shown = prefix + ( "/" + relative if relative else "" )
+    else:
+        shown = relative or _display_source_path( raw, env )
     if not shown:
         return "", ""
+    shown = str( shown ).replace( "\\", "/" )
     directory, filename = os.path.split( shown )
     if directory in ( "", "." ):
         directory = ""
@@ -1556,54 +1602,166 @@ def _strip_artifact_folder( relative, env ):
     return relative
 
 
-def _locate( raw, env ):
-    """``(root, relative)`` for a path on a status line.
+def _unpack_location( item ):
+    if len( item ) >= 7:
+        return item[0], item[1], item[2], item[3], item[4], item[5], item[6]
+    if len( item ) >= 6:
+        return item[0], item[1], item[2], item[3], item[4], item[5], ""
+    return item[0], item[1], item[2], item[3], item[4], "", ""
 
-    ``root`` is ``working`` or ``final`` for this variant's build,
-    ``artefacts`` for this variant's folder under the artefacts root, or an
-    author token such as ``boost``. Any other path there is a normal project
-    path. Otherwise ``relative`` is the project path, ``~/...``, or an
-    absolute path.
-    """
-    if not raw:
-        return "", ""
-    text = str( raw ).replace( "\\", "/" )
-    if text.startswith( "~/" ) or text == "~":
-        return "", text
-    abs_path = _to_abs( raw, env )
-    roots = (
-            ( "final", "abs_final_dir" ),
-            ( "working", "abs_build_dir" ),
-            ( "artefacts", "abs_artefacts_root" ),
-    )
-    for token, key in roots:
+
+def _with_variant_token( relative, env ):
+    """Replace this env's ``tool_variant_dir`` segments with ``<variant>``."""
+    relative = str( relative or "" ).replace( "\\", "/" )
+    tool = _slash( _env_get( env, "tool_variant_dir", "" ) or "" ).strip( "/" )
+    if not relative or not tool:
+        return relative
+    parts = [ part for part in relative.split( "/" ) if part != "" ]
+    tool_parts = [ part for part in tool.split( "/" ) if part != "" ]
+    width = len( tool_parts )
+    if not width or len( parts ) < width:
+        return relative
+    folded = [ os.path.normcase( part ) for part in parts ]
+    needle = [ os.path.normcase( part ) for part in tool_parts ]
+    out = []
+    index = 0
+    while index < len( parts ):
+        if folded[ index:index + width ] == needle:
+            out.append( "<variant>" )
+            index += width
+        else:
+            out.append( parts[ index ] )
+            index += 1
+    prefix = "/" if relative.startswith( "/" ) else ""
+    return prefix + "/".join( out )
+
+
+def _is_project_root( path, env ):
+    """True when ``path`` is the sconstruct directory or project ``base_path``."""
+    if not path:
+        return False
+    path = os.path.normcase( os.path.normpath( path ) )
+    for key in ( "sconstruct_dir", "base_path" ):
         root = _env_get( env, key, "" ) or ""
-        if token == "artefacts" and not root:
-            root = _env_get( env, "abs_artifacts_root", "" ) or ""
         if not root:
             continue
-        root_abs = root if os.path.isabs( root ) else _to_abs( root, env )
-        relative = _rel_inside( abs_path, root_abs )
-        if relative is None:
+        other = os.path.normcase( _to_abs( root, env ) )
+        if path == other:
+            return True
+    return False
+
+
+_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages" ) )
+
+
+def _nested_author_match( abs_path, env ):
+    """Distinct nested tokens from a category root to the innermost.
+
+    ``dependencies`` and ``packages`` are category roots. A package extract
+    under the download root is ``<packages>/<boost_package>``, not
+    ``<dependencies>/<packages>/<boost_package>``.
+    """
+    by_root = {}
+    for item in _author_locations():
+        _scope, _script, _cell, token, root, _folder, _kind = _unpack_location( item )
+        if _is_project_root( root, env ):
             continue
-        if token == "artefacts":
-            # ``<artefacts>`` is this variant's folder, not the artefacts root.
-            # ``_artifacts/documentation/...`` is a real path and stays as-is.
-            variant_relative = _strip_artifact_folder( relative, env )
-            if variant_relative == relative:
-                continue
-            return token, variant_relative
-        return token, relative
-    authors = sorted(
-            _author_locations(),
-            key=lambda item: len( item[4] ),
-            reverse=True,
-    )
-    for _scope, _script, _cell, token, root in authors:
         relative = _rel_inside( abs_path, root )
         if relative is None:
             continue
-        return token, relative
+        key = os.path.normcase( os.path.normpath( root ) )
+        length = len( os.path.normpath( root ) )
+        existing = by_root.get( key )
+        if existing is None:
+            by_root[ key ] = ( length, token, relative, key )
+    if not by_root:
+        return None
+    ranked = sorted( by_root.values(), key=lambda item: item[0] )
+    _length, inner_token, inner_relative, inner_key = ranked[ -1 ]
+    tokens = []
+    for _length, token, _relative, key in reversed( ranked ):
+        contained = (
+                inner_key == key
+                or inner_key.startswith( key + os.sep )
+                or inner_key.startswith( key + "/" )
+        )
+        if not contained:
+            continue
+        if token not in tokens:
+            tokens.append( token )
+        if token in _CATEGORY_LOCATION_TOKENS:
+            break
+    if not tokens:
+        tokens = [ inner_token ]
+    tokens.reverse()
+    return ">/<" .join( tokens ), inner_relative
+
+
+def _token_for_build_folder( folder ):
+    folder = str( folder or "" ).replace( "\\", "/" ).strip( "/" )
+    if not folder:
+        return ""
+    for item in _author_locations():
+        _scope, _script, _cell, token, root, mapped, _kind = _unpack_location( item )
+        mapped = mapped or os.path.basename( str( root ).rstrip( "\\/" ) )
+        if os.path.normcase( mapped ) == os.path.normcase( folder ):
+            return token
+    return ""
+
+
+def _locate( raw, env, allow_variant_roots=True ):
+    """``(root, relative)`` for a path on a status line.
+
+    ``root`` is ``working`` or ``final`` for this variant's build,
+    ``artefacts`` for this variant's folder under the artefacts root, or a
+    nested token key such as ``dependencies>/<fmt``. A path under
+    ``abs_build_root`` whose first folder is a registered ``build_folder``
+    is rewritten with that name and ``<variant>``. Otherwise ``relative`` is
+    the project path, ``~/...``, or an absolute path.
+    """
+    if not raw:
+        return "", ""
+    abs_path = _to_abs( raw, env )
+    if allow_variant_roots:
+        roots = (
+                ( "final", "abs_final_dir" ),
+                ( "working", "abs_build_dir" ),
+                ( "artefacts", "abs_artefacts_root" ),
+        )
+        for token, key in roots:
+            root = _env_get( env, key, "" ) or ""
+            if token == "artefacts" and not root:
+                root = _env_get( env, "abs_artifacts_root", "" ) or ""
+            if not root:
+                continue
+            root_abs = root if os.path.isabs( root ) else _to_abs( root, env )
+            relative = _rel_inside( abs_path, root_abs )
+            if relative is None:
+                continue
+            if token == "artefacts":
+                variant_relative = _strip_artifact_folder( relative, env )
+                if variant_relative == relative:
+                    continue
+                return token, variant_relative
+            return token, relative
+    build_root = _env_get( env, "abs_build_root", "" ) or ""
+    if build_root:
+        root_abs = build_root if os.path.isabs( build_root ) else _to_abs( build_root, env )
+        relative = _rel_inside( abs_path, root_abs )
+        if relative is not None:
+            first, _sep, rest = relative.partition( "/" )
+            token = _token_for_build_folder( first )
+            if token:
+                shown_root = _project_display( root_abs, env ) or "_build"
+                if not shown_root or shown_root in ( ".", "/" ):
+                    shown_root = "_build"
+                body = shown_root + "/<" + token + ">"
+                if rest:
+                    body += "/" + _with_variant_token( rest, env )
+                return "", body
+    matches = _nested_author_match( abs_path, env )
+    if matches:
+        return matches
     return "", _display_source_path( raw, env )
 
 
@@ -1612,8 +1770,9 @@ def _coloured_transfer_end( token, relative, dest ):
 
     The source is entirely subdued. The destination directory is subdued and
     its filename is info-coloured and bold, not the info highlight.
-    ``<working>``, ``<final>``, ``<artefacts>``, and author tokens such as
-    ``<boost>`` mark build locations so they are not read as project paths.
+    ``<working>``, ``<final>``, ``<artefacts>``, and nested tokens such as
+    ``<dependencies>/<fmt>`` mark build locations so they are not read as
+    project paths.
     """
     relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
     directory, filename = os.path.split( relative ) if relative else ( "", "" )
@@ -1659,6 +1818,7 @@ def _paths_style( nodes ):
 _TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
 _PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
 _TRANSFORM_ACTIONS = ( "markdown", "asciidoc" )
+_RUN_FILE_ACTIONS = ( "run", "test", "benchmark" )
 
 
 def _is_transform_action( action ):
@@ -1679,12 +1839,41 @@ def _transform_field( target, source, env ):
     return source_text or dest_text
 
 
+def _mapped_product_path( token, relative ):
+    """True when dest locate hit a token or a ``_build/<name>/…`` rewrite."""
+    if token:
+        return True
+    return "<" in str( relative or "" )
+
+
+def located_program_parts( path, env ):
+    """``('<final>/', 'management')`` or ``('', basename)`` when unmapped."""
+    raw = str( path or "" ).replace( "\\", "/" )
+    token, relative = _locate( raw, env )
+    leaf = os.path.basename( raw ) or raw
+    if not _mapped_product_path( token, relative ):
+        return "", leaf
+    relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+    directory, filename = os.path.split( relative ) if relative else ( "", "" )
+    if directory in ( "", "." ):
+        directory = ""
+    prefix = ( "<" + token + ">/" if token else "" ) + ( directory + "/" if directory else "" )
+    return prefix, filename or leaf
+
+
+def _located_product_field( target, env, require_map=True ):
+    """Product cell with dest colouring, or the leaf when the path is unmapped."""
+    raw = _node_path( _first_node( target ) )
+    token, relative = _locate( raw, env )
+    if require_map and not _mapped_product_path( token, relative ):
+        return _coloured_file( "", _node_basename( target ) )
+    shown = _coloured_transfer_end( token, relative, dest=True )
+    return shown or _coloured_file( "", _node_basename( target ) )
+
+
 def _file_field( action, target, source, env ):
     if _paths_style( target ) == "product" and action not in _TRANSFER_ACTIONS:
-        token, relative = _locate( _node_path( _first_node( target ) ), env )
-        shown = _coloured_transfer_end( token, relative, dest=True )
-        if shown:
-            return shown
+        return _located_product_field( target, env, require_map=False )
     summary = _explicit_terse_summary( target )
     if summary:
         if _paths_style( target ) == "file":
@@ -1700,10 +1889,10 @@ def _file_field( action, target, source, env ):
         return _path_action_field( _node_path( _first_node( target ) ), env )
     if _is_transform_action( action ):
         return _transform_field( target, source, env )
-    # A test's targets are the logs. The program is the source.
-    if action == "test":
-        return _coloured_file( "", _node_basename( source ) or _node_basename( target ) )
-    return _coloured_file( "", _node_basename( target ) )
+    if action in _RUN_FILE_ACTIONS:
+        program = source if _first_node( source ) is not None else target
+        return _located_product_field( program, env )
+    return _located_product_field( target, env )
 
 _STATUS_WIDTH = 6
 
@@ -1795,11 +1984,10 @@ def format_terse_duration( nanos ):
 
 
 def _uncounted_prefix( env, marker ):
-    """Indent ``→`` so ``[status]`` lines up with a counted line.
+    """Indent ``→`` so a nested status lines up with ``[ok]`` / ``[progress]``.
 
-    The arrow means this line is not in the action total. The gap is the
-    padded tally, minus one column for the arrow itself. Counted lines also
-    take the badge indent, and the arrow keeps that column.
+    When a cell tally exists, the gap is that prefix minus one column for the
+    arrow. Nested copies and test-cases with an empty ledger stay flush.
     """
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
     arrow = as_subdued( "→" )
@@ -1809,21 +1997,50 @@ def _uncounted_prefix( env, marker ):
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
 
 
-def _coloured_location_value( shown, env ):
+def _location_map_prefix( env, badge=None ):
+    """Indent ``→ [location]`` (or a retrieve status badge) to the checkpoint column."""
+    if badge is None:
+        badge = _location_badge()
+    _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
+    if plain:
+        return _uncounted_prefix( env, badge )
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent_width = counts[ "percent_digits" ] + 1
+    column = (
+            _progress_ledger.progress_line_indent()
+            + _SCOPE_WIDTH + 1 + percent_width + 1
+    )
+    indent = max( column - 2, 0 )
+    return ( " " * indent ) + as_subdued( "→" ) + " " + badge
+
+
+def _coloured_location_value( shown, env, kind="" ):
     """Path on a location map. Same roles as the parent checkpoint path.
 
     ``_build/`` (and other prefixes) subdued; sconscript leaf info; ``dbg`` /
     ``rel`` / ``cov`` plain; remaining layout dirs subdued; last component
-    info+bold.
+    info+bold. Root and package maps are vocabulary: every path segment
+    and the slashes between them are info+bold
+    (``~/_cuppa/_download``, ``abseil-cpp/20250814.2``). A nested parent
+    token on the value (``<dependencies>/gcc16_rel_...``) stays subdued;
+    only the identity this map defines is vocabulary.
     """
     shown = str( shown or "" ).replace( "\\", "/" )
     if not shown:
         return ""
-    parts = [ part for part in shown.split( "/" ) if part ]
-    if shown.startswith( "/" ):
+    vocabulary = str( kind or "" ) in ( "root", "package" )
+    parent = ""
+    identity = shown
+    if vocabulary:
+        while identity.startswith( "<" ) and ">/" in identity:
+            token, rest = identity.split( ">/", 1 )
+            parent += token + ">/"
+            identity = rest
+    parts = [ part for part in identity.split( "/" ) if part ]
+    if identity.startswith( "/" ):
         parts = [ "" ] + parts
     if not parts:
-        return ""
+        return as_subdued( parent ) if parent else ""
     script_parts = [
             part for part in _sconscript_label( env ).replace( "\\", "/" ).split( "/" ) if part
     ]
@@ -1832,7 +2049,9 @@ def _coloured_location_value( shown, env ):
     painted = []
     last = len( parts ) - 1
     for index, part in enumerate( parts ):
-        if index == last and part:
+        if vocabulary and part:
+            painted.append( as_emphasised( as_info( part ) ) )
+        elif index == last and part:
             painted.append( as_emphasised( as_info( part ) ) )
         elif name and part == name:
             painted.append( part )
@@ -1840,38 +2059,99 @@ def _coloured_location_value( shown, env ):
             painted.append( as_info( part ) )
         else:
             painted.append( as_subdued( part ) )
-    return as_subdued( "/" ).join( painted )
+    slash = as_emphasised( as_info( "/" ) ) if vocabulary else as_subdued( "/" )
+    value = slash.join( painted )
+    if parent:
+        return as_subdued( parent ) + value
+    return value
 
 
 def _location_badge():
-    """Notice-coloured ``[location]``. Chrome, not an action; not bold."""
-    return as_notice( "[location]" )
+    """Bold muted grey ``[location]``. Vocabulary chrome, not action ink."""
+    return as_emphasised( as_subdued( "[location]" ) )
 
 
-def format_terse_location_line( token, path, env, scope="variant" ):
-    """``→ [location] [sconscript ·] [variant ·] <token> = path``.
+def _location_map_rhs( token, path, env ):
+    """Map value: nested under a parent token when contained, else display path."""
+    if str( token ) == "variant":
+        return _slash( path ).strip( "/" )
+    abs_path = _to_abs( path, env )
+    if str( token ) not in ( "working", "final", "artefacts" ):
+        parents = []
+        for item in _author_locations():
+            _scope, _script, _cell, other, root, _folder, _kind = _unpack_location( item )
+            if other == token or _is_project_root( root, env ):
+                continue
+            relative = _rel_inside( abs_path, root )
+            if relative is not None:
+                parents.append( ( len( os.path.normpath( root ) ), relative, other ) )
+        if parents:
+            parents.sort( reverse=True )
+            for _length, relative, other in parents:
+                if str( token ) == "packages" and other == "dependencies" and relative:
+                    return "<dependencies>/" + relative
+                if relative:
+                    return relative
+    shown = _project_display( abs_path, env ) or _home_display( abs_path )
+    return _with_variant_token( shown, env )
+
+
+def _declared_dependency_names( env ):
+    """``default_dependencies`` names, as strings."""
+    return [ str( name ) for name in ( _env_get( env, "default_dependencies" ) or [] ) ]
+
+
+def _location_is_transitive( token, env ):
+    """True when a mapped dependency is outside ``default_dependencies``.
+
+    Roots are never transitive. With no declared list, nothing is marked.
+    """
+    if str( token ) in _CATEGORY_LOCATION_TOKENS:
+        return False
+    declared = _declared_dependency_names( env )
+    if not declared:
+        return False
+    return str( token ) not in set( declared )
+
+
+def format_terse_location_line( token, path, env, scope="variant", kind="" ):
+    """``→ [location] [sconscript ·] [variant ·] <token> = path [· kind] [· transitive]``.
 
     Identity fields let a map reattach when ``-j`` splits it from its
     ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
+    Sconstruct-scoped maps omit both identity cells (the ``[prepare]``
+    bookend already names the sconstruct). Read-phase kinds are ``root``,
+    ``repository``, ``archive``, and     ``package``. ``transitive`` is info-coloured (declared maps stay unmarked).
     """
-    abs_path = _to_abs( path, env )
-    shown = _project_display( abs_path, env ) or _home_display( abs_path )
+    shown = _location_map_rhs( token, path, env )
     fields = []
-    script = _sconscript_label( env )
-    if script:
-        fields.append( _coloured_sconscript( script ) )
+    if scope != "sconstruct":
+        script = _sconscript_label( env )
+        if script:
+            fields.append( _coloured_sconscript( script ) )
     if scope == "variant":
         cell = _coloured_variant_cell( env )
         if cell:
             fields.append( cell )
-    value = "<" + str( token ) + ">" + as_subdued( " = " ) + _coloured_location_value( shown, env )
+    value = (
+            "<" + str( token ) + ">"
+            + as_subdued( " = " )
+            + _coloured_location_value( shown, env, kind=kind )
+    )
     fields.append( value )
-    lead = _uncounted_prefix( env, _location_badge() )
+    if kind and scope == "sconstruct":
+        fields.append( as_subdued( kind ) )
+        if _location_is_transitive( token, env ):
+            fields.append( as_info( "transitive" ) )
+    lead = _location_map_prefix( env )
     return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
 
 
 def _builtin_location_maps( env ):
     maps = []
+    tool = _slash( _env_get( env, "tool_variant_dir", "" ) or "" ).strip( "/" )
+    if tool:
+        maps.append( ( "variant", tool ) )
     for token, key in (
             ( "working", "abs_build_dir" ),
             ( "final", "abs_final_dir" ),
@@ -1888,19 +2168,41 @@ def _builtin_location_maps( env ):
 def format_terse_location_maps( scope, env ):
     """Location-map lines for one checkpoint begin. Empty on end events."""
     lines = []
+    if scope == "sconstruct":
+        script = ""
+        cell = ""
+    else:
+        script = _sconscript_label( env )
+        cell = _variant_cell( env )
+
+    def _matches( item_scope, item_script, item_cell ):
+        if item_scope != scope:
+            return False
+        if item_script and script and item_script != script:
+            return False
+        if scope == "variant" and item_cell and cell and item_cell != cell:
+            return False
+        return True
+
     if scope == "variant":
+        for item in _author_locations():
+            item_scope, item_script, item_cell, token, path, _folder, kind = _unpack_location( item )
+            if token != "packages" or not _matches( item_scope, item_script, item_cell ):
+                continue
+            lines.append( format_terse_location_line(
+                    token, path, env, scope=scope, kind=kind,
+            ) )
         for token, path in _builtin_location_maps( env ):
             lines.append( format_terse_location_line( token, path, env, scope=scope ) )
-    script = _sconscript_label( env )
-    cell = _variant_cell( env )
-    for item_scope, item_script, item_cell, token, path in _author_locations():
-        if item_scope != scope:
+    for item in _author_locations():
+        item_scope, item_script, item_cell, token, path, _folder, kind = _unpack_location( item )
+        if token == "packages":
             continue
-        if item_script and script and item_script != script:
+        if not _matches( item_scope, item_script, item_cell ):
             continue
-        if scope == "variant" and item_cell and cell and item_cell != cell:
-            continue
-        lines.append( format_terse_location_line( token, path, env, scope=item_scope ) )
+        lines.append( format_terse_location_line(
+                token, path, env, scope=item_scope, kind=kind,
+        ) )
     return lines
 
 
@@ -2465,9 +2767,268 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
         return
     sys.stdout.write( line + "\n" )
     phase = _CHECKPOINT_PHASE.get( event )
-    if phase and phase[1] == "begin":
+    if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
             sys.stdout.write( map_line + "\n" )
+    sys.stdout.flush()
+
+
+def _factory_owner( factory ):
+    """Class a ``cls.create`` classmethod is bound to, else ``None``."""
+    owner = getattr( factory, "__self__", None )
+    if isinstance( owner, type ):
+        return owner
+    return None
+
+
+def _dependency_kind_from_factory( factory ):
+    """Map a ``env['dependencies']`` factory to a read-checkpoint kind.
+
+    Factories are stored as ``cls.create``, so attributes live on the class,
+    not the callable. ``package`` is a GitLab/Conan package; ``archive`` is a
+    source tarball (Boost, URL zip/tar); ``repository`` is an SCM or path
+    location. ``None`` means no map kind (system Qt).
+    """
+    owner = _factory_owner( factory )
+    targets = []
+    if factory is not None:
+        targets.append( factory )
+    if owner is not None:
+        targets.append( owner )
+    if not targets:
+        return "repository"
+    for target in targets:
+        if getattr( target, "_package_manager", None ) or getattr( target, "_package", None ):
+            return "package"
+        if getattr( target, "_conanfile", None ) is not None or getattr( target, "_requires", None ) is not None:
+            return "package"
+    for target in targets:
+        name = getattr( target, "_name", None )
+        if name in ( "qt4", "qt5" ):
+            return None
+        if name == "boost":
+            return "archive"
+        spec = getattr( target, "_default_location", None )
+        if spec:
+            from cuppa.location import Location
+            return Location.source_kind_for( spec )
+        if callable( getattr( target, "location_option", None ) ):
+            return "repository"
+    return "repository"
+
+
+def _sconstruct_dependency_maps():
+    """Sconstruct location entries that are dependencies, not category roots."""
+    seen = set()
+    entries = []
+    for item in _author_locations():
+        scope, _script, _cell, token, _path, _folder, kind = _unpack_location( item )
+        if scope != "sconstruct":
+            continue
+        if token in _CATEGORY_LOCATION_TOKENS or kind == "root":
+            continue
+        if token in seen:
+            continue
+        seen.add( token )
+        entries.append( ( token, kind ) )
+    return entries
+
+
+def _declared_transitive_suffix( declared_n, transitive_n ):
+    """`` (35 declared, 7 transitive)`` bound to the preceding count."""
+    return (
+            as_subdued( " (" )
+            + str( declared_n )
+            + as_subdued( " declared, " )
+            + str( transitive_n )
+            + as_subdued( " transitive)" )
+    )
+
+
+def _read_checkpoint_summary( env ):
+    """Resolved graph first; declared/transitive hang off that total.
+
+    ``41 dependencies (35 declared, 6 transitive) · 33 repositories · 8 packages``
+    when traveling-manifest packages join the maps. Without extras, just
+    ``35 dependencies · 33 repositories · 2 packages``. Kind counts stay
+    unqualified; map lines mark ``transitive`` only.
+    """
+    declared = _declared_dependency_names( env )
+    mapped = _sconstruct_dependency_maps()
+    mapped_names = [ token for token, _kind in mapped ]
+    ordered = []
+    seen = set()
+    for name in declared + mapped_names:
+        if name in seen:
+            continue
+        seen.add( name )
+        ordered.append( name )
+    if not ordered:
+        return ""
+    factories = _env_get( env, "dependencies" ) or {}
+    kinds = { token: kind for token, kind in mapped if kind }
+    counts = {}
+    for name in ordered:
+        kind = kinds.get( name )
+        if not kind and isinstance( factories, dict ):
+            kind = _dependency_kind_from_factory( factories.get( name ) )
+        if not kind or kind == "root":
+            continue
+        counts[ kind ] = counts.get( kind, 0 ) + 1
+    extra = [ name for name in mapped_names if name not in set( declared ) ]
+    dep_phrase = _counted_phrase( len( ordered ), "dependency", "dependencies" )
+    if extra:
+        dep_phrase += _declared_transitive_suffix( len( declared ), len( extra ) )
+    parts = [ dep_phrase ]
+    for kind, singular, plural in (
+            ( "repository", "repository", "repositories" ),
+            ( "package", "package", "packages" ),
+            ( "archive", "archive", "archives" ),
+    ):
+        n = counts.get( kind, 0 )
+        if n:
+            parts.append( _counted_phrase( n, singular, plural ) )
+    return _join_subdued( parts )
+
+
+def _format_resolve_bookend( env, badge, summary ):
+    """``sconstruct 0% [prepare|ready] path · resolve · summary``."""
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    parts = [
+            lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( badge ) ),
+            _checkpoint_path( "sconstruct", env ),
+    ]
+    line = " ".join( parts ) + as_subdued( " · " ) + _action_label( "resolve" )
+    if summary:
+        line += as_subdued( " · " ) + summary
+    return line
+
+
+def write_terse_resolve_prepare( env ):
+    """Open the resolve span. Location maps and retrieve children follow live."""
+    global _terse_prepare_written, _terse_ready_written
+    if not _env_get( env, "terse_output" ):
+        return
+    if _env_get( env, "clean" ):
+        _terse_prepare_written = True
+        _terse_ready_written = True
+        return
+    if _terse_prepare_written:
+        return
+    _terse_prepare_written = True
+    declared = _declared_dependency_names( env )
+    summary = ""
+    if declared:
+        summary = _counted_phrase(
+                len( declared ), "declared dependency", "declared dependencies",
+        )
+    sys.stdout.write( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
+    sys.stdout.flush()
+
+
+def write_terse_resolve_ready( env ):
+    """Close the resolve span with resolved totals. Does not reprint maps."""
+    global _terse_ready_written
+    if not _env_get( env, "terse_output" ):
+        return
+    if _env_get( env, "clean" ):
+        _terse_ready_written = True
+        return
+    if _terse_ready_written:
+        return
+    if not _terse_prepare_written:
+        write_terse_resolve_prepare( env )
+    _terse_ready_written = True
+    sys.stdout.write(
+            _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
+            + "\n"
+    )
+    sys.stdout.flush()
+
+
+def write_terse_read_checkpoint( env ):
+    """Alias for ``write_terse_resolve_ready`` (older call sites)."""
+    write_terse_resolve_ready( env )
+
+
+_RESOLVE_CHILD_WIDTH = len( "[location]" )
+
+
+def _resolve_child_badge( badge, status="ok" ):
+    """Ten columns so ``[update]`` lines up with ``[location]``.
+
+    Success uses the same success colour as ``[ok]``. Pad sits outside the
+    colour. ``[download]`` is already ten characters.
+    """
+    text = "[" + str( badge ) + "]"
+    if status in ( "error", "fail" ):
+        painted = as_colour( "error", text )
+    elif status == "warn":
+        painted = as_colour( "warning", text )
+    else:
+        painted = as_colour( "success", text )
+    short = _RESOLVE_CHILD_WIDTH - len( text )
+    if short <= 0:
+        return painted
+    return painted + ( " " * short )
+
+
+def terse_resolve_child_enabled( env, token ):
+    """Whether a retrieve child would print (do not pre-colour as success)."""
+    if not token:
+        return False
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    return bool( _terse_prepare_written )
+
+
+def format_terse_resolve_child( env, badge, token, *fields, status="ok", remark="" ):
+    """``→ [update]   <fmt> · master · 9197f515 · update failed, using available extract``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( badge, status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    for field in fields:
+        text = str( field or "" ).strip()
+        if text:
+            parts.append( text )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    text = str( remark or "" ).strip()
+    if text:
+        if status in ( "error", "fail" ):
+            painted = as_colour( "error", text )
+        elif status == "warn":
+            painted = as_colour( "warning", text )
+        else:
+            painted = as_colour( "success", text )
+        line += as_subdued( " · " ) + painted
+    return line
+
+
+def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="" ):
+    """Print a retrieve child after the work. True when emitted."""
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    sys.stdout.write(
+            format_terse_resolve_child(
+                    env, badge, token, *fields, status=status, remark=remark,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
+def _emit_sconstruct_location_map( token, path, env, kind="" ):
+    if token == "packages" or token in _written_sconstruct_maps:
+        return
+    _written_sconstruct_maps.add( token )
+    sys.stdout.write(
+            format_terse_location_line(
+                    token, path, env, scope="sconstruct", kind=kind,
+            ) + "\n"
+    )
     sys.stdout.flush()
 
 

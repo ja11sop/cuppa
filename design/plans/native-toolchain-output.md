@@ -1,8 +1,8 @@
 # Plan: native coloured toolchain output (`--native-output`)
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md) (done on master [#353](https://github.com/ja11sop/cuppa/pull/353)); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-10-03
+- **Status:** done
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md) (done on master [#353](https://github.com/ja11sop/cuppa/pull/353)); follow-on [`terse-dependency-locations.md`](terse-dependency-locations.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md). Landed on [#354](https://github.com/ja11sop/cuppa/pull/354); promote to **shipped** and archive at the 1.12.0 release.
+- **Updated:** 2026-10-04
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Why

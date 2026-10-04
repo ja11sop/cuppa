@@ -1456,6 +1456,37 @@ class GitlabPackageDependency:
         return { "id": identity, "args": args }
 
 
+    def _label_terse_package( self ):
+        name = self._dependency_name
+        if not name or not getattr( self, "_package_dir", None ):
+            return
+        import cuppa.progress
+        folder = "{}/{}".format( self._package, self.version() )
+        cuppa.progress.label_terse_location(
+                self._cuppa_env, name, self._package_dir, scope="sconstruct",
+                build_folder=folder, kind="package",
+        )
+
+
+    def _terse_retrieve( self ):
+        import cuppa.progress
+        return cuppa.progress.terse_resolve_child_enabled(
+                self._cuppa_env, self._dependency_name,
+        )
+
+
+    def _terse_collect( self, status="ok", remark="" ):
+        import cuppa.progress
+        return cuppa.progress.write_terse_resolve_child(
+                self._cuppa_env,
+                "collect",
+                self._dependency_name,
+                self.version(),
+                status=status,
+                remark=remark,
+        )
+
+
     def is_option_set( self, option ):
         return option in self._cuppa_env and self._cuppa_env[option] or False
 
@@ -1717,11 +1748,14 @@ class GitlabPackageDependency:
                 if not os.path.isdir( cache_dir ):
                     os.makedirs( cache_dir )
                 from cuppa.utility.download import DownloadError
-                logger.info( "Downloading package [{}] from [{}] (stems [{}])...".format(
-                        as_info( self._package_id ),
-                        as_notice( registry ),
-                        as_info( ", ".join( stems ) )
-                ) )
+                self._label_terse_package()
+                terse = self._terse_retrieve()
+                if not terse:
+                    logger.info( "Downloading package [{}] from [{}] (stems [{}])...".format(
+                            as_info( self._package_id ),
+                            as_notice( registry ),
+                            as_info( ", ".join( stems ) )
+                    ) )
                 try:
                     dest, package_file, _stem = download_first_available_package(
                             candidates,
@@ -1758,21 +1792,28 @@ class GitlabPackageDependency:
                                 .format( as_info( self._package_id ) )
                         )
                         return
-                    logger.error( "Downloading package archives [{}] failed: {}".format(
-                            as_error( ", ".join( stems ) ),
-                            as_error( str( error.parameter ) ),
-                    ) )
+                    self._terse_collect(
+                            status="error",
+                            remark="collect failed, no package available",
+                    )
+                    if not terse:
+                        logger.error( "Downloading package archives [{}] failed: {}".format(
+                                as_error( ", ".join( stems ) ),
+                                as_error( str( error.parameter ) ),
+                        ) )
                     raise GitlabPackageDependencyException(
                         "Failed to download [{}]: {}".format(
                                 ", ".join( stems ),
                                 error.parameter,
                         )
                     )
-                logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
-                        as_info( package_file ),
-                        as_info( self._package_id ),
-                        as_notice( registry )
-                ) )
+                self._terse_collect()
+                if not terse:
+                    logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
+                            as_info( package_file ),
+                            as_info( self._package_id ),
+                            as_notice( registry )
+                    ) )
         elif self._offline and not os.path.exists(self._download_target):
             logger.error(
                 "Running in {offline} mode and [{download_target}] does not exist so package cannot be retrieved at this time.".format(

@@ -153,7 +153,8 @@ class base(object):
                         location,
                         develop=develop,
                         branch_path=branch_path,
-                        extra_sub_path=cls._extra_sub_path
+                        extra_sub_path=cls._extra_sub_path,
+                        name_hint=cls._name,
                 )
                 logger.debug( "Adding location [{}]({}) to cached locations".format(
                         as_notice( cls._name.title() ),
@@ -248,6 +249,27 @@ class base(object):
             self._linktype = "static"
         else:
             self._linktype = linktype
+
+        self._register_terse_location( env )
+
+
+    def _register_terse_location( self, env ):
+        name = getattr( self, "_name", None )
+        location = getattr( self, "_location", None )
+        if not name or location is None:
+            return
+        local = location.local()
+        if not local:
+            return
+        folder = ""
+        local_folder = getattr( location, "local_folder", None )
+        if callable( local_folder ):
+            folder = local_folder()
+        import cuppa.progress
+        cuppa.progress.label_terse_location(
+                env, name, local, scope="sconstruct", build_folder=folder,
+                kind=cuppa.progress.location_source_kind( location ),
+        )
 
 
     def __call__( self, env, toolchain, variant ):

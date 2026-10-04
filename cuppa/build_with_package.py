@@ -80,9 +80,14 @@ class base(object):
                     registry=cls._registry,
                     package=cls._package,
                     custom_token=getattr( cls, '_custom_token', None ),
+                    dependency_name=cls._name,
             )
         except GitlabLatestError as error:
-            logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
+            terse = False
+            if hasattr( env, "get" ):
+                terse = bool( env.get( "terse_output" ) )
+            if not terse:
+                logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
             raise SCons.Errors.StopError(
                     "Cannot resolve registry latest for package [{}]: {}".format(
                             cls._name,
@@ -180,6 +185,47 @@ class base(object):
     def __call__( self, env, toolchain, variant ):
         self._package.initialise_build_variant(
                 env, toolchain, variant, dependency_name=self._name
+        )
+        self._register_terse_location( env )
+
+
+    def _register_terse_location( self, env ):
+        """Map ``<packages>/<name>`` from the resolved extract or develop tree."""
+        if not env.get( "terse_output" ):
+            return
+        package = getattr( self, "_package", None )
+        name = getattr( self, "_name", None )
+        if package is None or not name:
+            return
+        dir_fn = getattr( package, "package_dir", None )
+        pkg_dir = dir_fn() if callable( dir_fn ) else getattr( package, "_package_dir", None )
+        if not pkg_dir:
+            return
+        extract_fn = getattr( package, "extraction_dir", None )
+        extract = extract_fn() if callable( extract_fn ) else None
+        folder = os.path.basename( str( pkg_dir ).rstrip( "\\/" ) )
+        import cuppa.progress
+        if extract:
+            try:
+                pkg_abs = os.path.normpath( pkg_dir )
+                extract_abs = os.path.normpath( extract )
+                if (
+                        pkg_abs == extract_abs
+                        or pkg_abs.startswith( extract_abs + os.sep )
+                        or pkg_abs.startswith( extract_abs + "/" )
+                ):
+                    cuppa.progress.label_terse_location(
+                            env, "packages", extract, scope="variant",
+                            kind="root",
+                    )
+                    rel = os.path.relpath( pkg_abs, extract_abs ).replace( "\\", "/" )
+                    if rel and rel != ".":
+                        folder = rel
+            except ValueError:
+                pass
+        cuppa.progress.label_terse_location(
+                env, name, pkg_dir, scope="sconstruct", build_folder=folder,
+                kind="package",
         )
 
 
