@@ -56,6 +56,24 @@ def _clear_heartbeat():
         pass
 
 
+def _suppress_heartbeat():
+    """Hold the quiet heartbeat for a whole spawn (clear + no redraw)."""
+    try:
+        from cuppa.utility.heartbeat import suppress as suppress_heartbeat
+        suppress_heartbeat()
+    except Exception:
+        pass
+
+
+def _allow_heartbeat():
+    """Release a spawn hold on the quiet heartbeat."""
+    try:
+        from cuppa.utility.heartbeat import allow as allow_heartbeat
+        allow_heartbeat()
+    except Exception:
+        pass
+
+
 def _emit_transcript( line ):
     """Print one build-transcript line; clear the quiet heartbeat first."""
     _clear_heartbeat()
@@ -148,6 +166,7 @@ class IncrementalSubProcess:
                         inherit_process_env=inherit_process_env,
                     )
 
+        held_heartbeat = False
         try:
             process = None
             stderr_thread = None
@@ -158,9 +177,17 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
+            # Hold the TTY heartbeat for the whole spawn: clear once, then do
+            # not redraw while the command (often via the cuppa launcher's
+            # stdout pipe) owns the console.
+            _suppress_heartbeat()
+            held_heartbeat = True
             if not suppress_output:
-                _clear_heartbeat()
                 sys.stdout.write( " ".join(args_list) + "\n" )
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
 
             popen_kwargs = dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
             for key, value in child_popen_kwargs().items():
@@ -201,6 +228,8 @@ class IncrementalSubProcess:
             raise e
         finally:
             forget_child( process )
+            if held_heartbeat:
+                _allow_heartbeat()
 
 
     @classmethod

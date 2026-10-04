@@ -145,7 +145,7 @@ def test_long_info_stays_on_one_physical_line():
     assert body.startswith( 'Working ' )
     assert body.endswith( hb._ELLIPSIS )
 
-    clock.advance( 0.40 )
+    clock.advance( 0.15 )
     logger.info( 'Using package [tip]' )
     body2 = _status_body( stream )
     assert visible_len( body2 ) <= cols
@@ -190,7 +190,7 @@ def test_info_rewrites_throttled_status_line():
     logger.info( 'Using package [a]' )  # within throttle window
     assert stream.getvalue() == first
 
-    clock.advance( 0.40 )
+    clock.advance( 0.15 )
     logger.info( 'Using package [b]' )
     assert 'Using package [b]' in stream.getvalue()
 
@@ -241,12 +241,32 @@ def test_report_clears_heartbeat():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
+def test_spawn_suppress_holds_heartbeat_until_allow():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Using [/tmp]' in _status_body( stream )
+    assert hb._last_line
+
+    hb.suppress()
+    assert hb._last_line == ''
+    assert hb._suppress_depth == 1
+    # INFO during a spawn is remembered, not drawn (piped stdout race).
+    before = stream.getvalue()
+    logger.info( 'Updating [libfoo] during spawn' )
+    assert stream.getvalue() == before
+
+    hb.allow()
+    assert hb._suppress_depth == 0
+    assert 'Updating [libfoo] during spawn' in _status_body( stream )
+
+
 def test_spawn_transcript_clears_heartbeat( monkeypatch ):
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
     logger.info( 'Using [/tmp] for dependencies' )
-    assert 'Using [/tmp]' in stream.getvalue()
     assert hb._last_line
 
     from cuppa import output_processor as op
@@ -257,7 +277,6 @@ def test_spawn_transcript_clears_heartbeat( monkeypatch ):
     )
     op._emit_transcript( '/usr/bin/g++ -c foo.cpp' )
     assert printed == [ '/usr/bin/g++ -c foo.cpp' ]
-    # Status line blanked so the command does not share a row with Working.
     assert hb._last_line == ''
     assert hb._body is None
 
