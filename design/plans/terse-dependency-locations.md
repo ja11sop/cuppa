@@ -12,6 +12,86 @@
 - **Impact:** minor — terse file cells and `[location]` maps only; default transcript
   unchanged; on-disk layout unchanged
 
+## When the maps print (read vs build)
+
+The first soak sketch hung sconstruct-scoped maps under
+`sconstruct … [progress] · begin`. That line is a `NotifyProgress` node. It
+runs **after** `scons: Building targets ...`. Git updates, clones, package
+latest resolve, and `Location.local()` happen earlier, during
+`scons: Reading SConscript files ...`, while `_pre_sconscript_phase_` is set
+and `NotifyProgress.add` is a no-op.
+
+That distinction is load-bearing:
+
+- A `[location]` map is only useful for a line that prints **after** the token
+  is registered.
+- `cuppa: location: [info] Updating […]` already runs in the read phase. If
+  those become terse one-liners that say `<fmt>`, the map must exist **before**
+  the first `sconstruct [progress] · begin`.
+- Read work has **no action tally**. Inventing `11%` or `0/36` on a read line
+  would lie. Percent is `N/A` (or a blank percent cell) until Building.
+
+Do **not** reuse `[progress]` for this. That badge is a build-graph checkpoint
+(`begin` / `end` / variant `started`). The read envelope is SCons's
+"Reading SConscript files"; Cuppa adds one structured line inside it.
+
+### Settled read-phase line
+
+```text
+sconstruct  N/A [read] ~/coding/clearpool_cuppa/cplx_dex/order_matcher/sconstruct · resolve · 19 dependencies · 12 location · 7 package
+              → [location] <dependencies> = ~/_cuppa/_download
+              → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
+              → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
+              → [location] <quince> = git_https_github.com__j0nnyw_quince.git@master
+scons: done reading SConscript files.
+scons: Building targets ...
+sconstruct  11% [progress] ~/coding/clearpool_cuppa/cplx_dex/order_matcher/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
+```
+
+| Piece | Choice | Why |
+|-------|--------|-----|
+| Badge | `[read]` | Matches SCons "Reading…". Not `[pre-read]` (it is during reading, not before). Not `[configure]` (that is `~/.cuppaconfig`). Not `[process]` (too vague). |
+| Action | `resolve` | The material work is resolving location/package trees. `build-graph` overclaims: action counts are not known yet. |
+| Tally | `N/A` | Ledger is built from `NotifyProgress.add` during sconscript evaluation; it is not complete until Building. |
+| Maps | Hang here, **not** on `[progress] · begin` | Tokens must exist for later read-phase one-liners. Do not reprint the same maps on sconstruct begin. |
+| Variant maps | Stay on variant `[progress] · begin` | `<working>` / `<final>` / `<artefacts>` / `<variant>` are build-layout, not resolve. |
+
+Per-dep maps may print **lazily** as each dependency resolves (map line, then
+any update for that name) instead of as one block. Lazy is better if update
+one-liners land in the same PR. A single block at the start of `cuppa.run`
+resolve is enough for compile-line rewriting alone.
+
+### Update / clone one-liners (follow-on, same family)
+
+Those `logger.info("Updating […]")` lines are **not** ordinary configure
+commentary. They mutate trees, can take seconds, and `-Q` currently hides
+them. They sit between log and transcript.
+
+Under `--terse-output` they become **uncounted children of `[read]`**, using
+the same `→` indent as nested copies / `[location]`:
+
+```text
+sconstruct  N/A [read] ~/…/sconstruct · resolve · 10 dependencies · 8 location · 2 package
+              → [location] <dependencies> = ~/_cuppa/_download
+              → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
+              → [update] <fmt> · main · 9197f515
+              → [location] <rapidjson> = git_https_github.com__miloyip_rapidjson.git@master
+              → [update] <rapidjson> · master · 24b5e7a
+              → [clone] <moo> · master · cplx_dex_r1.16-2-g54ee95d
+```
+
+Stay under `-Q` (like `[progress]`, unlike `cuppa: configure: [info]`). Failure
+keeps the existing warn/error (and enough URL/path to diagnose). Do not turn
+cuppaconfig load, version, default-profile dumps, or the sconscript path list
+into this channel — those stay logs ([`build-log-hygiene.md`](build-log-hygiene.md)).
+
+Badges for the child line: `[update]`, `[clone]`, `[fetch]` (package download)
+as needed. Not `[ok]` with a fake tally. Not `[progress]`.
+
+This child-line slice can land after nested `_locate` (maps without updates
+still pay off on compile lines). Do not block map rewriting on inventing the
+whole read transcript.
+
 ## Why
 
 Under `--terse-output`, project sources already use `<working>` / `<final>` /
@@ -40,15 +120,17 @@ and fights the existing `<working>` / `<final>` vocabulary.
 Nested roots stay truthful and scale to packages:
 
 ```text
-→ [location] <dependencies> = ~/_cuppa/_download
-→ [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
-→ [location] <date> = git_https_github.com__HowardHinnant_date.git@master
-→ [location] <quince> = git_https_github.com__j0nnyw_quince.git@master
-→ [location] <quince-postgresql> = git_https_github.com__j0nnyw_quince_postgresql.git@master
-→ [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <variant> = gcc16/dbg/x86_64/cxx2c
-→ [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <working> = _build/test/matching_engine/<variant>/working
-→ [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <final> = _build/test/matching_engine/<variant>/final
-→ [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <artefacts> = _artefacts
+sconstruct  N/A [read] …/sconstruct · resolve · …
+              → [location] <dependencies> = ~/_cuppa/_download
+              → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master
+              → [location] <date> = git_https_github.com__HowardHinnant_date.git@master
+              → [location] <quince> = git_https_github.com__j0nnyw_quince.git@master
+              → [location] <quince-postgresql> = git_https_github.com__j0nnyw_quince_postgresql.git@master
+sconstruct  11% [progress] …/sconstruct · begin · 6 sconscripts · 1 variant · 4/36 actions
+              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <variant> = gcc16/dbg/x86_64/cxx2c
+              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <working> = _build/test/matching_engine/<variant>/working
+              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <final> = _build/test/matching_engine/<variant>/final
+              → [location] test/matching_engine · gcc16_dbg_x86_64_cxx2c · <artefacts> = _artefacts
 
 compile · <dependencies>/<fmt>/src/format.cc → _build/<fmt>/<variant>/working/src/format.o
 compile · <dependencies>/<date>/src/tz.cpp → _build/<date>/<variant>/working/src/tz.o
@@ -102,23 +184,27 @@ dependency's resolved tree.
 1. **Parent roots** — sconstruct-scoped `<dependencies>` from `dependencies_root`;
    add `<packages>` when a package install/develop root is known (same nesting
    grammar; may land in a second slice if package path discovery is thicker).
-2. **Per-dep source map** — on location/package resolve,
+2. **Read-phase checkpoint** — emit one `sconstruct N/A [read] … · resolve · …`
+   line when resolve starts (not a `NotifyProgress` node). Print sconstruct-scoped
+   maps under it. Do not reprint them on `sconstruct [progress] · begin`.
+3. **Per-dep source map** — on location/package resolve,
    `label_terse_location(env, dep._name, local(), scope="sconstruct")`. Map RHS
    shown relative to parent when nested (`git_https_…@master`), else project/`~/`
-   display as today.
-3. **Build-tree rewrite** — extend `_locate` (not N new tokens): under
+   display as today. Print the map as soon as the path is known if update
+   one-liners need the token on the next line.
+4. **Build-tree rewrite** — extend `_locate` (not N new tokens): under
    `abs_build_root`, if the first segment equals a registered dep's
    `local_folder`, emit `_build/<name>/…`; then replace `env['tool_variant_dir']`
    with `<variant>`.
-4. **Builtin `<variant>`** — from `tool_variant_dir`; print on variant begin;
+5. **Builtin `<variant>`** — from `tool_variant_dir`; print on variant begin;
    also allow `<working>` / `<final>` map RHS to contain `<variant>`.
-5. **Transform sources** — route compile/markdown sources through the same
+6. **Transform sources** — route compile/markdown sources through the same
    locator (today `_compile_file_parts` in `cuppa/progress.py` uses
    `_display_source_path` only, so tokens never apply to the left of `→`).
-6. **Hooks** — `cuppa/build_with_location.py` (`create` /
+7. **Hooks** — `cuppa/build_with_location.py` (`create` /
    `build_library_from_source`) and the existing Boost
    `label_terse_location` call site; package path in a follow-up slice if needed.
-7. **Tests** — unit cases with `order_matcher`-shaped paths (`fmt` / `date` /
+8. **Tests** — unit cases with `order_matcher`-shaped paths (`fmt` / `date` /
    `quince` folders under a fake dependencies root +
    `_build/<folder>/<tool_variant>/working/…`); update Boost location
    expectations to nested form.
@@ -127,11 +213,12 @@ dependency's resolved tree.
 
 | Slice | Deliverable | Notes |
 |-------|-------------|-------|
-| A | This plan + ROADMAP / design index + amend terse-delegated refusal | This commit |
+| A | This plan + ROADMAP / design index + amend terse-delegated refusal | First commit |
 | B | Nested `_locate` + `<variant>` + transform sources use locator | Core display |
-| C | Register `<dependencies>` + per-dep `_name`; migrate Boost map | Structured hooks |
+| C | `[read]` checkpoint + register `<dependencies>` / per-dep `_name`; migrate Boost map | Maps hang under `[read]`, not `[progress] · begin` |
 | D | Unit tests + `order_matcher` soak | |
 | E | `<packages>` nesting when package roots are known | May follow B/C |
+| F | Terse `→ [update]` / `[clone]` / `[fetch]` children under `[read]` | After C; stay under `-Q`; not configure logs |
 
 ## Non-goals
 
@@ -140,6 +227,8 @@ dependency's resolved tree.
 - Guessing tokens from URL leaves
 - Changing on-disk layout or `local_folder` naming
 - Restyling console reports or non-terse transcripts
+- Turning cuppaconfig / version / default-profile / sconscript-list info logs into `[read]` children
+- Reusing `[progress]` for the SCons reading envelope
 
 ## Refusal rules
 
@@ -149,12 +238,17 @@ dependency's resolved tree.
 | Invent `<fmt_working>` / `<fmt_final>` per dependency | Refuse; use nested roots + shared `<variant>` |
 | Guess `<date>` from a URL when `_name` is `quince_date_lib` | Refuse; token is registration `_name` |
 | Change storage folder naming to short names | Refuse; display-only rewrite |
+| Hang sconstruct-scoped maps only on `[progress] · begin` | Refuse; too late for read-phase update lines |
+| Reuse `[progress]` for SCons reading | Refuse; reserved for build-graph checkpoints |
+| Give `[read]` an action tally / percent | Refuse; ledger does not exist yet (`N/A`) |
 | Ship inside the native-output PR | Refuse; already landed as [#354](https://github.com/ja11sop/cuppa/pull/354) |
 
 ## Success criteria (soak on `order_matcher`)
 
-1. Sconstruct/sconscript begin shows `<dependencies>` and per-dep maps for `fmt`,
-   `date`, `quince`, … using registration names.
+1. `[read] · resolve` prints before `scons: Building targets ...`, with
+   `<dependencies>` and per-dep maps for `fmt`, `date`, `quince`, … using
+   registration names. Those maps are **not** repeated on sconstruct
+   `[progress] · begin`.
 2. Compile lines use
    `<dependencies>/<fmt>/src/format.cc → _build/<fmt>/<variant>/working/src/format.o`
    (and the same for `date` / `quince`).
