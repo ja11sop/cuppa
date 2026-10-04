@@ -120,10 +120,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``→ [location] <sconscript> · <variant> · <working> = …``) so ``-j`` can
   split them from the ``[progress]`` begin; authors register extras such as
   ``<boost>`` with ``label_terse_location``. Location libraries and the
-  dependencies root register sconstruct-scoped tokens under
-  ``[progress] · read`` (``<dependencies>/<fmt>/...``,
-  ``_build/<fmt>/<variant>/working/...``). Read maps carry a kind
-  (``root`` / ``repository`` / ``archive`` / ``package``); the read summary
+  dependencies root register sconstruct-scoped tokens during
+  ``[prepare]`` / ``[ready]`` (action ``resolve``, ``0%``) with live maps
+  and retrieve children (``[update]`` / ``[clone]`` / ``[collect]`` /
+  ``[download]``). ``[ready]`` prints resolved totals. ``[progress]`` stays
+  for sconstruct/sconscript/variant begin/end. Read maps carry a kind
+  (``root`` / ``repository`` / ``archive`` / ``package``); the close summary
   counts those kinds from registered maps after default ``BuildWith``
   (so traveling-manifest packages are included). When the resolved set is
   larger than ``default_dependencies``, the line is

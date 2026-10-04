@@ -81,6 +81,7 @@ class BuildWithMethod:
         terse = bool( env.get( 'terse_output' ) )
         if terse:
             import cuppa.progress
+            cuppa.progress.write_terse_resolve_prepare( env )
             root = env.get( 'dependencies_root' )
             if root:
                 cuppa.progress.label_terse_location(
@@ -92,4 +93,4 @@ class BuildWithMethod:
             env['_pre_sconscript_phase_'] = False
         if terse:
             import cuppa.progress
-            cuppa.progress.write_terse_read_checkpoint( env )
+            cuppa.progress.write_terse_resolve_ready( env )

@@ -346,9 +346,9 @@ variant     0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin
 ``<working>``, ``<final>``, and ``<artefacts>`` come from the env on **variant** begin.
 Authors add extras with ``label_terse_location(env, "boost", path)`` (default scope
 **sconscript**). Grammar: ``→ [location] [sconscript ·] [variant ·] <token> = path``.
-``[location]`` is notice-coloured chrome (register a root for readers), not an
-action and not info+bold. Identity fields reattach the line when ``-j`` splits it from
-``[progress]``. Sconscript-scoped
+``[location]`` is bold muted grey (vocabulary chrome, not a status colour,
+not action ink, not info+bold). Identity fields reattach the line when
+``-j`` splits it from ``[progress]``. Sconscript-scoped
 maps omit the variant cell. Path colour matches the parent checkpoint: sconscript
 leaf info, ``dbg`` / ``rel`` / ``cov`` plain, last component info+bold. Not inferred from
 ``_download``. End checkpoints do not repeat the maps.

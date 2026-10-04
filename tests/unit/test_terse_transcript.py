@@ -1388,7 +1388,9 @@ def test_location_path_colours_the_sconscript_leaf_like_progress( monkeypatch ):
             "working", env[ "abs_build_dir" ], env, scope="variant",
     )
     assert "<s>→</s>" in line
-    assert "<n>[location]</n>" in line
+    assert "<e><s>[location]</s></e>" in line
+    assert "<n>[location]</n>" not in line
+    assert "<p>[location]</p>" not in line
     assert "<e><i>[location]</i></e>" not in line
     assert "<i>[location]</i>" not in line
     assert "<i>reference_guide</i>" in line
@@ -1665,18 +1667,19 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
     }
     download = "/home/u/_cuppa/_download"
     fmt = download + "/git_https_github.com__fmtlib_fmt.git@master"
-    progress.write_terse_read_checkpoint( env )
+    progress.write_terse_resolve_prepare( env )
     progress.label_terse_location( env, "dependencies", download, scope="sconstruct", kind="root" )
     progress.label_terse_location( env, "fmt", fmt, scope="sconstruct", kind="repository" )
-    progress.write_terse_read_checkpoint( env )
+    progress.write_terse_resolve_ready( env )
+    progress.write_terse_resolve_ready( env )
     out = capsys.readouterr().out
-    assert out.count( "[progress]" ) == 1
-    assert "· read ·" in out
-    assert "0%" in out
+    assert out.count( "[prepare]" ) == 1
+    assert out.count( "[ready]" ) == 1
+    assert "· resolve ·" in out
+    assert "2 declared dependencies" in out
     assert "2 dependencies" in out
     assert "1 repository" in out
     assert "1 package" in out
-    assert "location" not in out.split( "[progress]", 1 )[1].split( "\n", 1 )[0]
     assert "<dependencies> =" in out
     assert "· root" in out
     assert "<fmt> =" in out
@@ -1685,6 +1688,7 @@ def test_read_checkpoint_prints_sconstruct_maps_once( capsys ):
     assert "git_https_github.com__fmtlib_fmt.git@master" in out
     loc = [ line for line in out.splitlines() if "[location]" in line ][0]
     assert loc.startswith( " " )
+    assert out.count( "<fmt> =" ) == 1
     progress.write_terse_progress_checkpoint( "sconstruct_begin", None, None, env )
     begin = capsys.readouterr().out
     assert "<dependencies>" not in begin
@@ -1736,8 +1740,10 @@ def test_read_checkpoint_classifies_classmethod_factories( capsys ):
             "boost": Boost.create,
             "widget": Tarball.create,
     }
-    progress.write_terse_read_checkpoint( env )
+    progress.write_terse_resolve_prepare( env )
+    progress.write_terse_resolve_ready( env )
     out = capsys.readouterr().out
+    assert "4 declared dependencies" in out
     assert "4 dependencies" in out
     assert "1 repository" in out
     assert "1 package" in out
@@ -1757,6 +1763,7 @@ def test_read_checkpoint_counts_transitive_packages_after_maps( capsys ):
     }
     download = "/home/u/_cuppa/_download"
     fmt = download + "/git_https_github.com__fmtlib_fmt.git@master"
+    progress.write_terse_resolve_prepare( env )
     progress.label_terse_location(
             env, "dependencies", download, scope="sconstruct", kind="root",
     )
@@ -1769,13 +1776,15 @@ def test_read_checkpoint_counts_transitive_packages_after_maps( capsys ):
             env, "abseil_cpp", download + "/gcc16_rel_x86_64_cxx2c/abseil-cpp/20250814.2",
             scope="sconstruct", build_folder="abseil-cpp/20250814.2", kind="package",
     )
-    progress.write_terse_read_checkpoint( env )
+    progress.write_terse_resolve_ready( env )
     out = capsys.readouterr().out
-    header = out.split( "\n", 1 )[0]
-    assert "3 dependencies (2 declared, 1 transitive)" in header
-    assert "1 repository" in header
-    assert "2 packages" in header
-    assert " · 2 declared" not in header
+    prepare = [ line for line in out.splitlines() if "[prepare]" in line ][0]
+    ready = [ line for line in out.splitlines() if "[ready]" in line ][0]
+    assert "2 declared dependencies" in prepare
+    assert "3 dependencies (2 declared, 1 transitive)" in ready
+    assert "1 repository" in ready
+    assert "2 packages" in ready
+    assert " · 2 declared" not in ready
     assert "<abseil_cpp> =" in out
     abseil = [ line for line in out.splitlines() if "<abseil_cpp>" in line ][0]
     assert abseil.rstrip().endswith( "transitive" )
@@ -1784,7 +1793,7 @@ def test_read_checkpoint_counts_transitive_packages_after_maps( capsys ):
     assert "declared" not in fmt_line
     root = [ line for line in out.splitlines() if "<dependencies>" in line ][0]
     assert "transitive" not in root
-    assert header.count( "[progress]" ) == 1
+    assert ready.count( "[progress]" ) == 0
 
 
 def test_transitive_location_word_is_info_coloured( monkeypatch ):
@@ -1801,6 +1810,34 @@ def test_transitive_location_word_is_info_coloured( monkeypatch ):
     assert "<i>transitive</i>" in line
     assert "<s>transitive</s>" not in line
     assert "<s>package</s>" in line
+
+
+def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatch, capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["default_dependencies"] = [ "fmt" ]
+    monkeypatch.setattr(
+            progress, "as_colour",
+            lambda meaning, text: "<{}>{}</{}>".format( meaning, text, meaning ),
+    )
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+    assert progress.write_terse_resolve_child( env, "update", "fmt", "master", "9197f515" )
+    out = capsys.readouterr().out
+    assert "<success>[update]</success>" in out
+    assert "<success>[update]</success>   <fmt>" in out
+    assert "master" in out
+    assert "9197f515" in out
+    fail = progress.format_terse_resolve_child(
+            env, "clone", "fmt", status="error",
+    )
+    assert "<error>[clone]</error>" in fail
+    warn = progress.format_terse_resolve_child(
+            env, "collect", "fmt", "36.1", status="warn",
+    )
+    assert "<warning>[collect]</warning>" in warn
+    download = progress.format_terse_resolve_child( env, "download", "fmt" )
+    assert "<success>[download]</success> <fmt>" in download
 
 
 def test_location_source_kind_for_archive_and_repository():

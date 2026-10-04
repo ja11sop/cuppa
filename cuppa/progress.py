@@ -446,7 +446,8 @@ _pending_lock = threading.Lock()
 _pending_commands = {}
 _terse_locations = []
 _terse_locations_lock = threading.Lock()
-_terse_read_written = False
+_terse_prepare_written = False
+_terse_ready_written = False
 _written_sconstruct_maps = set()
 
 
@@ -820,12 +821,14 @@ _progress_narrow_lock = threading.Lock()
 
 def reset_progress_ledger():
     """Drop registered actions. The next build counts from empty."""
-    global _progress_narrowed, _summary_enabled, _terse_read_written
+    global _progress_narrowed, _summary_enabled
+    global _terse_prepare_written, _terse_ready_written
     _progress_ledger.reset()
     _current_action_target.value = None
     _terse_action_accounted.done = False
     _summary_enabled = False
-    _terse_read_written = False
+    _terse_prepare_written = False
+    _terse_ready_written = False
     with _progress_narrow_lock:
         _progress_narrowed = False
     with _terse_locations_lock:
@@ -1198,7 +1201,7 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
     Built-in tokens (``working``, ``final``, ``artefacts``, ``variant``) come
     from the env on variant begin. Authors and Cuppa add extras such as
     ``fmt`` or ``boost``. ``scope`` is ``sconstruct``, ``sconscript``, or
-    ``variant``. Sconstruct-scoped maps print under ``[progress] · read``,
+    ``variant``. Sconstruct-scoped maps print under ``[prepare]``,
     not on sconstruct begin. ``<packages>`` is variant-scoped: the extract
     dir follows the package tool variant. ``build_folder`` is the first
     segment under ``abs_build_root`` for this tree (usually
@@ -1235,7 +1238,7 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
             and token != "packages"
             and _env_get( env, "terse_output" )
             and not _env_get( env, "clean" )
-            and _terse_read_written
+            and _terse_prepare_written
     ):
         _emit_sconstruct_location_map( token, abs_path, env, kind=kind )
 
@@ -1994,10 +1997,11 @@ def _uncounted_prefix( env, marker ):
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
 
 
-def _location_map_prefix( env ):
-    """Indent ``→ [location]`` to the ``[ok]`` or ``[progress]`` column."""
+def _location_map_prefix( env, badge=None ):
+    """Indent ``→ [location]`` (or a retrieve status badge) to the checkpoint column."""
+    if badge is None:
+        badge = _location_badge()
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
-    badge = _location_badge()
     if plain:
         return _uncounted_prefix( env, badge )
     counts = _progress_ledger.checkpoint_counts( None, None )
@@ -2063,8 +2067,8 @@ def _coloured_location_value( shown, env, kind="" ):
 
 
 def _location_badge():
-    """Notice-coloured ``[location]``. Chrome, not an action; not bold."""
-    return as_notice( "[location]" )
+    """Bold muted grey ``[location]``. Vocabulary chrome, not action ink."""
+    return as_emphasised( as_subdued( "[location]" ) )
 
 
 def _location_map_rhs( token, path, env ):
@@ -2115,8 +2119,8 @@ def format_terse_location_line( token, path, env, scope="variant", kind="" ):
 
     Identity fields let a map reattach when ``-j`` splits it from its
     ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
-    Sconstruct-scoped maps omit both identity cells (the ``read`` line
-    already names the sconstruct). Read-phase kinds are ``root``,
+    Sconstruct-scoped maps omit both identity cells (the ``[prepare]``
+    bookend already names the sconstruct). Read-phase kinds are ``root``,
     ``repository``, ``archive``, and     ``package``. ``transitive`` is info-coloured (declared maps stay unmarked).
     """
     shown = _location_map_rhs( token, path, env )
@@ -2887,42 +2891,123 @@ def _read_checkpoint_summary( env ):
     return _join_subdued( parts )
 
 
-def write_terse_read_checkpoint( env ):
-    """Print ``sconstruct 0% [progress] … · read`` once during SCons reading."""
-    global _terse_read_written
-    if not _env_get( env, "terse_output" ):
-        return
-    if _env_get( env, "clean" ):
-        _terse_read_written = True
-        return
-    if _terse_read_written:
-        return
-    _terse_read_written = True
+def _format_resolve_bookend( env, badge, summary ):
+    """``sconstruct 0% [prepare|ready] path · resolve · summary``."""
     counts = _progress_ledger.checkpoint_counts( None, None )
     percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
     lead = " " * _progress_ledger.progress_line_indent()
     parts = [
             lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
             percent,
-            as_emphasised( as_info( "[progress]" ) ),
+            as_emphasised( as_info( badge ) ),
             _checkpoint_path( "sconstruct", env ),
     ]
-    line = " ".join( parts ) + as_subdued( " · " ) + _action_label( "read" )
-    summary = _read_checkpoint_summary( env )
+    line = " ".join( parts ) + as_subdued( " · " ) + _action_label( "resolve" )
     if summary:
         line += as_subdued( " · " ) + summary
-    sys.stdout.write( line + "\n" )
-    for map_line in format_terse_location_maps( "sconstruct", env ):
-        sys.stdout.write( map_line + "\n" )
-        token = None
-        if "<" in map_line and ">" in map_line:
-            start = map_line.find( "<" )
-            end = map_line.find( ">", start )
-            if end > start:
-                token = map_line[ start + 1:end ]
-        if token:
-            _written_sconstruct_maps.add( token )
+    return line
+
+
+def write_terse_resolve_prepare( env ):
+    """Open the resolve span. Location maps and retrieve children follow live."""
+    global _terse_prepare_written, _terse_ready_written
+    if not _env_get( env, "terse_output" ):
+        return
+    if _env_get( env, "clean" ):
+        _terse_prepare_written = True
+        _terse_ready_written = True
+        return
+    if _terse_prepare_written:
+        return
+    _terse_prepare_written = True
+    declared = _declared_dependency_names( env )
+    summary = ""
+    if declared:
+        summary = _counted_phrase(
+                len( declared ), "declared dependency", "declared dependencies",
+        )
+    sys.stdout.write( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
     sys.stdout.flush()
+
+
+def write_terse_resolve_ready( env ):
+    """Close the resolve span with resolved totals. Does not reprint maps."""
+    global _terse_ready_written
+    if not _env_get( env, "terse_output" ):
+        return
+    if _env_get( env, "clean" ):
+        _terse_ready_written = True
+        return
+    if _terse_ready_written:
+        return
+    if not _terse_prepare_written:
+        write_terse_resolve_prepare( env )
+    _terse_ready_written = True
+    sys.stdout.write(
+            _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
+            + "\n"
+    )
+    sys.stdout.flush()
+
+
+def write_terse_read_checkpoint( env ):
+    """Alias for ``write_terse_resolve_ready`` (older call sites)."""
+    write_terse_resolve_ready( env )
+
+
+_RESOLVE_CHILD_WIDTH = len( "[location]" )
+
+
+def _resolve_child_badge( badge, status="ok" ):
+    """Ten columns so ``[update]`` lines up with ``[location]``.
+
+    Success uses the same success colour as ``[ok]``. Pad sits outside the
+    colour. ``[download]`` is already ten characters.
+    """
+    text = "[" + str( badge ) + "]"
+    if status in ( "error", "fail" ):
+        painted = as_colour( "error", text )
+    elif status == "warn":
+        painted = as_colour( "warning", text )
+    else:
+        painted = as_colour( "success", text )
+    short = _RESOLVE_CHILD_WIDTH - len( text )
+    if short <= 0:
+        return painted
+    return painted + ( " " * short )
+
+
+def terse_resolve_child_enabled( env, token ):
+    """Whether a retrieve child would print (do not pre-colour as success)."""
+    if not token:
+        return False
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    return bool( _terse_prepare_written )
+
+
+def format_terse_resolve_child( env, badge, token, *fields, status="ok" ):
+    """``→ [update]   <fmt> · master · 9197f515``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( badge, status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    for field in fields:
+        text = str( field or "" ).strip()
+        if text:
+            parts.append( text )
+    return lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+
+
+def write_terse_resolve_child( env, badge, token, *fields, status="ok" ):
+    """Print a retrieve child after the work. True when emitted."""
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    sys.stdout.write(
+            format_terse_resolve_child(
+                    env, badge, token, *fields, status=status,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
 
 
 def _emit_sconstruct_location_map( token, path, env, kind="" ):

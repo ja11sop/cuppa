@@ -153,7 +153,8 @@ class base(object):
                         location,
                         develop=develop,
                         branch_path=branch_path,
-                        extra_sub_path=cls._extra_sub_path
+                        extra_sub_path=cls._extra_sub_path,
+                        name_hint=cls._name,
                 )
                 logger.debug( "Adding location [{}]({}) to cached locations".format(
                         as_notice( cls._name.title() ),

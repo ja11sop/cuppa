@@ -112,8 +112,9 @@ filenames info and bold, `→` subdued. `<working>/` and `<final>/` are this var
 build locations. `<artefacts>/` is this variant's artefact location, either its flat
 folder or a report directory that contains this variant and sconscript. Any other path
 under the artefacts root is written as itself. Authors may register further tokens
-(Boost extract is `<boost>/`). `sconstruct 0% [progress] ... · read` prints during
-SCons reading with sconstruct-scoped maps (`<dependencies>`, `<fmt>`, `...`). Those
+(Boost extract is `<boost>/`). `sconstruct 0% [prepare] ... · resolve · N declared dependencies`
+opens SCons reading; maps and `[update]` / `[clone]` / `[collect]` / `[download]`
+print live underneath. `[ready]` closes with resolved totals. Those maps
 are not repeated on sconstruct begin. Read maps name a kind (`root`,
 `repository`, `archive`, `package`). The read summary counts those kinds
 (`N dependencies · R repositories · P packages · A archives`). When traveling-manifest
@@ -124,8 +125,8 @@ Package identity is `name/version`; `<packages>` is
 the extract dir for this cell and prints on variant begin as
 `<dependencies>/gcc16_rel_x86_64_cxx2c` (package tool variant, which may be
 `rel` while the project cell is `dbg`). Each later `[progress] ... · begin` prints
-location maps for that scope. They lead with `→ [location]` (notice colour, not bold, not
-the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
+location maps for that scope. They lead with `→ [location]` (bold muted grey, not notice yellow, not
+bold plain action ink, not the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
 begin line. Variant maps are `<packages>` (when a package extract exists),
 `<variant>`, `<working>`, `<final>`, and `<artefacts>`
 (`<working>` / `<final>` paths substitute `<variant>` for the tool-variant
