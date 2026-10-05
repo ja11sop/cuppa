@@ -1,7 +1,7 @@
 # Plan: Filter “probably a directory” warn hygiene
 
 - **Status:** done
-- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); project **B** soak under `--cascade-plan -Q`; reconfirmed 2026-10-05 on `order_matcher` with `-Q --cascade-plan` while soaking [#356](https://github.com/ja11sop/cuppa/pull/356)
+- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); consume-tip soak under `--cascade-plan -Q` (reconfirmed 2026-10-05 while soaking [#356](https://github.com/ja11sop/cuppa/pull/356))
 - **Updated:** 2026-10-05
 - **Impact:** `patch` (log severity / heuristic; Filter match behaviour stays the same)
 - **PR:** [#358](https://github.com/ja11sop/cuppa/pull/358)
@@ -15,7 +15,7 @@ file extension:
 cuppa: filter: [warn] filtered node is probably a directory […/_build/…/final/<program>]
 ```
 
-Project **B** soak under `--cascade-plan -Q` hit this on an extensionless Program
+Project soak under `--cascade-plan -Q` hit this on an extensionless Program
 under `final/` that had not been built yet.
 
 The heuristic assumed “no extension + missing on disk ⇒ directory”. That is often
@@ -56,6 +56,7 @@ Do not warn for not-yet-built extensionless file targets.
 | Item | Status |
 |------|--------|
 | Problem / intent | Settled |
-| Reconfirmed on tip soak | 2026-10-05 — `order_matcher` `-Q --cascade-plan` still warned on `…/final/order_matcher` |
+| Pre-fix tip soak | 2026-10-05 — consume tip `-Q --cascade-plan` still warned on `…/final/<program>` |
 | Implementation | Done — `_node_exists_as_file` uses `debug` for missing extensionless and existing directories; match behaviour unchanged |
 | Unit tests | Done — `tests/unit/test_filter_nodes.py` |
+| Post-fix soak | Done — consume tip `-Q --cascade-plan` no longer warns on `…/final/<program>` |

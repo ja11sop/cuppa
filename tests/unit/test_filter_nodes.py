@@ -61,8 +61,8 @@ def test_filter_matches_basename_style_on_relative_path( monkeypatch ):
 def test_missing_extensionless_final_program_does_not_warn( monkeypatch, caplog ):
     """Not-yet-built Programs under final/ are not warn-noise under --cascade-plan."""
     node = _FakeFileNode(
-            '_build/test/gcc16/dbg/x86_64/cxx2c/final/order_matcher',
-            abspath='/proj/_build/test/gcc16/dbg/x86_64/cxx2c/final/order_matcher',
+            '_build/test/gcc16/dbg/x86_64/cxx2c/final/widget',
+            abspath='/proj/_build/test/gcc16/dbg/x86_64/cxx2c/final/widget',
     )
     monkeypatch.setattr( filter_mod, 'Node', _FakeFileNode )
     monkeypatch.setattr( filter_mod.os.path, 'exists', lambda p: False )
