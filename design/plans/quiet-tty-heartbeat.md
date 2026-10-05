@@ -170,7 +170,7 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
 | Terse overlap | **Reveal before each terse stdout line** (`progress._write_terse_stdout`) and clear before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
-| Status shape | Normal quiet: **`working <widget>  <message>`**. Terse quiet: **`<pulse>  → <message>`** or **`working <spinner>  → <message>`**. **`--quiet-heartbeat=pulse\|spinner\|off`**. Full-cycle min dwell before transcript erase; warn/report clear immediate. Terse/transcript writes share a lock under `-j` (fixes `format.ovariant` shearing). |
+| Status shape | Normal quiet: **`working <widget>  <message>`**. Terse quiet: **`<pulse>…→ <message>`** / **`working <spinner>…→ <message>`** with ``→`` padded to `terse_arrow_column()` (same as location maps). **`--quiet-heartbeat=pulse\|spinner\|off`**. Full-cycle min dwell; transcript lock under `-j`. |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 

@@ -2016,6 +2016,27 @@ def _uncounted_prefix( env, marker ):
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
 
 
+def terse_arrow_column( env=None ):
+    """0-based column of nested ``→`` on location / uncounted terse lines.
+
+    Quiet heartbeat compact form pads its widget so ``→`` lands here and
+    lines up with ``→ [location]`` / ``→ [update]`` maps.
+    """
+    if env is None:
+        env = {}
+    _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
+    if plain:
+        indent = _progress_ledger.action_line_indent()
+        return indent + len( plain ) - 1
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent_width = counts[ "percent_digits" ] + 1
+    column = (
+            _progress_ledger.progress_line_indent()
+            + _SCOPE_WIDTH + 1 + percent_width + 1
+    )
+    return max( column - 2, 0 )
+
+
 def _location_map_prefix( env, badge=None ):
     """Indent ``→ [location]`` (or a retrieve status badge) to the checkpoint column."""
     if badge is None:
@@ -2023,13 +2044,7 @@ def _location_map_prefix( env, badge=None ):
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
     if plain:
         return _uncounted_prefix( env, badge )
-    counts = _progress_ledger.checkpoint_counts( None, None )
-    percent_width = counts[ "percent_digits" ] + 1
-    column = (
-            _progress_ledger.progress_line_indent()
-            + _SCOPE_WIDTH + 1 + percent_width + 1
-    )
-    indent = max( column - 2, 0 )
+    indent = terse_arrow_column( env )
     return ( " " * indent ) + as_subdued( "→" ) + " " + badge
 
 

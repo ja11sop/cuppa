@@ -207,27 +207,31 @@ def test_style_off_disables_heartbeat():
     assert stream.getvalue() == ''
 
 
-def test_compact_terse_pulse_uses_arrow_form():
+def test_compact_terse_pulse_aligns_arrow_with_location_maps():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock, columns=120, compact=True )
     logger.info( 'Updating [libfoo]' )
     body = _status_body( stream )
     assert body.startswith( '|' )
-    assert ' → ' in body
     assert not body.startswith( 'working ' )
     assert 'Updating [libfoo]' in body
+    arrow_at = body.index( '→' )
+    from cuppa.progress import terse_arrow_column
+    assert arrow_at == terse_arrow_column()
 
 
-def test_compact_terse_spinner_keeps_working_anchor():
+def test_compact_terse_spinner_aligns_arrow_with_location_maps():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock, columns=120, style='spinner', compact=True )
     logger.info( 'Updating [libfoo]' )
     body = _status_body( stream )
     assert body.startswith( 'working ' )
-    assert ' → ' in body
     assert 'Updating [libfoo]' in body
+    arrow_at = body.index( '→' )
+    from cuppa.progress import terse_arrow_column
+    assert arrow_at == terse_arrow_column()
 
 
 def test_write_transcript_serializes_parallel_lines():

@@ -36,7 +36,8 @@ cleared before those reports, before warnings or errors, and **held for each too
 piped command line cannot share a row with the status widget. Default `pulse` is a bordered
 ECG-style cycle (hospital-green QRS on a subdued track). `--quiet-heartbeat=spinner` keeps the
 lighter ASCII spinner; `--quiet-heartbeat=off` restores classic quiet with no status line. With
-`--terse-output`, the status uses a shorter form (`|---√\/---|  → …` or `working /  → …`).
+`--terse-output`, the status uses a shorter form with ``→`` aligned to location-map
+arrows (`|--•------|   → …` or `working /     → …`).
 Captions stay for at least one full animation cycle, and tool lines wait that same dwell before
 erasing the status row (warnings and reports still clear at once). Terse transcript writes are
 serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from the

@@ -67,8 +67,8 @@ _STYLES = frozenset( ( _STYLE_PULSE, _STYLE_SPINNER, _STYLE_OFF ) )
 # ``working`` is the durable anchor; two spaces separate the widget from the caption.
 _WORKING = 'working'
 _GAP = '  '
-# Terse quiet form: ``|---√\/---|  → caption`` / ``working /  → caption``.
-_ARROW = ' → '
+# Terse quiet form pads so ``→`` matches location-map arrows (see
+# ``cuppa.progress.terse_arrow_column``).
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
 _ERASE_EOL = '\x1b[K'
@@ -154,14 +154,34 @@ def _animation_plain():
     return _pulse_frame( _spin )
 
 
+def _arrow_column():
+    """Column where terse nested ``→`` lands; fallback matches resolve maps."""
+    try:
+        from cuppa.progress import terse_arrow_column
+        return max( 0, int( terse_arrow_column() ) )
+    except Exception:
+        return 14
+
+
+def _compact_head_plain():
+    """Widget (and optional ``working``) before the aligned ``→``."""
+    widget = _animation_plain()
+    if _style == _STYLE_SPINNER:
+        return "{} {}".format( _WORKING, widget )
+    return widget
+
+
+def _with_aligned_arrow( head ):
+    """Pad ``head`` so ``→`` lines up with terse location-map arrows."""
+    pad = max( _arrow_column() - len( head ), 1 )
+    return head + ( ' ' * pad ) + '→ '
+
+
 def _prefix_plain():
     """Plain status prefix used for column budgeting."""
-    widget = _animation_plain()
     if _compact:
-        if _style == _STYLE_SPINNER:
-            return "{} {}{}".format( _WORKING, widget, _ARROW )
-        return "{}{}".format( widget, _ARROW )
-    return "{} {}{}".format( _WORKING, widget, _GAP )
+        return _with_aligned_arrow( _compact_head_plain() )
+    return "{} {}{}".format( _WORKING, _animation_plain(), _GAP )
 
 
 def _style_pulse( frame ):
@@ -202,13 +222,13 @@ def _prefix_styled():
     """Styled status prefix; QRS green when colour is on."""
     from cuppa.colourise import as_subdued
     if _compact:
+        head = _compact_head_plain()
+        pad = max( _arrow_column() - len( head ), 1 )
         if _style == _STYLE_SPINNER:
-            return (
-                    as_subdued( _WORKING + ' ' )
-                    + _animation_styled()
-                    + as_subdued( _ARROW )
-            )
-        return _animation_styled() + as_subdued( _ARROW )
+            widget = as_subdued( _WORKING + ' ' ) + _animation_styled()
+        else:
+            widget = _animation_styled()
+        return widget + as_subdued( ( ' ' * pad ) + '→ ' )
     return as_subdued( _WORKING + ' ' ) + _animation_styled() + as_subdued( _GAP )
 
 

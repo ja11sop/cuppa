@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Default ``--quiet-heartbeat=pulse`` is a bordered ECG widget (hospital-green
   QRS); ``spinner`` selects classic ASCII; ``off`` disables the status line.
   Normal quiet form is ``working <widget>  <message>``; with ``--terse-output``
-  it shortens to ``<pulse>  → <message>`` / ``working <spinner>  → <message>``.
+  it shortens to a widget line whose ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
   not flash unreadably (warnings/reports clear immediately). Terse and command
   transcript writes are serialised under ``-j`` / ``--parallel`` so lines do not
