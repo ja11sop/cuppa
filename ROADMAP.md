@@ -496,7 +496,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `console-channels` | Map log / console report / build transcript / heartbeat, and the spawn-mode matrix | Low | [`console-channels.md`](design/plans/console-channels.md); `--scons-output` done [#352](https://github.com/ja11sop/cuppa/pull/352) |
 | `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as console reports so `-Q` / `-s` do not hide them | Low | Done on master [#351](https://github.com/ja11sop/cuppa/pull/351). [`console-mode-banners.md`](design/plans/console-mode-banners.md) |
 | `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | Done on [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) |
-| `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
+| `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | **Next after [#356](https://github.com/ja11sop/cuppa/pull/356).** [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py`. Reconfirmed on `order_matcher` `-Q --cascade-plan` soak 2026-10-05 |
 
 ### Out of scope (storage)
 

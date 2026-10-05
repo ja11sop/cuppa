@@ -212,4 +212,5 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, clear before terse/report/warn, Antora + unit tests |
 | Soak fix: command overpaint | Done — `heartbeat_print_cmd_line` reveals in place before SCons echoes each tool line; spawn hold does not advance |
 | Soak | In progress — `-Q --cascade-plan` tip wait OK (motivating example); compile/tool-echo under `-Q --test` clean; further tip/test phases still welcome |
+| Follow-on (not this PR) | Filter false-positive `probably a directory` warn — [`filter-directory-warn.md`](filter-directory-warn.md); do after #356 |
 | Caption hold + pulse | Done — full-cycle min dwell; `pulse`/`spinner`/`off`; terse compact arrow form; transcript lock under `-j` |
