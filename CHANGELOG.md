@@ -16,8 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bordered ECG-style ``pulse`` (hospital-green QRS on a subdued track; rest-first;
   slower between beats). ``--quiet-heartbeat=spinner`` selects the classic ASCII
   spinner instead. ``PRINT_CMD_LINE_FUNC`` erases the status row in place before
-  SCons echoes each tool command. A diverted INFO caption ages out after five
-  message periods (~0.6s), leaving ``working`` + widget until the next INFO.
+  SCons echoes each tool command. A diverted INFO caption ages out only after
+  at least one full animation cycle, leaving ``working`` + widget until the
+  next INFO. Transcript reveal also waits that dwell so the status line does
+  not flash unreadably (warnings and reports still clear immediately).
   Works with ``--terse-output``. Cleared before terse/transcript writes, warnings,
   errors, and console reports. Pipelines and CI stay silent. Git/download progress
   bars remain off under quiet. ``--verbosity=`` still wins. Plan:

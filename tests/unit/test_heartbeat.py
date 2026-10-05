@@ -33,6 +33,9 @@ class FakeClock( object ):
 
 
 def _configure( stream, clock, columns=120, style=None ):
+    def sleep( seconds ):
+        clock.advance( seconds )
+
     hb.configure_quiet_console(
             'warn',
             stream=stream,
@@ -42,6 +45,7 @@ def _configure( stream, clock, columns=120, style=None ):
             columns=columns,
             pulse=False,
             style=style,
+            sleep=sleep,
     )
 
 
@@ -265,8 +269,9 @@ def test_stale_caption_drops_to_working_pulse_anchor():
     logger.info( 'Using [/tmp] for dependencies' )
     assert 'Using [/tmp]' in _status_body( stream )
 
-    # Still held before five message periods elapse.
-    clock.advance( hb._MESSAGE_HOLD_S - 0.01 )
+    hold = hb._caption_hold_s()
+    # Still held before one full animation cycle (and the message hold) elapses.
+    clock.advance( hold - 0.01 )
     hb._on_pulse()
     assert 'Using [/tmp]' in _status_body( stream )
 
@@ -283,6 +288,43 @@ def test_stale_caption_drops_to_working_pulse_anchor():
     clock.advance( 0.15 )
     logger.info( 'Updating [libfoo]' )
     assert 'Updating [libfoo]' in _status_body( stream )
+
+
+def test_reveal_waits_one_full_animation_cycle():
+    """Status must not flash away — hold one full cycle before erase-for-transcript."""
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert hb._visible_since == 1000.0
+    cycle = hb._cycle_duration_s()
+
+    from cuppa.progress import heartbeat_print_cmd_line
+    import cuppa.progress as progress_module
+    out = io.StringIO()
+    real_stdout = progress_module.sys.stdout
+    progress_module.sys.stdout = out
+    try:
+        heartbeat_print_cmd_line( '/usr/bin/g++ -c foo.cpp', [], [], {} )
+    finally:
+        progress_module.sys.stdout = real_stdout
+
+    assert clock.now == pytest.approx( 1000.0 + cycle )
+    assert hb._last_line == ''
+    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
+
+
+def test_warn_clear_does_not_wait_for_animation_cycle( monkeypatch ):
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    logger.info( 'Using [/tmp] for dependencies' )
+    capture = io.StringIO()
+    monkeypatch.setattr( log_mod._log_handler, 'stream', capture )
+    logger.warn( 'something went wrong' )
+    # Immediate clear — clock must not jump by a full cycle.
+    assert clock.now == 1000.0
+    assert 'something went wrong' in capture.getvalue()
 
 
 def test_warn_clears_status_and_emits_multiline( monkeypatch ):

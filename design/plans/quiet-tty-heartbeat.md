@@ -170,7 +170,7 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
 | Terse overlap | **Reveal before each terse stdout line** (`progress._write_terse_stdout`) and clear before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
-| Status shape | **`working <widget>  <message>`** — lowercase `working` anchor (durable; caption is ephemeral); two-space gap before the message; **`--quiet-heartbeat=pulse\|spinner`** (`pulse` default = bordered ECG with hospital-green QRS; `spinner` = classic ASCII); width from the controlling TTY fd; VT100 wrap-off + erase-EOL; **reveal in place in `PRINT_CMD_LINE_FUNC`**. Caption hold **5 message periods**, then widget-only until the next INFO. |
+| Status shape | **`working <widget>  <message>`** — lowercase `working` anchor (durable; caption is ephemeral); two-space gap before the message; **`--quiet-heartbeat=pulse\|spinner`** (`pulse` default = bordered ECG with hospital-green QRS; `spinner` = classic ASCII); width from the controlling TTY fd; VT100 wrap-off + erase-EOL; **reveal in place in `PRINT_CMD_LINE_FUNC`**. Caption hold at least **one full animation cycle** (and ≥5 message periods); transcript reveal/suppress also waits that dwell so the line does not flash unreadably (warn/report `clear` stays immediate). |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 
@@ -212,4 +212,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, clear before terse/report/warn, Antora + unit tests |
 | Soak fix: command overpaint | Done — `heartbeat_print_cmd_line` reveals in place before SCons echoes each tool line; spawn hold does not advance |
 | Soak | In progress — compile/tool-echo stage under `-Q --test` looks clean; full tip / configure / test phases still to confirm |
-| Caption hold + pulse | Done — 5× message period hold; lowercase `working`; ECG pulse + spinner styles via `--quiet-heartbeat`; green QRS; two-space gap |
+| Caption hold + pulse | Done — full-cycle min dwell; lowercase `working`; ECG pulse + spinner via `--quiet-heartbeat`; green QRS; two-space gap |

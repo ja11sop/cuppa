@@ -35,14 +35,16 @@ console reports, not info logs, so they stay. On an interactive TTY the quiet st
 cleared before those reports, before warnings or errors, and **held for each tool spawn** so a
 piped command line cannot share a row with `working`. Default `pulse` is a compact bordered
 ECG-style cycle (`|•----…|`: rest, bullet, hospital-green QRS on a subdued track; slower between
-beats). `--quiet-heartbeat=spinner` keeps the lighter ASCII spinner instead. Captions age out
-after a short hold and are replaced immediately by the next diverted info line. Width comes from
-the controlling terminal (not the `cuppa` launcher's pipes); while the status line is shown,
-terminal autowrap is turned off and the line is erased with a VT100 sequence rather than
-space-padding. Pipelines and CI stay silent — no status spam. Git and download progress bars
-stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables
-the status line. `--minimal-output` filters Cuppa's processed build messages and needs that
-processor, so it cannot be combined with `--raw-output` or `--scons-output`.
+beats). `--quiet-heartbeat=spinner` keeps the lighter ASCII spinner instead. Captions stay for at
+least one full animation cycle, and tool lines wait that same dwell before erasing the status
+row, so a brief `working` line does not flash unreadably (warnings and reports still clear at
+once). Width comes from the controlling terminal (not the `cuppa` launcher's pipes); while the
+status line is shown, terminal autowrap is turned off and the line is erased with a VT100
+sequence rather than space-padding. Pipelines and CI stay silent — no status spam. Git and
+download progress bars stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or
+`-s` would set and disables the status line. `--minimal-output` filters Cuppa's processed build
+messages and needs that processor, so it cannot be combined with `--raw-output` or
+`--scons-output`.
 
 === Native toolchain output
 

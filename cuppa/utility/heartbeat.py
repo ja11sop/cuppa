@@ -83,10 +83,12 @@ _pending = None
 # only (pulse held after the last INFO aged out).
 _body = None
 _message_shown_at = 0.0
+_visible_since = 0.0
 _last_line = ''
 _columns = None  # None → ask the TTY; set for tests
 _spin = 0
 _clock = time.monotonic
+_sleep = time.sleep
 _pulse = None
 _pulse_lock = threading.Lock()
 _draw_lock = threading.Lock()
@@ -198,6 +200,43 @@ def _next_pulse_interval():
     return _PULSE_INTERVAL_S
 
 
+def _cycle_duration_s():
+    """Wall time for one full pulse or spinner cycle."""
+    if _style == _STYLE_SPINNER:
+        return len( _SPINNER ) * _PULSE_INTERVAL_S
+    return (
+            _PULSE_REST_HOLD * _PULSE_REST_INTERVAL_S
+            + len( _PULSE_BEAT ) * _PULSE_INTERVAL_S
+    )
+
+
+def _caption_hold_s():
+    """Caption stays at least one full animation cycle so it can be read."""
+    return max( _MESSAGE_HOLD_S, _cycle_duration_s() )
+
+
+def _dwell_remaining_s():
+    """Seconds left before the status line may be blanked without looking like a flash."""
+    with _draw_lock:
+        if not _last_line and _body is None:
+            return 0.0
+        if not _visible_since:
+            return 0.0
+        elapsed = _clock() - _visible_since
+        return max( 0.0, _cycle_duration_s() - elapsed )
+
+
+def _ensure_min_dwell():
+    """Wait out one full animation cycle before erase-for-transcript.
+
+    Warn/error ``clear()`` stays immediate. Tool ``reveal`` / spawn ``suppress``
+    wait so ``working`` does not flash and vanish unreadably.
+    """
+    remaining = _dwell_remaining_s()
+    if remaining > 0:
+        _sleep( remaining )
+
+
 def normalize_style( style ):
     """Return a valid heartbeat style name (``pulse`` or ``spinner``)."""
     if style is None or style == '':
@@ -279,11 +318,11 @@ def _arm_pulse():
 
 
 def _expire_message_unlocked( now ):
-    """Drop a stale caption; keep ``working`` + pulse until the next INFO."""
+    """Drop a stale caption; keep ``working`` + widget until the next INFO."""
     global _body, _message_shown_at
     if not _body or not _message_shown_at:
         return False
-    if ( now - _message_shown_at ) < _MESSAGE_HOLD_S:
+    if ( now - _message_shown_at ) < _caption_hold_s():
         return False
     _body = ''
     _message_shown_at = 0.0
@@ -308,7 +347,7 @@ def reset():
     global _quiet_console, _suppress_below, _heartbeat_active
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
-    global _message_shown_at, _style
+    global _message_shown_at, _visible_since, _style, _sleep
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -324,6 +363,7 @@ def reset():
     _pending = None
     _body = None
     _message_shown_at = 0.0
+    _visible_since = 0.0
     _last_line = ''
     _columns = None
     _spin = 0
@@ -331,6 +371,7 @@ def reset():
     _suppress_depth = 0
     _style = _STYLE_PULSE
     _clock = time.monotonic
+    _sleep = time.sleep
 
 
 def configure_quiet_console(
@@ -343,6 +384,7 @@ def configure_quiet_console(
         columns=None,
         pulse=True,
         style=None,
+        sleep=None,
 ):
     """Enable quiet console, with TTY heartbeat when appropriate.
 
@@ -362,13 +404,15 @@ def configure_quiet_console(
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _clock, _columns, _pulse_enabled, _style
+    global _stream, _owns_stream, _clock, _columns, _pulse_enabled, _style, _sleep
 
     chosen_style = normalize_style( style )
     reset()
     _style = chosen_style
     if clock is not None:
         _clock = clock
+    if sleep is not None:
+        _sleep = sleep
     if columns is not None:
         _columns = columns
     _pulse_enabled = bool( pulse )
@@ -432,7 +476,10 @@ def flush_pending():
 
 
 def clear():
-    """Blank the status line so a report, warn/error, or transcript can replace it."""
+    """Blank the status line so a report, warn/error, or transcript can replace it.
+
+    Immediate — warnings and console reports must not wait on the animation.
+    """
     with _draw_lock:
         _clear_unlocked( advance=False )
 
@@ -446,8 +493,15 @@ def reveal():
     hook *before* writing to the stdout pipe so the command reuses the same
     physical row (no blank line).
 
+    Holds the status for one full animation cycle first so a brief
+    ``working`` line does not flash and vanish unreadably.
+
     No-op when nothing is on the status row.
     """
+    with _draw_lock:
+        if not _last_line and _body is None:
+            return
+    _ensure_min_dwell()
     with _draw_lock:
         if not _last_line and _body is None:
             return
@@ -462,9 +516,15 @@ def suppress( advance=False ):
 
     Clears in place by default. Pass ``advance=True`` only when a following
     stdout write cannot reuse the status row (legacy / non-print-cmd paths).
-    Pending INFO is kept so it can show after ``allow()``.
+    Pending INFO is kept so it can show after ``allow()``. Holds for one
+    full animation cycle first when a status line is visible (same as
+    ``reveal``).
     """
     global _suppress_depth
+    with _draw_lock:
+        showing = bool( _last_line ) or _body is not None
+    if showing:
+        _ensure_min_dwell()
     with _draw_lock:
         _suppress_depth += 1
         _clear_unlocked( advance=advance, keep_pending=True )
@@ -485,7 +545,7 @@ def allow():
 
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
-    global _message_shown_at
+    global _message_shown_at, _visible_since
     _cancel_pulse()
     # Keep ``_pending`` when suppressing so INFO during a spawn can show later;
     # a plain clear / reveal (warn/report/transcript) drops it.
@@ -493,6 +553,7 @@ def _clear_unlocked( advance=False, keep_pending=False ):
         _pending = None
     _body = None
     _message_shown_at = 0.0
+    _visible_since = 0.0
     if not _heartbeat_active or _stream is None:
         _last_line = ''
         _wrap_disabled = False
@@ -528,12 +589,13 @@ def _flush_unlocked( now ):
 
 def _draw_unlocked( body ):
     """Write one ``working <pulse> [<message>]`` line fitted to the TTY width."""
-    global _last_line, _wrap_disabled
+    global _last_line, _wrap_disabled, _visible_since
     if _stream is None or body is None or _suppress_depth:
         return
     from cuppa.colourise import as_subdued
     from cuppa.output_processor import strip_ansi
 
+    starting = not _last_line
     cols = _terminal_columns()
     prefix_plain = _prefix_plain()
     prefix_styled = _prefix_styled()
@@ -554,3 +616,5 @@ def _draw_unlocked( body ):
     except Exception:
         pass
     _last_line = styled
+    if starting:
+        _visible_since = _clock()
