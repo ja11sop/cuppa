@@ -1,10 +1,27 @@
 # Plan: Transitive GitLab package dependencies
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](../archive/run-default-dependency-objects.md) (import vs auto-enable); [`archive/sconscript-exports.md`](../archive/sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); scratchpad graduate
-- **Updated:** 2026-09-25
+- **Status:** done
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`archive/run-default-dependency-objects.md`](../archive/run-default-dependency-objects.md) (import vs auto-enable); [`archive/sconscript-exports.md`](../archive/sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); follow-ons [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md), [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md)
+- **Updated:** 2026-10-05
 - **Impact:** minor — new publish/consume behaviour for GitLab packages; existing flat declarations stay valid
 - **Issue:** [#279](https://github.com/ja11sop/cuppa/issues/279)
+
+## Outcome
+
+**MVP is on master.** A GitLab package can declare dependencies on other GitLab
+packages via `cuppa-dependency.json`; consuming / `BuildWith`ing A pulls B
+(includes at `BuildWith`, transitive `use_libs` when A is linked). Flat
+explicit A+B remains valid. Promote this plan to `archive/` at the **1.12.0**
+release cut (keep as `done` in `plans/` until then).
+
+**Follow-ons (own plans — not unfinished MVP):**
+
+| Plan | Was | Scope |
+|------|-----|--------|
+| [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md) | `gl-dep-ranges` | Soft pins such as `>=1.28.0`; diamond / conflict policy |
+| [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md) | remainder of `gl-dep-lib-api` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` |
+
+`use_all_libs()` already shipped with the MVP.
 
 ## Problem
 
@@ -291,9 +308,10 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 | `gl-dep-tests` | Done for MVP — unit/publish + offline A→B→C list/develop consume |
 | `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / managing list notes |
 | `gl-dep-list` | Done — tip ``requires`` nests on-disk closure as sized trees (pass A); see [`list-deps-requires-closure.md`](../archive/list-deps-requires-closure.md) |
-| `gl-dep-lib-api` | Partial — `use_all_libs()` shipped; named groups / `show_*` deferred |
-| `gl-dep-ranges` | Deferred |
+| `gl-dep-lib-api` | Partial — `use_all_libs()` shipped with MVP; named groups / `show_*` → [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md) |
+| `gl-dep-ranges` | Deferred → [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md) |
 | `gl-dep-issue` | Done — [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| MVP close-out | Done 2026-10-05 — status `done`; archive at 1.12.0 release |
 
 ### Graph tooling note (with `sconscript-exports`)
 

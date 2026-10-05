@@ -22,7 +22,9 @@ maintainer workflow evolved.
 | Document | Status | Subject |
 |----------|--------|---------|
 | [`plans/deep-clean.md`](plans/deep-clean.md) | proposal | `--deep-clean` modifier on `-c`; cooperative `b2 --clean`; extract `b2` on ordinary `-c` as follow-up; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
-| [`plans/gitlab-package-transitive.md`](plans/gitlab-package-transitive.md) | in progress | GitLab package A can carry deps on package B (manifest + BuildWith); consumer declares A only |
+| [`plans/gitlab-package-transitive.md`](plans/gitlab-package-transitive.md) | done | GitLab package A carries deps on B via `cuppa-dependency.json` (MVP on master; archive at 1.12.0) — [#279](https://github.com/ja11sop/cuppa/issues/279); follow-ons version-ranges + lib-groups |
+| [`plans/gitlab-package-version-ranges.md`](plans/gitlab-package-version-ranges.md) | proposal | Soft pins (`>=1.28.0`) on package / transitive edges — follow-on to transitive MVP |
+| [`plans/gitlab-package-lib-groups.md`](plans/gitlab-package-lib-groups.md) | proposal | Named `use_libs` groups + `show_*` discovery — follow-on to transitive MVP (`use_all_libs()` already shipped) |
 | [`archive/list-deps-requires-closure.md`](archive/list-deps-requires-closure.md) | shipped | `--list-dependencies`: nest traveling-manifest closure under tip `requires`; Option A usage vs resolve-identity `--list-scope` |
 | [`archive/dependencies-docs-four-hubs.md`](archive/dependencies-docs-four-hubs.md) | shipped | Dependencies Antora: Using / Managing / Publishing / Authoring hubs; Using-first usability story; align list-deps Option A |
 | [`archive/selection-filter-examples-docs.md`](archive/selection-filter-examples-docs.md) | shipped | Remove/wipe selection docs: types table, inventory, glance Matches, worked why, CLI copy |

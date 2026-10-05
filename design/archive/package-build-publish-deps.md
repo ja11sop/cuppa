@@ -700,11 +700,13 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
     **Related (do not conflate):** floating / non-exact package pins more
     generally — e.g. consume or traveling-manifest language for a **minimum**
     (`>=1.28.0`) versus an **exact** pin (`1.28.0` / `==1.28.0`). That sits with
-    [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) (MVP is
-    concrete versions only; ranges / backtracking refused). Boost publish-seed
-    ``latest`` is a **named floating token** that resolves once to a concrete
-    archive identity; it is a stepping stone toward richer constraint spelling,
-    not a constraint solver. Same-version **consume** archive identity remains
+    [`gitlab-package-version-ranges.md`](../plans/gitlab-package-version-ranges.md)
+    (follow-on to the transitive MVP in
+    [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md)).
+    Boost publish-seed ``latest`` is a **named floating token** that resolves
+    once to a concrete archive identity; it is a stepping stone toward richer
+    constraint spelling, not a constraint solver. Same-version **consume**
+    archive identity remains
     [#296](https://github.com/ja11sop/cuppa/issues/296) /
     [`package-download-refresh.md`](package-download-refresh.md).
 11. ~~**Tip no-op after metadata-only dependency refresh**~~ — settled under
@@ -766,7 +768,7 @@ canonical forest.
 
 ### Explicit non-goals (for this future feature)
 
-- Constraint solving / version ranges ([`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md))
+- Constraint solving / version ranges ([`gitlab-package-version-ranges.md`](../plans/gitlab-package-version-ranges.md); was deferred from [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md))
 - Same-version consume re-fetch ([#296](https://github.com/ja11sop/cuppa/issues/296))
 - Changing nest companion flags or tip end states
 
