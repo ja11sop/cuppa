@@ -33,13 +33,25 @@ _MESSAGE_HOLD_PERIODS = 5
 _MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
-# Compact bounce pulse (alive-progress "circles"/unknown-bar idea, not the
-# library): a hot cell travels on a dim track — reads as a heartbeat without
-# a dependency or cell-architecture compiler. Width stays in the 8–12 range.
-_PULSE_WIDTH = 10
-_PULSE_BG = '\u00b7'   # ·
-_PULSE_FG = '\u25cf'   # ●
-# ``working ···●······ `` — fixed visible prefix so the eye can skip lines.
+# Compact ECG-style pulse (alive-progress ``pulse`` idea, not the library):
+# a bullet travels the track, opens a short QRS blip, then settles. Fixed
+# frames keep width in the 8–12 range with no animation compiler.
+_PULSE_FRAMES = (
+        '•--------',
+        '-•-------',
+        '--•------',
+        '---√-----',
+        '---√\\----',
+        '---√\\/---',
+        '----\\/---',
+        '-----/---',
+        '------•--',
+        '-------•-',
+        '--------•',
+        '---------',
+)
+_PULSE_WIDTH = len( _PULSE_FRAMES[0] )
+# ``working ---√\/--- `` — fixed visible prefix so the eye can skip lines.
 _WORKING = 'working'
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
@@ -105,19 +117,12 @@ def _fit_plain( plain, cols ):
 
 
 def _pulse_frame( index ):
-    """One bounce-pulse frame: hot cell travels left→right→left on a dim track."""
-    width = _PULSE_WIDTH
-    if width < 2:
-        return _PULSE_FG
-    period = 2 * ( width - 1 )
-    pos = index % period
-    if pos >= width:
-        pos = period - pos
-    return _PULSE_BG * pos + _PULSE_FG + _PULSE_BG * ( width - 1 - pos )
+    """One ECG-style pulse frame from the fixed cycle."""
+    return _PULSE_FRAMES[ index % len( _PULSE_FRAMES ) ]
 
 
 def _prefix():
-    """``working ···●······ `` (pulse advances while the line is held)."""
+    """``working ---√\\/--- `` (pulse advances while the line is held)."""
     return "{} {} ".format( _WORKING, _pulse_frame( _spin ) )
 
 

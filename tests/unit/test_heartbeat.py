@@ -124,20 +124,17 @@ def test_working_prefix_and_pulse_on_status_line():
     body = _status_body( stream )
     assert body.startswith( 'working ' )
     pulse = body[ len( 'working ' ): len( 'working ' ) + hb._PULSE_WIDTH ]
-    assert len( pulse ) == hb._PULSE_WIDTH
-    assert hb._PULSE_FG in pulse
-    assert pulse.count( hb._PULSE_FG ) == 1
+    assert pulse in hb._PULSE_FRAMES
     assert 'Updating [libfoo]' in body
 
 
-def test_pulse_frame_bounces_within_width():
-    width = hb._PULSE_WIDTH
-    frames = [ hb._pulse_frame( i ) for i in range( 2 * ( width - 1 ) ) ]
-    assert all( len( f ) == width for f in frames )
-    assert frames[0] == hb._PULSE_FG + hb._PULSE_BG * ( width - 1 )
-    assert frames[width - 1] == hb._PULSE_BG * ( width - 1 ) + hb._PULSE_FG
-    # Bounce returns toward the start.
-    assert frames[width] == hb._PULSE_BG * ( width - 2 ) + hb._PULSE_FG + hb._PULSE_BG
+def test_pulse_frames_are_fixed_ecg_cycle():
+    assert hb._PULSE_WIDTH == 9
+    assert all( len( f ) == hb._PULSE_WIDTH for f in hb._PULSE_FRAMES )
+    assert hb._pulse_frame( 0 ) == '•--------'
+    assert hb._pulse_frame( 5 ) == '---√\\/---'
+    assert hb._pulse_frame( 11 ) == '---------'
+    assert hb._pulse_frame( 12 ) == hb._pulse_frame( 0 )
 
 
 def test_long_info_stays_on_one_physical_line():
@@ -225,7 +222,8 @@ def test_stale_caption_drops_to_working_pulse_anchor():
     hb._on_pulse()
     body = _status_body( stream )
     assert body.startswith( 'working ' )
-    assert hb._PULSE_FG in body
+    pulse = body[ len( 'working ' ): len( 'working ' ) + hb._PULSE_WIDTH ]
+    assert pulse in hb._PULSE_FRAMES
     assert 'Using [/tmp]' not in body
     assert hb._body == ''
 

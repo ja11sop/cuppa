@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued
   ``working <pulse> <message>`` status line (width from the controlling TTY;
-  VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; ~10-column bounce
-  pulse ~12.5/s — alive-progress-inspired, not a dependency).
+  VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; ~9-column ECG-style
+  pulse frames ~12.5/s — alive-progress-inspired, not a dependency).
   ``PRINT_CMD_LINE_FUNC`` erases the status row in place before SCons echoes
   each tool command so the command reuses that row (no blank advance).
   ``SPAWN`` itself does not reprint. A diverted INFO caption ages out after five
