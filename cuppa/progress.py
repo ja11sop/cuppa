@@ -3045,7 +3045,7 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
 def heartbeat_print_cmd_line( cmd, target, source, env ):
     """SCons ``PRINT_CMD_LINE_FUNC`` when the quiet+TTY heartbeat is diverting.
 
-    Must clear ``Working`` *before* writing the command to the stdout pipe.
+    Must clear ``working`` *before* writing the command to the stdout pipe.
     ``posix_spawn`` uses ``suppress_output=True``, so ``Popen2`` never prints
     the command itself — SCons prints here first, then SPAWN runs. Clearing
     only inside ``Popen2`` leaves the launcher free to append the command to

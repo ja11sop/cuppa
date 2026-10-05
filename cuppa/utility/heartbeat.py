@@ -25,17 +25,22 @@ import threading
 import time
 
 
-# Message changes throttle slightly slower than the spinner pulse.
+# Message changes throttle slightly slower than the pulse tick.
 _MESSAGE_INTERVAL_S = 0.12
-# After this with no newer INFO, drop the caption and keep ``Working`` + spinner.
-# Same cadence as the message throttle: context is ephemeral; the anchor is not.
-_MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S
+# Caption hold: several message periods, then drop text; next INFO always
+# replaces the caption immediately via ``_flush_unlocked``.
+_MESSAGE_HOLD_PERIODS = 5
+_MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
-# ASCII spinner — widely available; advances while a status line is held.
-_SPINNER = ( '|', '/', '-', '\\' )
-# ``Working / `` — fixed visible prefix so the eye can skip heartbeat lines.
-_WORKING = 'Working'
+# Compact bounce pulse (alive-progress "circles"/unknown-bar idea, not the
+# library): a hot cell travels on a dim track — reads as a heartbeat without
+# a dependency or cell-architecture compiler. Width stays in the 8–12 range.
+_PULSE_WIDTH = 10
+_PULSE_BG = '\u00b7'   # ·
+_PULSE_FG = '\u25cf'   # ●
+# ``working ···●······ `` — fixed visible prefix so the eye can skip lines.
+_WORKING = 'working'
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
 _ERASE_EOL = '\x1b[K'
@@ -50,8 +55,8 @@ _stream = None
 _owns_stream = False
 _last_emit = 0.0
 _pending = None
-# Plain caption without Working/spinner. ``None`` = status off; ``''`` = anchor
-# only (spinner held after the last INFO aged out).
+# Plain caption without working/pulse. ``None`` = status off; ``''`` = anchor
+# only (pulse held after the last INFO aged out).
 _body = None
 _message_shown_at = 0.0
 _last_line = ''
@@ -99,9 +104,21 @@ def _fit_plain( plain, cols ):
     return text[ : cols - 1 ] + _ELLIPSIS
 
 
+def _pulse_frame( index ):
+    """One bounce-pulse frame: hot cell travels left→right→left on a dim track."""
+    width = _PULSE_WIDTH
+    if width < 2:
+        return _PULSE_FG
+    period = 2 * ( width - 1 )
+    pos = index % period
+    if pos >= width:
+        pos = period - pos
+    return _PULSE_BG * pos + _PULSE_FG + _PULSE_BG * ( width - 1 - pos )
+
+
 def _prefix():
-    """``Working / `` (spinner advances while the line is held)."""
-    return "{} {} ".format( _WORKING, _SPINNER[ _spin % len( _SPINNER ) ] )
+    """``working ···●······ `` (pulse advances while the line is held)."""
+    return "{} {} ".format( _WORKING, _pulse_frame( _spin ) )
 
 
 def quiet_console():
@@ -143,7 +160,7 @@ def _cancel_pulse():
 
 
 def _arm_pulse():
-    """Keep the spinner moving while a status line is held (long waits)."""
+    """Keep the bounce pulse moving while a status line is held (long waits)."""
     global _pulse
     with _pulse_lock:
         if _pulse is not None:
@@ -166,7 +183,7 @@ def _arm_pulse():
 
 
 def _expire_message_unlocked( now ):
-    """Drop a stale caption; keep ``Working`` + spinner until the next INFO."""
+    """Drop a stale caption; keep ``working`` + pulse until the next INFO."""
     global _body, _message_shown_at
     if not _body or not _message_shown_at:
         return False
@@ -185,7 +202,7 @@ def _on_pulse():
         if not _heartbeat_active or _body is None or _suppress_depth:
             return
         _expire_message_unlocked( _clock() )
-        _spin = ( _spin + 1 ) % len( _SPINNER )
+        _spin += 1
         _draw_unlocked( _body )
     _arm_pulse()
 
@@ -238,9 +255,10 @@ def configure_quiet_console(
 
     Status text is truncated to the **TTY** width (not piped stdout). Autowrap
     is disabled while the status line is shown so a mis-sized width cannot
-    leave wrapped debris. Each line is ``Working <spinner> <message>``; after
+    leave wrapped debris. Each line is ``working <pulse> <message>``; after
     ``_MESSAGE_HOLD_S`` without a newer INFO the caption drops and only the
-    ``Working`` + spinner anchor remains until the next message.
+    ``working`` + pulse anchor remains until the next message (a new INFO
+    always replaces the caption immediately).
     """
     from cuppa.log import set_logging_level
 
@@ -319,7 +337,7 @@ def clear():
 
 
 def reveal():
-    """Erase ``Working`` in place before a stdout transcript line.
+    """Erase ``working`` in place before a stdout transcript line.
 
     SCons prints tool commands via ``PRINT_CMD_LINE_FUNC`` *before* ``SPAWN``.
     Clearing inside ``Popen`` is too late: the ``cuppa`` launcher may already
@@ -356,7 +374,7 @@ def allow():
 
     Does **not** redraw immediately: the launcher may still be flushing the
     command we wrote to the stdout pipe. The next ``show_info`` after the
-    spawn paints ``Working`` again.
+    spawn paints ``working`` again.
     """
     global _suppress_depth
     with _draw_lock:
@@ -401,14 +419,14 @@ def _flush_unlocked( now ):
     _body = _pending
     _pending = None
     _message_shown_at = now
-    _spin = ( _spin + 1 ) % len( _SPINNER )
+    _spin += 1
     _draw_unlocked( _body )
     _last_emit = now
     _arm_pulse()
 
 
 def _draw_unlocked( body ):
-    """Write one ``Working <spinner> [<message>]`` line fitted to the TTY width."""
+    """Write one ``working <pulse> [<message>]`` line fitted to the TTY width."""
     global _last_line, _wrap_disabled
     if _stream is None or body is None or _suppress_depth:
         return
@@ -422,7 +440,7 @@ def _draw_unlocked( body ):
         plain = _fit_plain( strip_ansi( body ), budget )
         text = prefix + plain
     else:
-        # Anchor only — no trailing space after the spinner.
+        # Anchor only — no trailing space after the pulse.
         text = prefix.rstrip()
     styled = as_subdued( text )
     try:

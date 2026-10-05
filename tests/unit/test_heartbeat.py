@@ -94,7 +94,7 @@ def test_configure_keeps_heartbeat_for_terse_gaps():
 
     logger.info( 'Updating [libfoo]' )
     assert 'Updating [libfoo]' in stream.getvalue()
-    assert 'Working' in _status_body( stream )
+    assert 'working' in _status_body( stream )
 
     from cuppa.progress import _write_terse_stdout
     import cuppa.progress as progress_module
@@ -116,15 +116,28 @@ def test_fit_plain_truncates_with_ellipsis():
     assert hb._fit_plain( 'ab', 1 ) == hb._ELLIPSIS
 
 
-def test_working_prefix_and_spinner_on_status_line():
+def test_working_prefix_and_pulse_on_status_line():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock, columns=80 )
     logger.info( 'Updating [libfoo]' )
     body = _status_body( stream )
-    assert body.startswith( 'Working ' )
-    assert body[ len( 'Working ' ) ] in hb._SPINNER
+    assert body.startswith( 'working ' )
+    pulse = body[ len( 'working ' ): len( 'working ' ) + hb._PULSE_WIDTH ]
+    assert len( pulse ) == hb._PULSE_WIDTH
+    assert hb._PULSE_FG in pulse
+    assert pulse.count( hb._PULSE_FG ) == 1
     assert 'Updating [libfoo]' in body
+
+
+def test_pulse_frame_bounces_within_width():
+    width = hb._PULSE_WIDTH
+    frames = [ hb._pulse_frame( i ) for i in range( 2 * ( width - 1 ) ) ]
+    assert all( len( f ) == width for f in frames )
+    assert frames[0] == hb._PULSE_FG + hb._PULSE_BG * ( width - 1 )
+    assert frames[width - 1] == hb._PULSE_BG * ( width - 1 ) + hb._PULSE_FG
+    # Bounce returns toward the start.
+    assert frames[width] == hb._PULSE_BG * ( width - 2 ) + hb._PULSE_FG + hb._PULSE_BG
 
 
 def test_long_info_stays_on_one_physical_line():
@@ -142,7 +155,7 @@ def test_long_info_stays_on_one_physical_line():
     logger.info( long_msg )
     body = _status_body( stream )
     assert visible_len( body ) <= cols
-    assert body.startswith( 'Working ' )
+    assert body.startswith( 'working ' )
     assert body.endswith( hb._ELLIPSIS )
 
     clock.advance( 0.15 )
@@ -185,7 +198,7 @@ def test_info_rewrites_throttled_status_line():
     assert '\r' in first
     assert 'cuppa:' not in first
     assert '[info]' not in first
-    assert 'Working' in first
+    assert 'working' in first
 
     logger.info( 'Using package [a]' )  # within throttle window
     assert stream.getvalue() == first
@@ -195,22 +208,28 @@ def test_info_rewrites_throttled_status_line():
     assert 'Using package [b]' in stream.getvalue()
 
 
-def test_stale_caption_drops_to_working_spinner_anchor():
-    """Last INFO is context, not truth — age it out; keep Working + spinner."""
+def test_stale_caption_drops_to_working_pulse_anchor():
+    """Last INFO is context, not truth — age it out; keep working + pulse."""
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock, columns=120 )
     logger.info( 'Using [/tmp] for dependencies' )
     assert 'Using [/tmp]' in _status_body( stream )
 
-    clock.advance( hb._MESSAGE_HOLD_S )
+    # Still held before five message periods elapse.
+    clock.advance( hb._MESSAGE_HOLD_S - 0.01 )
+    hb._on_pulse()
+    assert 'Using [/tmp]' in _status_body( stream )
+
+    clock.advance( 0.02 )
     hb._on_pulse()
     body = _status_body( stream )
-    assert body.startswith( 'Working ' )
-    assert body[ len( 'Working ' ) ] in hb._SPINNER
+    assert body.startswith( 'working ' )
+    assert hb._PULSE_FG in body
     assert 'Using [/tmp]' not in body
     assert hb._body == ''
 
+    # A newer INFO always replaces the caption immediately.
     clock.advance( 0.15 )
     logger.info( 'Updating [libfoo]' )
     assert 'Updating [libfoo]' in _status_body( stream )
@@ -294,7 +313,7 @@ def test_spawn_suppress_clears_in_place_and_defers_redraw():
 
 
 def test_reveal_before_print_cmd_line_reuses_status_row():
-    """PRINT_CMD_LINE clears Working in place; SPAWN must not insert a newline."""
+    """PRINT_CMD_LINE clears working in place; SPAWN must not insert a newline."""
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )

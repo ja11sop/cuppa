@@ -24,7 +24,7 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--suppress-process-output` | Suppress stdout and stderr from invoked processes
 | `--enable-thirdparty-logging` | Allow logs from third-party modules such as pip
 | `--dump` | Dump the default construction environment and exit
-| `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued `Working <spinner> <message>` status line so a long wait does not look hung
+| `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued `working <pulse> <message>` status line so a long wait does not look hung
 | `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay. The same TTY status line applies when info would otherwise be hidden
 |===
 
@@ -32,13 +32,15 @@ output. These options let you change one layer without accidentally hiding anoth
 logs while leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode` are
 console reports, not info logs, so they stay. On an interactive TTY the quiet status line is
 cleared before those reports, before warnings or errors, and **held for each tool spawn** so a
-piped command line cannot share a row with `Working`. Width comes from the controlling terminal
-(not the `cuppa` launcher's pipes); while the status line is shown, terminal autowrap is turned
-off and the line is erased with a VT100 sequence rather than space-padding. Pipelines and CI stay
-silent — no status spam. Git and download progress bars stay off under quiet. `--verbosity=LEVEL`
-overrides the level `-Q` or `-s` would set and disables the status line. `--minimal-output`
-filters Cuppa's processed build messages and needs that processor, so it cannot be combined with
-`--raw-output` or `--scons-output`.
+piped command line cannot share a row with `working`. The pulse is a compact bounce (about ten
+characters), not a dependency on a progress-bar library. Captions age out after a short hold and
+are replaced immediately by the next diverted info line. Width comes from the controlling
+terminal (not the `cuppa` launcher's pipes); while the status line is shown, terminal autowrap is
+turned off and the line is erased with a VT100 sequence rather than space-padding. Pipelines and
+CI stay silent — no status spam. Git and download progress bars stay off under quiet.
+`--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables the status line.
+`--minimal-output` filters Cuppa's processed build messages and needs that processor, so it
+cannot be combined with `--raw-output` or `--scons-output`.
 
 === Native toolchain output
 
