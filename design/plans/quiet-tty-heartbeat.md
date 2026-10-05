@@ -2,7 +2,7 @@
 
 - **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
-- **Updated:** 2026-10-04
+- **Updated:** 2026-10-05
 - **Impact:** `minor`
 - **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356)
 
@@ -211,5 +211,5 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Settled primary approach | **(1) + throttle**; fallback (2) |
 | Implementation | Done on [#356](https://github.com/ja11sop/cuppa/pull/356) — `cuppa/utility/heartbeat.py`, log diversion, construct quiet re-apply, progress re-gate, clear before terse/report/warn, Antora + unit tests |
 | Soak fix: command overpaint | Done — `heartbeat_print_cmd_line` reveals in place before SCons echoes each tool line; spawn hold does not advance |
-| Soak | In progress — compile/tool-echo stage under `-Q --test` looks clean; full tip / configure / test phases still to confirm |
+| Soak | In progress — `-Q --cascade-plan` tip wait OK (motivating example); compile/tool-echo under `-Q --test` clean; further tip/test phases still welcome |
 | Caption hold + pulse | Done — full-cycle min dwell; `pulse`/`spinner`/`off`; terse compact arrow form; transcript lock under `-j` |
