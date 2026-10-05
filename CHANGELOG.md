@@ -10,19 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
-  keeps generating info records but folds them onto one subdued
-  ``working <widget>  <message>`` status line (two-space gap; width from the
-  controlling TTY; VT100 wrap-off + erase-to-end-of-line). Default widget is a
-  bordered ECG-style ``pulse`` (hospital-green QRS on a subdued track; rest-first;
-  slower between beats). ``--quiet-heartbeat=spinner`` selects the classic ASCII
-  spinner instead. ``PRINT_CMD_LINE_FUNC`` erases the status row in place before
-  SCons echoes each tool command. A diverted INFO caption ages out only after
-  at least one full animation cycle, leaving ``working`` + widget until the
-  next INFO. Transcript reveal also waits that dwell so the status line does
-  not flash unreadably (warnings and reports still clear immediately).
-  Works with ``--terse-output``. Cleared before terse/transcript writes, warnings,
-  errors, and console reports. Pipelines and CI stay silent. Git/download progress
-  bars remain off under quiet. ``--verbosity=`` still wins. Plan:
+  keeps generating info records but folds them onto one subdued status line
+  (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
+  Default ``--quiet-heartbeat=pulse`` is a bordered ECG widget (hospital-green
+  QRS); ``spinner`` selects classic ASCII; ``off`` disables the status line.
+  Normal quiet form is ``working <widget>  <message>``; with ``--terse-output``
+  it shortens to ``<pulse>  → <message>`` / ``working <spinner>  → <message>``.
+  Captions and transcript reveal wait one full animation cycle so the line does
+  not flash unreadably (warnings/reports clear immediately). Terse and command
+  transcript writes are serialised under ``-j`` / ``--parallel`` so lines do not
+  shear. Pipelines and CI stay silent. Git/download progress bars remain off
+  under quiet. ``--verbosity=`` still wins. Plan:
   ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang

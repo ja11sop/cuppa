@@ -32,7 +32,7 @@ class FakeClock( object ):
         self.now += seconds
 
 
-def _configure( stream, clock, columns=120, style=None ):
+def _configure( stream, clock, columns=120, style=None, compact=False ):
     def sleep( seconds ):
         clock.advance( seconds )
 
@@ -46,6 +46,7 @@ def _configure( stream, clock, columns=120, style=None ):
             pulse=False,
             style=style,
             sleep=sleep,
+            compact=compact,
     )
 
 
@@ -185,12 +186,69 @@ def test_style_pulse_uses_hospital_green_for_qrs():
         colouriser.use_colour = was
 
 
-def test_normalize_style_accepts_pulse_and_spinner():
+def test_normalize_style_accepts_pulse_spinner_and_off():
     assert hb.normalize_style( None ) == 'pulse'
     assert hb.normalize_style( 'Spinner' ) == 'spinner'
     assert hb.normalize_style( [ 'pulse' ] ) == 'pulse'
+    assert hb.normalize_style( 'off' ) == 'off'
+    assert hb.normalize_style( 'none' ) == 'off'
     with pytest.raises( ValueError ):
         hb.normalize_style( 'ecg' )
+
+
+def test_style_off_disables_heartbeat():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='off' )
+    assert hb.quiet_console() is True
+    assert hb.diverting() is False
+    assert not logger.isEnabledFor( logging.INFO )
+    logger.info( 'hidden' )
+    assert stream.getvalue() == ''
+
+
+def test_compact_terse_pulse_uses_arrow_form():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120, compact=True )
+    logger.info( 'Updating [libfoo]' )
+    body = _status_body( stream )
+    assert body.startswith( '|' )
+    assert ' → ' in body
+    assert not body.startswith( 'working ' )
+    assert 'Updating [libfoo]' in body
+
+
+def test_compact_terse_spinner_keeps_working_anchor():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120, style='spinner', compact=True )
+    logger.info( 'Updating [libfoo]' )
+    body = _status_body( stream )
+    assert body.startswith( 'working ' )
+    assert ' → ' in body
+    assert 'Updating [libfoo]' in body
+
+
+def test_write_transcript_serializes_parallel_lines():
+    """Two writers must not shear into ``format.ovariant``."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.write_transcript( 'format.o\n' )
+        hb.write_transcript( 'variant     18% [progress] end\n' )
+    finally:
+        heartbeat_module.sys.stdout = real
+    assert out.getvalue() == (
+            'format.o\n'
+            'variant     18% [progress] end\n'
+    )
+    assert 'format.ovariant' not in out.getvalue()
 
 
 def test_long_info_stays_on_one_physical_line():
@@ -446,7 +504,7 @@ def test_reveal_before_print_cmd_line_reuses_status_row():
     assert out.getvalue().endswith( '/usr/bin/g++ -c bar.cpp\n' )
 
 
-def test_spawn_transcript_clears_heartbeat( monkeypatch ):
+def test_spawn_transcript_clears_heartbeat():
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -454,13 +512,15 @@ def test_spawn_transcript_clears_heartbeat( monkeypatch ):
     assert hb._last_line
 
     from cuppa import output_processor as op
-    printed = []
-    monkeypatch.setattr(
-            'builtins.print',
-            lambda *a, **k: printed.append( a[0] if a else '' ),
-    )
-    op._emit_transcript( '/usr/bin/g++ -c foo.cpp' )
-    assert printed == [ '/usr/bin/g++ -c foo.cpp' ]
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        op._emit_transcript( '/usr/bin/g++ -c foo.cpp' )
+    finally:
+        heartbeat_module.sys.stdout = real
+    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
     assert hb._last_line == ''
     assert hb._body is None
 

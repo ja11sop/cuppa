@@ -76,6 +76,12 @@ def _allow_heartbeat():
 
 def _emit_transcript( line ):
     """Print one build-transcript line; clear the quiet heartbeat first."""
+    try:
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( line + "\n" )
+        return
+    except Exception:
+        pass
     _clear_heartbeat()
     print( line )
 

@@ -26,21 +26,21 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--dump` | Dump the default construction environment and exit
 | `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued `working <widget>  <message>` status line so a long wait does not look hung
 | `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay. The same TTY status line applies when info would otherwise be hidden
-| `--quiet-heartbeat=STYLE` | Quiet+TTY animation: `pulse` (ECG-style, default) or `spinner` (classic ASCII). Ignored without a TTY or when `--verbosity=` overrides quiet
+| `--quiet-heartbeat=STYLE` | Quiet+TTY status: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off` (no status line). Ignored without a TTY or when `--verbosity=` overrides quiet
 |===
 
 `-Q` is usually the right companion for `--list-*`: it removes SCons framing and multi-line info
 logs while leaving the inventory intact. Mode banners such as `Running in LIST BUILDS mode` are
 console reports, not info logs, so they stay. On an interactive TTY the quiet status line is
 cleared before those reports, before warnings or errors, and **held for each tool spawn** so a
-piped command line cannot share a row with `working`. Default `pulse` is a compact bordered
-ECG-style cycle (`|•----…|`: rest, bullet, hospital-green QRS on a subdued track; slower between
-beats). `--quiet-heartbeat=spinner` keeps the lighter ASCII spinner instead. Captions stay for at
-least one full animation cycle, and tool lines wait that same dwell before erasing the status
-row, so a brief `working` line does not flash unreadably (warnings and reports still clear at
-once). Width comes from the controlling terminal (not the `cuppa` launcher's pipes); while the
-status line is shown, terminal autowrap is turned off and the line is erased with a VT100
-sequence rather than space-padding. Pipelines and CI stay silent — no status spam. Git and
+piped command line cannot share a row with the status widget. Default `pulse` is a bordered
+ECG-style cycle (hospital-green QRS on a subdued track). `--quiet-heartbeat=spinner` keeps the
+lighter ASCII spinner; `--quiet-heartbeat=off` restores classic quiet with no status line. With
+`--terse-output`, the status uses a shorter form (`|---√\/---|  → …` or `working /  → …`).
+Captions stay for at least one full animation cycle, and tool lines wait that same dwell before
+erasing the status row (warnings and reports still clear at once). Terse transcript writes are
+serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from the
+controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent. Git and
 download progress bars stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or
 `-s` would set and disables the status line. `--minimal-output` filters Cuppa's processed build
 messages and needs that processor, so it cannot be combined with `--raw-output` or

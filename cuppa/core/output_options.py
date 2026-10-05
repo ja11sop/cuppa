@@ -73,9 +73,9 @@ def add_output_options( add_option ):
 
     add_option( '--quiet-heartbeat', dest='quiet_heartbeat', type='string', nargs=1,
                             default='pulse', metavar='STYLE',
-                            help="Quiet+TTY status animation under -Q/-s: pulse (ECG-style, "
-                                 "default) or spinner (classic ASCII). Ignored without a TTY "
-                                 "or when --verbosity= overrides quiet" )
+                            help="Quiet+TTY status under -Q/-s: pulse (ECG-style, default), "
+                                 "spinner (classic ASCII), or off (no status line). Ignored "
+                                 "without a TTY or when --verbosity= overrides quiet" )
 
 
 def skips_spawn_processor( env ):

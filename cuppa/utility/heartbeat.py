@@ -21,6 +21,7 @@ redraw racing the piped command onto the same row.
 
 import logging
 import os
+import sys
 import threading
 import time
 
@@ -61,10 +62,13 @@ _PULSE_REST_INTERVAL_S = _PULSE_INTERVAL_S * 2.5
 _SPINNER = ( '|', '/', '-', '\\' )
 _STYLE_PULSE = 'pulse'
 _STYLE_SPINNER = 'spinner'
-_STYLES = frozenset( ( _STYLE_PULSE, _STYLE_SPINNER ) )
+_STYLE_OFF = 'off'
+_STYLES = frozenset( ( _STYLE_PULSE, _STYLE_SPINNER, _STYLE_OFF ) )
 # ``working`` is the durable anchor; two spaces separate the widget from the caption.
 _WORKING = 'working'
 _GAP = '  '
+# Terse quiet form: ``|---√\/---|  → caption`` / ``working /  → caption``.
+_ARROW = ' → '
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
 _ERASE_EOL = '\x1b[K'
@@ -96,6 +100,8 @@ _pulse_enabled = True
 _suppress_depth = 0
 _wrap_disabled = False
 _style = _STYLE_PULSE
+_compact = False
+_transcript_lock = threading.Lock()
 
 
 def _terminal_columns():
@@ -149,8 +155,13 @@ def _animation_plain():
 
 
 def _prefix_plain():
-    """Plain ``working <widget><gap>`` used for column budgeting."""
-    return "{} {}{}".format( _WORKING, _animation_plain(), _GAP )
+    """Plain status prefix used for column budgeting."""
+    widget = _animation_plain()
+    if _compact:
+        if _style == _STYLE_SPINNER:
+            return "{} {}{}".format( _WORKING, widget, _ARROW )
+        return "{}{}".format( widget, _ARROW )
+    return "{} {}{}".format( _WORKING, widget, _GAP )
 
 
 def _style_pulse( frame ):
@@ -188,8 +199,16 @@ def _animation_styled():
 
 
 def _prefix_styled():
-    """Styled ``working`` + widget + gap; QRS green when colour is on."""
+    """Styled status prefix; QRS green when colour is on."""
     from cuppa.colourise import as_subdued
+    if _compact:
+        if _style == _STYLE_SPINNER:
+            return (
+                    as_subdued( _WORKING + ' ' )
+                    + _animation_styled()
+                    + as_subdued( _ARROW )
+            )
+        return _animation_styled() + as_subdued( _ARROW )
     return as_subdued( _WORKING + ' ' ) + _animation_styled() + as_subdued( _GAP )
 
 
@@ -238,15 +257,19 @@ def _ensure_min_dwell():
 
 
 def normalize_style( style ):
-    """Return a valid heartbeat style name (``pulse`` or ``spinner``)."""
+    """Return a valid heartbeat style: ``pulse``, ``spinner``, or ``off``."""
     if style is None or style == '':
         return _STYLE_PULSE
     if isinstance( style, ( list, tuple ) ):
         style = style[0] if style else _STYLE_PULSE
     text = str( style ).strip().lower()
+    if text in ( 'none', 'false', 'no', '0' ):
+        text = _STYLE_OFF
     if text not in _STYLES:
         raise ValueError(
-                "quiet heartbeat style must be 'pulse' or 'spinner', not {!r}".format( style )
+                "quiet heartbeat style must be 'pulse', 'spinner', or 'off', not {!r}".format(
+                        style
+                )
         )
     return text
 
@@ -254,6 +277,28 @@ def normalize_style( style ):
 def style():
     """Current quiet heartbeat animation style."""
     return _style
+
+
+def write_transcript( text ):
+    """Serialize a stdout transcript write; clear the status line first when diverting.
+
+    Parallel ``-j`` / ``--parallel`` jobs must not interleave terse lines (that
+    produced ``format.ovariant`` shearing). Dwell waits run *outside* the
+    transcript lock so one job's animation hold does not block others' writes
+    for the whole cycle — only the clear+write critical section is serialised.
+    """
+    if diverting():
+        _ensure_min_dwell()
+    with _transcript_lock:
+        if diverting():
+            with _draw_lock:
+                if _last_line or _body is not None:
+                    _clear_unlocked( advance=False )
+        sys.stdout.write( text )
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
 
 
 def quiet_console():
@@ -347,7 +392,7 @@ def reset():
     global _quiet_console, _suppress_below, _heartbeat_active
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
-    global _message_shown_at, _visible_since, _style, _sleep
+    global _message_shown_at, _visible_since, _style, _sleep, _compact
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -370,6 +415,7 @@ def reset():
     _pulse_enabled = True
     _suppress_depth = 0
     _style = _STYLE_PULSE
+    _compact = False
     _clock = time.monotonic
     _sleep = time.sleep
 
@@ -385,30 +431,34 @@ def configure_quiet_console(
         pulse=True,
         style=None,
         sleep=None,
+        compact=False,
 ):
     """Enable quiet console, with TTY heartbeat when appropriate.
 
     ``quiet_kind`` is ``'warn'`` (``-Q``), ``'error'`` (``-s``), or ``None``.
-    ``style`` is ``pulse`` (ECG, default) or ``spinner`` (classic ASCII).
+    ``style`` is ``pulse`` (ECG, default), ``spinner`` (classic ASCII), or
+    ``off`` (classic quiet, no status line). ``compact`` (terse builds) uses
+    ``<widget>  → <message>`` instead of ``working <widget>  <message>``.
+
     Without a TTY, keep classic quiet levels. With ``--terse-output``, the
     heartbeat still runs so long waits between transcript lines stay alive;
     terse writers clear this line before each stdout write.
 
     Status text is truncated to the **TTY** width (not piped stdout). Autowrap
     is disabled while the status line is shown so a mis-sized width cannot
-    leave wrapped debris. Each line is ``working <widget>  <message>``; after
-    ``_MESSAGE_HOLD_S`` without a newer INFO the caption drops and only the
-    ``working`` + widget anchor remains until the next message (a new INFO
-    always replaces the caption immediately).
+    leave wrapped debris. Captions age out after one full animation cycle;
+    a new INFO always replaces the caption immediately.
     """
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
     global _stream, _owns_stream, _clock, _columns, _pulse_enabled, _style, _sleep
+    global _compact
 
     chosen_style = normalize_style( style )
     reset()
     _style = chosen_style
+    _compact = bool( compact )
     if clock is not None:
         _clock = clock
     if sleep is not None:
@@ -421,6 +471,10 @@ def configure_quiet_console(
 
     _quiet_console = True
     _suppress_below = logging.WARN if quiet_kind == 'warn' else logging.ERROR
+
+    if chosen_style == _STYLE_OFF:
+        set_logging_level( quiet_kind )
+        return
 
     if stream is None:
         from cuppa.utility.download import open_progress_stream
@@ -604,8 +658,11 @@ def _draw_unlocked( body ):
         plain = _fit_plain( strip_ansi( body ), budget )
         styled = prefix_styled + as_subdued( plain )
     else:
-        # Anchor only — no trailing gap after the widget.
-        styled = as_subdued( _WORKING + ' ' ) + _animation_styled()
+        # Anchor only — no arrow/gap after the widget.
+        if _compact and _style != _STYLE_SPINNER:
+            styled = _animation_styled()
+        else:
+            styled = as_subdued( _WORKING + ' ' ) + _animation_styled()
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with

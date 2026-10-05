@@ -310,6 +310,7 @@ class Construct(object):
         quiet_heartbeat.configure_quiet_console(
                 quiet_kind,
                 style=cuppa_env.get( 'quiet_heartbeat' ),
+                compact=bool( cuppa_env.get( 'terse_output' ) ),
         )
 
 

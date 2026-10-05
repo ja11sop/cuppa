@@ -22,13 +22,22 @@ from SCons.Script import Action
 
 
 def _write_terse_stdout( text ):
-    """Write a terse transcript fragment; clear the quiet heartbeat first."""
+    """Write a terse transcript fragment; serialize under ``-j`` / ``--parallel``.
+
+    Clears the quiet heartbeat first when diverting. A process-wide transcript
+    lock prevents interleaved lines such as ``format.ovariant``.
+    """
     try:
-        from cuppa.utility.heartbeat import reveal as reveal_heartbeat
-        reveal_heartbeat()
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( text )
+        return
     except Exception:
         pass
     sys.stdout.write( text )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 _interrupt_announced = False
@@ -3049,12 +3058,12 @@ def heartbeat_print_cmd_line( cmd, target, source, env ):
     ``posix_spawn`` uses ``suppress_output=True``, so ``Popen2`` never prints
     the command itself — SCons prints here first, then SPAWN runs. Clearing
     only inside ``Popen2`` leaves the launcher free to append the command to
-    the status row.
+    the status row. Uses the shared transcript lock under ``-j``.
     """
     try:
-        from cuppa.utility.heartbeat import diverting, reveal
-        if diverting():
-            reveal()
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( cmd + "\n" )
+        return
     except Exception:
         pass
     sys.stdout.write( cmd + "\n" )
