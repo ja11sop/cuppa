@@ -24,7 +24,7 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--suppress-process-output` | Suppress stdout and stderr from invoked processes
 | `--enable-thirdparty-logging` | Allow logs from third-party modules such as pip
 | `--dump` | Dump the default construction environment and exit
-| `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued `working <widget>  <message>` status line so a long wait does not look hung
+| `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued status line (`|<pulse>|  <message>`, or `working <spinner>  <message>`) so a long wait does not look hung
 | `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay. The same TTY status line applies when info would otherwise be hidden
 | `--quiet-heartbeat=STYLE` | Quiet+TTY status: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off` (no status line). Ignored without a TTY or when `--verbosity=` overrides quiet
 |===

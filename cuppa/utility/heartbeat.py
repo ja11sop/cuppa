@@ -64,7 +64,8 @@ _STYLE_PULSE = 'pulse'
 _STYLE_SPINNER = 'spinner'
 _STYLE_OFF = 'off'
 _STYLES = frozenset( ( _STYLE_PULSE, _STYLE_SPINNER, _STYLE_OFF ) )
-# ``working`` is the durable anchor; two spaces separate the widget from the caption.
+# Spinner keeps a ``working`` word — a lone ``|/-\`` is ambiguous. Pulse is
+# self-explanatory, so the ECG widget is the anchor alone.
 _WORKING = 'working'
 _GAP = '  '
 # Terse quiet form pads so ``→`` matches location-map arrows (see
@@ -163,8 +164,8 @@ def _arrow_column():
         return 14
 
 
-def _compact_head_plain():
-    """Widget (and optional ``working``) before the aligned ``→``."""
+def _status_head_plain():
+    """Widget, with ``working`` only for the spinner style."""
     widget = _animation_plain()
     if _style == _STYLE_SPINNER:
         return "{} {}".format( _WORKING, widget )
@@ -179,9 +180,10 @@ def _with_aligned_arrow( head ):
 
 def _prefix_plain():
     """Plain status prefix used for column budgeting."""
+    head = _status_head_plain()
     if _compact:
-        return _with_aligned_arrow( _compact_head_plain() )
-    return "{} {}{}".format( _WORKING, _animation_plain(), _GAP )
+        return _with_aligned_arrow( head )
+    return "{}{}".format( head, _GAP )
 
 
 def _style_pulse( frame ):
@@ -221,15 +223,15 @@ def _animation_styled():
 def _prefix_styled():
     """Styled status prefix; QRS green when colour is on."""
     from cuppa.colourise import as_subdued
+    head = _status_head_plain()
+    if _style == _STYLE_SPINNER:
+        widget = as_subdued( _WORKING + ' ' ) + _animation_styled()
+    else:
+        widget = _animation_styled()
     if _compact:
-        head = _compact_head_plain()
         pad = max( _arrow_column() - len( head ), 1 )
-        if _style == _STYLE_SPINNER:
-            widget = as_subdued( _WORKING + ' ' ) + _animation_styled()
-        else:
-            widget = _animation_styled()
         return widget + as_subdued( ( ' ' * pad ) + '→ ' )
-    return as_subdued( _WORKING + ' ' ) + _animation_styled() + as_subdued( _GAP )
+    return widget + as_subdued( _GAP )
 
 
 def _next_pulse_interval():
@@ -691,7 +693,7 @@ def _flush_unlocked( now ):
 
 
 def _draw_unlocked( body ):
-    """Write one ``working <pulse> [<message>]`` line fitted to the TTY width."""
+    """Write one status line fitted to the TTY width."""
     global _last_line, _wrap_disabled, _visible_since
     if _stream is None or body is None or _suppress_depth:
         return
@@ -708,10 +710,10 @@ def _draw_unlocked( body ):
         styled = prefix_styled + as_subdued( plain )
     else:
         # Anchor only — no arrow/gap after the widget.
-        if _compact and _style != _STYLE_SPINNER:
-            styled = _animation_styled()
-        else:
+        if _style == _STYLE_SPINNER:
             styled = as_subdued( _WORKING + ' ' ) + _animation_styled()
+        else:
+            styled = _animation_styled()
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with

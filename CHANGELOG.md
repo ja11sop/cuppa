@@ -14,8 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
   Default ``--quiet-heartbeat=pulse`` is a bordered ECG widget (hospital-green
   QRS); ``spinner`` selects classic ASCII; ``off`` disables the status line.
-  Normal quiet form is ``working <widget>  <message>``; with ``--terse-output``
-  it shortens to a widget line whose ``→`` lines up with location-map arrows.
+  Pulse form is ``|<widget>|  <message>`` (no ``working`` word — the ECG is
+  enough); spinner keeps ``working <spinner>  <message>``. With ``--terse-output``
+  the ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
   not flash unreadably (warnings clear immediately). Console mode banners clear
   the status on the progress TTY so the ``cuppa`` launcher cannot append them
