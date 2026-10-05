@@ -17,6 +17,10 @@ Writes go to the controlling TTY (``/dev/tty``). Build commands often go
 through the ``cuppa`` launcher's stdout pipe, so the status line is
 **suppressed for the whole spawn** (not only cleared once) to avoid a pulse
 redraw racing the piped command onto the same row.
+
+After a transcript line, INFO captions stay pending until a short idle gate
+expires (latest wins). That avoids a fast ``terse–info–terse`` pattern
+seizing the row and forcing a full-cycle dwell before the next transcript.
 """
 
 import logging
@@ -32,6 +36,9 @@ _MESSAGE_INTERVAL_S = 0.12
 # replaces the caption immediately via ``_flush_unlocked``.
 _MESSAGE_HOLD_PERIODS = 5
 _MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
+# After a transcript write, defer painting INFO until the stream has been
+# quiet this long — coalesce to the latest pending message.
+_IDLE_GATE_S = 0.20
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
 # Compact ECG-style pulse (alive-progress ``pulse`` idea, not the library):
@@ -96,6 +103,7 @@ _clock = time.monotonic
 _sleep = time.sleep
 _pulse = None
 _pulse_lock = threading.Lock()
+_idle_flush = None
 _draw_lock = threading.Lock()
 _pulse_enabled = True
 _suppress_depth = 0
@@ -103,6 +111,8 @@ _wrap_disabled = False
 _style = _STYLE_PULSE
 _compact = False
 _transcript_lock = threading.Lock()
+# Monotonic time of the last stdout transcript write (0 = none yet).
+_last_transcript_at = 0.0
 
 
 def _terminal_columns():
@@ -278,6 +288,69 @@ def _ensure_min_dwell():
         _sleep( remaining )
 
 
+def _transcript_is_idle( now ):
+    """True when INFO may paint (no recent transcript, or idle gate elapsed)."""
+    if not _last_transcript_at:
+        return True
+    return ( now - _last_transcript_at ) >= _IDLE_GATE_S
+
+
+def _cancel_idle_flush_unlocked():
+    global _idle_flush
+    if _idle_flush is not None:
+        try:
+            _idle_flush.cancel()
+        except Exception:
+            pass
+        _idle_flush = None
+
+
+def _arm_idle_flush_unlocked():
+    """Schedule a pending INFO paint once the transcript idle gate opens."""
+    global _idle_flush
+    _cancel_idle_flush_unlocked()
+    if (
+            not _heartbeat_active
+            or _pending is None
+            or _suppress_depth
+            or _stream is None
+    ):
+        return
+    now = _clock()
+    if _transcript_is_idle( now ):
+        return
+    delay = _IDLE_GATE_S - ( now - _last_transcript_at )
+    if delay < 0:
+        delay = 0.0
+    timer = threading.Timer( delay, _on_idle_flush )
+    timer.daemon = True
+    _idle_flush = timer
+    timer.start()
+
+
+def _mark_transcript_unlocked():
+    """Record a transcript write; defer any pending INFO until idle again."""
+    global _last_transcript_at
+    _last_transcript_at = _clock()
+    _cancel_idle_flush_unlocked()
+    if _pending is not None and not _suppress_depth:
+        _arm_idle_flush_unlocked()
+
+
+def _on_idle_flush():
+    """Timer callback: paint the latest pending INFO if still idle."""
+    with _draw_lock:
+        if not _heartbeat_active or _pending is None or _suppress_depth:
+            return
+        now = _clock()
+        if not _transcript_is_idle( now ):
+            _arm_idle_flush_unlocked()
+            return
+        if _last_emit and ( now - _last_emit ) < _MESSAGE_INTERVAL_S:
+            return
+        _flush_unlocked( now )
+
+
 def normalize_style( style ):
     """Return a valid heartbeat style: ``pulse``, ``spinner``, or ``off``."""
     if style is None or style == '':
@@ -311,14 +384,19 @@ def write_transcript( text, *, dwell=True ):
 
     Console reports pass ``dwell=False`` so mode banners are not delayed; they
     still clear under the same lock so a status redraw cannot win the row.
+
+    Marks the transcript idle gate so INFO captions stay pending (latest wins)
+    until the stream has been quiet for ``_IDLE_GATE_S``.
     """
     if dwell and diverting():
         _ensure_min_dwell()
     with _transcript_lock:
         if diverting():
             with _draw_lock:
+                _mark_transcript_unlocked()
                 if _last_line or _body is not None:
-                    _clear_unlocked( advance=False )
+                    # Keep unpainted INFO so it can show after the idle gate.
+                    _clear_unlocked( advance=False, keep_pending=True )
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
@@ -462,6 +540,9 @@ def reset():
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
     global _message_shown_at, _visible_since, _style, _sleep, _compact
+    global _last_transcript_at
+    with _draw_lock:
+        _cancel_idle_flush_unlocked()
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -485,6 +566,7 @@ def reset():
     _suppress_depth = 0
     _style = _STYLE_PULSE
     _compact = False
+    _last_transcript_at = 0.0
     _clock = time.monotonic
     _sleep = time.sleep
 
@@ -573,7 +655,12 @@ def configure_quiet_console(
 
 
 def show_info( message ):
-    """Rewrite the status line with the latest INFO message (throttled)."""
+    """Rewrite the status line with the latest INFO message (throttled).
+
+    While a recent transcript write keeps the idle gate closed, only the
+    latest message is remembered — it paints once the gate opens so a fast
+    ``terse–info–terse`` stream cannot force full-cycle dwells.
+    """
     global _pending
     if not _heartbeat_active or _stream is None:
         return
@@ -586,16 +673,26 @@ def show_info( message ):
             # Remember for after the spawn; do not fight the transcript.
             return
         now = _clock()
+        if not _transcript_is_idle( now ):
+            _arm_idle_flush_unlocked()
+            return
         if _last_emit and ( now - _last_emit ) < _MESSAGE_INTERVAL_S:
             return
         _flush_unlocked( now )
 
 
 def flush_pending():
-    """Emit a deferred status line (tests / shutdown)."""
+    """Emit a deferred status line when the transcript idle gate is open."""
     with _draw_lock:
-        if _pending is not None and not _suppress_depth:
-            _flush_unlocked( _clock() )
+        if _pending is None or _suppress_depth:
+            return
+        now = _clock()
+        if not _transcript_is_idle( now ):
+            _arm_idle_flush_unlocked()
+            return
+        if _last_emit and ( now - _last_emit ) < _MESSAGE_INTERVAL_S:
+            return
+        _flush_unlocked( now )
 
 
 def clear():
@@ -619,7 +716,8 @@ def reveal():
     Holds the status for one full animation cycle first so a brief
     ``working`` line does not flash and vanish unreadably.
 
-    No-op when nothing is on the status row.
+    No-op when nothing is on the status row. Keeps an unpainted pending INFO
+    for the idle gate (same as ``write_transcript``).
     """
     with _draw_lock:
         if not _last_line and _body is None:
@@ -628,7 +726,8 @@ def reveal():
     with _draw_lock:
         if not _last_line and _body is None:
             return
-        _clear_unlocked( advance=False )
+        _mark_transcript_unlocked()
+        _clear_unlocked( advance=False, keep_pending=True )
 
 
 def suppress( advance=False ):
@@ -650,6 +749,7 @@ def suppress( advance=False ):
         _ensure_min_dwell()
     with _draw_lock:
         _suppress_depth += 1
+        _mark_transcript_unlocked()
         _clear_unlocked( advance=advance, keep_pending=True )
 
 
@@ -657,23 +757,26 @@ def allow():
     """End a ``suppress()`` region.
 
     Does **not** redraw immediately: the launcher may still be flushing the
-    command we wrote to the stdout pipe. The next ``show_info`` after the
-    spawn paints ``working`` again.
+    command we wrote to the stdout pipe. A pending INFO paints after the
+    transcript idle gate (or on the next ``show_info`` once idle).
     """
     global _suppress_depth
     with _draw_lock:
         if _suppress_depth > 0:
             _suppress_depth -= 1
+        if _suppress_depth == 0 and _pending is not None:
+            _arm_idle_flush_unlocked()
 
 
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
     global _message_shown_at, _visible_since
     _cancel_pulse()
-    # Keep ``_pending`` when suppressing so INFO during a spawn can show later;
-    # a plain clear / reveal (warn/report/transcript) drops it.
+    # Keep ``_pending`` when suppressing or clearing for transcript so INFO
+    # during a busy stream can show after the idle gate; warn/report drops it.
     if not keep_pending:
         _pending = None
+        _cancel_idle_flush_unlocked()
     _body = None
     _message_shown_at = 0.0
     _visible_since = 0.0

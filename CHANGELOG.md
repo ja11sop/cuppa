@@ -18,14 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enough); spinner keeps ``working <spinner>  <message>``. With ``--terse-output``
   the ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
-  not flash unreadably (warnings clear immediately). Console mode banners clear
-  the status on the progress TTY so the ``cuppa`` launcher cannot append them
-  to ``working …``; when the launcher itself is piped (CI, redirects) the
-  banner is also written on the stdout pipe so capture still sees it. Terse
-  and command transcript writes are serialised under ``-j`` / ``--parallel``.
-  Pipelines and CI stay silent (no heartbeat without a TTY). Git/download
-  progress bars remain off under quiet. ``--verbosity=`` still wins. Plan:
-  ``design/plans/quiet-tty-heartbeat.md``.
+  not flash unreadably (warnings clear immediately). After a transcript write,
+  INFO captions stay pending until a short idle gate (latest wins) so a fast
+  ``terse–info–terse`` stream cannot seize the row and stall the next line.
+  Console mode banners clear the status on the progress TTY so the ``cuppa``
+  launcher cannot append them to ``working …``; when the launcher itself is
+  piped (CI, redirects) the banner is also written on the stdout pipe so
+  capture still sees it. Terse and command transcript writes are serialised
+  under ``-j`` / ``--parallel``. Pipelines and CI stay silent (no heartbeat
+  without a TTY). Git/download progress bars remain off under quiet.
+  ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal

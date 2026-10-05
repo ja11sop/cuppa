@@ -39,9 +39,11 @@ lighter ASCII spinner; `--quiet-heartbeat=off` restores classic quiet with no st
 `--terse-output`, the status uses a shorter form with ``→`` aligned to location-map
 arrows (`|--•------|   → ...` or `working /     → ...`).
 Captions stay for at least one full animation cycle, and tool lines wait that same dwell before
-erasing the status row (warnings and reports still clear at once). Terse transcript writes are
-serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from the
-controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent. Git and
+erasing the status row (warnings and reports still clear at once). After a transcript line, INFO
+captions stay pending until a short idle gap (latest message wins) so a fast
+`terse`–info–`terse` burst cannot seize the row and stall the next line. Terse transcript writes
+are serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from
+the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent. Git and
 download progress bars stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or
 `-s` would set and disables the status line. `--minimal-output` filters Cuppa's processed build
 messages and needs that processor, so it cannot be combined with `--raw-output` or

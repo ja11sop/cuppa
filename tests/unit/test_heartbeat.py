@@ -256,6 +256,81 @@ def test_write_transcript_serializes_parallel_lines():
     assert 'format.ovariant' not in out.getvalue()
 
 
+def test_info_during_busy_transcript_stays_pending_until_idle():
+    """INFO after a terse line must not seize the row before the idle gate."""
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.write_transcript( '  1/2 · 10% [ok] · compile a.cpp\n' )
+        before = stream.getvalue()
+        logger.info( 'Updating [libfoo]' )
+        assert stream.getvalue() == before
+        assert hb._pending == 'Updating [libfoo]'
+        assert hb._body is None
+
+        clock.advance( hb._IDLE_GATE_S - 0.01 )
+        hb.flush_pending()
+        assert stream.getvalue() == before
+        assert hb._pending == 'Updating [libfoo]'
+
+        clock.advance( 0.01 )
+        hb.flush_pending()
+    finally:
+        heartbeat_module.sys.stdout = real
+    assert 'Updating [libfoo]' in _status_body( stream )
+
+
+def test_busy_transcript_coalesces_and_drops_intermediate_infos():
+    """Rapid terse–info–terse must not force full-cycle dwells on each info."""
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.write_transcript( 'terse-1\n' )
+        logger.info( 'Updating [a]' )
+        assert hb._pending == 'Updating [a]'
+        assert 'Updating [a]' not in stream.getvalue()
+
+        # Next terse while the gate is still closed: no dwell (nothing drawn).
+        hb.write_transcript( 'terse-2\n' )
+        assert clock.now == 1000.0
+        assert hb._body is None
+        logger.info( 'Updating [b]' )
+        logger.info( 'Updating [c]' )
+        assert hb._pending == 'Updating [c]'
+
+        hb.write_transcript( 'terse-3\n' )
+        assert clock.now == 1000.0
+        assert 'Updating' not in stream.getvalue()
+
+        clock.advance( hb._IDLE_GATE_S )
+        hb.flush_pending()
+    finally:
+        heartbeat_module.sys.stdout = real
+    assert 'Updating [c]' in _status_body( stream )
+    assert 'Updating [a]' not in stream.getvalue()
+    assert 'Updating [b]' not in stream.getvalue()
+    assert out.getvalue() == 'terse-1\nterse-2\nterse-3\n'
+
+
+def test_info_before_any_transcript_still_paints_immediately():
+    """Configure chatter before the first transcript must keep the console alive."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    logger.info( 'Updating [libfoo]' )
+    assert 'Updating [libfoo]' in _status_body( stream )
+
+
 def test_long_info_stays_on_one_physical_line():
     """``\\r`` cannot clear a wrapped line — never write past the terminal width."""
     stream = io.StringIO()
@@ -507,7 +582,7 @@ def test_spawn_suppress_clears_in_place_and_defers_redraw():
     assert hb._suppress_depth == 0
     # allow() must not redraw — launcher may still be flushing the command.
     assert stream.getvalue() == before
-    clock.advance( 0.15 )
+    clock.advance( hb._IDLE_GATE_S )
     logger.info( 'Updating [libfoo] during spawn' )
     assert 'Updating [libfoo] during spawn' in _status_body( stream )
 

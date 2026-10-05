@@ -170,7 +170,7 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
 | Terse overlap | **Reveal before each terse stdout line** (`progress._write_terse_stdout`) and clear before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
-| Status shape | Pulse: **`|<widget>|  <message>`** (no `working` — ECG is the anchor). Spinner: **`working <spinner>  <message>`**. Terse: same heads with ``→`` padded to `terse_arrow_column()`. **`--quiet-heartbeat=pulse\|spinner\|off`**. Full-cycle min dwell; transcript lock under `-j`. |
+| Status shape | Pulse: **`|<widget>|  <message>`** (no `working` — ECG is the anchor). Spinner: **`working <spinner>  <message>`**. Terse: same heads with ``→`` padded to `terse_arrow_column()`. **`--quiet-heartbeat=pulse\|spinner\|off`**. Full-cycle min dwell; transcript lock under `-j`. Idle-gate after transcript (coalesce INFO, latest wins) so busy `terse–info–terse` does not stall. |
 
 ### Implementation sketch (next PR — not this Phase 0 docs PR)
 
@@ -214,3 +214,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Soak | Done — `-Q --cascade-plan` tip wait OK; `-Q --test` tool-echo clean; `-Q --terse-output --parallel --test` on `common_types` OK (no shearing; OFFLINE banner clean) |
 | Follow-on (not this PR) | Filter false-positive `probably a directory` warn — [`filter-directory-warn.md`](filter-directory-warn.md); do after #356 |
 | Caption hold + pulse | Done — full-cycle min dwell; `pulse`/`spinner`/`off`; terse compact arrow form; transcript lock under `-j` |
+| Transcript idle-gate | Done — after transcript, INFO stays pending until ~0.2s quiet (latest wins); avoids dwell stalls on busy terse–info interleave |
