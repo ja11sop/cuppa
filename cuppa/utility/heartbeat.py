@@ -53,12 +53,18 @@ _PULSE_REST = '|---------|'
 _PULSE_REST_HOLD = 3
 _PULSE_FRAMES = ( _PULSE_REST, ) * _PULSE_REST_HOLD + _PULSE_BEAT
 _PULSE_WIDTH = len( _PULSE_FRAMES[0] )
-# Hot glyphs in the QRS / bullet (track and bars stay subdued).
+# Hot glyphs in the QRS / bullet (track and bars stay subdued; hot = hospital green).
 _PULSE_HOT = frozenset( '•√\\/' )
 # Rest ticks run slower than the beat so the diastolic pause is felt.
 _PULSE_REST_INTERVAL_S = _PULSE_INTERVAL_S * 2.5
-# ``working |---√\/---| `` — fixed visible prefix so the eye can skip lines.
+# Classic ASCII spinner — lighter alternative to the ECG pulse.
+_SPINNER = ( '|', '/', '-', '\\' )
+_STYLE_PULSE = 'pulse'
+_STYLE_SPINNER = 'spinner'
+_STYLES = frozenset( ( _STYLE_PULSE, _STYLE_SPINNER ) )
+# ``working`` is the durable anchor; two spaces separate the widget from the caption.
 _WORKING = 'working'
+_GAP = '  '
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
 _ERASE_EOL = '\x1b[K'
@@ -87,6 +93,7 @@ _draw_lock = threading.Lock()
 _pulse_enabled = True
 _suppress_depth = 0
 _wrap_disabled = False
+_style = _STYLE_PULSE
 
 
 def _terminal_columns():
@@ -127,14 +134,26 @@ def _pulse_frame( index ):
     return _PULSE_FRAMES[ index % len( _PULSE_FRAMES ) ]
 
 
+def _spinner_frame( index ):
+    """One classic ASCII spinner frame."""
+    return _SPINNER[ index % len( _SPINNER ) ]
+
+
+def _animation_plain():
+    """Current pulse or spinner widget (no leading/trailing spaces)."""
+    if _style == _STYLE_SPINNER:
+        return _spinner_frame( _spin )
+    return _pulse_frame( _spin )
+
+
 def _prefix_plain():
-    """Plain ``working |…| `` used for column budgeting."""
-    return "{} {} ".format( _WORKING, _pulse_frame( _spin ) )
+    """Plain ``working <widget><gap>`` used for column budgeting."""
+    return "{} {}{}".format( _WORKING, _animation_plain(), _GAP )
 
 
 def _style_pulse( frame ):
-    """Subdue track/bars; brighten the bullet and QRS glyphs."""
-    from cuppa.colourise import as_emphasised_plain, as_subdued
+    """Subdue track/bars; colour the bullet and QRS hospital-monitor green."""
+    from cuppa.colourise import as_colour, as_subdued
 
     parts = []
     buf = []
@@ -149,26 +168,53 @@ def _style_pulse( frame ):
             buf.append( ch )
             continue
         text = ''.join( buf )
-        parts.append( as_emphasised_plain( text ) if hot else as_subdued( text ) )
+        parts.append( as_colour( 'success', text ) if hot else as_subdued( text ) )
         hot = is_hot
         buf = [ ch ]
     if buf:
         text = ''.join( buf )
-        parts.append( as_emphasised_plain( text ) if hot else as_subdued( text ) )
+        parts.append( as_colour( 'success', text ) if hot else as_subdued( text ) )
     return ''.join( parts )
 
 
-def _prefix_styled():
-    """Styled ``working`` + pulse; track dim, QRS brighter when colour is on."""
+def _animation_styled():
+    """Styled pulse or spinner widget."""
     from cuppa.colourise import as_subdued
-    return as_subdued( _WORKING + ' ' ) + _style_pulse( _pulse_frame( _spin ) ) + as_subdued( ' ' )
+    if _style == _STYLE_SPINNER:
+        return as_subdued( _spinner_frame( _spin ) )
+    return _style_pulse( _pulse_frame( _spin ) )
+
+
+def _prefix_styled():
+    """Styled ``working`` + widget + gap; QRS green when colour is on."""
+    from cuppa.colourise import as_subdued
+    return as_subdued( _WORKING + ' ' ) + _animation_styled() + as_subdued( _GAP )
 
 
 def _next_pulse_interval():
-    """Longer delay after a rest frame; normal cadence during the beat."""
-    if _pulse_frame( _spin ) == _PULSE_REST:
+    """Longer delay after a rest frame; normal cadence during the beat/spinner."""
+    if _style == _STYLE_PULSE and _pulse_frame( _spin ) == _PULSE_REST:
         return _PULSE_REST_INTERVAL_S
     return _PULSE_INTERVAL_S
+
+
+def normalize_style( style ):
+    """Return a valid heartbeat style name (``pulse`` or ``spinner``)."""
+    if style is None or style == '':
+        return _STYLE_PULSE
+    if isinstance( style, ( list, tuple ) ):
+        style = style[0] if style else _STYLE_PULSE
+    text = str( style ).strip().lower()
+    if text not in _STYLES:
+        raise ValueError(
+                "quiet heartbeat style must be 'pulse' or 'spinner', not {!r}".format( style )
+        )
+    return text
+
+
+def style():
+    """Current quiet heartbeat animation style."""
+    return _style
 
 
 def quiet_console():
@@ -262,7 +308,7 @@ def reset():
     global _quiet_console, _suppress_below, _heartbeat_active
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
-    global _message_shown_at
+    global _message_shown_at, _style
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -283,6 +329,7 @@ def reset():
     _spin = 0
     _pulse_enabled = True
     _suppress_depth = 0
+    _style = _STYLE_PULSE
     _clock = time.monotonic
 
 
@@ -295,27 +342,31 @@ def configure_quiet_console(
         clock=None,
         columns=None,
         pulse=True,
+        style=None,
 ):
     """Enable quiet console, with TTY heartbeat when appropriate.
 
     ``quiet_kind`` is ``'warn'`` (``-Q``), ``'error'`` (``-s``), or ``None``.
+    ``style`` is ``pulse`` (ECG, default) or ``spinner`` (classic ASCII).
     Without a TTY, keep classic quiet levels. With ``--terse-output``, the
     heartbeat still runs so long waits between transcript lines stay alive;
     terse writers clear this line before each stdout write.
 
     Status text is truncated to the **TTY** width (not piped stdout). Autowrap
     is disabled while the status line is shown so a mis-sized width cannot
-    leave wrapped debris. Each line is ``working <pulse> <message>``; after
+    leave wrapped debris. Each line is ``working <widget>  <message>``; after
     ``_MESSAGE_HOLD_S`` without a newer INFO the caption drops and only the
-    ``working`` + pulse anchor remains until the next message (a new INFO
+    ``working`` + widget anchor remains until the next message (a new INFO
     always replaces the caption immediately).
     """
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _clock, _columns, _pulse_enabled
+    global _stream, _owns_stream, _clock, _columns, _pulse_enabled, _style
 
+    chosen_style = normalize_style( style )
     reset()
+    _style = chosen_style
     if clock is not None:
         _clock = clock
     if columns is not None:
@@ -491,8 +542,8 @@ def _draw_unlocked( body ):
         plain = _fit_plain( strip_ansi( body ), budget )
         styled = prefix_styled + as_subdued( plain )
     else:
-        # Anchor only — no trailing space after the pulse.
-        styled = as_subdued( _WORKING + ' ' ) + _style_pulse( _pulse_frame( _spin ) )
+        # Anchor only — no trailing gap after the widget.
+        styled = as_subdued( _WORKING + ' ' ) + _animation_styled()
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with

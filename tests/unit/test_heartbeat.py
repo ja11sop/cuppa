@@ -32,7 +32,7 @@ class FakeClock( object ):
         self.now += seconds
 
 
-def _configure( stream, clock, columns=120 ):
+def _configure( stream, clock, columns=120, style=None ):
     hb.configure_quiet_console(
             'warn',
             stream=stream,
@@ -41,6 +41,7 @@ def _configure( stream, clock, columns=120 ):
             clock=clock,
             columns=columns,
             pulse=False,
+            style=style,
     )
 
 
@@ -125,6 +126,21 @@ def test_working_prefix_and_pulse_on_status_line():
     assert body.startswith( 'working ' )
     pulse = body[ len( 'working ' ): len( 'working ' ) + hb._PULSE_WIDTH ]
     assert pulse in hb._PULSE_FRAMES
+    # Two spaces separate the widget from the caption.
+    assert body[ len( 'working ' ) + hb._PULSE_WIDTH: len( 'working ' ) + hb._PULSE_WIDTH + 2 ] == '  '
+    assert 'Updating [libfoo]' in body
+
+
+def test_spinner_style_uses_ascii_spinner():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=80, style='spinner' )
+    assert hb.style() == 'spinner'
+    logger.info( 'Updating [libfoo]' )
+    body = _status_body( stream )
+    assert body.startswith( 'working ' )
+    assert body[ len( 'working ' ) ] in hb._SPINNER
+    assert body[ len( 'working ' ) + 1: len( 'working ' ) + 3 ] == '  '
     assert 'Updating [libfoo]' in body
 
 
@@ -150,18 +166,27 @@ def test_pulse_rest_tick_is_slower_than_beat():
     assert hb._next_pulse_interval() == hb._PULSE_INTERVAL_S
 
 
-def test_style_pulse_brightens_qrs_when_colour_on():
+def test_style_pulse_uses_hospital_green_for_qrs():
     from cuppa.colourise import colouriser
+    import colorama
     was = colouriser.use_colour
     colouriser.enable()
     try:
         styled = hb._style_pulse( '|---√\\/---|' )
         assert '√' in styled
+        assert colorama.Fore.GREEN in styled
         # Hot and subdued spans are separate SGR regions.
-        assert '\x1b[' in styled
         assert styled.count( '\x1b[' ) >= 2
     finally:
         colouriser.use_colour = was
+
+
+def test_normalize_style_accepts_pulse_and_spinner():
+    assert hb.normalize_style( None ) == 'pulse'
+    assert hb.normalize_style( 'Spinner' ) == 'spinner'
+    assert hb.normalize_style( [ 'pulse' ] ) == 'pulse'
+    with pytest.raises( ValueError ):
+        hb.normalize_style( 'ecg' )
 
 
 def test_long_info_stays_on_one_physical_line():

@@ -11,18 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued
-  ``working <pulse> <message>`` status line (width from the controlling TTY;
-  VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; bordered ~11-column
-  ECG-style pulse that starts on rest, ticks slower between beats, and brightens
-  the QRS against a subdued track — alive-progress-inspired, not a dependency).
-  ``PRINT_CMD_LINE_FUNC`` erases the status row in place before SCons echoes
-  each tool command so the command reuses that row (no blank advance).
-  ``SPAWN`` itself does not reprint. A diverted INFO caption ages out after five
-  message periods (~0.6s), leaving ``working`` + pulse until the next INFO
-  (which always replaces the caption immediately). Works with ``--terse-output``.
-  Cleared before terse/transcript writes, warnings, errors, and console reports.
-  Pipelines and CI stay silent. Git/download progress bars remain off under
-  quiet. ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+  ``working <widget>  <message>`` status line (two-space gap; width from the
+  controlling TTY; VT100 wrap-off + erase-to-end-of-line). Default widget is a
+  bordered ECG-style ``pulse`` (hospital-green QRS on a subdued track; rest-first;
+  slower between beats). ``--quiet-heartbeat=spinner`` selects the classic ASCII
+  spinner instead. ``PRINT_CMD_LINE_FUNC`` erases the status row in place before
+  SCons echoes each tool command. A diverted INFO caption ages out after five
+  message periods (~0.6s), leaving ``working`` + widget until the next INFO.
+  Works with ``--terse-output``. Cleared before terse/transcript writes, warnings,
+  errors, and console reports. Pipelines and CI stay silent. Git/download progress
+  bars remain off under quiet. ``--verbosity=`` still wins. Plan:
+  ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal

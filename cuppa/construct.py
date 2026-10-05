@@ -307,7 +307,10 @@ class Construct(object):
             set_logging_level( quiet_kind )
             return
 
-        quiet_heartbeat.configure_quiet_console( quiet_kind )
+        quiet_heartbeat.configure_quiet_console(
+                quiet_kind,
+                style=cuppa_env.get( 'quiet_heartbeat' ),
+        )
 
 
     @classmethod
