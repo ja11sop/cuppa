@@ -176,6 +176,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Filter no longer warns that a missing extensionless path is "probably a
+  directory". Not-yet-built Program targets under ``final/`` (and similar)
+  hit that heuristic during configure and ``--cascade-plan``, with no
+  operator mitigation. Match behaviour is unchanged (still excluded until
+  on disk as a file); the breadcrumb is ``debug``. Existing directories stay
+  excluded, also at ``debug`` instead of ``warn``. Plan:
+  ``design/plans/filter-directory-warn.md``.
 - GitLab ``version="latest"`` consume: if the Packages API is unreachable
   (DNS or connection) and a remembered ``gitlab_package_latest_*`` pin
   exists, warn and reuse it instead of ``StopError``. ``--offline`` still
