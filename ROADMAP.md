@@ -32,7 +32,7 @@ continues in parallel where it does not block the console slices.
 | Console: terse dependency location maps | **Done on master** — nested maps + `[prepare]`/`[ready]` · `resolve`: [`terse-dependency-locations.md`](design/plans/terse-dependency-locations.md) ([#355](https://github.com/ja11sop/cuppa/pull/355)) |
 | Console: quiet+TTY heartbeat | **Done on [#356](https://github.com/ja11sop/cuppa/pull/356)** — logger INFO diversion + throttle under quiet+TTY: [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) |
 | Transitive GitLab packages (MVP) | **Done on master** — concrete pins + `cuppa-dependency.json` + list closure: [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) ([#279](https://github.com/ja11sop/cuppa/issues/279)); archive at 1.12.0 cut. Follow-ons: [`gitlab-package-version-ranges.md`](design/plans/gitlab-package-version-ranges.md), [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md) |
-| GitLab CMake staging / drive CMake | **Carry-forward** — E / archive-progress / publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option C done; remaining E inplace + publish-cli; archive progress → [`transfer-and-archive-progress.md`](design/plans/transfer-and-archive-progress.md): [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
@@ -56,7 +56,7 @@ deferred rows moved to **1.12.0**.
 | List-deps requires closure + Option A scopes + docs hubs | **Shipped** — [`list-deps-requires-closure.md`](design/archive/list-deps-requires-closure.md) / [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
 | `scripts.local_gate` + modest xdist | **Shipped** — [#343](https://github.com/ja11sop/cuppa/pull/343) / [#344](https://github.com/ja11sop/cuppa/pull/344) |
 | Transitive GitLab packages (deeper graph) | **MVP done on master** — umbrella follow-ons are version ranges + lib groups; see 1.12.0 cycle focus |
-| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers; E / archive-progress / publish-cli later |
+| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers done; E inplace + publish-cli later; archive progress spun out |
 | Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Deferred to 1.12.0** |
 | Boost package identity (`-patched` / `-clean`) | **Deferred to 1.12.0** |
 | Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred to 1.12.0** |
@@ -499,6 +499,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | Done on [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 | `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | Follow-on to transitive MVP. [`gitlab-package-version-ranges.md`](design/plans/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | Follow-on to transitive MVP. [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| `transfer-and-archive-progress` | Uniform download/upload/compress/extract progress under normal, terse, and quiet | Medium | Extends shipped [`download-progress.md`](design/archive/download-progress.md); package `tar` create was the forcing function. [`transfer-and-archive-progress.md`](design/plans/transfer-and-archive-progress.md) |
 
 ### Out of scope (storage)
 
