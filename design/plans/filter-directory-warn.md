@@ -1,35 +1,36 @@
 # Plan: Filter “probably a directory” warn hygiene
 
-- **Status:** proposal
-- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); project **B** soak under `--cascade-plan -Q`; reconfirmed 2026-10-05 on `order_matcher` with `-Q --cascade-plan` while soaking [#356](https://github.com/ja11sop/cuppa/pull/356). Unblocked — quiet+TTY heartbeat shipped on [#356](https://github.com/ja11sop/cuppa/pull/356).
+- **Status:** done
+- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); consume-tip soak under `--cascade-plan -Q` (reconfirmed 2026-10-05 while soaking [#356](https://github.com/ja11sop/cuppa/pull/356))
 - **Updated:** 2026-10-05
-- **Impact:** `patch` (log severity / heuristic; Filter match behaviour should stay the same)
+- **Impact:** `patch` (log severity / heuristic; Filter match behaviour stays the same)
+- **PR:** [#358](https://github.com/ja11sop/cuppa/pull/358)
 
 ## Problem
 
-`filter_nodes` warns when a matched node’s path does not exist yet and has no
+`filter_nodes` warned when a matched node’s path does not exist yet and has no
 file extension:
 
 ```text
 cuppa: filter: [warn] filtered node is probably a directory […/_build/…/final/<program>]
 ```
 
-Project **B** soak under `--cascade-plan -Q` hit this on an extensionless Program
+Project soak under `--cascade-plan -Q` hit this on an extensionless Program
 under `final/` that had not been built yet.
 
-The heuristic assumes “no extension + missing on disk ⇒ directory”. That is often
+The heuristic assumed “no extension + missing on disk ⇒ directory”. That is often
 wrong for Cuppa **Program** targets (and similar extensionless artefacts) that
 have not been built yet. Configure still evaluates Filter while reading
-sconscripts, including under `--cascade-plan`, so the warn shows up on dry runs
-where nothing is wrong.
+sconscripts, including under `--cascade-plan`, so the warn showed up on dry runs
+where nothing was wrong.
 
-There is no operator mitigation — only “ignore it” — which fails the bar for a
+There was no operator mitigation — only “ignore it” — which fails the bar for a
 **warn**: either something is likely wrong with a clear fix, or the message
 should not be a warn.
 
 A second message, `filtered node is a directory […]`, fires when the path
-**exists** and `isdir`; that case is more honest and can stay (or move to
-debug) once the false-positive path is fixed.
+**exists** and `isdir`; that case is honest about exclusion but was also a warn
+with no mitigation.
 
 ## Intent
 
@@ -54,6 +55,8 @@ Do not warn for not-yet-built extensionless file targets.
 
 | Item | Status |
 |------|--------|
-| Problem / intent | Settled in this proposal |
-| Reconfirmed on tip soak | 2026-10-05 — `order_matcher` `-Q --cascade-plan` still warns on `…/final/order_matcher` |
-| Implementation | Ready — [#356](https://github.com/ja11sop/cuppa/pull/356) merged |
+| Problem / intent | Settled |
+| Pre-fix tip soak | 2026-10-05 — consume tip `-Q --cascade-plan` still warned on `…/final/<program>` |
+| Implementation | Done — `_node_exists_as_file` uses `debug` for missing extensionless and existing directories; match behaviour unchanged |
+| Unit tests | Done — `tests/unit/test_filter_nodes.py` |
+| Post-fix soak | Done — consume tip `-Q --cascade-plan` no longer warns on `…/final/<program>` |

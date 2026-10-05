@@ -13,7 +13,7 @@ import os
 import re
 
 from cuppa.utility.types import is_string
-from cuppa.colourise import as_notice, colour_items, as_warning
+from cuppa.colourise import as_notice, colour_items
 from cuppa.log import logger
 
 from SCons.Node import  Node
@@ -49,15 +49,25 @@ def _any_form_matches( forms, patterns ):
 
 
 def _node_exists_as_file( node, forms ):
-    """True if the node looks like a non-directory file (or a not-yet-written file)."""
+    """True if the node looks like a non-directory file (or a not-yet-written file).
+
+    Missing paths with no file extension are treated as non-files (excluded from
+    Filter matches) without a warn — Cuppa Program targets under ``final/`` are
+    often extensionless and not on disk yet during configure / ``--cascade-plan``.
+    Real directories stay excluded; that case logs at debug only.
+    """
     probe = getattr( node, 'abspath', None ) or ( forms and forms[0] ) or str( node )
     if not os.path.exists( probe ):
         if os.path.splitext( probe )[1] == "":
-            logger.warn( "filtered node is probably a directory [{}]".format( as_warning( str( node ) ) ) )
+            logger.debug(
+                    "filtered node has no extension and does not exist yet [{}]".format(
+                            as_notice( str( node ) )
+                    )
+            )
             return False
         return True
     if os.path.isdir( probe ):
-        logger.warn( "filtered node is a directory [{}]".format( as_warning( str( node ) ) ) )
+        logger.debug( "filtered node is a directory [{}]".format( as_notice( str( node ) ) ) )
         return False
     return True
 
