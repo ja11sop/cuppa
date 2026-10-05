@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keeps generating info records but folds them onto one subdued
   ``working <pulse> <message>`` status line (width from the controlling TTY;
   VT100 wrap-off + erase-to-end-of-line so ``\r`` stays clean; bordered ~11-column
-  ECG-style pulse with a short rest between beats ~12.5/s — alive-progress-inspired,
-  not a dependency).
+  ECG-style pulse that starts on rest, ticks slower between beats, and brightens
+  the QRS against a subdued track — alive-progress-inspired, not a dependency).
   ``PRINT_CMD_LINE_FUNC`` erases the status row in place before SCons echoes
   each tool command so the command reuses that row (no blank advance).
   ``SPAWN`` itself does not reprint. A diverted INFO caption ages out after five

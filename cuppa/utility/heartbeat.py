@@ -34,8 +34,8 @@ _MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
 # Compact ECG-style pulse (alive-progress ``pulse`` idea, not the library):
-# bordered track, bullet, short QRS blip, then a held rest so the beat has a
-# diastolic pause. Fixed frames; no animation compiler.
+# bordered track, bullet, short QRS blip. Cycle starts on rest so the first
+# paint is not mid-beat; rest frames also use a longer tick.
 _PULSE_BEAT = (
         '|•--------|',
         '|-•-------|',
@@ -50,11 +50,13 @@ _PULSE_BEAT = (
         '|--------•|',
 )
 _PULSE_REST = '|---------|'
-# Hold the empty track a few ticks between beats — reads as a heartbeat,
-# not a continuous scroll.
 _PULSE_REST_HOLD = 3
-_PULSE_FRAMES = _PULSE_BEAT + ( _PULSE_REST, ) * _PULSE_REST_HOLD
+_PULSE_FRAMES = ( _PULSE_REST, ) * _PULSE_REST_HOLD + _PULSE_BEAT
 _PULSE_WIDTH = len( _PULSE_FRAMES[0] )
+# Hot glyphs in the QRS / bullet (track and bars stay subdued).
+_PULSE_HOT = frozenset( '•√\\/' )
+# Rest ticks run slower than the beat so the diastolic pause is felt.
+_PULSE_REST_INTERVAL_S = _PULSE_INTERVAL_S * 2.5
 # ``working |---√\/---| `` — fixed visible prefix so the eye can skip lines.
 _WORKING = 'working'
 
@@ -125,9 +127,48 @@ def _pulse_frame( index ):
     return _PULSE_FRAMES[ index % len( _PULSE_FRAMES ) ]
 
 
-def _prefix():
-    """``working ---√\\/--- `` (pulse advances while the line is held)."""
+def _prefix_plain():
+    """Plain ``working |…| `` used for column budgeting."""
     return "{} {} ".format( _WORKING, _pulse_frame( _spin ) )
+
+
+def _style_pulse( frame ):
+    """Subdue track/bars; brighten the bullet and QRS glyphs."""
+    from cuppa.colourise import as_emphasised_plain, as_subdued
+
+    parts = []
+    buf = []
+    hot = None
+    for ch in frame:
+        is_hot = ch in _PULSE_HOT
+        if hot is None:
+            hot = is_hot
+            buf = [ ch ]
+            continue
+        if is_hot == hot:
+            buf.append( ch )
+            continue
+        text = ''.join( buf )
+        parts.append( as_emphasised_plain( text ) if hot else as_subdued( text ) )
+        hot = is_hot
+        buf = [ ch ]
+    if buf:
+        text = ''.join( buf )
+        parts.append( as_emphasised_plain( text ) if hot else as_subdued( text ) )
+    return ''.join( parts )
+
+
+def _prefix_styled():
+    """Styled ``working`` + pulse; track dim, QRS brighter when colour is on."""
+    from cuppa.colourise import as_subdued
+    return as_subdued( _WORKING + ' ' ) + _style_pulse( _pulse_frame( _spin ) ) + as_subdued( ' ' )
+
+
+def _next_pulse_interval():
+    """Longer delay after a rest frame; normal cadence during the beat."""
+    if _pulse_frame( _spin ) == _PULSE_REST:
+        return _PULSE_REST_INTERVAL_S
+    return _PULSE_INTERVAL_S
 
 
 def quiet_console():
@@ -169,7 +210,7 @@ def _cancel_pulse():
 
 
 def _arm_pulse():
-    """Keep the bounce pulse moving while a status line is held (long waits)."""
+    """Keep the ECG pulse moving while a status line is held (long waits)."""
     global _pulse
     with _pulse_lock:
         if _pulse is not None:
@@ -185,7 +226,7 @@ def _arm_pulse():
                 or _suppress_depth
         ):
             return
-        timer = threading.Timer( _PULSE_INTERVAL_S, _on_pulse )
+        timer = threading.Timer( _next_pulse_interval(), _on_pulse )
         timer.daemon = True
         _pulse = timer
         timer.start()
@@ -443,15 +484,15 @@ def _draw_unlocked( body ):
     from cuppa.output_processor import strip_ansi
 
     cols = _terminal_columns()
-    prefix = _prefix()
+    prefix_plain = _prefix_plain()
+    prefix_styled = _prefix_styled()
     if body:
-        budget = max( 1, cols - len( prefix ) )
+        budget = max( 1, cols - len( prefix_plain ) )
         plain = _fit_plain( strip_ansi( body ), budget )
-        text = prefix + plain
+        styled = prefix_styled + as_subdued( plain )
     else:
         # Anchor only — no trailing space after the pulse.
-        text = prefix.rstrip()
-    styled = as_subdued( text )
+        styled = as_subdued( _WORKING + ' ' ) + _style_pulse( _pulse_frame( _spin ) )
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with

@@ -132,12 +132,36 @@ def test_pulse_frames_are_bordered_ecg_cycle():
     assert hb._PULSE_WIDTH == 11
     assert all( len( f ) == hb._PULSE_WIDTH for f in hb._PULSE_FRAMES )
     assert all( f.startswith( '|' ) and f.endswith( '|' ) for f in hb._PULSE_FRAMES )
-    assert hb._pulse_frame( 0 ) == '|•--------|'
-    assert hb._pulse_frame( 5 ) == '|---√\\/---|'
-    rest_start = len( hb._PULSE_BEAT )
-    assert hb._pulse_frame( rest_start ) == hb._PULSE_REST
+    # Cycle opens on rest so the first paint is not mid-beat.
+    assert hb._pulse_frame( 0 ) == hb._PULSE_REST
+    assert hb._PULSE_FRAMES[: hb._PULSE_REST_HOLD ] == ( hb._PULSE_REST, ) * hb._PULSE_REST_HOLD
+    assert hb._pulse_frame( hb._PULSE_REST_HOLD ) == '|•--------|'
+    assert hb._pulse_frame( hb._PULSE_REST_HOLD + 5 ) == '|---√\\/---|'
     assert hb._PULSE_FRAMES.count( hb._PULSE_REST ) == hb._PULSE_REST_HOLD
     assert hb._pulse_frame( len( hb._PULSE_FRAMES ) ) == hb._pulse_frame( 0 )
+
+
+def test_pulse_rest_tick_is_slower_than_beat():
+    hb._spin = 0
+    assert hb._pulse_frame( hb._spin ) == hb._PULSE_REST
+    assert hb._next_pulse_interval() == hb._PULSE_REST_INTERVAL_S
+    hb._spin = hb._PULSE_REST_HOLD
+    assert hb._pulse_frame( hb._spin ).startswith( '|•' )
+    assert hb._next_pulse_interval() == hb._PULSE_INTERVAL_S
+
+
+def test_style_pulse_brightens_qrs_when_colour_on():
+    from cuppa.colourise import colouriser
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        styled = hb._style_pulse( '|---√\\/---|' )
+        assert '√' in styled
+        # Hot and subdued spans are separate SGR regions.
+        assert '\x1b[' in styled
+        assert styled.count( '\x1b[' ) >= 2
+    finally:
+        colouriser.use_colour = was
 
 
 def test_long_info_stays_on_one_physical_line():
