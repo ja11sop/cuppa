@@ -299,21 +299,50 @@ def style():
     return _style
 
 
-def write_transcript( text ):
+def write_transcript( text, *, dwell=True ):
     """Serialize a stdout transcript write; clear the status line first when diverting.
 
     Parallel ``-j`` / ``--parallel`` jobs must not interleave terse lines (that
     produced ``format.ovariant`` shearing). Dwell waits run *outside* the
     transcript lock so one job's animation hold does not block others' writes
     for the whole cycle — only the clear+write critical section is serialised.
+
+    Console reports pass ``dwell=False`` so mode banners are not delayed; they
+    still clear under the same lock so a status redraw cannot win the row.
     """
-    if diverting():
+    if dwell and diverting():
         _ensure_min_dwell()
     with _transcript_lock:
         if diverting():
             with _draw_lock:
                 if _last_line or _body is not None:
                     _clear_unlocked( advance=False )
+        sys.stdout.write( text )
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+
+def write_report( text ):
+    """Console report while diverting: clear status, write on the TTY (no dwell).
+
+    Mode banners must not go down the stdout pipe ahead of / behind a status
+    paint — the ``cuppa`` launcher can flush the pipe onto the end of
+    ``working …``. The progress TTY is the same fd as the status line, so
+    clear+write here stays ordered. Non-diverting callers keep using stdout.
+    """
+    with _transcript_lock:
+        with _draw_lock:
+            if _last_line or _body is not None:
+                _clear_unlocked( advance=False )
+            if _heartbeat_active and _stream is not None:
+                try:
+                    _stream.write( text )
+                    _stream.flush()
+                    return
+                except Exception:
+                    pass
         sys.stdout.write( text )
         try:
             sys.stdout.flush()

@@ -435,6 +435,29 @@ def test_report_clears_heartbeat():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
+def test_report_on_default_stdout_uses_tty_when_diverting():
+    """Mode banners must not ride the stdout pipe past a status paint."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'using sconstruct file [sconstruct]' )
+    assert 'using sconstruct file' in _status_body( stream )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        write_report_lines( [ 'Running in OFFLINE mode' ] )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    assert 'Running in OFFLINE mode' in stream.getvalue()
+    assert 'using sconstruct file' not in _status_body( stream )
+    assert 'Running in OFFLINE mode\n' in stream.getvalue()
+
+
 def test_spawn_suppress_clears_in_place_and_defers_redraw():
     stream = io.StringIO()
     clock = FakeClock()

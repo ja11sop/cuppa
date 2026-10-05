@@ -17,10 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Normal quiet form is ``working <widget>  <message>``; with ``--terse-output``
   it shortens to a widget line whose ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
-  not flash unreadably (warnings/reports clear immediately). Terse and command
-  transcript writes are serialised under ``-j`` / ``--parallel`` so lines do not
-  shear. Pipelines and CI stay silent. Git/download progress bars remain off
-  under quiet. ``--verbosity=`` still wins. Plan:
+  not flash unreadably (warnings clear immediately). Console mode banners clear
+  the status on the progress TTY so the ``cuppa`` launcher cannot append them
+  to ``working …``. Terse and command transcript writes are serialised under
+  ``-j`` / ``--parallel``. Pipelines and CI stay silent. Git/download progress
+  bars remain off under quiet. ``--verbosity=`` still wins. Plan:
   ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang

@@ -424,10 +424,14 @@ class Construct(object):
 
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
+        # Diverted INFO paints on /dev/tty; mode banners go through the stdout
+        # pipe. Emit the banner only after any status that should precede it,
+        # and never write the banner to the pipe *before* a status paint — the
+        # launcher can flush the banner onto the end of ``working …``.
+        logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
+
         if cuppa_env['offline']:
             report_mode_banner( as_info_label( "Running in OFFLINE mode" ) )
-
-        logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
 
         if dependencies_warning:
             logger.warn( dependencies_warning )
