@@ -152,6 +152,14 @@ def run_scons( args_list ):
         console_encoding = getattr( sys.stdout, "encoding", None )
         if console_encoding:
             propagated_env["CUPPA_CONSOLE_ENCODING"] = console_encoding
+        # Inner SCons opens /dev/tty (CONOUT$) for the quiet heartbeat. Mode
+        # banners must still reach this process's stdout when the wrapper is
+        # itself piped (CI, redirects) — otherwise CONOUT$ swallows them.
+        try:
+            outer_tty = bool( sys.stdout.isatty() )
+        except Exception:
+            outer_tty = False
+        propagated_env["CUPPA_STDOUT_IS_TTY"] = "1" if outer_tty else "0"
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,

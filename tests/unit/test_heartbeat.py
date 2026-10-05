@@ -435,8 +435,9 @@ def test_report_clears_heartbeat():
     assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
 
 
-def test_report_on_default_stdout_uses_tty_when_diverting():
+def test_report_on_default_stdout_uses_tty_when_diverting( monkeypatch ):
     """Mode banners must not ride the stdout pipe past a status paint."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -456,6 +457,28 @@ def test_report_on_default_stdout_uses_tty_when_diverting():
     assert 'Running in OFFLINE mode' in stream.getvalue()
     assert 'using sconstruct file' not in _status_body( stream )
     assert 'Running in OFFLINE mode\n' in stream.getvalue()
+
+
+def test_report_also_reaches_stdout_when_launcher_is_piped( monkeypatch ):
+    """CI / redirects: outer stdout is not a TTY — forward banners on the pipe."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'using sconstruct file [sconstruct]' )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        write_report_lines( [ 'Running in OFFLINE mode' ] )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == 'Running in OFFLINE mode\n'
+    assert 'Running in OFFLINE mode\n' in stream.getvalue()
+    assert 'using sconstruct file' not in _status_body( stream )
 
 
 def test_spawn_suppress_clears_in_place_and_defers_redraw():

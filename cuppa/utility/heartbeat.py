@@ -326,15 +326,31 @@ def write_transcript( text, *, dwell=True ):
             pass
 
 
-def write_report( text ):
-    """Console report while diverting: clear status, write on the TTY (no dwell).
+def _outer_stdout_is_tty():
+    """Whether the ``cuppa`` launcher's stdout is a TTY (interactive console).
 
-    Mode banners must not go down the stdout pipe ahead of / behind a status
-    paint — the ``cuppa`` launcher can flush the pipe onto the end of
-    ``working …``. The progress TTY is the same fd as the status line, so
-    clear+write here stays ordered. Non-diverting callers keep using stdout.
+    The launcher sets ``CUPPA_STDOUT_IS_TTY`` because this process's stdout is
+    always a pipe under ``python -m cuppa``. Unset (direct SCons) means
+    "assume interactive" so banners stay on the progress TTY only.
+    """
+    flag = os.environ.get( 'CUPPA_STDOUT_IS_TTY' )
+    if flag is None:
+        return True
+    return flag.strip() not in ( '0', 'false', 'False', 'no', 'NO' )
+
+
+def write_report( text ):
+    """Console report while diverting: clear status, write without dwell.
+
+    On an interactive launcher (``CUPPA_STDOUT_IS_TTY=1``), write only on the
+    progress TTY so the stdout pipe cannot append the banner onto
+    ``working …``. When the launcher itself is piped (CI, ``>log``), also
+    write on stdout so the wrapper can forward the report — CONOUT$ /
+    ``/dev/tty`` alone would hide it from capture. Non-diverting callers keep
+    using stdout only.
     """
     with _transcript_lock:
+        wrote_tty = False
         with _draw_lock:
             if _last_line or _body is not None:
                 _clear_unlocked( advance=False )
@@ -342,9 +358,11 @@ def write_report( text ):
                 try:
                     _stream.write( text )
                     _stream.flush()
-                    return
+                    wrote_tty = True
                 except Exception:
                     pass
+            if wrote_tty and _outer_stdout_is_tty():
+                return
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
