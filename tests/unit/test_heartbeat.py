@@ -128,13 +128,16 @@ def test_working_prefix_and_pulse_on_status_line():
     assert 'Updating [libfoo]' in body
 
 
-def test_pulse_frames_are_fixed_ecg_cycle():
-    assert hb._PULSE_WIDTH == 9
+def test_pulse_frames_are_bordered_ecg_cycle():
+    assert hb._PULSE_WIDTH == 11
     assert all( len( f ) == hb._PULSE_WIDTH for f in hb._PULSE_FRAMES )
-    assert hb._pulse_frame( 0 ) == '•--------'
-    assert hb._pulse_frame( 5 ) == '---√\\/---'
-    assert hb._pulse_frame( 11 ) == '---------'
-    assert hb._pulse_frame( 12 ) == hb._pulse_frame( 0 )
+    assert all( f.startswith( '|' ) and f.endswith( '|' ) for f in hb._PULSE_FRAMES )
+    assert hb._pulse_frame( 0 ) == '|•--------|'
+    assert hb._pulse_frame( 5 ) == '|---√\\/---|'
+    rest_start = len( hb._PULSE_BEAT )
+    assert hb._pulse_frame( rest_start ) == hb._PULSE_REST
+    assert hb._PULSE_FRAMES.count( hb._PULSE_REST ) == hb._PULSE_REST_HOLD
+    assert hb._pulse_frame( len( hb._PULSE_FRAMES ) ) == hb._pulse_frame( 0 )
 
 
 def test_long_info_stays_on_one_physical_line():

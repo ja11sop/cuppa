@@ -34,24 +34,28 @@ _MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
 _PULSE_INTERVAL_S = 0.08
 _ELLIPSIS = '\u2026'
 # Compact ECG-style pulse (alive-progress ``pulse`` idea, not the library):
-# a bullet travels the track, opens a short QRS blip, then settles. Fixed
-# frames keep width in the 8–12 range with no animation compiler.
-_PULSE_FRAMES = (
-        '•--------',
-        '-•-------',
-        '--•------',
-        '---√-----',
-        '---√\\----',
-        '---√\\/---',
-        '----\\/---',
-        '-----/---',
-        '------•--',
-        '-------•-',
-        '--------•',
-        '---------',
+# bordered track, bullet, short QRS blip, then a held rest so the beat has a
+# diastolic pause. Fixed frames; no animation compiler.
+_PULSE_BEAT = (
+        '|•--------|',
+        '|-•-------|',
+        '|--•------|',
+        '|---√-----|',
+        '|---√\\----|',
+        '|---√\\/---|',
+        '|----\\/---|',
+        '|-----/---|',
+        '|------•--|',
+        '|-------•-|',
+        '|--------•|',
 )
+_PULSE_REST = '|---------|'
+# Hold the empty track a few ticks between beats — reads as a heartbeat,
+# not a continuous scroll.
+_PULSE_REST_HOLD = 3
+_PULSE_FRAMES = _PULSE_BEAT + ( _PULSE_REST, ) * _PULSE_REST_HOLD
 _PULSE_WIDTH = len( _PULSE_FRAMES[0] )
-# ``working ---√\/--- `` — fixed visible prefix so the eye can skip lines.
+# ``working |---√\/---| `` — fixed visible prefix so the eye can skip lines.
 _WORKING = 'working'
 
 # VT100 / ANSI: erase from cursor to end of line; disable/enable autowrap.
