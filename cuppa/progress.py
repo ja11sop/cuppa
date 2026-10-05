@@ -9,7 +9,6 @@
 #-------------------------------------------------------------------------------
 
 import atexit
-import logging
 import os.path
 import signal
 import sys
@@ -18,9 +17,27 @@ import threading
 from cuppa.colourise import (
         as_badge, as_colour, as_emphasised, as_emphasised_plain, as_info, as_notice, as_subdued,
 )
-from cuppa.log import logger
 
 from SCons.Script import Action
+
+
+def _write_terse_stdout( text ):
+    """Write a terse transcript fragment; serialize under ``-j`` / ``--parallel``.
+
+    Clears the quiet heartbeat first when diverting. A process-wide transcript
+    lock prevents interleaved lines such as ``format.ovariant``.
+    """
+    try:
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( text )
+        return
+    except Exception:
+        pass
+    sys.stdout.write( text )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 _interrupt_announced = False
@@ -83,14 +100,14 @@ def write_terse_interrupt_finish():
         if _abort_announced or _interrupt_finished or not _interrupt_announced:
             return
         _interrupt_finished = True
-    sys.stdout.write( as_subdued( "finished in-flight actions" ) + "\n" )
+    _write_terse_stdout( as_subdued( "finished in-flight actions" ) + "\n" )
     summary = ""
     if _summary_enabled:
         summary = _progress_ledger.interrupt_summary()
     line = as_notice( "[interrupted]" )
     if summary:
         line += " " + summary
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
 
 
@@ -102,7 +119,7 @@ def write_terse_build_completion( env ):
     suffix = ""
     if _summary_enabled:
         suffix = _progress_ledger.completion_clause( outcome == "up to date" )
-    sys.stdout.write( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
+    _write_terse_stdout( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
     sys.stdout.flush()
 
 
@@ -419,7 +436,9 @@ def progress_action( label, event, sconscript, variant, env ):
 
     # Terse checkpoints are printed by ``Progress`` itself, including under
     # ``-Q``. The description would also print ``Progress(...)`` at info.
-    if not _env_get( env, "terse_output" ) and logger.isEnabledFor( logging.INFO ):
+    # Quiet console keeps the info description off (heartbeat is separate).
+    from cuppa.utility.heartbeat import multi_line_progress_allowed
+    if not _env_get( env, "terse_output" ) and multi_line_progress_allowed():
         stage = ""
         name  = ""
         if label.startswith("#"):
@@ -1997,6 +2016,27 @@ def _uncounted_prefix( env, marker ):
     return ( " " * ( indent + len( plain ) - 1 ) ) + arrow + " " + marker
 
 
+def terse_arrow_column( env=None ):
+    """0-based column of nested ``→`` on location / uncounted terse lines.
+
+    Quiet heartbeat compact form pads its widget so ``→`` lands here and
+    lines up with ``→ [location]`` / ``→ [update]`` maps.
+    """
+    if env is None:
+        env = {}
+    _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
+    if plain:
+        indent = _progress_ledger.action_line_indent()
+        return indent + len( plain ) - 1
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent_width = counts[ "percent_digits" ] + 1
+    column = (
+            _progress_ledger.progress_line_indent()
+            + _SCOPE_WIDTH + 1 + percent_width + 1
+    )
+    return max( column - 2, 0 )
+
+
 def _location_map_prefix( env, badge=None ):
     """Indent ``→ [location]`` (or a retrieve status badge) to the checkpoint column."""
     if badge is None:
@@ -2004,13 +2044,7 @@ def _location_map_prefix( env, badge=None ):
     _credited, plain = _progress_ledger.credit_and_prefix( None, None, env, False )
     if plain:
         return _uncounted_prefix( env, badge )
-    counts = _progress_ledger.checkpoint_counts( None, None )
-    percent_width = counts[ "percent_digits" ] + 1
-    column = (
-            _progress_ledger.progress_line_indent()
-            + _SCOPE_WIDTH + 1 + percent_width + 1
-    )
-    indent = max( column - 2, 0 )
+    indent = terse_arrow_column( env )
     return ( " " * indent ) + as_subdued( "→" ) + " " + badge
 
 
@@ -2227,7 +2261,7 @@ def write_terse_nested_copy( source, dest, env, target=None ):
             env,
             count=False,
     )
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
     note_terse_nested_action()
 
@@ -2421,7 +2455,7 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
         _terse_launch.command = command
     line = format_terse_launch( action, summary, env, target=target )
     note_terse_build_activity()
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
 
 
@@ -2435,7 +2469,7 @@ def write_terse_muted_child( text, env ):
     """Stream one muted delegated child line. No effect unless ``--terse-output``."""
     if not _env_get( env, "terse_output" ):
         return
-    sys.stdout.write( format_terse_muted_child( text, env ) + "\n" )
+    _write_terse_stdout( format_terse_muted_child( text, env ) + "\n" )
     sys.stdout.flush()
 
 
@@ -2473,7 +2507,7 @@ def take_terse_command():
 
 def _write_command( cmd ):
     if cmd:
-        sys.stdout.write( cmd + "\n" )
+        _write_terse_stdout( cmd + "\n" )
 
 
 def flush_unconsumed_terse_command():
@@ -2600,7 +2634,7 @@ def _present_executed_command( command, target, source, env, failed ):
     else:
         use_target, use_source = target, source
         spell = ""
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_line(
                     "error" if failed else "ok",
                     spell,
@@ -2765,11 +2799,11 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     line = format_terse_progress_checkpoint( event, sconscript, variant, env )
     if not line:
         return
-    sys.stdout.write( line + "\n" )
+    _write_terse_stdout( line + "\n" )
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
-            sys.stdout.write( map_line + "\n" )
+            _write_terse_stdout( map_line + "\n" )
     sys.stdout.flush()
 
 
@@ -2926,7 +2960,7 @@ def write_terse_resolve_prepare( env ):
         summary = _counted_phrase(
                 len( declared ), "declared dependency", "declared dependencies",
         )
-    sys.stdout.write( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
+    _write_terse_stdout( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
     sys.stdout.flush()
 
 
@@ -2943,7 +2977,7 @@ def write_terse_resolve_ready( env ):
     if not _terse_prepare_written:
         write_terse_resolve_prepare( env )
     _terse_ready_written = True
-    sys.stdout.write(
+    _write_terse_stdout(
             _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
             + "\n"
     )
@@ -3011,7 +3045,7 @@ def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="
     """Print a retrieve child after the work. True when emitted."""
     if not terse_resolve_child_enabled( env, token ):
         return False
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_resolve_child(
                     env, badge, token, *fields, status=status, remark=remark,
             ) + "\n"
@@ -3024,12 +3058,34 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
     if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )
-    sys.stdout.write(
+    _write_terse_stdout(
             format_terse_location_line(
                     token, path, env, scope="sconstruct", kind=kind,
             ) + "\n"
     )
     sys.stdout.flush()
+
+
+def heartbeat_print_cmd_line( cmd, target, source, env ):
+    """SCons ``PRINT_CMD_LINE_FUNC`` when the quiet+TTY heartbeat is diverting.
+
+    Must clear ``working`` *before* writing the command to the stdout pipe.
+    ``posix_spawn`` uses ``suppress_output=True``, so ``Popen2`` never prints
+    the command itself — SCons prints here first, then SPAWN runs. Clearing
+    only inside ``Popen2`` leaves the launcher free to append the command to
+    the status row. Uses the shared transcript lock under ``-j``.
+    """
+    try:
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( cmd + "\n" )
+        return
+    except Exception:
+        pass
+    sys.stdout.write( cmd + "\n" )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def terse_print_cmd_line( cmd, target, source, env ):
@@ -3190,7 +3246,7 @@ def _report_python_action( target, source, env, failed ):
         elif command and not _is_python_action_dump( command ):
             _write_command( command )
     note_terse_build_activity()
-    sys.stdout.write( status_line + "\n" )
+    _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
 
 def _wrap_action( action ):

@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2015-2024
+#          Copyright Jamie Allsop 2015-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -108,7 +108,31 @@ def unregister_secret( secret ):
         pass
 
 
-_log_handler = logging.StreamHandler()
+class _CuppaStreamHandler( logging.StreamHandler ):
+    """Stream handler that can divert INFO onto the quiet+TTY heartbeat."""
+
+    def emit( self, record ):
+        try:
+            from cuppa.utility import heartbeat as hb
+        except Exception:
+            hb = None
+        if hb is not None and hb.diverting():
+            if record.levelno == logging.INFO:
+                try:
+                    hb.show_info( mask_secrets( record.getMessage() ) )
+                except Exception:
+                    self.handleError( record )
+                return
+            if record.levelno < hb.suppress_below():
+                return
+            try:
+                hb.clear()
+            except Exception:
+                pass
+        logging.StreamHandler.emit( self, record )
+
+
+_log_handler = _CuppaStreamHandler()
 
 
 def initialise_logging():

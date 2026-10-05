@@ -8,7 +8,6 @@
 #   Git Source Control Management System
 #-------------------------------------------------------------------------------
 
-import logging
 import subprocess
 import shlex
 import os
@@ -146,8 +145,13 @@ class Git:
 
     @classmethod
     def _progress_enabled( cls ):
-        """Match HTTP/extract progress: show git ``--progress`` only at INFO or finer."""
-        return logger.isEnabledFor( logging.INFO )
+        """Match HTTP/extract progress: show git ``--progress`` only when allowed.
+
+        Quiet console (``-Q`` / ``-s``) keeps bars off even when INFO is
+        diverted onto the TTY heartbeat.
+        """
+        from cuppa.utility.heartbeat import multi_line_progress_allowed
+        return multi_line_progress_allowed()
 
 
     @classmethod

@@ -47,6 +47,45 @@ def strip_ansi( text ):
     return _ANSI_ESCAPE_RE.sub( '', text )
 
 
+def _clear_heartbeat():
+    """Drop the quiet+TTY status line before a transcript line replaces it."""
+    try:
+        from cuppa.utility.heartbeat import clear as clear_heartbeat
+        clear_heartbeat()
+    except Exception:
+        pass
+
+
+def _suppress_heartbeat( advance=True ):
+    """Hold the quiet heartbeat for a whole spawn (clear + no redraw)."""
+    try:
+        from cuppa.utility.heartbeat import suppress as suppress_heartbeat
+        suppress_heartbeat( advance=advance )
+    except Exception:
+        pass
+
+
+def _allow_heartbeat():
+    """Release a spawn hold on the quiet heartbeat."""
+    try:
+        from cuppa.utility.heartbeat import allow as allow_heartbeat
+        allow_heartbeat()
+    except Exception:
+        pass
+
+
+def _emit_transcript( line ):
+    """Print one build-transcript line; clear the quiet heartbeat first."""
+    try:
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( line + "\n" )
+        return
+    except Exception:
+        pass
+    _clear_heartbeat()
+    print( line )
+
+
 def command_available( command ):
     try:
         with open(os.devnull) as devnull:
@@ -72,11 +111,11 @@ class LineConsumer:
                     if self.processor:
                         line = self.processor( line )
                         if line:
-                            print( line )
+                            _emit_transcript( line )
                     else:
-                        print( line )
+                        _emit_transcript( line )
         except UnicodeDecodeError as error:
-            print( "WARNING: Ignoring unicode error {}".format( error ) )
+            _emit_transcript( "WARNING: Ignoring unicode error {}".format( error ) )
 
 
 
@@ -133,6 +172,7 @@ class IncrementalSubProcess:
                         inherit_process_env=inherit_process_env,
                     )
 
+        held_heartbeat = False
         try:
             process = None
             stderr_thread = None
@@ -143,8 +183,18 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
+            # Hold the TTY heartbeat for the whole spawn. Status was already
+            # revealed in place by PRINT_CMD_LINE_FUNC (or we erase in place
+            # here before echoing the command ourselves). Never advance — that
+            # left a blank row above every tool line.
+            _suppress_heartbeat( advance=False )
+            held_heartbeat = True
             if not suppress_output:
                 sys.stdout.write( " ".join(args_list) + "\n" )
+                try:
+                    sys.stdout.flush()
+                except Exception:
+                    pass
 
             popen_kwargs = dict( kwargs, close_fds=close_fds, shell=use_shell, universal_newlines=True )
             for key, value in child_popen_kwargs().items():
@@ -185,6 +235,8 @@ class IncrementalSubProcess:
             raise e
         finally:
             forget_child( process )
+            if held_heartbeat:
+                _allow_heartbeat()
 
 
     @classmethod
@@ -243,9 +295,9 @@ class Stream(object):
                     if self._processor:
                         line = self._processor( line )
                         if line:
-                            print( line )
+                            _emit_transcript( line )
                     else:
-                        print( line )
+                        _emit_transcript( line )
             self._queue.task_done()
         except Queue.Empty:
             logger.trace( "Stream Queue.Empty raised [{}]".format( self._name ) )
@@ -398,7 +450,7 @@ class SpawnedProcessor(object):
         if not self._terse:
             summary = self.summary( returncode )
             if summary:
-                print( summary )
+                _emit_transcript( summary )
             return
 
         command, target, source, env = take_terse_command()
@@ -413,7 +465,7 @@ class SpawnedProcessor(object):
                 env,
                 self.summary( returncode ),
         ):
-            print( line )
+            _emit_transcript( line )
 
 
 

@@ -18,11 +18,40 @@ import sys
 
 
 def write_report_lines( lines, out=None ):
-    """Emit report lines unprefixed — tree glyphs do not survive log labels."""
-    stream = out if out is not None else sys.stdout
+    """Emit report lines unprefixed — tree glyphs do not survive log labels.
+
+    When the quiet heartbeat is diverting and ``out`` is the default stdout
+    pipe, clear+write via ``heartbeat.write_report`` so a later status paint
+    cannot leave the banner glued to ``working …``. Interactive launchers
+    keep the banner on the progress TTY; piped launchers (CI, redirects)
+    also forward it on stdout. Explicit ``out`` streams keep the simple
+    clear+write path.
+    """
+    text = "".join( line + "\n" for line in lines )
+    if out is None:
+        try:
+            from cuppa.utility.heartbeat import diverting, write_report
+            if diverting():
+                write_report( text )
+                return
+        except Exception:
+            pass
+        try:
+            from cuppa.utility.heartbeat import clear as clear_heartbeat
+            clear_heartbeat()
+        except Exception:
+            pass
+        sys.stdout.write( text )
+        sys.stdout.flush()
+        return
+    try:
+        from cuppa.utility.heartbeat import clear as clear_heartbeat
+        clear_heartbeat()
+    except Exception:
+        pass
     for line in lines:
-        stream.write( line + "\n" )
-    stream.flush()
+        out.write( line + "\n" )
+    out.flush()
 
 
 def report_mode_banner( line, out=None ):

@@ -274,25 +274,44 @@ class Construct(object):
 
 
     @classmethod
-    def _set_verbosity_level( cls, cuppa_env ):
-        verbosity = None
+    def _set_verbosity_level( cls, cuppa_env, apply_quiet_heartbeat=False ):
+        """Apply Cuppa logger quiet / verbosity.
 
-        ## Check if -Q was passed on the command-line
-        scons_no_progress = cuppa_env.get_option( 'no_progress' )
-        if scons_no_progress:
-            verbosity = 'warn'
-
-        ## Check if -s, --quiet or --silent was passed on the command-line
-        scons_silent = cuppa_env.get_option( 'silent' )
-        if scons_silent:
-            verbosity = 'error'
+        Early call (before output options): classic quiet levels so configure
+        load stays quiet. After ``process_output_options``, call again with
+        ``apply_quiet_heartbeat=True`` so quiet+TTY can divert INFO onto the
+        heartbeat status line (including under ``--terse-output``, where the
+        status line fills gaps between transcript lines).
+        """
+        from cuppa.utility import heartbeat as quiet_heartbeat
 
         cuppa_verbosity = cuppa_env.get_option( 'verbosity' )
         if cuppa_verbosity:
-            verbosity = cuppa_verbosity
+            quiet_heartbeat.reset()
+            set_logging_level( cuppa_verbosity )
+            return
 
-        if verbosity:
-            set_logging_level( verbosity )
+        quiet_kind = None
+        ## Check if -s, --quiet or --silent was passed on the command-line
+        if cuppa_env.get_option( 'silent' ):
+            quiet_kind = 'error'
+        ## Check if -Q was passed on the command-line
+        elif cuppa_env.get_option( 'no_progress' ):
+            quiet_kind = 'warn'
+
+        if not quiet_kind:
+            return
+
+        if not apply_quiet_heartbeat:
+            quiet_heartbeat.reset()
+            set_logging_level( quiet_kind )
+            return
+
+        quiet_heartbeat.configure_quiet_console(
+                quiet_kind,
+                style=cuppa_env.get( 'quiet_heartbeat' ),
+                compact=bool( cuppa_env.get( 'terse_output' ) ),
+        )
 
 
     @classmethod
@@ -387,6 +406,9 @@ class Construct(object):
         # choice never arrives and a later read cannot see it either.
         self._configure.load()
         cuppa.core.output_options.process_output_options( cuppa_env )
+        # Re-apply quiet once output options are settled: quiet+TTY diverts
+        # INFO onto the heartbeat status line (works with terse and normal).
+        self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
@@ -402,10 +424,14 @@ class Construct(object):
 
         cuppa.version.check_current_version( cuppa_env['offline'] )
 
+        # Diverted INFO paints on /dev/tty; mode banners go through the stdout
+        # pipe. Emit the banner only after any status that should precede it,
+        # and never write the banner to the pipe *before* a status paint — the
+        # launcher can flush the banner onto the end of ``working …``.
+        logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
+
         if cuppa_env['offline']:
             report_mode_banner( as_info_label( "Running in OFFLINE mode" ) )
-
-        logger.info( "using sconstruct file [{}]".format( as_notice( cuppa_env['sconstruct_file'] ) ) )
 
         if dependencies_warning:
             logger.warn( dependencies_warning )
@@ -925,6 +951,17 @@ class Construct(object):
                                     'show_test_cases' in cuppa_env
                                     and cuppa_env['show_test_cases']
                             )
+                        else:
+                            # Quiet+TTY: clear Working before SCons echoes each
+                            # tool command (SPAWN itself uses suppress_output).
+                            try:
+                                from cuppa.utility.heartbeat import diverting
+                                if diverting():
+                                    env['PRINT_CMD_LINE_FUNC'] = (
+                                            cuppa.progress.heartbeat_print_cmd_line
+                                    )
+                            except Exception:
+                                pass
 
                     env['toolchain']       = toolchain
                     env['variant']         = variant
@@ -1016,6 +1053,15 @@ class Construct(object):
             cuppa_env['empty_env']['sconstruct_file'] = cuppa_env.get( 'sconstruct_file' ) or "sconstruct"
             cuppa_env['empty_env']['sconstruct_dir'] = cuppa_env.get( 'sconstruct_dir' ) or ""
             cuppa_env['empty_env']['base_path'] = cuppa_env.get( 'base_path' ) or ""
+        else:
+            try:
+                from cuppa.utility.heartbeat import diverting
+                if diverting():
+                    cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = (
+                            cuppa.progress.heartbeat_print_cmd_line
+                    )
+            except Exception:
+                pass
         projects   = cuppa_env.get_option( 'projects' )
         toolchains = cuppa_env['active_toolchains']
 
