@@ -4,7 +4,7 @@
 - **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); project **B** soak under `--cascade-plan -Q`; reconfirmed 2026-10-05 on `order_matcher` with `-Q --cascade-plan` while soaking [#356](https://github.com/ja11sop/cuppa/pull/356)
 - **Updated:** 2026-10-05
 - **Impact:** `patch` (log severity / heuristic; Filter match behaviour stays the same)
-- **PR:** (open)
+- **PR:** [#358](https://github.com/ja11sop/cuppa/pull/358)
 
 ## Problem
 
