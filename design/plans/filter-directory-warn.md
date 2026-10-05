@@ -1,7 +1,7 @@
 # Plan: Filter “probably a directory” warn hygiene
 
 - **Status:** proposal
-- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); project **B** soak under `--cascade-plan -Q`; reconfirmed 2026-10-05 on `order_matcher` with `-Q --cascade-plan` while soaking [#356](https://github.com/ja11sop/cuppa/pull/356). **Next after** [#356](https://github.com/ja11sop/cuppa/pull/356) (quiet+TTY heartbeat).
+- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); project **B** soak under `--cascade-plan -Q`; reconfirmed 2026-10-05 on `order_matcher` with `-Q --cascade-plan` while soaking [#356](https://github.com/ja11sop/cuppa/pull/356). Unblocked — quiet+TTY heartbeat shipped on [#356](https://github.com/ja11sop/cuppa/pull/356).
 - **Updated:** 2026-10-05
 - **Impact:** `patch` (log severity / heuristic; Filter match behaviour should stay the same)
 
@@ -56,4 +56,4 @@ Do not warn for not-yet-built extensionless file targets.
 |------|--------|
 | Problem / intent | Settled in this proposal |
 | Reconfirmed on tip soak | 2026-10-05 — `order_matcher` `-Q --cascade-plan` still warns on `…/final/order_matcher` |
-| Implementation | **After #356 merges** — not in the heartbeat PR |
+| Implementation | Ready — [#356](https://github.com/ja11sop/cuppa/pull/356) merged |
