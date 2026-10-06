@@ -4,7 +4,7 @@
 - **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
 - **Updated:** 2026-10-06
 - **Impact:** minor — UX / shared progress channel; no package format change
-- **PR:** (open)
+- **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)
 ## Problem
 
 Long byte-moving work still looks hung in places the shipped download-progress
