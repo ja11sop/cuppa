@@ -1,7 +1,7 @@
 # Shared HTTP download progress
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (follow-on polish after toolchains-as-deps); location archive downloads (Boost etc.); toolchain archives ([#160](https://github.com/ja11sop/cuppa/issues/160) / [#164](https://github.com/ja11sop/cuppa/pull/164)); GitLab package `wget` path; [#165](https://github.com/ja11sop/cuppa/pull/165)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (follow-on polish after toolchains-as-deps); location archive downloads (Boost etc.); toolchain archives ([#160](https://github.com/ja11sop/cuppa/issues/160) / [#164](https://github.com/ja11sop/cuppa/pull/164)); GitLab package `wget` path; [#165](https://github.com/ja11sop/cuppa/pull/165); terse/quiet unify → [`../plans/transfer-and-archive-progress.md`](../plans/transfer-and-archive-progress.md)
 - **Updated:** 2026-08-09
 - **Impact:** patch (UX / internal helper; no new public CLI flags)
 
