@@ -370,8 +370,83 @@ def normalize_style( style ):
 
 
 def style():
-    """Current quiet heartbeat animation style."""
+    """Current alive-animation style (``pulse``, ``spinner``, or ``off``)."""
     return _style
+
+
+def compact():
+    """True when status lines use the terse arrow-aligned alive head."""
+    return _compact
+
+
+def muted():
+    """True when transfer / heartbeat status should use subdued colours (quiet)."""
+    return _quiet_console
+
+
+def set_presentation( *, style=None, compact=None ):
+    """Remember alive style and terse compact layout for transfer status.
+
+    Called from output options so download / compress progress can share the
+    same pulse/spinner choice and terse arrow alignment even when ``-Q`` is
+    not diverting INFO onto the heartbeat line.
+    """
+    global _style, _compact
+    if style is not None:
+        _style = normalize_style( style )
+    if compact is not None:
+        _compact = bool( compact )
+
+
+def format_alive_prefix( spin, *, style=None, compact=None ):
+    """Return ``(plain_prefix, styled_prefix)`` for a transfer status line.
+
+    ``style`` / ``compact`` default to the current presentation. Style ``off``
+    yields empty prefixes (progress bar / metrics only).
+    """
+    chosen = normalize_style( style if style is not None else _style )
+    use_compact = _compact if compact is None else bool( compact )
+    if chosen == _STYLE_OFF:
+        return '', ''
+
+    if chosen == _STYLE_SPINNER:
+        widget_plain = _spinner_frame( spin )
+        head_plain = "{} {}".format( _WORKING, widget_plain )
+        from cuppa.colourise import as_subdued
+        widget_styled = as_subdued( widget_plain )
+        head_styled = as_subdued( _WORKING + ' ' ) + widget_styled
+    else:
+        widget_plain = _pulse_frame( spin )
+        head_plain = widget_plain
+        head_styled = _style_pulse( widget_plain )
+
+    if use_compact:
+        pad = max( _arrow_column() - len( head_plain ), 1 )
+        plain = head_plain + ( ' ' * pad ) + '→ '
+        from cuppa.colourise import as_subdued
+        styled = head_styled + as_subdued( ( ' ' * pad ) + '→ ' )
+        return plain, styled
+
+    plain = head_plain + _GAP
+    from cuppa.colourise import as_subdued
+    styled = head_styled + as_subdued( _GAP )
+    return plain, styled
+
+
+def transfer_progress_allowed():
+    """Whether cuppa-owned transfer / archive progress may print.
+
+    Under quiet+TTY with an alive style, muted transfer status is allowed (the
+    shared engine replaces the old multi-line bar gate). Quiet with
+    ``--quiet-heartbeat=off``, or quiet without a TTY, stays silent. Otherwise
+    matches the historical INFO gate.
+    """
+    if _quiet_console:
+        if _style == _STYLE_OFF:
+            return False
+        return bool( _heartbeat_active )
+    from cuppa.log import logger
+    return logger.isEnabledFor( logging.INFO )
 
 
 def write_transcript( text, *, dwell=True ):

@@ -14,6 +14,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tarfile
 import zipfile
 
 # cuppa imports
@@ -347,24 +348,65 @@ def strip_package_archive_extension( name ):
     return text
 
 
-def create_package_archive( archive_path, working_dir, source_dir ):
-    """Create ``archive_path`` from ``working_dir/source_dir`` (zip on Windows, tar.gz elsewhere)."""
-    if archive_path.endswith( '.zip' ):
-        root = os.path.join( working_dir, source_dir )
-        with zipfile.ZipFile( archive_path, 'w', zipfile.ZIP_DEFLATED ) as archive:
-            for dirpath, _dirnames, filenames in os.walk( root ):
-                for filename in filenames:
-                    full = os.path.join( dirpath, filename )
+def create_package_archive( archive_path, working_dir, source_dir, show_progress=None, reporter=None ):
+    """Create ``archive_path`` from ``working_dir/source_dir`` (zip on Windows, tar.gz elsewhere).
+
+    Reports compress progress through the shared transfer reporter when allowed
+    (alive + progress bar / compact / muted per console mode).
+    """
+    from cuppa.utility.download import _maybe_reporter
+
+    root = os.path.join( working_dir, source_dir )
+    files = []
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk( root ):
+        for filename in filenames:
+            full = os.path.join( dirpath, filename )
+            files.append( full )
+            try:
+                total += os.path.getsize( full )
+            except OSError:
+                pass
+
+    progress = _maybe_reporter( show_progress, reporter, 'Compressing' )
+    label = os.path.basename( archive_path ) or archive_path
+    bytes_so_far = [ 0 ]
+    if progress:
+        progress.begin( label, total if total > 0 else None, action='Compressing' )
+
+    try:
+        if archive_path.endswith( '.zip' ):
+            with zipfile.ZipFile( archive_path, 'w', zipfile.ZIP_DEFLATED ) as archive:
+                for full in files:
                     arcname = os.path.relpath( full, working_dir )
                     archive.write( full, arcname )
+                    try:
+                        bytes_so_far[0] += os.path.getsize( full )
+                    except OSError:
+                        pass
+                    if progress:
+                        progress.update( bytes_so_far[0] )
+        else:
+            with tarfile.open( archive_path, 'w:gz' ) as handle:
+                for full in files:
+                    arcname = os.path.relpath( full, working_dir )
+                    handle.add( full, arcname=arcname )
+                    try:
+                        bytes_so_far[0] += os.path.getsize( full )
+                    except OSError:
+                        pass
+                    if progress:
+                        progress.update( bytes_so_far[0] )
+        if progress:
+            progress.done( bytes_so_far[0] if bytes_so_far[0] else total )
         return 0
-    command = 'tar -C {working_dir} -czf {package_file} {source_dir}'.format(
-            working_dir = working_dir,
-            package_file = archive_path,
-            source_dir = source_dir,
-    )
-    completion = subprocess.run( shlex.split( command ) )
-    return completion.returncode
+    except Exception:
+        if progress is not None:
+            try:
+                progress.done( bytes_so_far[0] )
+            except Exception:
+                pass
+        raise
 
 
 def newest_mtime_under( root ):

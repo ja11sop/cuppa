@@ -337,3 +337,78 @@ def test_is_http_not_found():
     assert dl.is_http_not_found( dl.DownloadError( 'missing', http_status=404 ) )
     assert not dl.is_http_not_found( dl.DownloadError( 'denied', http_status=403 ) )
     assert not dl.is_http_not_found( dl.DownloadError( 'no status' ) )
+
+
+def test_format_progress_line_compact_drops_bar():
+    full = dl.format_progress_line( 'f.bin', 50, 100, 1.0, compact=False )
+    compact = dl.format_progress_line( 'f.bin', 50, 100, 1.0, compact=True )
+    assert '[' in full and ']' in full
+    assert '[' not in compact
+    assert '50%' in compact
+    assert 'ETA' in compact
+
+
+def test_reporter_tty_includes_alive_prefix():
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=False )
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=True, clock=clock, tty_interval_s=0.1,
+    )
+    reporter.begin( 'file.tgz', total_size=100 )
+    clock.advance( 0.2 )
+    reporter.update( 50 )
+    reporter.done( 100 )
+    plain = strip_ansi( stream.getvalue() )
+    assert 'file.tgz' in plain
+    assert '|' in plain  # pulse widget frame
+    hb.reset()
+
+
+def test_reporter_tty_alive_off_keeps_bar_only():
+    from cuppa.output_processor import strip_ansi
+
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=0.1,
+            alive_style='off',
+    )
+    reporter.begin( 'file.tgz', total_size=100 )
+    clock.advance( 0.2 )
+    reporter.done( 100 )
+    plain = strip_ansi( stream.getvalue() )
+    assert 'Downloading file.tgz' in plain
+    assert plain.lstrip( '\r' ).startswith( 'Downloading' )
+
+
+def test_reporter_compact_terse_form():
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=0.1,
+            compact=True,
+            alive_style='pulse',
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
+    clock.advance( 0.2 )
+    reporter.done( 200 )
+    plain = strip_ansi( stream.getvalue() )
+    assert '→' in plain
+    assert 'Compressing pkg.tar.gz' in plain
+    assert '[' not in plain  # compact drops bar
+    hb.reset()

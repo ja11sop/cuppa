@@ -659,3 +659,40 @@ def test_verbosity_override_resets_heartbeat():
     set_logging_level( 'info' )
     assert hb.diverting() is False
     assert hb.multi_line_progress_allowed() is True
+
+
+def test_transfer_progress_allowed_under_quiet_tty():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='pulse' )
+    assert hb.transfer_progress_allowed() is True
+    assert hb.multi_line_progress_allowed() is False
+    hb.reset()
+
+
+def test_transfer_progress_denied_when_quiet_heartbeat_off():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='off' )
+    assert hb.transfer_progress_allowed() is False
+    hb.reset()
+
+
+def test_format_alive_prefix_pulse_and_off():
+    plain, styled = hb.format_alive_prefix( 0, style='pulse', compact=False )
+    assert plain.startswith( '|' )
+    assert plain.endswith( '  ' )
+    assert styled
+    plain_off, styled_off = hb.format_alive_prefix( 0, style='off' )
+    assert plain_off == '' and styled_off == ''
+
+
+def test_set_presentation_updates_style_and_compact():
+    hb.reset()
+    hb.set_presentation( style='spinner', compact=True )
+    assert hb.style() == 'spinner'
+    assert hb.compact() is True
+    plain, _styled = hb.format_alive_prefix( 1, style=None, compact=None )
+    assert 'working' in plain
+    assert '→' in plain
+    hb.reset()

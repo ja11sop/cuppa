@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Transfer and archive progress shares the quiet-heartbeat **alive** widget
+  (``pulse`` / ``spinner``) with an improved progress bar / percent metrics:
+  download, extract, and package ``compress`` (``create_package_archive``) use
+  the same ``ProgressReporter`` engine. Normal interactive mode shows alive +
+  bar; ``--terse-output`` uses a compact arrow-aligned form without the bar;
+  ``-Q`` / ``-s`` on a TTY shows a **muted** transfer line (unless
+  ``--quiet-heartbeat=off``); non-TTY / CI gets periodic whole lines. Package
+  archive create no longer runs a silent multi-minute ``tar``. Upload progress
+  is still open. Plan: ``design/plans/transfer-and-archive-progress.md``.
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
@@ -26,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   piped (CI, redirects) the banner is also written on the stdout pipe so
   capture still sees it. Terse and command transcript writes are serialised
   under ``-j`` / ``--parallel``. Pipelines and CI stay silent (no heartbeat
-  without a TTY). Git/download progress bars remain off under quiet.
+  without a TTY). Transfer/archive progress under quiet uses the same muted
+  alive+metrics line (not the old multi-line download bar).
   ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang

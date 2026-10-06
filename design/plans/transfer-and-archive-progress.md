@@ -1,10 +1,10 @@
 # Plan: Uniform transfer and archive progress (terse-aware)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
 - **Updated:** 2026-10-06
 - **Impact:** minor — UX / shared progress channel; no package format change
-
+- **PR:** (open)
 ## Problem
 
 Long byte-moving work still looks hung in places the shipped download-progress
@@ -130,19 +130,23 @@ mode-tuned views, not three independent progress products.
 
 ## Open questions
 
-1. Caption spelling for phases and how densely alive + bar compose in each mode.
+1. Caption spelling for phases and how densely alive + bar compose in each mode
+   (current: normal = alive + bar; terse = alive + metrics without bar; quiet =
+   muted; soak may tweak).
 2. Whether upload uses Cuppa’s HTTP stack (progress for free) or keeps curl with
    `--progress-meter` parsed into the reporter.
-3. Zip / tar create: progress by uncompressed bytes vs file count when total
-   size is expensive to precompute.
-4. Migration: compress-first then migrate download look, or one PR for both.
+3. Zip / tar create: currently uncompressed file bytes as they are added (good
+   enough; precompute walk cost accepted for package trees).
 
 ## Progress
 
 | Item | Status |
 |------|--------|
 | Need split from cmake package-archive-progress | Done — this proposal |
-| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) (bar; to share engine with alive) |
-| Settled: shared alive + progress capabilities; mode-tuned presentation; TTY vs CI | Done — this revision |
-| Compress / upload + shared engine | Proposal |
-| Implementation | Not started |
+| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) (bar; engine now shared with alive) |
+| Settled: shared alive + progress capabilities; mode-tuned presentation; TTY vs CI | Done |
+| Shared engine (`format_alive_prefix`, `transfer_progress_allowed`, `ProgressReporter` composition) | Done on this PR |
+| Compress (`create_package_archive`) | Done on this PR — Python tar/zip with reporter |
+| Download / extract migrate onto composed reporter | Done on this PR (same `ProgressReporter`) |
+| Upload (curl) | Open — follow-on |
+| Docs / CHANGELOG / soak | In progress |

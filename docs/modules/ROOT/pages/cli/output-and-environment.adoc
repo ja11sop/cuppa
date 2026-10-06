@@ -26,7 +26,7 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--dump` | Dump the default construction environment and exit
 | `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued status line (`|<pulse>|  <message>`, or `working <spinner>  <message>`) so a long wait does not look hung
 | `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay. The same TTY status line applies when info would otherwise be hidden
-| `--quiet-heartbeat=STYLE` | Quiet+TTY status: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off` (no status line). Ignored without a TTY or when `--verbosity=` overrides quiet
+| `--quiet-heartbeat=STYLE` | Alive animation for quiet+TTY heartbeat **and** transfer/archive progress: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off`. Under `-Q`/`-s`, `off` disables the status line; without a TTY or when `--verbosity=` overrides quiet, heartbeat diversion is off
 |===
 
 `-Q` is usually the right companion for `--list-*`: it removes SCons framing and multi-line info
@@ -43,9 +43,12 @@ erasing the status row (warnings and reports still clear at once). After a trans
 captions stay pending until a short idle gap (latest message wins) so a fast
 `terse`–info–`terse` burst cannot seize the row and stall the next line. Terse transcript writes
 are serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from
-the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent. Git and
-download progress bars stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or
-`-s` would set and disables the status line. `--minimal-output` filters Cuppa's processed build
+the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent for the
+heartbeat. Download, extract, and package compress progress share the same alive widget plus
+percent/bytes metrics: under quiet+TTY they appear **muted** on the status line (unless
+`--quiet-heartbeat=off`); under `--terse-output` the layout is compact (arrow-aligned, no ASCII
+bar); non-TTY builds get periodic whole lines. `--verbosity=LEVEL` overrides the level `-Q` or
+`-s` would set and disables the heartbeat diversion. `--minimal-output` filters Cuppa's processed build
 messages and needs that processor, so it cannot be combined with `--raw-output` or
 `--scons-output`.
 

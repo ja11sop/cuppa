@@ -491,3 +491,32 @@ def test_build_package_seed_keeps_latest_stage_is_concrete( tmp_path, monkeypatc
     seed = read_publish_manifest( str( publisher_root ) )
     assert staged["version"] == "1.92"
     assert seed["version"] == "latest"
+
+
+def test_create_package_archive_reports_progress( tmp_path ):
+    import io
+    from cuppa.utility import download as dl
+
+    working = tmp_path / 'final'
+    source = working / 'pkg' / '1.0.0'
+    ( source / 'include' ).mkdir( parents=True )
+    ( source / 'include' / 'a.h' ).write_text( 'x' * 5000, encoding='utf-8' )
+    ( source / 'lib' ).mkdir( parents=True )
+    ( source / 'lib' / 'a.a' ).write_bytes( b'y' * 8000 )
+    archive = tmp_path / 'pkg-1.0.0.tar.gz'
+    stream = io.StringIO()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=False, line_interval_s=0, action='Compressing',
+            alive_style='off',
+    )
+    rc = gitlab.create_package_archive(
+            str( archive ),
+            str( working ),
+            'pkg/1.0.0',
+            show_progress=True,
+            reporter=reporter,
+    )
+    assert rc == 0
+    assert archive.is_file() and archive.stat().st_size > 0
+    assert 'Compressing' in stream.getvalue()
+    assert 'pkg-1.0.0.tar.gz' in stream.getvalue()

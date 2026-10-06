@@ -119,6 +119,7 @@ def format_progress_bar( percent, width=_BAR_WIDTH, started=True ):
 
 def format_progress_line(
         label, bytes_so_far, total_size, elapsed_s, action='Downloading', started=True,
+        *, compact=False, muted=False, include_bar=None,
 ):
     """One progress line (no trailing newline). Shared TTY and non-TTY shape.
 
@@ -126,34 +127,91 @@ def format_progress_line(
     emphasised info colour; target size is emphasised only (normal foreground);
     transferred size is info (also emphasised at 100%); rate is subdued.
     Fields are padded before ANSI wraps so columns stay aligned.
+
+    ``compact`` drops the ASCII bar (terse / narrow status). ``muted`` subdues
+    colours for quiet console. ``include_bar`` overrides the compact default.
     """
+    if include_bar is None:
+        include_bar = not compact
     rate = ( float( bytes_so_far ) / elapsed_s ) if elapsed_s > 0 else 0.0
     rate_text = as_subdued( "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH ) )
     done_text = human_size( bytes_so_far ).rjust( _SIZE_WIDTH )
     verb = action or 'Downloading'
+
+    def _paint_info( text ):
+        if muted:
+            return as_subdued( text )
+        return as_info( text )
+
+    def _paint_emph_info( text ):
+        if muted:
+            return as_subdued( text )
+        return _as_emphasised_info( text )
+
+    def _paint_emph( text ):
+        if muted:
+            return as_subdued( text )
+        return as_emphasised( text )
+
     if total_size and total_size > 0:
         percent = min( 100.0, 100.0 * float( bytes_so_far ) / float( total_size ) )
         remaining = max( 0.0, float( total_size ) - float( bytes_so_far ) )
         eta = ( remaining / rate ) if rate > 0 else None
-        percent_text = _as_emphasised_info( "{:3.0f}%".format( percent ) )
+        percent_text = _paint_emph_info( "{:3.0f}%".format( percent ) )
         if percent >= 100.0:
-            done = _as_emphasised_info( done_text )
+            done = _paint_emph_info( done_text )
         else:
-            done = as_info( done_text )
-        total = as_emphasised( human_size( total_size ) )
-        return "{} {}  {} {}  {}/{}  {}  ETA {}".format(
+            done = _paint_info( done_text )
+        total = _paint_emph( human_size( total_size ) )
+        if include_bar:
+            if muted:
+                bar = _muted_progress_bar( percent, started=started )
+            else:
+                bar = format_progress_bar( percent, started=started )
+            return "{} {}  {} {}  {}/{}  {}  ETA {}".format(
+                    verb,
+                    label,
+                    percent_text,
+                    bar,
+                    done,
+                    total,
+                    rate_text,
+                    format_duration( eta ).rjust( _ETA_WIDTH ),
+            )
+        return "{} {}  {}  {}/{}  {}  ETA {}".format(
                 verb,
                 label,
                 percent_text,
-                format_progress_bar( percent, started=started ),
                 done,
                 total,
                 rate_text,
                 format_duration( eta ).rjust( _ETA_WIDTH ),
         )
     return "{} {}  {} transferred  {}".format(
-            verb, label, as_info( done_text ), rate_text,
+            verb, label, _paint_info( done_text ), rate_text,
     )
+
+
+def _muted_progress_bar( percent, width=_BAR_WIDTH, started=True ):
+    """ASCII bar with subdued fill (quiet transfer status)."""
+    if width < 1:
+        width = 1
+    if percent >= 100.0:
+        fill = '=' * width
+    elif not started:
+        fill = ' ' * width
+    else:
+        filled = int( round( percent * width / 100.0 ) )
+        if filled <= 0:
+            fill = '>' + ' ' * ( width - 1 )
+        else:
+            filled = min( filled, width - 1 )
+            fill = ( '=' * filled ) + '>' + ( ' ' * ( width - filled - 1 ) )
+    if fill.strip():
+        glyphs = fill.rstrip( ' ' )
+        spaces = ' ' * ( len( fill ) - len( glyphs ) )
+        return '[' + as_subdued( glyphs ) + spaces + ']'
+    return '[' + fill + ']'
 
 
 def open_progress_stream():
@@ -194,7 +252,13 @@ def open_progress_stream():
 
 
 class ProgressReporter( object ):
-    """Throttle and render transfer progress on a stream (tty or stderr)."""
+    """Throttle and render transfer progress on a stream (tty or stderr).
+
+    Combines the quiet-heartbeat **alive** widget (pulse/spinner) with the
+    download **progress** metrics / bar. Presentation is mode-tuned: fuller bar
+    in normal interactive mode, compact (no bar, arrow-aligned alive head) under
+    terse, muted colours under quiet. Non-TTY emits periodic whole lines.
+    """
 
     def __init__(
             self,
@@ -206,6 +270,9 @@ class ProgressReporter( object ):
             line_percent_step=_LINE_PERCENT_STEP,
             action='Downloading',
             owns_stream=False,
+            compact=None,
+            muted=None,
+            alive_style=None,
     ):
         if stream is None:
             stream, detected_tty, owns_stream = open_progress_stream()
@@ -229,8 +296,52 @@ class ProgressReporter( object ):
         self._next_line_percent = line_percent_step
         self._last_line = ''
         self._finished = False
+        self._spin = 0
+        self._alive_style = alive_style
+        self._compact = compact
+        self._muted = muted
+        self._resolve_presentation()
+
+    def _resolve_presentation( self ):
+        from cuppa.utility import heartbeat as hb
+        if self._alive_style is None:
+            self._alive_style = hb.style()
+        if self._compact is None:
+            self._compact = hb.compact()
+        if self._muted is None:
+            self._muted = hb.muted()
+        # Alive animation only on a rewriting TTY; CI lines stay metrics-only.
+        self._show_alive = bool( self._is_tty ) and self._alive_style != 'off'
+
+    def _compose_line( self, bytes_so_far, elapsed, started ):
+        body = format_progress_line(
+                self._label,
+                bytes_so_far,
+                self._total,
+                elapsed,
+                action=self._action,
+                started=started,
+                compact=bool( self._compact ),
+                muted=bool( self._muted ),
+        )
+        if not self._show_alive:
+            return body
+        from cuppa.utility.heartbeat import format_alive_prefix
+        _plain, styled_prefix = format_alive_prefix(
+                self._spin,
+                style=self._alive_style,
+                compact=bool( self._compact ),
+        )
+        return styled_prefix + body
 
     def begin( self, label, total_size=None, action=None ):
+        from cuppa.utility import heartbeat as hb
+        # Own the status row while a transfer runs (do not fight INFO diversion).
+        try:
+            hb.clear()
+        except Exception:
+            pass
+        self._resolve_presentation()
         self._label = label or 'transfer'
         if action is not None:
             self._action = action
@@ -240,6 +351,7 @@ class ProgressReporter( object ):
         self._next_line_percent = self._line_percent_step
         self._last_line = ''
         self._finished = False
+        self._spin = 0
         # Empty bar (not started), then tip so the transfer looks armed at 0%.
         self._bar_started = False
         self.update( 0, force=True )
@@ -270,14 +382,9 @@ class ProgressReporter( object ):
                     ):
                         self._next_line_percent += self._line_percent_step
 
-        line = format_progress_line(
-                self._label,
-                bytes_so_far,
-                self._total,
-                elapsed,
-                action=self._action,
-                started=self._bar_started,
-        )
+        if self._show_alive:
+            self._spin += 1
+        line = self._compose_line( bytes_so_far, elapsed, started=self._bar_started )
         self._emit( line, newline=not self._is_tty )
         self._last_emit = now
         self._last_line = line
@@ -307,16 +414,16 @@ class ProgressReporter( object ):
             bytes_so_far = 0
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
-        line = format_progress_line(
-                self._label,
-                bytes_so_far,
-                self._total,
-                elapsed,
-                action=self._action,
-                started=True,
-        )
+        if self._show_alive:
+            self._spin += 1
+        line = self._compose_line( bytes_so_far, elapsed, started=True )
         self._emit( line, newline=True )
         self._last_line = line
+        try:
+            from cuppa.utility import heartbeat as hb
+            hb.clear()
+        except Exception:
+            pass
         if self._owns_stream:
             try:
                 self._stream.close()
@@ -342,8 +449,8 @@ def _content_length( response ):
 
 def _maybe_reporter( show_progress, reporter, action ):
     if show_progress is None:
-        from cuppa.utility.heartbeat import multi_line_progress_allowed
-        show_progress = multi_line_progress_allowed()
+        from cuppa.utility.heartbeat import transfer_progress_allowed
+        show_progress = transfer_progress_allowed()
     if not show_progress:
         return None
     if reporter is not None:
