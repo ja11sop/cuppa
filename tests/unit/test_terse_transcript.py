@@ -2090,3 +2090,29 @@ def test_progress_hook_installs_once_and_can_be_removed():
         assert wrapped is not original
     finally:
         main.BuildTask.make_ready = original
+
+
+def test_format_terse_transfer_resolve_source_dest( monkeypatch ):
+    env = _layout_env()
+    env["terse_output"] = True
+    monkeypatch.setattr(
+            progress, "as_colour",
+            lambda meaning, text: "<{}>{}</{}>".format( meaning, text, meaning ),
+    )
+    progress.write_terse_resolve_prepare( env )
+    line = progress.format_terse_transfer_resolve(
+            env,
+            "download",
+            "https://example.com/remote/some_package.tgz",
+            "/tmp/downloads/some_package.tgz",
+    )
+    assert "<success>[download]</success>" in line
+    assert "https://example.com/remote/some_package.tgz" in line
+    assert "→" in line
+    extract = progress.format_terse_transfer_resolve(
+            env,
+            "extract",
+            "/tmp/downloads/some_package.tgz",
+            "/tmp/deps/pkg",
+    )
+    assert "<success>[extract]</success>" in extract

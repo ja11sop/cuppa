@@ -348,7 +348,7 @@ def test_format_progress_line_compact_drops_bar():
     assert 'ETA' in compact
 
 
-def test_reporter_tty_includes_alive_prefix():
+def test_reporter_normal_tty_has_no_alive_widget():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
 
@@ -364,51 +364,81 @@ def test_reporter_tty_includes_alive_prefix():
     reporter.update( 50 )
     reporter.done( 100 )
     plain = strip_ansi( stream.getvalue() )
-    assert 'file.tgz' in plain
-    assert '|' in plain  # pulse widget frame
+    assert 'Downloading file.tgz' in plain
+    assert '[' in plain  # progress bar
+    assert not plain.lstrip( '\r' ).startswith( '|' )  # no pulse head
+    assert plain.endswith( '\n' )  # durable final line
     hb.reset()
 
 
-def test_reporter_tty_alive_off_keeps_bar_only():
-    from cuppa.output_processor import strip_ansi
-
-    stream = io.StringIO()
-    clock = FakeClock()
-    reporter = dl.ProgressReporter(
-            stream=stream,
-            is_tty=True,
-            clock=clock,
-            tty_interval_s=0.1,
-            alive_style='off',
-    )
-    reporter.begin( 'file.tgz', total_size=100 )
-    clock.advance( 0.2 )
-    reporter.done( 100 )
-    plain = strip_ansi( stream.getvalue() )
-    assert 'Downloading file.tgz' in plain
-    assert plain.lstrip( '\r' ).startswith( 'Downloading' )
-
-
-def test_reporter_compact_terse_form():
+def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
 
     hb.reset()
     stream = io.StringIO()
     clock = FakeClock()
+
+    def sleep( seconds ):
+        clock.advance( seconds )
+
     reporter = dl.ProgressReporter(
             stream=stream,
             is_tty=True,
             clock=clock,
+            sleep=sleep,
             tty_interval_s=0.1,
             compact=True,
             alive_style='pulse',
     )
     reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
-    clock.advance( 0.2 )
+    # Below idle gate — no paint yet.
+    clock.advance( 0.05 )
+    reporter.update( 50 )
+    assert stream.getvalue() == ''
+    # Past idle gate — paint alive + → + bar.
+    clock.advance( 0.20 )
+    reporter.update( 100 )
+    mid = strip_ansi( stream.getvalue() )
+    assert '→' in mid
+    assert '|' in mid
+    assert '[' in mid  # terse keeps the bar
+    assert 'Compressing pkg.tar.gz' in mid
     reporter.done( 200 )
-    plain = strip_ansi( stream.getvalue() )
-    assert '→' in plain
-    assert 'Compressing pkg.tar.gz' in plain
-    assert '[' not in plain  # compact drops bar
+    # Overwrite clears the ephemeral status (no durable 100% newline).
+    assert not strip_ansi( stream.getvalue() ).rstrip().endswith( '100%' )
     hb.reset()
+
+
+def test_reporter_terse_non_tty_stays_silent():
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=False,
+            clock=clock,
+            line_interval_s=0,
+            compact=True,
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=100 )
+    clock.advance( 1.0 )
+    reporter.update( 50 )
+    reporter.done( 100 )
+    assert stream.getvalue() == ''
+
+
+def test_reporter_fast_terse_never_reveals():
+    """Transfers that finish before the idle gate never flash progress."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            compact=True,
+            alive_style='pulse',
+    )
+    reporter.begin( 'tiny.bin', total_size=10 )
+    clock.advance( 0.05 )  # still under idle gate
+    reporter.done( 10 )
+    assert stream.getvalue() == ''

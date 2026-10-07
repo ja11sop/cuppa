@@ -277,13 +277,30 @@ def _dwell_remaining_s():
         return max( 0.0, _cycle_duration_s() - elapsed )
 
 
-def _ensure_min_dwell():
+def idle_gate_s():
+    """Seconds of quiet before a deferred status line may paint."""
+    return _IDLE_GATE_S
+
+
+def cycle_duration_s():
+    """Wall time for one full pulse or spinner cycle."""
+    return _cycle_duration_s()
+
+
+def ensure_min_dwell( visible_since=None ):
     """Wait out one full animation cycle before erase-for-transcript.
 
     Warn/error ``clear()`` stays immediate. Tool ``reveal`` / spawn ``suppress``
     wait so ``working`` does not flash and vanish unreadably.
+
+    ``visible_since`` (monotonic/wall matching the transfer clock) lets a
+    transfer progress line dwell even when the heartbeat status row is clear.
     """
-    remaining = _dwell_remaining_s()
+    if visible_since is not None:
+        elapsed = _clock() - visible_since
+        remaining = max( 0.0, _cycle_duration_s() - elapsed )
+    else:
+        remaining = _dwell_remaining_s()
     if remaining > 0:
         _sleep( remaining )
 
@@ -464,7 +481,7 @@ def write_transcript( text, *, dwell=True ):
     until the stream has been quiet for ``_IDLE_GATE_S``.
     """
     if dwell and diverting():
-        _ensure_min_dwell()
+        ensure_min_dwell()
     with _transcript_lock:
         if diverting():
             with _draw_lock:
@@ -797,7 +814,7 @@ def reveal():
     with _draw_lock:
         if not _last_line and _body is None:
             return
-    _ensure_min_dwell()
+    ensure_min_dwell()
     with _draw_lock:
         if not _last_line and _body is None:
             return
@@ -821,7 +838,7 @@ def suppress( advance=False ):
     with _draw_lock:
         showing = bool( _last_line ) or _body is not None
     if showing:
-        _ensure_min_dwell()
+        ensure_min_dwell()
     with _draw_lock:
         _suppress_depth += 1
         _mark_transcript_unlocked()

@@ -996,6 +996,15 @@ class GitlabPackagePublisher:
             )
             return returncode
 
+        try:
+            import cuppa.progress
+            stage = os.path.join( env['abs_final_dir'], self._package_source_dir )
+            cuppa.progress.write_terse_transfer_action(
+                    env, "compress", stage, archive_path,
+            )
+        except Exception:
+            pass
+
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
 
@@ -1112,6 +1121,15 @@ class GitlabPackagePublisher:
             )
             return returncode
 
+        try:
+            import cuppa.progress
+            stage = os.path.join( abs_final, self._package_source_dir )
+            cuppa.progress.write_terse_transfer_action(
+                    env, "compress", stage, archive_path,
+            )
+        except Exception:
+            pass
+
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] amended".format( as_info( archive_path ) ) )
         return None
@@ -1134,6 +1152,16 @@ class GitlabPackagePublisher:
 
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
+        try:
+            import cuppa.progress
+            cuppa.progress.write_terse_transfer_action(
+                    env,
+                    "publish",
+                    str( self._package_archive ),
+                    getattr( self, '_package_location', None ) or str( self._package_archive ),
+            )
+        except Exception:
+            pass
         try:
             from cuppa.package_managers.package_cascade import record_nested_upload
             record_nested_upload(

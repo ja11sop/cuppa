@@ -1834,7 +1834,10 @@ def _paths_style( nodes ):
     return ""
 
 
-_TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
+_TRANSFER_ACTIONS = (
+        "copy", "move", "expand", "render",
+        "download", "extract", "compress", "upload", "publish",
+)
 _PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
 _TRANSFORM_ACTIONS = ( "markdown", "asciidoc" )
 _RUN_FILE_ACTIONS = ( "run", "test", "benchmark" )
@@ -3051,6 +3054,74 @@ def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="
             ) + "\n"
     )
     sys.stdout.flush()
+    return True
+
+
+def _transfer_end_from_path( path, env, dest ):
+    """Colour one side of a transfer ``source → dest`` for a raw path or URL."""
+    text = str( path or "" ).strip()
+    if not text:
+        return ""
+    # Remote URLs must not go through filesystem location matching.
+    lower = text.lower()
+    if lower.startswith( ( "http://", "https://", "ftp://", "ssh://" ) ):
+        return as_subdued( text )
+    token, relative = _locate( text, env )
+    if token or relative:
+        shown = _coloured_transfer_end( token, relative, dest=dest )
+        if shown:
+            return shown
+    return as_subdued( text )
+
+
+def format_terse_transfer_resolve( env, action, source, dest, status="ok" ):
+    """Global / resolve form: ``→ [download] url → <downloads>/file``."""
+    badge = _resolve_child_badge( str( action or "download" ), status )
+    lead = _location_map_prefix( env, badge )
+    left = _transfer_end_from_path( source, env, dest=False )
+    right = _transfer_end_from_path( dest, env, dest=True )
+    return lead + " " + left + " " + as_subdued( "→" ) + " " + right
+
+
+def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
+    """Print a resolve-phase transfer identity line. True when emitted."""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    if not _terse_prepare_written:
+        return False
+    _write_terse_stdout(
+            format_terse_transfer_resolve(
+                    env, action, source, dest, status=status,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
+def write_terse_transfer_action( env, action, source, dest, status="ok", count=True ):
+    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line."""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    holder = type( "T", (), {} )()
+    holder.path = dest
+    attributes = type( "A", (), {} )()
+    attributes.cuppa_terse_action = str( action or "download" )
+    attributes.cuppa_terse_paths = "transfer"
+    holder.attributes = attributes
+    line = format_terse_line(
+            status,
+            "",
+            [ holder ],
+            [ source ],
+            env,
+            count=count,
+    )
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    if count:
+        note_terse_status_emitted()
+    else:
+        note_terse_nested_action()
     return True
 
 

@@ -254,10 +254,15 @@ def open_progress_stream():
 class ProgressReporter( object ):
     """Throttle and render transfer progress on a stream (tty or stderr).
 
-    Combines the quiet-heartbeat **alive** widget (pulse/spinner) with the
-    download **progress** metrics / bar. Presentation is mode-tuned: fuller bar
-    in normal interactive mode, compact (no bar, arrow-aligned alive head) under
-    terse, muted colours under quiet. Non-TTY emits periodic whole lines.
+    Mode-tuned (see ``transfer-and-archive-progress``):
+
+    * **Normal TTY** — progress bar only (no alive widget); full colour; show
+      immediately; durable final 100% line.
+    * **Normal + quiet TTY** — same shape, muted; idle-gate reveal; overwrite
+      (clear) on completion.
+    * **Terse TTY** — alive (unless ``off``) + ``→`` + progress bar, muted;
+      idle-gate reveal; overwrite on completion after one animation dwell.
+    * **Non-TTY** — periodic lines in **normal** only (silent under terse).
     """
 
     def __init__(
@@ -265,6 +270,7 @@ class ProgressReporter( object ):
             stream=None,
             is_tty=None,
             clock=None,
+            sleep=None,
             tty_interval_s=_TTY_INTERVAL_S,
             line_interval_s=_LINE_INTERVAL_S,
             line_percent_step=_LINE_PERCENT_STEP,
@@ -281,6 +287,7 @@ class ProgressReporter( object ):
         self._stream = stream
         self._owns_stream = owns_stream
         self._clock = clock if clock is not None else time.time
+        self._sleep = sleep if sleep is not None else time.sleep
         if is_tty is None:
             is_tty = bool( getattr( self._stream, 'isatty', lambda: False )() )
         self._is_tty = is_tty
@@ -297,23 +304,44 @@ class ProgressReporter( object ):
         self._last_line = ''
         self._finished = False
         self._spin = 0
-        self._alive_style = alive_style
-        self._compact = compact
-        self._muted = muted
+        self._alive_style_override = alive_style
+        self._compact_override = compact
+        self._muted_override = muted
+        self._ever_painted = False
+        self._visible_since = None
         self._resolve_presentation()
 
     def _resolve_presentation( self ):
         from cuppa.utility import heartbeat as hb
-        if self._alive_style is None:
+        if self._alive_style_override is None:
             self._alive_style = hb.style()
-        if self._compact is None:
+        else:
+            self._alive_style = self._alive_style_override
+        if self._compact_override is None:
             self._compact = hb.compact()
-        if self._muted is None:
-            self._muted = hb.muted()
-        # Alive animation only on a rewriting TTY; CI lines stay metrics-only.
-        self._show_alive = bool( self._is_tty ) and self._alive_style != 'off'
+        else:
+            self._compact = bool( self._compact_override )
+        quiet = hb.muted()
+        terse = bool( self._compact )
+        if self._muted_override is None:
+            # Terse progress is always muted; quiet mutes normal too.
+            self._muted = terse or quiet
+        else:
+            self._muted = bool( self._muted_override )
+        # Alive only under terse + TTY (unless style off).
+        self._show_alive = (
+                bool( self._is_tty ) and terse and self._alive_style != 'off'
+        )
+        self._terse = terse
+        self._quiet = quiet
+        # Idle reveal: terse always; normal only when quiet. Plain normal = immediate.
+        self._use_reveal_gate = bool( self._is_tty ) and ( terse or quiet )
+        self._overwrite_on_done = bool( self._is_tty ) and ( terse or quiet )
+        # Non-TTY periodic lines only outside terse.
+        self._emit_non_tty = ( not self._is_tty ) and ( not terse )
 
     def _compose_line( self, bytes_so_far, elapsed, started ):
+        # Always include the bar on TTY (terse keeps bar; compact only affects alive).
         body = format_progress_line(
                 self._label,
                 bytes_so_far,
@@ -321,22 +349,31 @@ class ProgressReporter( object ):
                 elapsed,
                 action=self._action,
                 started=started,
-                compact=bool( self._compact ),
+                compact=False,
                 muted=bool( self._muted ),
+                include_bar=True,
         )
-        if not self._show_alive:
+        if not self._is_tty or not self._terse:
             return body
         from cuppa.utility.heartbeat import format_alive_prefix
-        _plain, styled_prefix = format_alive_prefix(
-                self._spin,
-                style=self._alive_style,
-                compact=bool( self._compact ),
-        )
-        return styled_prefix + body
+        if self._show_alive:
+            _plain, styled_prefix = format_alive_prefix(
+                    self._spin,
+                    style=self._alive_style,
+                    compact=True,
+            )
+            return styled_prefix + body
+        # Terse + alive off: still arrow-align the progress bar.
+        try:
+            from cuppa.progress import terse_arrow_column
+            indent = max( 0, int( terse_arrow_column() ) )
+        except Exception:
+            indent = 14
+        from cuppa.colourise import as_subdued
+        return as_subdued( ( ' ' * indent ) + '→ ' ) + body
 
     def begin( self, label, total_size=None, action=None ):
         from cuppa.utility import heartbeat as hb
-        # Own the status row while a transfer runs (do not fight INFO diversion).
         try:
             hb.clear()
         except Exception:
@@ -352,17 +389,27 @@ class ProgressReporter( object ):
         self._last_line = ''
         self._finished = False
         self._spin = 0
-        # Empty bar (not started), then tip so the transfer looks armed at 0%.
-        self._bar_started = False
-        self.update( 0, force=True )
+        self._ever_painted = False
+        self._visible_since = None
         self._bar_started = True
-        self.update( 0, force=True )
+        if not self._use_reveal_gate:
+            # Immediate arm: empty tip then started tip (classic download look).
+            self._bar_started = False
+            self.update( 0, force=True )
+            self._bar_started = True
+            self.update( 0, force=True )
 
     def update( self, bytes_so_far, force=False ):
         if self._finished:
             return
+        if not self._is_tty and not self._emit_non_tty:
+            return
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
+        if self._use_reveal_gate:
+            from cuppa.utility.heartbeat import idle_gate_s
+            if elapsed < idle_gate_s():
+                return
         if not force and self._last_emit is not None:
             if self._is_tty:
                 if ( now - self._last_emit ) < self._tty_interval_s:
@@ -388,12 +435,12 @@ class ProgressReporter( object ):
         self._emit( line, newline=not self._is_tty )
         self._last_emit = now
         self._last_line = line
+        if not self._ever_painted:
+            self._ever_painted = True
+            self._visible_since = now
 
     def _emit( self, line, newline ):
         if self._is_tty:
-            # Always return to column 0 so done() replaces the last rewrite
-            # instead of appending after it. Pad by visible width so ANSI
-            # colour codes do not leave trailing glyphs from a longer line.
             width = max( visible_len( self._last_line ), visible_len( line ) )
             self._stream.write( '\r' + pad_visible( line, width ) )
             if newline:
@@ -406,6 +453,17 @@ class ProgressReporter( object ):
         except Exception:
             pass
 
+    def _clear_line( self ):
+        if not self._is_tty or not self._last_line:
+            return
+        width = visible_len( self._last_line )
+        self._stream.write( '\r' + ( ' ' * width ) + '\r' )
+        try:
+            self._stream.flush()
+        except Exception:
+            pass
+        self._last_line = ''
+
     def done( self, bytes_so_far=None ):
         if self._finished:
             return
@@ -414,11 +472,25 @@ class ProgressReporter( object ):
             bytes_so_far = 0
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
-        if self._show_alive:
-            self._spin += 1
-        line = self._compose_line( bytes_so_far, elapsed, started=True )
-        self._emit( line, newline=True )
-        self._last_line = line
+        if self._ever_painted:
+            if self._show_alive and self._visible_since is not None:
+                from cuppa.utility.heartbeat import cycle_duration_s
+                remaining = max(
+                        0.0,
+                        cycle_duration_s() - ( now - self._visible_since ),
+                )
+                if remaining > 0:
+                    self._sleep( remaining )
+                    now = self._clock()
+                    elapsed = max( 0.0, now - ( self._started or now ) )
+            if self._overwrite_on_done:
+                self._clear_line()
+            else:
+                if self._show_alive:
+                    self._spin += 1
+                line = self._compose_line( bytes_so_far, elapsed, started=True )
+                self._emit( line, newline=True )
+                self._last_line = line
         try:
             from cuppa.utility import heartbeat as hb
             hb.clear()

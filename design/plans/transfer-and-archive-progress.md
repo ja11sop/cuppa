@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
-- **Updated:** 2026-10-06
+- **Updated:** 2026-10-07
 - **Impact:** minor — UX / shared progress channel; no package format change
 - **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)
 ## Problem
@@ -73,26 +73,39 @@ One Cuppa approach for **download, upload, compress, and extract** progress that
 
 ### Shared capabilities, mode-tuned presentation
 
-Analogous to quiet heartbeat (same widget head; normal quiet vs terse compact
-arrow form; muted colours; clear before transcript):
-
 | Capability | Role |
 |------------|------|
-| **Alive** | Pulse or spinner — process is working (existing `--quiet-heartbeat` styles) |
-| **Progress** | Improved bar / percent / bytes / rate / ETA — how far through this transfer |
-| **Phase caption** | `download` / `extract` / `compress` / `upload` + label |
-| **Throttle + clear** | Shared rewrite stream, transcript lock, idle-gate coexistence |
+| **Alive** | Pulse or spinner — terse TTY only (unless `--quiet-heartbeat=off`) |
+| **Progress bar** | Percent / bytes / rate / ETA bar — normal and terse |
+| **Idle reveal** | Do not paint progress until the idle gate (~0.2s) has elapsed — **except** normal TTY without `-Q`/`-s` (show immediately). Fast small transfers never flash |
+| **Dwell** | If progress (and alive) was shown, wait one full animation cycle before clearing / printing the next transcript line |
+| **Overwrite** | Ephemeral `\r` status: clear on completion (no durable 100% newline) when muted/overwrite applies |
 
-| Mode | Presentation (sketch — exact spelling TBD) |
-|------|-----------------------------------------------|
-| Interactive, **normal** | Alive + fuller progress (bar and/or percent/bytes/rate); full colour |
-| Interactive, **`--terse-output`** | Same capabilities, **compact** layout (arrow-aligned / denser — parallel to heartbeat’s terse form); clear before counted terse lines |
-| Interactive, **`-Q` / `-s`** | Same capabilities, **muted**; off if `--quiet-heartbeat=off`; do not resurrect a loud multi-line private dialect |
-| **Non-TTY / CI** | No `\r` rewrite; periodic whole-line updates (phase + percent or bytes), throttled — useful in build logs |
+| Mode | TTY presentation |
+|------|------------------|
+| **Normal** (no quiet) | **No** alive widget; progress bar in full colour; show immediately; final 100% line may remain (durable) |
+| **Normal + `-Q`/`-s`** | Same as normal (no alive) but **muted**; idle-gate reveal; **overwrite** on completion |
+| **`--terse-output`** (± `-Q`/`-s`) | Alive (unless `off`) + `→` + progress **bar**, always **muted**; idle-gate reveal; overwrite on completion; then a durable terse identity line |
+| **Non-TTY / CI** | Periodic whole lines **only in normal** mode (not under `--terse-output`) |
 
-Exact composition (when bar appears vs percent-only, how alive sits next to the
-bar) is an implementation soak detail — the requirement is **one engine**,
-mode-tuned views, not three independent progress products.
+### Terse completion identity (durable)
+
+After a transfer finishes under `--terse-output`, print an identity line (progress
+status already cleared). Global / resolve form:
+
+```text
+              → [download] https://example.com/…/pkg.tgz → <downloads>/pkg.tgz
+              → [extract]  <downloads>/pkg.tgz → <dependencies>/<variant>/pkg
+```
+
+Variant / action form (ordinary terse ledger):
+
+```text
+   6/  8 ·  19% [ok]   test/matching_engine · gcc16_dbg_… · download · url → <final>/…
+              → [ok]   test/matching_engine · gcc16_dbg_… · extract · <final>/… → <artefacts>/…
+```
+
+Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 
 ### Unify the stacks (not erase the bar)
 
@@ -130,12 +143,10 @@ mode-tuned views, not three independent progress products.
 
 ## Open questions
 
-1. Caption spelling for phases and how densely alive + bar compose in each mode
-   (current: normal = alive + bar; terse = alive + metrics without bar; quiet =
-   muted; soak may tweak).
-2. Whether upload uses Cuppa’s HTTP stack (progress for free) or keeps curl with
-   `--progress-meter` parsed into the reporter.
-3. Zip / tar create: currently uncompressed file bytes as they are added (good
+1. Whether upload uses Cuppa’s HTTP stack (progress for free) or keeps curl with
+   `--progress-meter` parsed into the reporter (publish identity line exists;
+   live upload bar still open).
+2. Zip / tar create: currently uncompressed file bytes as they are added (good
    enough; precompute walk cost accepted for package trees).
 
 ## Progress
@@ -143,10 +154,10 @@ mode-tuned views, not three independent progress products.
 | Item | Status |
 |------|--------|
 | Need split from cmake package-archive-progress | Done — this proposal |
-| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) (bar; engine now shared with alive) |
-| Settled: shared alive + progress capabilities; mode-tuned presentation; TTY vs CI | Done |
-| Shared engine (`format_alive_prefix`, `transfer_progress_allowed`, `ProgressReporter` composition) | Done on this PR |
-| Compress (`create_package_archive`) | Done on this PR — Python tar/zip with reporter |
-| Download / extract migrate onto composed reporter | Done on this PR (same `ProgressReporter`) |
-| Upload (curl) | Open — follow-on |
+| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) |
+| Settled presentation (normal / terse / quiet / idle / CI) | Done — this revision |
+| Shared engine + mode-tuned `ProgressReporter` | Done on this PR |
+| Compress (`create_package_archive`) | Done on this PR |
+| Terse completion identity (download / extract / compress / publish) | Done on this PR |
+| Upload live progress bar | Open — follow-on |
 | Docs / CHANGELOG / soak | In progress |

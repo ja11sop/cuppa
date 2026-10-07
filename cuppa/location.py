@@ -323,8 +323,9 @@ class Location(object):
 
 
     @classmethod
-    def extract( cls, filename, target_dir ):
+    def extract( cls, filename, target_dir, cuppa_env=None ):
         os.makedirs( target_dir )
+        extracted = False
         if tarfile.is_tarfile( filename ):
             try:
                 size_text = human_size( os.path.getsize( filename ) )
@@ -352,6 +353,7 @@ class Location(object):
                             as_info( format_duration( time.time() - started ) ),
                     )
             )
+            extracted = True
 
         if zipfile.is_zipfile( filename ):
             try:
@@ -380,9 +382,16 @@ class Location(object):
                             as_info( format_duration( time.time() - started ) ),
                     )
             )
+            extracted = True
 
         while cls.remove_common_top_directory_under( target_dir ):
             pass
+
+        if extracted and cuppa_env is not None:
+            import cuppa.progress
+            cuppa.progress.write_terse_transfer_resolve(
+                    cuppa_env, "extract", filename, target_dir,
+            )
 
 
     @classmethod
@@ -516,7 +525,11 @@ class Location(object):
                     as_info( cached_archive ),
                     as_info( location )
             ) )
-            self.extract( cached_archive, local_dir_with_sub_dir )
+            self.extract(
+                    cached_archive,
+                    local_dir_with_sub_dir,
+                    cuppa_env=self._cuppa_env,
+            )
         else:
             terse = self._terse_retrieve()
             if not terse:
@@ -538,8 +551,12 @@ class Location(object):
                                 as_info( location ),
                                 as_info( cached_archive )
                         ) )
-                    self._terse_child( "download" )
-                    self.extract( cached_archive, local_dir_with_sub_dir )
+                    self._terse_transfer( "download", location, cached_archive )
+                    self.extract(
+                            cached_archive,
+                            local_dir_with_sub_dir,
+                            cuppa_env=self._cuppa_env,
+                    )
                 else:
                     handle, filename = tempfile.mkstemp( prefix='cuppa-download-' )
                     os.close( handle )
@@ -554,15 +571,19 @@ class Location(object):
                                     as_info( location ),
                                     as_info( filename )
                             ) )
-                        self._terse_child( "download" )
-                        self.extract( filename, local_dir_with_sub_dir )
+                        self._terse_transfer( "download", location, filename )
+                        self.extract(
+                                filename,
+                                local_dir_with_sub_dir,
+                                cuppa_env=self._cuppa_env,
+                        )
                     finally:
                         if os.path.isfile( filename ):
                             os.remove( filename )
             except DownloadError as error:
-                self._terse_child(
-                        "download", status="error",
-                        remark="download failed, no extract available",
+                self._terse_transfer(
+                        "download", location, "",
+                        status="error",
                 )
                 if not terse:
                     logger.error( "Download of [{}] failed with error [{}]".format(
@@ -1175,6 +1196,17 @@ class Location(object):
         return cuppa.progress.write_terse_resolve_child(
                 env, badge, self._terse_token(), *fields,
                 status=status, remark=remark,
+        )
+
+
+    def _terse_transfer( self, action, source, dest, status="ok" ):
+        """Resolve-phase download/extract identity: ``→ [download] src → dest``."""
+        import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
+        return cuppa.progress.write_terse_transfer_resolve(
+                env, action, source, dest, status=status,
         )
 
 
