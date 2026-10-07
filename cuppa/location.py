@@ -600,6 +600,7 @@ class Location(object):
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
         terse = self._terse_retrieve()
+        rev_note = ( rev_options and  " on {}".format( str(rev_options) ) or "" )
         if not terse:
             logger.info( "Updating [{}] in [{}]{} at [{}]".format(
                     as_info( location ),
@@ -607,8 +608,16 @@ class Location(object):
                     ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
                     as_info( version )
             ) )
+        # Terse skips multi-line INFO, which would otherwise arm the quiet
+        # heartbeat; pip's git fetch is quiet and has no Cuppa progress bar.
+        # operation_status supplies the missing start trigger / alive wait.
+        from cuppa.utility.heartbeat import operation_status
+        status_msg = "Updating [{}] in [{}]{} at [{}]".format(
+                location, local_dir_with_sub_dir, rev_note, version,
+        )
         try:
-            update( vcs_backend, local_dir_with_sub_dir, rev_options )
+            with operation_status( status_msg ):
+                update( vcs_backend, local_dir_with_sub_dir, rev_options )
             logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
             self._terse_child( "update", branch or "", revision or version )
             return
@@ -618,8 +627,9 @@ class Location(object):
                     and git.Git.is_tags_fetch_failure( error )
             ):
                 try:
-                    git.Git.fetch_tags_force( local_dir_with_sub_dir )
-                    update( vcs_backend, local_dir_with_sub_dir, rev_options )
+                    with operation_status( status_msg ):
+                        git.Git.fetch_tags_force( local_dir_with_sub_dir )
+                        update( vcs_backend, local_dir_with_sub_dir, rev_options )
                     self._terse_child( "update", branch or "", revision or version )
                     if not terse:
                         logger.info(
@@ -653,7 +663,9 @@ class Location(object):
         max_attempts = 2
         attempt = 1
         terse = self._terse_retrieve()
+        from cuppa.utility.heartbeat import operation_status
         while attempt <= max_attempts:
+            attempt_note = attempt > 1 and " (attempt {})".format( str(attempt) ) or ""
             if not terse or attempt > 1:
                 logger.info( "{} [{}] into [{}]{}".format(
                         action,
@@ -661,8 +673,12 @@ class Location(object):
                         as_info( local_dir_with_sub_dir ),
                         attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
                 ) )
+            status_msg = "{} [{}] into [{}]{}".format(
+                    action, location, local_dir_with_sub_dir, attempt_note,
+            )
             try:
-                obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
+                with operation_status( status_msg ):
+                    obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
                 logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                 self._terse_child( "clone" )
                 break

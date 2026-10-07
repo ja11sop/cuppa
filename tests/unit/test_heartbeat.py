@@ -696,3 +696,54 @@ def test_set_presentation_updates_style_and_compact():
     assert 'working' in plain
     assert '→' in plain
     hb.reset()
+
+
+def test_operation_status_under_diverting_uses_heartbeat( monkeypatch ):
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='pulse' )
+    seen = []
+
+    def fake_show( message ):
+        seen.append( message )
+
+    monkeypatch.setattr( hb, 'show_info', fake_show )
+    with hb.operation_status( 'Updating [libfoo] in [/tmp/libfoo]' ):
+        assert seen == [ 'Updating [libfoo] in [/tmp/libfoo]' ]
+    hb.reset()
+
+
+def test_operation_status_terse_tty_reveals_after_idle_gate( monkeypatch ):
+    from cuppa.output_processor import strip_ansi
+    import cuppa.utility.download as download_mod
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    # Worker thread advances the shared fake clock when it sleeps.
+    lock = __import__( 'threading' ).Lock()
+
+    def sleep( seconds ):
+        with lock:
+            clock.advance( seconds )
+
+    monkeypatch.setattr( hb, '_clock', clock )
+    monkeypatch.setattr( hb, '_sleep', sleep )
+    monkeypatch.setattr(
+            download_mod, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setattr( hb, '_IDLE_GATE_S', 0.05 )
+    monkeypatch.setattr( hb, '_PULSE_INTERVAL_S', 0.01 )
+    monkeypatch.setattr( hb, '_PULSE_REST_INTERVAL_S', 0.01 )
+
+    with hb.operation_status( 'Updating [libfoo]' ):
+        # Let the worker run past the idle gate and paint at least once.
+        import time as time_mod
+        for _ in range( 40 ):
+            if 'Updating [libfoo]' in strip_ansi( stream.getvalue() ):
+                break
+            time_mod.sleep( 0.01 )
+        assert 'Updating [libfoo]' in strip_ansi( stream.getvalue() )
+    hb.reset()

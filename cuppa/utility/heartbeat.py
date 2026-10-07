@@ -28,6 +28,7 @@ import os
 import sys
 import threading
 import time
+from contextlib import contextmanager
 
 
 # Message changes throttle slightly slower than the pulse tick.
@@ -744,6 +745,124 @@ def configure_quiet_console(
     _heartbeat_active = True
     # Generate INFO so the handler can divert it; multi-line INFO stays off.
     set_logging_level( 'info' )
+
+
+@contextmanager
+def operation_status( message ):
+    """Keep the console alive during a long wait (git update, clone, …).
+
+    Location retrieve uses pip's quiet ``git fetch``, so Cuppa owns no byte
+    bar there. This arms the same alive presentation the transfer engine uses:
+
+    * **Quiet diverting** — caption on the heartbeat (idle-gate aware, like INFO).
+    * **Terse + TTY** (not quiet) — alive + ``→`` + message after the idle gate;
+      pulse while waiting; dwell one cycle and clear on exit.
+    * **Otherwise** — no-op (callers still ``logger.info`` when not terse).
+
+    Under ``--terse-output`` the retrieve path skips multi-line INFO so the
+    heartbeat would never see a start trigger without this helper.
+    """
+    from cuppa.output_processor import strip_ansi
+
+    text = strip_ansi( ( message or '' ).replace( '\n', ' ' ) ).strip()
+    if not text:
+        yield
+        return
+
+    if diverting():
+        show_info( text )
+        try:
+            yield
+        finally:
+            ensure_min_dwell()
+            clear()
+        return
+
+    if not _compact or _style == _STYLE_OFF:
+        yield
+        return
+
+    from cuppa.utility.download import open_progress_stream
+    from cuppa.utility.storage import pad_visible, visible_len
+
+    stream, is_tty, owns = open_progress_stream()
+    if not is_tty:
+        if owns and stream is not None:
+            try:
+                stream.close()
+            except Exception:
+                pass
+        yield
+        return
+
+    stop = threading.Event()
+    state = {
+            'painted': False,
+            'since': None,
+            'spin': 0,
+            'last': '',
+    }
+
+    def _paint():
+        from cuppa.colourise import as_subdued
+        plain_prefix, styled_prefix = format_alive_prefix(
+                state['spin'], style=_style, compact=True,
+        )
+        line = styled_prefix + as_subdued( text )
+        width = max( visible_len( state['last'] ), visible_len( line ) )
+        try:
+            stream.write( '\r' + pad_visible( line, width ) )
+            stream.flush()
+        except Exception:
+            pass
+        state['last'] = line
+        state['spin'] += 1
+
+    def _run():
+        # Idle reveal: fast ops never flash; medium waits get alive.
+        # Use ``_clock`` / ``_sleep`` so tests can drive time without wall waits.
+        deadline = _clock() + _IDLE_GATE_S
+        while _clock() < deadline:
+            if stop.is_set():
+                return
+            _sleep( min( 0.02, deadline - _clock() ) )
+        if stop.is_set():
+            return
+        state['painted'] = True
+        state['since'] = _clock()
+        while not stop.is_set():
+            _paint()
+            if _style == _STYLE_PULSE and _pulse_frame( state['spin'] ) == _PULSE_REST:
+                delay = _PULSE_REST_INTERVAL_S
+            else:
+                delay = _PULSE_INTERVAL_S
+            end = _clock() + delay
+            while _clock() < end and not stop.is_set():
+                _sleep( min( 0.02, end - _clock() ) )
+
+    thread = threading.Thread( target=_run, name='cuppa-operation-status' )
+    thread.daemon = True
+    thread.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        thread.join( timeout=2.0 )
+        if state['painted'] and state['since'] is not None:
+            remaining = max( 0.0, _cycle_duration_s() - ( _clock() - state['since'] ) )
+            if remaining > 0:
+                _sleep( remaining )
+            width = visible_len( state['last'] )
+            try:
+                stream.write( '\r' + ( ' ' * width ) + '\r' )
+                stream.flush()
+            except Exception:
+                pass
+        if owns and stream is not None:
+            try:
+                stream.close()
+            except Exception:
+                pass
 
 
 def show_info( message ):

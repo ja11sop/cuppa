@@ -160,4 +160,5 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | Compress (`create_package_archive`) | Done on this PR |
 | Terse completion identity (download / extract / compress / publish) | Done on this PR |
 | Upload live progress bar | Open — follow-on |
+| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO) |
 | Docs / CHANGELOG / soak | In progress |
