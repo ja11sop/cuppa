@@ -600,7 +600,6 @@ class Location(object):
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
         terse = self._terse_retrieve()
-        rev_note = ( rev_options and  " on {}".format( str(rev_options) ) or "" )
         if not terse:
             logger.info( "Updating [{}] in [{}]{} at [{}]".format(
                     as_info( location ),
@@ -611,10 +610,13 @@ class Location(object):
         # Terse skips multi-line INFO, which would otherwise arm the quiet
         # heartbeat; pip's git fetch is quiet and has no Cuppa progress bar.
         # operation_status supplies the missing start trigger / alive wait.
+        # Keep the status caption short (token / folder) — full URL + RevOptions
+        # wraps the TTY and shears under ``\\r`` without -Q.
         from cuppa.utility.heartbeat import operation_status
-        status_msg = "Updating [{}] in [{}]{} at [{}]".format(
-                location, local_dir_with_sub_dir, rev_note, version,
-        )
+        status_label = self._terse_token() or os.path.basename(
+                str( local_dir_with_sub_dir ).rstrip( '\\/' )
+        ) or location
+        status_msg = "Updating [{}]".format( status_label )
         try:
             with operation_status( status_msg ):
                 update( vcs_backend, local_dir_with_sub_dir, rev_options )
@@ -673,9 +675,10 @@ class Location(object):
                         as_info( local_dir_with_sub_dir ),
                         attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
                 ) )
-            status_msg = "{} [{}] into [{}]{}".format(
-                    action, location, local_dir_with_sub_dir, attempt_note,
-            )
+            status_label = self._terse_token() or os.path.basename(
+                    str( local_dir_with_sub_dir ).rstrip( '\\/' )
+            ) or location
+            status_msg = "{} [{}]{}".format( action, status_label, attempt_note )
             try:
                 with operation_status( status_msg ):
                     obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )

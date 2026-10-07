@@ -118,6 +118,15 @@ _last_transcript_at = 0.0
 # They do not age out to the pulse-only anchor until cleared or replaced.
 _sticky = False
 _pending_is_sticky = False
+# Terse-without-quiet operation_status owns a TTY status row separate from
+# quiet diversion; transcript writes must clear it the same way.
+_operation_stop = None
+_operation_stream = None
+_operation_owns = False
+_operation_last = ''
+_operation_painted = False
+_operation_since = None
+_operation_lock = threading.Lock()
 
 
 def _terminal_columns():
@@ -484,9 +493,14 @@ def write_transcript( text, *, dwell=True ):
 
     Marks the transcript idle gate so INFO captions stay pending (latest wins)
     until the stream has been quiet for ``_IDLE_GATE_S``.
+
+    Also clears a terse-without-quiet ``operation_status`` row so ``→ [update]``
+    cannot share the physical line with a pulse rewrite.
     """
     if dwell and diverting():
         ensure_min_dwell()
+    # Drop any standalone operation_status paint before the transcript line.
+    clear_operation_status( dwell=dwell )
     with _transcript_lock:
         if diverting():
             with _draw_lock:
@@ -647,6 +661,7 @@ def reset():
     global _last_transcript_at, _sticky, _pending_is_sticky
     with _draw_lock:
         _cancel_idle_flush_unlocked()
+    clear_operation_status( dwell=False )
     clear()
     if _owns_stream and _stream is not None:
         try:
@@ -760,6 +775,48 @@ def configure_quiet_console(
     set_logging_level( 'info' )
 
 
+def clear_operation_status( dwell=True ):
+    """Erase a terse-without-quiet ``operation_status`` row, if any."""
+    global _operation_stop, _operation_stream, _operation_owns
+    global _operation_last, _operation_painted, _operation_since
+    with _operation_lock:
+        stop = _operation_stop
+        stream = _operation_stream
+        owns = _operation_owns
+        painted = _operation_painted
+        since = _operation_since
+        last = _operation_last
+        _operation_stop = None
+        _operation_stream = None
+        _operation_owns = False
+        _operation_last = ''
+        _operation_painted = False
+        _operation_since = None
+    if stop is not None:
+        stop.set()
+    if not painted or stream is None:
+        if owns and stream is not None:
+            try:
+                stream.close()
+            except Exception:
+                pass
+        return
+    if dwell and since is not None:
+        remaining = max( 0.0, _cycle_duration_s() - ( _clock() - since ) )
+        if remaining > 0:
+            _sleep( remaining )
+    try:
+        stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
+        stream.flush()
+    except Exception:
+        pass
+    if owns:
+        try:
+            stream.close()
+        except Exception:
+            pass
+
+
 @contextmanager
 def operation_status( message ):
     """Keep the console alive during a long wait (git update, clone, …).
@@ -769,7 +826,8 @@ def operation_status( message ):
 
     * **Quiet diverting** — caption on the heartbeat (idle-gate aware, like INFO).
     * **Terse + TTY** (not quiet) — alive + ``→`` + message after the idle gate;
-      pulse while waiting; dwell one cycle and clear on exit.
+      pulse while waiting; dwell one cycle and clear on exit (and before any
+      terse transcript line via ``write_transcript``).
     * **Otherwise** — no-op (callers still ``logger.info`` when not terse).
 
     Under ``--terse-output`` the retrieve path skips multi-line INFO so the
@@ -797,7 +855,9 @@ def operation_status( message ):
         return
 
     from cuppa.utility.download import open_progress_stream
-    from cuppa.utility.storage import pad_visible, visible_len
+
+    # Replace any prior operation_status before starting a new one.
+    clear_operation_status( dwell=False )
 
     stream, is_tty, owns = open_progress_stream()
     if not is_tty:
@@ -810,31 +870,39 @@ def operation_status( message ):
         return
 
     stop = threading.Event()
-    state = {
-            'painted': False,
-            'since': None,
-            'spin': 0,
-            'last': '',
-    }
+    spin = [ 0 ]
 
     def _paint():
+        global _operation_last, _operation_painted, _operation_since
         from cuppa.colourise import as_subdued
+        from cuppa.output_processor import strip_ansi as _strip
+
+        if stop.is_set():
+            return
         plain_prefix, styled_prefix = format_alive_prefix(
-                state['spin'], style=_style, compact=True,
+                spin[0], style=_style, compact=True,
         )
-        line = styled_prefix + as_subdued( text )
-        width = max( visible_len( state['last'] ), visible_len( line ) )
-        try:
-            stream.write( '\r' + pad_visible( line, width ) )
-            stream.flush()
-        except Exception:
-            pass
-        state['last'] = line
-        state['spin'] += 1
+        cols = _terminal_columns()
+        budget = max( 1, cols - len( plain_prefix ) )
+        fitted = _fit_plain( _strip( text ), budget )
+        line = styled_prefix + as_subdued( fitted )
+        with _operation_lock:
+            # Cleared or superseded by another operation_status / transcript.
+            if _operation_stream is not stream or stop.is_set():
+                return
+            try:
+                # Same protocol as quiet heartbeat: no wrap, erase tail.
+                stream.write( _WRAP_OFF + '\r' + line + _ERASE_EOL )
+                stream.flush()
+            except Exception:
+                return
+            if not _operation_painted:
+                _operation_painted = True
+                _operation_since = _clock()
+            _operation_last = line
+        spin[0] += 1
 
     def _run():
-        # Idle reveal: fast ops never flash; medium waits get alive.
-        # Use ``_clock`` / ``_sleep`` so tests can drive time without wall waits.
         deadline = _clock() + _IDLE_GATE_S
         while _clock() < deadline:
             if stop.is_set():
@@ -842,17 +910,25 @@ def operation_status( message ):
             _sleep( min( 0.02, deadline - _clock() ) )
         if stop.is_set():
             return
-        state['painted'] = True
-        state['since'] = _clock()
         while not stop.is_set():
             _paint()
-            if _style == _STYLE_PULSE and _pulse_frame( state['spin'] ) == _PULSE_REST:
+            if _style == _STYLE_PULSE and _pulse_frame( spin[0] ) == _PULSE_REST:
                 delay = _PULSE_REST_INTERVAL_S
             else:
                 delay = _PULSE_INTERVAL_S
             end = _clock() + delay
             while _clock() < end and not stop.is_set():
                 _sleep( min( 0.02, end - _clock() ) )
+
+    with _operation_lock:
+        global _operation_stop, _operation_stream, _operation_owns
+        global _operation_last, _operation_painted, _operation_since
+        _operation_stop = stop
+        _operation_stream = stream
+        _operation_owns = bool( owns )
+        _operation_last = ''
+        _operation_painted = False
+        _operation_since = None
 
     thread = threading.Thread( target=_run, name='cuppa-operation-status' )
     thread.daemon = True
@@ -862,21 +938,7 @@ def operation_status( message ):
     finally:
         stop.set()
         thread.join( timeout=2.0 )
-        if state['painted'] and state['since'] is not None:
-            remaining = max( 0.0, _cycle_duration_s() - ( _clock() - state['since'] ) )
-            if remaining > 0:
-                _sleep( remaining )
-            width = visible_len( state['last'] )
-            try:
-                stream.write( '\r' + ( ' ' * width ) + '\r' )
-                stream.flush()
-            except Exception:
-                pass
-        if owns and stream is not None:
-            try:
-                stream.close()
-            except Exception:
-                pass
+        clear_operation_status( dwell=True )
 
 
 def show_info( message, sticky=False ):

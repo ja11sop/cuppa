@@ -19,9 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   periodic lines are **normal mode only**. Package archive create no longer runs
   a silent multi-minute ``tar``.   Location git update/clone under terse now arms
   ``operation_status`` so the idle-gate alive wait is not starved (retrieve skips
-  multi-line INFO and pip's ``git fetch`` is quiet). In-progress captions are
+  multi-line INFO and pip's ``git fetch`` is quiet).   In-progress captions are
   sticky (do not age out to the pulse-only anchor); ordinary event INFO still
-  ages out. Upload progress still open. Plan:
+  ages out. Terse-without-quiet ``operation_status`` uses the same wrap-off /
+  erase-EOL protocol as the quiet heartbeat, fits the caption to the TTY width,
+  and is cleared before each terse transcript line (so pulse frames no longer
+  shear into ``→ [update]``). Upload progress still open. Plan:
   ``design/plans/transfer-and-archive-progress.md``.
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
