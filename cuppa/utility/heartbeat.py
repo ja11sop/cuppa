@@ -114,6 +114,10 @@ _compact = False
 _transcript_lock = threading.Lock()
 # Monotonic time of the last stdout transcript write (0 = none yet).
 _last_transcript_at = 0.0
+# Sticky captions are in-progress (``operation_status``), not event INFO.
+# They do not age out to the pulse-only anchor until cleared or replaced.
+_sticky = False
+_pending_is_sticky = False
 
 
 def _terminal_columns():
@@ -603,8 +607,15 @@ def _arm_pulse():
 
 
 def _expire_message_unlocked( now ):
-    """Drop a stale caption; keep ``working`` + widget until the next INFO."""
+    """Drop a stale *event* caption; keep ``working`` + widget until the next INFO.
+
+    Sticky in-progress captions (``show_info(..., sticky=True)`` /
+    ``operation_status``) do not age out — they stay until ``clear()`` or a
+    newer sticky/operation message replaces them.
+    """
     global _body, _message_shown_at
+    if _sticky:
+        return False
     if not _body or not _message_shown_at:
         return False
     if ( now - _message_shown_at ) < _caption_hold_s():
@@ -633,7 +644,7 @@ def reset():
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
     global _message_shown_at, _visible_since, _style, _sleep, _compact
-    global _last_transcript_at
+    global _last_transcript_at, _sticky, _pending_is_sticky
     with _draw_lock:
         _cancel_idle_flush_unlocked()
     clear()
@@ -660,6 +671,8 @@ def reset():
     _style = _STYLE_PULSE
     _compact = False
     _last_transcript_at = 0.0
+    _sticky = False
+    _pending_is_sticky = False
     _clock = time.monotonic
     _sleep = time.sleep
 
@@ -770,7 +783,8 @@ def operation_status( message ):
         return
 
     if diverting():
-        show_info( text )
+        # In-progress: keep the caption until we clear (do not age out to pulse-only).
+        show_info( text, sticky=True )
         try:
             yield
         finally:
@@ -865,21 +879,33 @@ def operation_status( message ):
                 pass
 
 
-def show_info( message ):
+def show_info( message, sticky=False ):
     """Rewrite the status line with the latest INFO message (throttled).
 
     While a recent transcript write keeps the idle gate closed, only the
     latest message is remembered — it paints once the gate opens so a fast
     ``terse–info–terse`` stream cannot force full-cycle dwells.
+
+    ``sticky=True`` marks an **in-progress** caption (see ``operation_status``):
+    it does not age out to the pulse-only anchor. Ordinary INFO stays
+    event-style and ages out after the caption hold. A non-sticky INFO while
+    a sticky caption is held is remembered as pending and does not steal the
+    row; a newer sticky message replaces the current one.
     """
-    global _pending
+    global _pending, _pending_is_sticky
     if not _heartbeat_active or _stream is None:
         return
     text = ( message or '' ).replace( '\n', ' ' ).strip()
     if not text:
         return
     with _draw_lock:
+        if _sticky and not sticky:
+            # Keep the in-progress caption; coalesce event INFO for after clear.
+            _pending = text
+            _pending_is_sticky = False
+            return
         _pending = text
+        _pending_is_sticky = bool( sticky )
         if _suppress_depth:
             # Remember for after the spawn; do not fight the transcript.
             return
@@ -887,7 +913,13 @@ def show_info( message ):
         if not _transcript_is_idle( now ):
             _arm_idle_flush_unlocked()
             return
-        if _last_emit and ( now - _last_emit ) < _MESSAGE_INTERVAL_S:
+        # Sticky in-progress captions skip the event INFO throttle so a long
+        # wait arms immediately once the transcript idle gate is open.
+        if (
+                not sticky
+                and _last_emit
+                and ( now - _last_emit ) < _MESSAGE_INTERVAL_S
+        ):
             return
         _flush_unlocked( now )
 
@@ -901,7 +933,11 @@ def flush_pending():
         if not _transcript_is_idle( now ):
             _arm_idle_flush_unlocked()
             return
-        if _last_emit and ( now - _last_emit ) < _MESSAGE_INTERVAL_S:
+        if (
+                not _pending_is_sticky
+                and _last_emit
+                and ( now - _last_emit ) < _MESSAGE_INTERVAL_S
+        ):
             return
         _flush_unlocked( now )
 
@@ -981,14 +1017,16 @@ def allow():
 
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
-    global _message_shown_at, _visible_since
+    global _message_shown_at, _visible_since, _sticky, _pending_is_sticky
     _cancel_pulse()
     # Keep ``_pending`` when suppressing or clearing for transcript so INFO
     # during a busy stream can show after the idle gate; warn/report drops it.
     if not keep_pending:
         _pending = None
+        _pending_is_sticky = False
         _cancel_idle_flush_unlocked()
     _body = None
+    _sticky = False
     _message_shown_at = 0.0
     _visible_since = 0.0
     if not _heartbeat_active or _stream is None:
@@ -1013,10 +1051,13 @@ def _clear_unlocked( advance=False, keep_pending=False ):
 
 def _flush_unlocked( now ):
     global _pending, _last_emit, _body, _spin, _message_shown_at
+    global _sticky, _pending_is_sticky
     if _pending is None or _stream is None or _suppress_depth:
         return
     _body = _pending
+    _sticky = bool( _pending_is_sticky )
     _pending = None
+    _pending_is_sticky = False
     _message_shown_at = now
     _spin += 1
     _draw_unlocked( _body )

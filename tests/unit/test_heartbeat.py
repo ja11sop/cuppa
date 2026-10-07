@@ -704,12 +704,38 @@ def test_operation_status_under_diverting_uses_heartbeat( monkeypatch ):
     _configure( stream, clock, style='pulse' )
     seen = []
 
-    def fake_show( message ):
-        seen.append( message )
+    def fake_show( message, sticky=False ):
+        seen.append( ( message, sticky ) )
 
     monkeypatch.setattr( hb, 'show_info', fake_show )
     with hb.operation_status( 'Updating [libfoo] in [/tmp/libfoo]' ):
-        assert seen == [ 'Updating [libfoo] in [/tmp/libfoo]' ]
+        assert seen == [ ( 'Updating [libfoo] in [/tmp/libfoo]', True ) ]
+    hb.reset()
+
+
+def test_sticky_caption_does_not_age_out():
+    """In-progress captions stay until clear; event INFO still ages out."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert hb._sticky is True
+
+    hold = hb._caption_hold_s()
+    clock.advance( hold + 1.0 )
+    hb._on_pulse()
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert hb._body == 'Updating [libfoo]'
+
+    # Event INFO must not steal the sticky row; it becomes pending.
+    clock.advance( 0.15 )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert 'Using [/tmp]' not in _status_body( stream )
+
+    hb.clear()
+    assert hb._sticky is False
     hb.reset()
 
 
