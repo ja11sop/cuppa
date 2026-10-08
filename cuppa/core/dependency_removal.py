@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import fnmatch
 import os
-import sys
 from collections import namedtuple
 
 from cuppa.colourise import (
@@ -33,6 +32,7 @@ from cuppa.colourise import (
     as_warning,
 )
 from cuppa.core import dependency_inventory, dependency_storage
+from cuppa.utility.console_report import ensure_report_stream
 from cuppa.core.storage_actions import (
     dry_run,
     _already_gone_note_reason,
@@ -2575,7 +2575,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
     When purge or wipe flags are set, also delete matching archives under ``downloads_root``.
     Wipe clears the whole extract even when ``storage_clean`` would leave it.
     """
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     names, error = resolve_requested_names( cuppa_env )
     if isinstance( error, UnknownDependencyNames ):
         # Lazy import: dependency_actions imports this module at load time.
@@ -3566,7 +3566,7 @@ def force_wipe_dependencies( construct, cuppa_env, out=None ):
     """Clear-down list-tree leaves named as ``name/qualifier`` tokens."""
     from cuppa.core import dependency_actions, dependency_downloads, dependency_identity
 
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     tokens, error = parse_force_wipe_tokens( cuppa_env.get( 'force_wipe_dependencies' ) )
     if error:
         out.write( "error: {}\n".format( error ) )
@@ -3759,7 +3759,7 @@ def force_wipe_unreferenced_dependencies( construct, cuppa_env, out=None ):
     """Clear-down every tree and download this resolve marks as unreferenced."""
     from cuppa.core import dependency_actions, dependency_downloads, dependency_tree
 
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     root = _dependencies_root( cuppa_env )
     _refuse_suspicious_dependencies_root( root, cuppa_env.get( 'sconstruct_dir' ) )
     downloads_root = _downloads_root( cuppa_env )

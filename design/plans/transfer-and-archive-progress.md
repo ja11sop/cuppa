@@ -2,9 +2,10 @@
 
 - **Status:** in progress
 - **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
-- **Updated:** 2026-10-07
+- **Updated:** 2026-10-08
 - **Impact:** minor — UX / shared progress channel; no package format change
 - **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)
+
 ## Problem
 
 Long byte-moving work still looks hung in places the shipped download-progress
@@ -160,5 +161,29 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | Compress (`create_package_archive`) | Done on this PR |
 | Terse completion identity (download / extract / compress / publish) | Done on this PR |
 | Upload live progress bar | Open — follow-on |
-| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO) |
+| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO); captions ``Updating   <token> · url@branch`` (pad to ``[location]``), full ``~/`` path line in normal (incl. ``-Q``) |
+| Terse transfer mute body (keep green ECG) | Done — verb/label/metrics subdued; alive prefix stays hospital-green |
+| Package ``[collect]`` / ``[extract]`` with ``src → dest`` | Done — ``<registry>`` / ``<downloads>`` / stem tokens; package location RHS is ``name/ver`` (token carries version; no extra ``/3.9.0/`` segment) |
+| ``[ready]`` after all toolchains × sconscripts read | Done — no longer closes on the first tip ``BuildWith`` (gcc16 collect was after ready) |
+| Property-based resolve ensure phases | **Deferred** — see below; decide after current soak |
 | Docs / CHANGELOG / soak | In progress |
+
+## Deferred: property-based resolve ensure phases
+
+Today resolve is still the mixed ``BuildWith(default_dependencies)`` walk (live
+children). ``[ready]`` now waits until every toolchain × variant × sconscript
+has been read, so multi-stem package collects stay under prepare→ready.
+
+A later optional redesign (not required for 1.12.0 transfer UX):
+
+| Phase | Scope | Examples |
+|-------|--------|----------|
+| ``once`` | Identity not toolchain-keyed | Location repos / URL archives |
+| ``per-identity`` | Active package/Conan stems | GitLab package tip → transitives; Conan settings |
+
+Factories would advertise ``ensure_scope`` + idempotent ``ensure(identity)``.
+Orchestrator runs ``once`` then each active identity; ``[ready]`` closes after.
+Do **not** grow hard-coded product passes (``repos → gitlab → conan → …``).
+
+Decide after soaks of the honesty + collect/extract work whether this is worth
+a follow-on plan / PR.

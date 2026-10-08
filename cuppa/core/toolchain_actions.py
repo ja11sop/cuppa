@@ -15,7 +15,6 @@ A single driver may have several Cuppa names (for example ``gcc``, ``gcc15``, ``
 
 import os
 import re
-import sys
 from collections import defaultdict
 
 from cuppa.colourise import (
@@ -26,7 +25,7 @@ from cuppa.colourise import (
     as_subdued,
 )
 from cuppa.utility import storage
-from cuppa.utility.console_report import report_mode_banner
+from cuppa.utility.console_report import ensure_report_stream, report_mode_banner
 
 
 SECTION_DISCOVERED = 'discovered'
@@ -898,7 +897,7 @@ def _section_to_json( section ):
 
 def list_toolchains( cuppa_env, out=None ):
     """Print discovered and registered toolchains. Returns an exit status."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     sections = build_toolchain_sections( cuppa_env )
     list_format = cuppa_env.get( 'list_format' ) or 'text'
 
@@ -916,7 +915,7 @@ def list_toolchains( cuppa_env, out=None ):
 
 
 def run( cuppa_env, out=None ):
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     if cuppa_env.get( 'list_toolchains' ):
         report_mode_banner( as_info_label(
                 "Running in LIST TOOLCHAINS mode, no building will be attempted" ), out=out )

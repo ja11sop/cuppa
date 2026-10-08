@@ -43,7 +43,7 @@ from cuppa.utility.download import (
     format_duration,
 )
 from cuppa.utility.python2to3 import as_str, as_byte_str
-from cuppa.utility.storage import human_size
+from cuppa.utility.storage import display_path, human_size
 
 from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
@@ -600,23 +600,26 @@ class Location(object):
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
         terse = self._terse_retrieve()
+        shown_path = display_path( local_dir_with_sub_dir )
+        on_ref = branch or ( rev_options and str( rev_options ) or "" )
         if not terse:
             logger.info( "Updating [{}] in [{}]{} at [{}]".format(
                     as_info( location ),
-                    as_notice( local_dir_with_sub_dir ),
-                    ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
+                    as_notice( shown_path ),
+                    ( on_ref and " on {}".format( as_notice( on_ref ) ) or "" ),
                     as_info( version )
             ) )
         # Terse skips multi-line INFO, which would otherwise arm the quiet
         # heartbeat; pip's git fetch is quiet and has no Cuppa progress bar.
         # operation_status supplies the missing start trigger / alive wait.
-        # Keep the status caption short (token / folder) — full URL + RevOptions
-        # wraps the TTY and shears under ``\\r`` without -Q.
+        # Captions are mode-aware: terse correlates ``<token>`` with url@branch;
+        # normal (including -Q without terse) keeps the full ~path line.
         from cuppa.utility.heartbeat import operation_status
-        status_label = self._terse_token() or os.path.basename(
-                str( local_dir_with_sub_dir ).rstrip( '\\/' )
-        ) or location
-        status_msg = "Updating [{}]".format( status_label )
+        status_msg = self._retrieve_status_message(
+                "Updating", location, local_dir_with_sub_dir,
+                branch=branch, revision=revision, rev_options=rev_options,
+                version=version,
+        )
         try:
             with operation_status( status_msg ):
                 update( vcs_backend, local_dir_with_sub_dir, rev_options )
@@ -638,7 +641,7 @@ class Location(object):
                                 "Remote tags had moved for [{}] in [{}]; "
                                 "forced tags and updated".format(
                                         as_info( location ),
-                                        as_notice( local_dir_with_sub_dir ),
+                                        as_notice( shown_path ),
                                 )
                         )
                     return
@@ -651,8 +654,8 @@ class Location(object):
             if not terse:
                 logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                         as_warning( location ),
-                        as_warning( local_dir_with_sub_dir ),
-                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                        as_warning( shown_path ),
+                        ( on_ref and " at {}".format( as_warning( on_ref ) ) or "" ),
                         as_warning( str(error) )
                 ) )
 
@@ -665,6 +668,7 @@ class Location(object):
         max_attempts = 2
         attempt = 1
         terse = self._terse_retrieve()
+        shown_path = display_path( local_dir_with_sub_dir )
         from cuppa.utility.heartbeat import operation_status
         while attempt <= max_attempts:
             attempt_note = attempt > 1 and " (attempt {})".format( str(attempt) ) or ""
@@ -672,13 +676,14 @@ class Location(object):
                 logger.info( "{} [{}] into [{}]{}".format(
                         action,
                         as_info( location ),
-                        as_info( local_dir_with_sub_dir ),
-                        attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
+                        as_info( shown_path ),
+                        attempt_note
                 ) )
-            status_label = self._terse_token() or os.path.basename(
-                    str( local_dir_with_sub_dir ).rstrip( '\\/' )
-            ) or location
-            status_msg = "{} [{}]{}".format( action, status_label, attempt_note )
+            status_msg = self._retrieve_status_message(
+                    action, location, local_dir_with_sub_dir,
+                    rev_options=rev_options,
+                    attempt_note=attempt_note,
+            )
             try:
                 with operation_status( status_msg ):
                     obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
@@ -698,7 +703,7 @@ class Location(object):
                 if not terse:
                     log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
                             as_info( location ),
-                            as_notice( local_dir_with_sub_dir ),
+                            as_notice( shown_path ),
                             ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
                             as_error( str(error) )
                     ) )
@@ -1183,6 +1188,80 @@ class Location(object):
 
     def _terse_token( self ):
         return str( getattr( self, "_name_hint", "" ) or "" ).strip()
+
+
+    @classmethod
+    def _dependency_spec( cls, location, branch=None, revision=None ):
+        """Resolved dependency identity in ``url@branch`` / ``url@tag`` form.
+
+        After ``--location-match-current-branch`` (and friends) ``location``
+        already carries the chosen ref. When it does not, append the
+        checked-out branch or revision so captions show what is actually
+        being updated — hard-coded pin vs dynamic match.
+        """
+        loc = str( location or "" ).strip()
+        ref = str( branch or revision or "" ).strip()
+        if not loc:
+            return ref
+        if loc.endswith( "@" ):
+            return loc + ref if ref else loc[:-1]
+        try:
+            _scm, _vc, _repo, versioning = cls.get_scm_system_and_info( loc )
+        except Exception:
+            versioning = None
+        if versioning:
+            return loc
+        if ref:
+            return "{}@{}".format( loc, ref )
+        return loc
+
+
+    # Match ``progress._RESOLVE_CHILD_WIDTH`` / ``[location]`` so semi-terse
+    # retrieve captions line the short name up under the location-map token.
+    _RETRIEVE_STATUS_WIDTH = len( "[location]" )
+
+    def _retrieve_status_message(
+            self, action, location, local_directory,
+            branch=None, revision=None, rev_options=None, version=None,
+            attempt_note="",
+    ):
+        """Caption for ``operation_status`` (and the shape of normal INFO).
+
+        Terse builds already introduced ``<token>`` on the location map, so the
+        status correlates that anchor with the resolved ``url@branch`` form and
+        pads the verb to the ``[location]`` column (no extra brackets):
+
+        ``→ [location] <base64> = … · repository``
+        ``→ Updating   <base64> · git+https://…@master``
+
+        Normal builds — including quiet without terse — keep a full line with a
+        ``~``-shortened path; short names alone are not anchored there.
+        """
+        spec = self._dependency_spec( location, branch, revision )
+        note = attempt_note or ""
+        if self._terse_retrieve():
+            verb = str( action )
+            pad = self._RETRIEVE_STATUS_WIDTH - len( verb )
+            if pad > 0:
+                verb = verb + ( " " * pad )
+            token = self._terse_token()
+            if token:
+                return "{} <{}> · {}{}".format( verb, token, spec, note )
+            return "{} {}{}".format( verb, spec, note )
+
+        shown_path = display_path( local_directory )
+        on_part = ""
+        if branch:
+            on_part = " on {}".format( branch )
+        elif rev_options:
+            on_part = " on {}".format( rev_options )
+        at_part = ""
+        if version is not None and str( version ) != "":
+            at_part = " at [{}]".format( version )
+        shown_loc = location or spec
+        return "{} [{}] in [{}]{}{}{}".format(
+                action, shown_loc, shown_path, on_part, at_part, note
+        )
 
 
     def _label_terse_source( self, path, kind ):

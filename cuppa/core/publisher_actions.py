@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import logging
 import os
-import sys
 from collections import namedtuple
 
 from cuppa.colourise import (
@@ -31,7 +30,7 @@ from cuppa.colourise import (
         as_warning,
 )
 from cuppa.utility import storage
-from cuppa.utility.console_report import report_mode_banner
+from cuppa.utility.console_report import ensure_report_stream, report_mode_banner
 from cuppa.utility.storage import (
         WIDEST_PROSE,
         emphasised_count_phrase,
@@ -440,7 +439,7 @@ def list_publishers( construct, cuppa_env, out=None ):
     del construct  # forest is disk-only
     from cuppa.develop import ERROR
 
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     data = collect_publisher_rows( cuppa_env )
 
@@ -546,7 +545,7 @@ def write_remove_publishers_report( out, root, outcomes, dry_run ):
 def remove_publishers( construct, cuppa_env, out=None ):
     """``--remove-publishers`` / ``--remove-all-publishers``."""
     del construct
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     dry_run = False
     getter = getattr( cuppa_env, 'get_option', None )
     if callable( getter ):
@@ -620,7 +619,7 @@ def remove_publishers( construct, cuppa_env, out=None ):
 
 def run( construct, cuppa_env, out=None ):
     """Dispatch publisher list/remove. Returns an exit status."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     try:
         if cuppa_env.get( 'remove_all_publishers' ) or cuppa_env.get( 'remove_publishers' ):
             report_mode_banner( as_info_label(

@@ -853,6 +853,7 @@ def reset_progress_ledger():
     with _terse_locations_lock:
         _terse_locations[:] = []
         _written_sconstruct_maps.clear()
+    _written_registries.clear()
 
 
 def register_terse_actions( env, nodes ):
@@ -1670,7 +1671,8 @@ def _is_project_root( path, env ):
     return False
 
 
-_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages" ) )
+_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages", "downloads" ) )
+_written_registries = set()
 
 
 def _nested_author_match( abs_path, env ):
@@ -2109,9 +2111,17 @@ def _location_badge():
 
 
 def _location_map_rhs( token, path, env ):
-    """Map value: nested under a parent token when contained, else display path."""
+    """Map value: nested under a parent token when contained, else display path.
+
+    Package maps use the registered ``build_folder`` (``name/version``) so the
+    RHS does not pin a single tool-variant stem; stems belong on collect/extract.
+    """
     if str( token ) == "variant":
         return _slash( path ).strip( "/" )
+    for item in _author_locations():
+        _scope, _script, _cell, other, _root, folder, kind = _unpack_location( item )
+        if other == token and kind == "package" and folder:
+            return str( folder ).replace( "\\", "/" ).strip( "/" )
     abs_path = _to_abs( path, env )
     if str( token ) not in ( "working", "final", "artefacts" ):
         parents = []
@@ -2968,7 +2978,11 @@ def write_terse_resolve_prepare( env ):
 
 
 def write_terse_resolve_ready( env ):
-    """Close the resolve span with resolved totals. Does not reprint maps."""
+    """Close the resolve span with resolved totals. Does not reprint maps.
+
+    ``construct`` calls this after every toolchain × variant × sconscript has
+    been read so multi-stem package collects are not orphans after ``[ready]``.
+    """
     global _terse_ready_written
     if not _env_get( env, "terse_output" ):
         return
@@ -3072,6 +3086,221 @@ def _transfer_end_from_path( path, env, dest ):
         if shown:
             return shown
     return as_subdued( text )
+
+
+def format_terse_resolve_transfer(
+        env, badge, token, *fields, source="", dest="", status="ok", remark="",
+):
+    """``→ [collect]  <token> · 3.9.0 · url → <downloads>/file``.
+
+    Like a resolve child, but ends with a spelled-out ``source → dest`` so
+    package retrieve lines name the concrete stem (multi-toolchain safe).
+    """
+    lead = _location_map_prefix( env, _resolve_child_badge( badge, status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    for field in fields:
+        text = str( field or "" ).strip()
+        if text:
+            parts.append( text )
+    left = _transfer_end_from_path( source, env, dest=False )
+    right = _transfer_end_from_path( dest, env, dest=True )
+    if left or right:
+        parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    text = str( remark or "" ).strip()
+    if text:
+        if status in ( "error", "fail" ):
+            painted = as_colour( "error", text )
+        elif status == "warn":
+            painted = as_colour( "warning", text )
+        else:
+            painted = as_colour( "success", text )
+        line += as_subdued( " · " ) + painted
+    return line
+
+
+def write_terse_resolve_transfer(
+        env, badge, token, *fields, source="", dest="", status="ok", remark="",
+):
+    """Print a resolve retrieve with ``src → dest``. True when emitted."""
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_resolve_transfer(
+                    env, badge, token, *fields,
+                    source=source, dest=dest, status=status, remark=remark,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
+def gitlab_registry_token( registry ):
+    """Short token for a GitLab package registry URL (host + project path)."""
+    try:
+        from urllib.parse import urlparse, unquote
+    except ImportError:
+        from urlparse import urlparse, unquote
+    text = str( registry or "" ).strip().rstrip( "/" )
+    if not text:
+        return "registry"
+    parsed = urlparse( text )
+    host = ( parsed.netloc or "" ).split( "@" )[ -1 ].lower()
+    # ``git.example.com`` → ``example_com`` (drop a leading git. service label).
+    if host.startswith( "git." ):
+        host = host[ 4: ]
+    host = host.replace( ".", "_" ).replace( ":", "_" )
+    path = unquote( parsed.path or "" )
+    project = ""
+    marker = "/projects/"
+    if marker in path:
+        project = path.split( marker, 1 )[ 1 ].strip( "/" )
+        if "/packages" in project:
+            project = project.split( "/packages", 1 )[ 0 ]
+        project = project.replace( "/", "_" )
+    if host and project:
+        return host + "_" + project
+    return host or project or "registry"
+
+
+def gitlab_registry_map_url( registry ):
+    """``…/packages/generic`` base shown on the ``[registry]`` map line."""
+    text = str( registry or "" ).strip().rstrip( "/" )
+    if not text:
+        return text
+    lower = text.lower()
+    if lower.endswith( "/packages/generic" ):
+        return text
+    if "/packages/generic/" in lower:
+        idx = lower.index( "/packages/generic" )
+        return text[ : idx + len( "/packages/generic" ) ]
+    return text + "/packages/generic"
+
+
+def label_terse_registry( env, registry ):
+    """Emit ``→ [registry] <token> = …/packages/generic`` once. Return the token."""
+    global _written_registries
+    token = gitlab_registry_token( registry )
+    if not token:
+        return ""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return token
+    if not _terse_prepare_written:
+        return token
+    if token in _written_registries:
+        return token
+    _written_registries.add( token )
+    base = gitlab_registry_map_url( registry )
+    badge = as_emphasised( as_subdued( "[registry]" ) )
+    lead = _location_map_prefix( env, badge )
+    line = (
+            lead + " "
+            + "<" + token + ">"
+            + as_subdued( " = " )
+            + as_subdued( base )
+    )
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    return token
+
+
+def _emphasised_token( token ):
+    return as_emphasised( as_info( "<" + str( token ) + ">" ) )
+
+
+def _package_archive_dest_cell( token, archive_name ):
+    """``<downloads>/packages/<token>/archive.tar.gz`` with bold token + filename."""
+    name = str( archive_name or "" ).strip()
+    shown = as_subdued( "<downloads>/packages/" ) + _emphasised_token( token )
+    if name:
+        shown += as_subdued( "/" ) + as_emphasised( as_info( name ) )
+    return shown
+
+
+def _package_extract_dest_cell( token, tool_variant ):
+    """``<dependencies>/<stem>/<token>`` with bold stem + package token."""
+    stem = str( tool_variant or "" ).strip().strip( "/" )
+    shown = as_subdued( "<dependencies>/" )
+    if stem:
+        shown += as_emphasised( as_info( stem ) ) + as_subdued( "/" )
+    shown += _emphasised_token( token )
+    return shown
+
+
+def _resolve_transfer_remark( status, remark ):
+    text = str( remark or "" ).strip()
+    if not text:
+        return ""
+    if status in ( "error", "fail" ):
+        painted = as_colour( "error", text )
+    elif status == "warn":
+        painted = as_colour( "warning", text )
+    else:
+        painted = as_colour( "success", text )
+    return as_subdued( " · " ) + painted
+
+
+def format_terse_package_collect(
+        env, token, version, registry_token, archive_name, status="ok", remark="",
+):
+    """``→ [collect]  <token> · ver · <registry> → <downloads>/packages/<token>/file``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( "collect", status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    ver = str( version or "" ).strip()
+    if ver:
+        parts.append( ver )
+    left = as_subdued( "<" + str( registry_token ) + ">" ) if registry_token else ""
+    right = _package_archive_dest_cell( token, archive_name )
+    if left or right:
+        parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    return line + _resolve_transfer_remark( status, remark )
+
+
+def write_terse_package_collect(
+        env, token, version, registry_token, archive_name, status="ok", remark="",
+):
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_package_collect(
+                    env, token, version, registry_token, archive_name,
+                    status=status, remark=remark,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
+def format_terse_package_extract(
+        env, token, version, archive_name, tool_variant, status="ok", remark="",
+):
+    """``→ [extract]  <token> · ver · <downloads>/…/file → <dependencies>/<stem>/<token>``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( "extract", status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    ver = str( version or "" ).strip()
+    if ver:
+        parts.append( ver )
+    left = _package_archive_dest_cell( token, archive_name )
+    right = _package_extract_dest_cell( token, tool_variant )
+    parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    return line + _resolve_transfer_remark( status, remark )
+
+
+def write_terse_package_extract(
+        env, token, version, archive_name, tool_variant, status="ok", remark="",
+):
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_package_extract(
+                    env, token, version, archive_name, tool_variant,
+                    status=status, remark=remark,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
 
 
 def format_terse_transfer_resolve( env, action, source, dest, status="ok" ):

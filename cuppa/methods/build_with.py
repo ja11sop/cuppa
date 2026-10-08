@@ -87,10 +87,15 @@ class BuildWithMethod:
                 cuppa.progress.label_terse_location(
                         env, "dependencies", root, scope="sconstruct", kind="root",
                 )
+            downloads = env.get( 'downloads_root' ) or env.get( 'cache_root' )
+            if downloads:
+                cuppa.progress.label_terse_location(
+                        env, "downloads", downloads, scope="sconstruct", kind="root",
+                )
         if env['default_dependencies']:
             env['_pre_sconscript_phase_'] = True
             env.BuildWith( env['default_dependencies'] )
             env['_pre_sconscript_phase_'] = False
-        if terse:
-            import cuppa.progress
-            cuppa.progress.write_terse_resolve_ready( env )
+        # Do not close ``[ready]`` here: multi-toolchain package stems are still
+        # ensured on later BuildWith passes. construct closes ready after every
+        # toolchain × variant × sconscript has been read.

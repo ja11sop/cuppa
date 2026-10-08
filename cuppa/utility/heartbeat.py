@@ -537,12 +537,16 @@ def write_report( text ):
     write on stdout so the wrapper can forward the report — CONOUT$ /
     ``/dev/tty`` alone would hide it from capture. Non-diverting callers keep
     using stdout only.
+
+    Marks the transcript idle gate so an INFO caption cannot repaint between
+    report chunks (purge/list tables) and shear onto the next line.
     """
     with _transcript_lock:
         wrote_tty = False
         with _draw_lock:
             if _last_line or _body is not None:
                 _clear_unlocked( advance=False )
+            _mark_transcript_unlocked()
             if _heartbeat_active and _stream is not None:
                 try:
                     _stream.write( text )

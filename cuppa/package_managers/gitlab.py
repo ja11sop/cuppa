@@ -1545,17 +1545,37 @@ class GitlabPackageDependency:
         )
 
 
-    def _terse_collect( self, status="ok", remark="" ):
+    def _terse_collect( self, status="ok", remark="", registry="", archive_path="" ):
+        """``→ [collect]  <name> · ver · <registry> → <downloads>/packages/<name>/file``."""
         import cuppa.progress
-        return cuppa.progress.write_terse_resolve_child(
+        reg_token = ""
+        if registry:
+            reg_token = cuppa.progress.label_terse_registry( self._cuppa_env, registry )
+        archive = os.path.basename( str( archive_path or "" ) )
+        return cuppa.progress.write_terse_package_collect(
                 self._cuppa_env,
-                "collect",
                 self._dependency_name,
                 self.version(),
+                reg_token,
+                archive,
                 status=status,
                 remark=remark,
         )
 
+
+    def _terse_extract( self, status="ok", remark="", archive_path="" ):
+        """``→ [extract]  <name> · ver · <downloads>/…/file → <dependencies>/<stem>/<name>``."""
+        import cuppa.progress
+        archive = os.path.basename( str( archive_path or "" ) )
+        return cuppa.progress.write_terse_package_extract(
+                self._cuppa_env,
+                self._dependency_name,
+                self.version(),
+                archive,
+                getattr( self, "_tool_variant", "" ) or "",
+                status=status,
+                remark=remark,
+        )
 
     def is_option_set( self, option ):
         return option in self._cuppa_env and self._cuppa_env[option] or False
@@ -1865,6 +1885,8 @@ class GitlabPackageDependency:
                     self._terse_collect(
                             status="error",
                             remark="collect failed, no package available",
+                            registry=registry,
+                            archive_path=self._download_target,
                     )
                     if not terse:
                         logger.error( "Downloading package archives [{}] failed: {}".format(
@@ -1877,7 +1899,10 @@ class GitlabPackageDependency:
                                 error.parameter,
                         )
                     )
-                self._terse_collect()
+                self._terse_collect(
+                        registry=registry,
+                        archive_path=self._download_target,
+                )
                 if not terse:
                     logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
                             as_info( package_file ),
@@ -1899,39 +1924,53 @@ class GitlabPackageDependency:
         # If there is no include_dir then we didn't successfully extract this before
         if not os.path.exists( self._include_dir ):
             if os.path.exists( self._download_target ):
+                # Map may already exist after collect; safe if this is extract-only
+                # from a cached archive (no download this run).
+                self._label_terse_package()
                 logger.debug( "Extracting package [{}] to [{}]".format(
                         as_info( self._download_target ),
                         as_info( self._extraction_dir ),
                 ) )
-                logger.info( "Extracting package archive [{}] to [{}]...".format(
-                        as_info( package_file ),
-                        as_info( self._extraction_dir )
-                ) )
+                terse = self._terse_retrieve()
+                if not terse:
+                    logger.info( "Extracting package archive [{}] to [{}]...".format(
+                            as_info( package_file ),
+                            as_info( self._extraction_dir )
+                    ) )
                 returncode = extract_package_archive( self._download_target, self._extraction_dir )
                 if returncode != 0:
-                    logger.error( "Extracting [{}] failed with return code [{}]".format(
-                            as_error( self._download_target ),
-                            as_error( str( returncode ) )
-                    ) )
+                    self._terse_extract(
+                            status="error",
+                            remark="extract failed",
+                            archive_path=self._download_target,
+                    )
+                    if not terse:
+                        logger.error( "Extracting [{}] failed with return code [{}]".format(
+                                as_error( self._download_target ),
+                                as_error( str( returncode ) )
+                        ) )
                     raise GitlabPackageDependencyException(
                         "Extracting [{}] failed with return code [{}]".format(
                                 self._download_target, str( returncode )
                         )
                     )
-                logger.info( "Package archive [{}] successfully extracted to [{}]".format(
-                        as_info( package_file ),
-                        as_info( self._extraction_dir )
-                ) )
+                self._terse_extract( archive_path=self._download_target )
+                if not terse:
+                    logger.info( "Package archive [{}] successfully extracted to [{}]".format(
+                            as_info( package_file ),
+                            as_info( self._extraction_dir )
+                    ) )
             else:
                 logger.error( "Cannot extract [{}] for package [{}] as the file does not exist".format(
                         as_error( self._download_target ),
                         as_error( self._package_id )
                 ) )
         else:
-            logger.info( "Using package [{}] from [{}]".format(
-                    as_info( self._package_id ),
-                    as_notice( os.path.join( self._extraction_dir, package, self.version() ) )
-            ) )
+            if not self._terse_retrieve():
+                logger.info( "Using package [{}] from [{}]".format(
+                        as_info( self._package_id ),
+                        as_notice( os.path.join( self._extraction_dir, package, self.version() ) )
+                ) )
 
 
     # Observers

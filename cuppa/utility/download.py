@@ -137,6 +137,11 @@ def format_progress_line(
     rate_text = as_subdued( "{}/s".format( human_size( rate ) ).rjust( _RATE_WIDTH ) )
     done_text = human_size( bytes_so_far ).rjust( _SIZE_WIDTH )
     verb = action or 'Downloading'
+    # Terse/quiet: subdue the progress *body* (verb, label, metrics, bar).
+    # Alive ECG stays hospital-green via ``format_alive_prefix`` — do not mute it.
+    if muted:
+        verb = as_subdued( verb )
+        label = as_subdued( label )
 
     def _paint_info( text ):
         if muted:

@@ -1812,6 +1812,84 @@ def test_transitive_location_word_is_info_coloured( monkeypatch ):
     assert "<s>package</s>" in line
 
 
+def test_gitlab_registry_token_from_project_api_url():
+    url = "https://git.example.com/api/v4/projects/org%2Fregistry"
+    assert progress.gitlab_registry_token( url ) == "example_com_org_registry"
+    assert progress.gitlab_registry_map_url( url ).endswith( "/packages/generic" )
+
+
+def test_package_collect_extract_use_registry_and_stem_tokens( monkeypatch, capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["default_dependencies"] = [ "google_cloud_cpp" ]
+    monkeypatch.setattr(
+            progress, "as_colour",
+            lambda meaning, text: "<{}>{}</{}>".format( meaning, text, meaning ),
+    )
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+    registry = "https://git.example.com/api/v4/projects/org%2Fregistry"
+    token = progress.label_terse_registry( env, registry )
+    assert token == "example_com_org_registry"
+    reg_line = capsys.readouterr().out
+    assert "[registry]" in reg_line
+    assert "<example_com_org_registry>" in reg_line
+    assert "packages/generic" in reg_line
+    # Second label is a no-op.
+    assert progress.label_terse_registry( env, registry ) == token
+    assert capsys.readouterr().out == ""
+
+    from cuppa.output_processor import strip_ansi
+
+    archive = "google-cloud-cpp_debian_gcc16_rel_x86_64_cxx2c.tar.gz"
+    assert progress.write_terse_package_collect(
+            env, "google_cloud_cpp", "3.9.0", token, archive,
+    )
+    collect = strip_ansi( capsys.readouterr().out )
+    assert "[collect]" in collect
+    assert "<google_cloud_cpp>" in collect
+    assert "3.9.0" in collect
+    assert "<example_com_org_registry>" in collect
+    assert (
+            "<downloads>/packages/<google_cloud_cpp>/" + archive
+    ) in collect
+    # Token already carries name/version — do not insert another version segment.
+    assert "/packages/<google_cloud_cpp>/3.9.0/" not in collect
+
+    assert progress.write_terse_package_extract(
+            env, "google_cloud_cpp", "3.9.0", archive, "gcc16_rel_x86_64_cxx2c",
+    )
+    extract = strip_ansi( capsys.readouterr().out )
+    assert "[extract]" in extract
+    assert (
+            "<dependencies>/gcc16_rel_x86_64_cxx2c/<google_cloud_cpp>"
+    ) in extract
+    assert archive in extract
+
+
+def test_package_location_rhs_uses_build_folder_not_stem( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["default_dependencies"] = [ "google_cloud_cpp" ]
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+    progress.label_terse_location(
+            env, "dependencies", "/home/u/_cuppa/_download",
+            scope="sconstruct", kind="root",
+    )
+    progress.label_terse_location(
+            env, "google_cloud_cpp",
+            "/home/u/_cuppa/_download/gcc16_rel_x86_64_cxx2c/google-cloud-cpp/3.9.0",
+            scope="sconstruct",
+            build_folder="google-cloud-cpp/3.9.0",
+            kind="package",
+    )
+    out = capsys.readouterr().out
+    assert "google-cloud-cpp/3.9.0" in out
+    assert "gcc16_rel_x86_64_cxx2c" not in out
+    assert "· package" in out
+
+
 def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatch, capsys ):
     env = _layout_env()
     env["terse_output"] = True

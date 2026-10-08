@@ -348,6 +348,26 @@ def test_format_progress_line_compact_drops_bar():
     assert 'ETA' in compact
 
 
+def test_format_progress_line_muted_subdues_verb_and_label():
+    """Terse/quiet mute the progress body; ECG colour is separate."""
+    from cuppa.colourise import as_subdued, colouriser
+    from cuppa.output_processor import strip_ansi
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        muted = dl.format_progress_line(
+                'pkg.tgz', 50, 100, 1.0, muted=True, include_bar=True,
+        )
+        plain = strip_ansi( muted )
+        assert 'Downloading' in plain
+        assert 'pkg.tgz' in plain
+        assert as_subdued( 'Downloading' ) in muted
+        assert as_subdued( 'pkg.tgz' ) in muted
+    finally:
+        colouriser.use_colour = was
+
+
 def test_reporter_normal_tty_has_no_alive_widget():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb

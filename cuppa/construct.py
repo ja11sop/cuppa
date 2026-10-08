@@ -1151,6 +1151,12 @@ class Construct(object):
                             build_env['env'].Decider( decider )
                         self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['abi'], build_env['env'], sconscript )
 
+            # Close resolve after every active toolchain has had a chance to
+            # BuildWith (package stems are per tool_variant). Closing on the
+            # first tip cell left later collects after ``[ready]``.
+            if cuppa_env.get( 'terse_output' ):
+                cuppa.progress.write_terse_resolve_ready( cuppa_env )
+
             if cuppa_env['dump']:
                 print( "cuppa: Performing dump only, so no builds will be attempted." )
                 print( "cuppa: Nothing to be done. Exiting." )

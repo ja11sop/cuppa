@@ -19,13 +19,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   periodic lines are **normal mode only**. Package archive create no longer runs
   a silent multi-minute ``tar``.   Location git update/clone under terse now arms
   ``operation_status`` so the idle-gate alive wait is not starved (retrieve skips
-  multi-line INFO and pip's ``git fetch`` is quiet).   In-progress captions are
-  sticky (do not age out to the pulse-only anchor); ordinary event INFO still
-  ages out. Terse-without-quiet ``operation_status`` uses the same wrap-off /
-  erase-EOL protocol as the quiet heartbeat, fits the caption to the TTY width,
-  and is cleared before each terse transcript line (so pulse frames no longer
-  shear into ``→ [update]``). Upload progress still open. Plan:
+  multi-line INFO and pip's ``git fetch`` is quiet). Captions are mode-aware:
+  terse correlates the location-map ``<token>`` with the resolved ``url@branch``
+  form, padded to the ``[location]`` column (``Updating   <base64> ·
+  git+https://…@master``); normal (including ``-Q`` without terse) keeps a full
+  ``Updating […] in [~/…] on <branch>`` line so short names are not shown
+  unanchored. In-progress captions are sticky (do
+  not age out to the pulse-only anchor); ordinary event INFO still ages out.
+  Terse-without-quiet ``operation_status`` uses the same wrap-off / erase-EOL
+  protocol as the quiet heartbeat, fits the caption to the TTY width, and is
+  cleared before each terse transcript line (so pulse frames no longer shear
+  into ``→ [update]``). Upload progress still open. Plan:
   ``design/plans/transfer-and-archive-progress.md``.
+- Terse resolve honesty and package retrieve identity: ``[ready]`` closes after
+  every toolchain × variant × sconscript has been read (no longer on the first
+  tip ``BuildWith``), so multi-toolchain package collects stay under
+  prepare→ready. Resolve maps ``<downloads>`` and ``[registry] <host_project>``;
+  package ``[location]`` RHS is ``name/version`` (no tool-variant stem);
+  ``[collect]`` / ``[extract]`` use
+  ``<registry> → <downloads>/packages/<token>/archive`` and
+  ``… → <dependencies>/<stem>/<token>`` (token already carries version).
+  Terse/quiet transfer progress subdues the progress body while the alive ECG
+  stays hospital-green. Property-based resolve ensure phases remain deferred —
+  see ``design/plans/transfer-and-archive-progress.md``.
+- Quiet+TTY heartbeat: console report bodies (purge/list/wipe tables, not only
+  mode banners) route through ``write_report`` while diverting, so stdout-pipe
+  chunks cannot glue onto the status caption (``…downloadsRemoving…`` /
+  rule-line shear). ``ensure_report_stream`` wraps default ``sys.stdout`` for
+  dependency, storage, toolchain, and publisher actions; report writes also
+  mark the transcript idle gate so INFO cannot repaint between table lines.
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
