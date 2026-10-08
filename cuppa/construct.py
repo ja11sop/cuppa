@@ -1036,7 +1036,8 @@ class Construct(object):
 
     def build( self, cuppa_env ):
         # Before SCons installs its own SIGINT handler. The first Ctrl-C stops
-        # new tasks and lets the ones already running finish.
+        # new tasks and signals in-flight children (incl. cmake/ninja delegates)
+        # to stop, then waits for those actions to exit cleanly.
         from cuppa.utility.build_children import install_graceful_interrupt
         install_graceful_interrupt()
 

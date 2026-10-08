@@ -17,6 +17,7 @@ from cuppa.utility import heartbeat as hb
 from cuppa.utility.console_report import (
     ensure_report_stream,
     report_mode_banner,
+    reset_mode_banners_for_tests,
     write_report_lines,
 )
 
@@ -43,8 +44,10 @@ def _reset_heartbeat():
     previous_cuppa_level = logger.level
     previous_root_level = logging.getLogger().level
     hb.reset()
+    reset_mode_banners_for_tests()
     yield
     hb.reset()
+    reset_mode_banners_for_tests()
     logger.setLevel( previous_cuppa_level )
     logging.getLogger().setLevel( previous_root_level )
 
@@ -64,6 +67,17 @@ def test_report_mode_banner_keeps_colour_and_plain_suffix():
     assert text.endswith( " — report only\n" )
     assert "cuppa:" not in text
     assert "[info]" not in text
+
+
+def test_report_mode_banner_dedupes_identical_chips():
+    out = io.StringIO()
+    line = as_info_label( "Running in OFFLINE mode" )
+    report_mode_banner( line, out=out )
+    report_mode_banner( line, out=out )
+    report_mode_banner( as_info_label( "Running in DUMP mode" ), out=out )
+    text = out.getvalue()
+    assert text.count( "Running in OFFLINE mode" ) == 1
+    assert text.count( "Running in DUMP mode" ) == 1
 
 
 def test_ensure_report_stream_passthrough_when_not_diverting():

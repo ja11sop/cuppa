@@ -16,6 +16,13 @@ so ``logger.info`` cannot carry them. See ``design/plans/console-channels.md``.
 
 import sys
 
+from cuppa.output_processor import strip_ansi
+
+
+# Mode banners once per process (nested cuppa is a new process). Stops the
+# soak double ``Running in OFFLINE mode`` when construct/init races emit twice.
+_printed_mode_banners = set()
+
 
 class _HeartbeatReportStream( object ):
     """File-like writer that clears the quiet status line before each chunk.
@@ -64,11 +71,11 @@ def write_report_lines( lines, out=None ):
     """Emit report lines unprefixed — tree glyphs do not survive log labels.
 
     When the quiet heartbeat is diverting and ``out`` is the default stdout
-    pipe, clear+write via ``heartbeat.write_report`` so a later status paint
-    cannot leave the banner glued to ``working …``. Interactive launchers
-    keep the banner on the progress TTY; piped launchers (CI, redirects)
-    also forward it on stdout. Explicit capture streams keep the simple
-    write path (after an immediate status clear).
+    pipe, clear+write via ``heartbeat.write_report`` / ``write_line`` so a
+    later status paint cannot leave the banner glued to ``working …``.
+    Interactive ultimate consoles write on the heartbeat stream only; piped
+    launchers (CI) write the pipe only — never both. Explicit capture streams
+    keep the simple write path (after an immediate status clear).
     """
     text = "".join( line + "\n" for line in lines )
     if _is_default_stdout( out ):
@@ -102,5 +109,17 @@ def report_mode_banner( line, out=None ):
 
     ``line`` may already include colour (``as_info_label`` plus plain suffix).
     A later TTY heartbeat must clear its status line before calling this.
+    Identical banners are emitted only once per process.
     """
+    key = strip_ansi( str( line or "" ) ).strip()
+    if not key:
+        return
+    if key in _printed_mode_banners:
+        return
+    _printed_mode_banners.add( key )
     write_report_lines( [ line ], out=out )
+
+
+def reset_mode_banners_for_tests():
+    """Clear the once-per-process banner guard (unit tests only)."""
+    _printed_mode_banners.clear()

@@ -152,14 +152,18 @@ def run_scons( args_list ):
         console_encoding = getattr( sys.stdout, "encoding", None )
         if console_encoding:
             propagated_env["CUPPA_CONSOLE_ENCODING"] = console_encoding
-        # Inner SCons opens /dev/tty (CONOUT$) for the quiet heartbeat. Mode
-        # banners must still reach this process's stdout when the wrapper is
-        # itself piped (CI, redirects) — otherwise CONOUT$ swallows them.
+        # Inner SCons opens /dev/tty for the quiet heartbeat / owned durable
+        # lines. Preserve outermost ``CUPPA_STDOUT_IS_TTY`` through nested cuppa
+        # (cascade); see ``heartbeat.resolve_cuppa_stdout_is_tty``.
+        from cuppa.utility.heartbeat import resolve_cuppa_stdout_is_tty
         try:
             outer_tty = bool( sys.stdout.isatty() )
         except Exception:
             outer_tty = False
-        propagated_env["CUPPA_STDOUT_IS_TTY"] = "1" if outer_tty else "0"
+        propagated_env["CUPPA_STDOUT_IS_TTY"] = resolve_cuppa_stdout_is_tty(
+                environ=propagated_env,
+                stdout_is_tty=outer_tty,
+        )
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,
@@ -172,10 +176,10 @@ def run_scons( args_list ):
         stderr_thread = threading.Thread( target=stderr_consumer )
         stderr_thread.start()
         # The first Ctrl-C is delivered to this process and to SCons. SCons
-        # stops scheduling new tasks; children are in their own session, so
-        # they keep running. Keep reading so that drain is not stuck on a
-        # full pipe. The inner process handles a second Ctrl-C by terminating
-        # those children; a third stops SCons outright.
+        # stops scheduling new tasks; the inner handler signals remembered
+        # children (delegates included) to stop and waits for that drain.
+        # Keep reading so the pipe is not stuck full. A second Ctrl-C hard-
+        # stops stubborn children; a third stops SCons outright.
         interrupts = 0
         while True:
             try:

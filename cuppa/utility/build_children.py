@@ -7,14 +7,19 @@
 #   Build children and Ctrl-C
 #-------------------------------------------------------------------------------
 
-"""Let work that has already started finish when the build is interrupted.
+"""Stop in-flight build children cleanly when the build is interrupted.
 
-The terminal delivers SIGINT to every process in the foreground group. A
-compiler or test killed at that moment can leave a binary half-written and
-not executable, and another task then fails with permission denied. Build
-children are started in their own session, so the first Ctrl-C reaches SCons
-only. SCons already refuses new tasks. The ones already running finish and
-leave their outputs complete. A second Ctrl-C stops those children.
+The terminal delivers SIGINT to every process in the foreground group. Build
+children are started in their own session so that broadcast does not rip
+through every compiler at once. Instead Cuppa owns the stop:
+
+* **First Ctrl-C** — SCons stops scheduling new tasks, and Cuppa sends
+  ``SIGINT`` to remembered children (native tools and **delegates** such as
+  ``cmake --build`` / ninja / nested ``cuppa``). The current SCons action
+  then waits for that child to exit cleanly — so a delegate that would
+  otherwise keep building thousands of targets is told to stop, then
+  drained, rather than left running until a second interrupt.
+* **Second Ctrl-C** — ``SIGTERM`` the remaining process trees (harder stop).
 """
 
 import os
@@ -51,24 +56,92 @@ def forget_child( process ):
         _sessions.discard( pid )
 
 
-def terminate_build_children():
-    """Stop children that were left running after a second Ctrl-C."""
+def stop_count():
+    """How many Ctrl-C signals this build has seen."""
+    with _lock:
+        return _stops
+
+
+def terminate_process_tree( pid, sig=None ):
+    """Signal ``pid`` and every descendant (cascade nested cmake orphans).
+
+    Build tools use ``start_new_session``, so ``killpg`` on a nested ``cuppa``
+    alone leaves ninja/cmake writing to ``/dev/tty`` after the tip has exited.
+    Prefer ``psutil`` recursive children; fall back to ``killpg``.
+    """
+    if not pid or os.name == "nt":
+        return
+    if sig is None:
+        sig = signal.SIGTERM
+    try:
+        import psutil
+    except ImportError:
+        psutil = None
+    if psutil is not None:
+        try:
+            root = psutil.Process( pid )
+        except ( psutil.Error, ValueError ):
+            root = None
+        if root is not None:
+            descendants = []
+            try:
+                descendants = root.children( recursive=True )
+            except ( psutil.Error, ValueError ):
+                descendants = []
+            # Children first so session leaders are not reaping before signal.
+            for child in reversed( descendants ):
+                try:
+                    child.send_signal( sig )
+                except ( psutil.Error, ValueError, OSError ):
+                    pass
+            try:
+                root.send_signal( sig )
+            except ( psutil.Error, ValueError, OSError ):
+                pass
+    try:
+        os.killpg( pid, sig )
+    except ( ProcessLookupError, PermissionError, OSError ):
+        pass
+    try:
+        os.kill( pid, sig )
+    except ( ProcessLookupError, PermissionError, OSError ):
+        pass
+
+
+def interrupt_build_children():
+    """Ask children to stop on the first Ctrl-C (``SIGINT``), then wait.
+
+    Delegates such as ninja treat ``SIGINT`` as a cooperative stop
+    (``build stopped: interrupted by user``). Cuppa does not reap them here —
+    the spawning SCons action's ``wait`` is the drain.
+    """
     with _lock:
         sessions = list( _sessions )
     for pid in sessions:
-        try:
-            os.killpg( pid, signal.SIGTERM )
-        except ( ProcessLookupError, PermissionError, OSError ):
-            pass
+        terminate_process_tree( pid, signal.SIGINT )
+
+
+def terminate_build_children():
+    """Hard-stop children that ignored the first interrupt (second Ctrl-C)."""
+    with _lock:
+        sessions = list( _sessions )
+    for pid in sessions:
+        terminate_process_tree( pid, signal.SIGTERM )
 
 
 def note_stop_request():
-    """Count Ctrl-C. The second one stops children that are still running."""
+    """Count Ctrl-C: first signals children; second ``SIGTERM`` stubborn ones.
+
+    Cascade nested waits also watch :func:`stop_count` so a tip interrupt is
+    visible inside ``_run_nested_cuppa`` even if signal delivery races.
+    """
     global _stops
     with _lock:
         _stops += 1
         stop = _stops
-    if stop >= 2:
+    if stop == 1:
+        interrupt_build_children()
+    elif stop >= 2:
         terminate_build_children()
     return stop
 
@@ -81,12 +154,12 @@ def reset_stop_requests():
 
 
 def install_graceful_interrupt():
-    """Wrap SCons's SIGINT handler so the second Ctrl-C stops children.
+    """Wrap SCons's SIGINT handler for cooperative then hard child stops.
 
-    The first signal still goes to SCons, which stops scheduling new tasks.
-    Children are not in the terminal's process group, so that signal does not
-    kill them. The terse close is printed when ``Jobs.run`` returns. ``-Q``
-    never writes ``scons: Build interrupted.``, so that line cannot be the cue.
+    Children are not in the terminal's process group, so the terminal SIGINT
+    does not reach them — :func:`note_stop_request` forwards stop instead.
+    The terse close is printed when ``Jobs.run`` returns. ``-Q`` never writes
+    ``scons: Build interrupted.``, so that line cannot be the cue.
     """
     global _handler_installed
     if _handler_installed:

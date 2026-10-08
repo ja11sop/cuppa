@@ -537,6 +537,26 @@ def test_python_action_failure_prints_the_description_then_the_summary( capsys )
     )
 
 
+def test_python_action_interrupt_returncode_skips_error_status( capsys ):
+    import signal
+
+    progress.reset_build_interrupted()
+
+    def _action( target, source, env ):
+        return -signal.SIGINT
+
+    node = _LabelledNode( "cmake-build", "cmake.build.complete" )
+    env = _terse_env()
+    progress.stash_terse_command(
+            "cmake --build _build/x --parallel 14", [node], [], env,
+    )
+    wrapped = progress._TersePythonCallable( _action )
+    assert wrapped( target=[node], source=[], env=env ) == -signal.SIGINT
+    out = capsys.readouterr().out
+    assert "[error]" not in out
+    assert "cmake --build" not in out
+
+
 def test_python_action_exception_is_reported_and_reraised( capsys ):
     def _action( target, source, env ):
         raise RuntimeError( "boom" )
@@ -783,8 +803,8 @@ def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
     captured = capsys.readouterr()
     err = captured.err
     assert err.count( "interrupted" ) == 1
-    assert "\ninterrupted — finishing in-flight actions...\n" in err
-    assert captured.out == "finished in-flight actions\n[interrupted]\n"
+    assert "\ninterrupted — stopping in-flight actions...\n" in err
+    assert captured.out == "stopped in-flight actions\n[interrupted]\n"
     assert "Error -2" not in err
     assert "Build interrupted" not in err
     assert "building terminated because of errors" not in err
@@ -1818,6 +1838,102 @@ def test_gitlab_registry_token_from_project_api_url():
     assert progress.gitlab_registry_map_url( url ).endswith( "/packages/generic" )
 
 
+def test_remote_url_keeps_https_double_slash():
+    """``os.path.normpath`` must not collapse ``https://`` to ``https:/``."""
+    env = _layout_env()
+    url = (
+            "https://git.example.com/api/v4/projects/1/packages/generic/"
+            "c-ares/1.34.5/c-ares.tar.gz"
+    )
+    # Concrete bug shape from soak: POSIX normpath collapses the scheme.
+    mangled = os.path.normpath( url )
+    assert mangled.startswith( "https:/" )
+    assert not mangled.startswith( "https://" )
+    assert progress._to_abs( url, env ) == url
+    assert progress._display_source_path( url, env ) == url
+    assert progress._to_abs( url, env ).startswith( "https://" )
+
+
+def test_publish_transfer_uses_registry_token_not_full_url( monkeypatch, capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["default_dependencies"] = [ "c_ares" ]
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+    registry = "https://git.example.com/api/v4/projects/org%2Fregistry"
+    token = progress.label_terse_registry( env, registry )
+    assert token == "example_com_org_registry"
+    capsys.readouterr()
+    url = (
+            registry + "/packages/generic/c-ares/1.34.5/"
+            "c-ares_debian_gcc16_rel_x86_64_cxx2c.tar.gz"
+    )
+    archive = (
+            "/proj/_build/pkg/gcc16/rel/x86_64/cxx2c/final/"
+            "c-ares_debian_gcc16_rel_x86_64_cxx2c.tar.gz"
+    )
+    env["abs_final_dir"] = "/proj/_build/pkg/gcc16/rel/x86_64/cxx2c/final"
+    from cuppa.output_processor import strip_ansi
+    assert progress.write_terse_transfer_action( env, "publish", archive, url )
+    out = strip_ansi( capsys.readouterr().out )
+    assert "https://" not in out
+    assert "https:/" not in out
+    assert "<example_com_org_registry>/c-ares/1.34.5/" in out
+    assert "c-ares_debian_gcc16_rel_x86_64_cxx2c.tar.gz" in out
+
+
+def test_cmake_uptodate_filter_summarises_when_all_skip( monkeypatch, capsys ):
+    env = _terse_env()
+    pulses = []
+    monkeypatch.setattr(
+            "cuppa.utility.heartbeat.pulse_ephemeral_status",
+            lambda message: pulses.append( message ),
+    )
+    filt = progress.CmakeDelegatedChildFilter( env )
+    filt.handle( "[0/1] Install the project..." )
+    filt.handle( '-- Install configuration: "Release"' )
+    filt.handle( "-- Up-to-date: /tmp/build/lib/libfoo.so" )
+    filt.handle( "-- Up-to-date: /tmp/build/include/foo.h" )
+    filt.handle( "" )
+    out = capsys.readouterr().out
+    assert "[0/1] Install the project..." in out
+    assert "Install configuration" in out
+    assert "libfoo.so" not in out
+    assert len( pulses ) == 2
+    assert pulses[0].endswith( "libfoo.so" )
+    filt.finish()
+    out = capsys.readouterr().out
+    assert "-- All targets Up-to-date" in out
+    assert "libfoo.so" not in out
+
+
+def test_cmake_uptodate_filter_keeps_installing_lines( monkeypatch, capsys ):
+    env = _terse_env()
+    monkeypatch.setattr(
+            "cuppa.utility.heartbeat.pulse_ephemeral_status",
+            lambda message: None,
+    )
+    filt = progress.CmakeDelegatedChildFilter( env )
+    filt.handle( "[0/1] Install the project..." )
+    filt.handle( "-- Up-to-date: /tmp/a.h" )
+    filt.handle( "-- Installing: /tmp/b.h" )
+    filt.handle( "-- Up-to-date: /tmp/c.h" )
+    filt.finish()
+    out = capsys.readouterr().out
+    assert "-- Installing: /tmp/b.h" in out
+    assert "[0/1] Install the project..." in out
+    assert "-- All targets Up-to-date" not in out
+    assert "-- Up-to-date:" not in out
+
+
+def test_is_cmake_delegate_detects_action_and_argv():
+    assert progress.is_cmake_delegate( "cmake-install", "cmake --build x --target install" )
+    assert progress.is_cmake_delegate( None, "/usr/bin/cmake -B _build" )
+    assert not progress.is_cmake_delegate( "b2", "b2 -j4" )
+    assert progress.is_cmake_uptodate_line( "  -- Up-to-date: /tmp/x" )
+    assert not progress.is_cmake_uptodate_line( "-- Installing: /tmp/x" )
+
+
 def test_package_collect_extract_use_registry_and_stem_tokens( monkeypatch, capsys ):
     env = _layout_env()
     env["terse_output"] = True
@@ -2210,3 +2326,49 @@ def test_format_terse_transfer_resolve_source_dest( monkeypatch ):
             "/tmp/deps/pkg",
     )
     assert "<success>[extract]</success>" in extract
+
+
+def test_format_terse_cascade_run_checkpoint_uses_tip_pin_not_token():
+    import re
+
+    env = { "terse_output": True }
+    begin = progress.format_terse_cascade_run_checkpoint(
+            env, "google-cloud-cpp", "3.9.0", "begin", summary="7 packages",
+    )
+    end = progress.format_terse_cascade_run_checkpoint(
+            env, "google-cloud-cpp", "3.9.0", "end", summary="7 uploads",
+    )
+    nest = progress.format_terse_cascade_checkpoint(
+            env, "abseil_cpp", "20250814.2", "entering",
+            "~/.cuppa/publishers/abseil_cpp/sconstruct",
+    )
+
+    def plain( text ):
+        return re.sub( r"\x1b\[[0-9;]*m", "", text )
+
+    assert "[cascade]" in plain( begin )
+    assert "google-cloud-cpp [==3.9.0]" in plain( begin )
+    assert "<google-cloud-cpp>" not in plain( begin )
+    assert "begin" in plain( begin )
+    assert "7 packages" in plain( begin )
+    assert "end" in plain( end )
+    assert "7 uploads" in plain( end )
+    assert "<abseil_cpp>" in plain( nest )
+    assert "entering" in plain( nest )
+
+
+def test_write_terse_cascade_run_checkpoint_respects_terse_flag( capsys ):
+    env = { "terse_output": False }
+    assert progress.write_terse_cascade_run_checkpoint(
+            env, "corosio", "0.2.0", "begin", summary="1 package",
+    ) is False
+    assert capsys.readouterr().out == ""
+
+    env["terse_output"] = True
+    assert progress.write_terse_cascade_run_checkpoint(
+            env, "corosio", "0.2.0", "begin", summary="1 package",
+    ) is True
+    out = capsys.readouterr().out
+    assert "[cascade]" in out
+    assert "corosio" in out
+    assert "begin" in out

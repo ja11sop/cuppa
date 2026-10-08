@@ -117,6 +117,44 @@ def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsy
     assert command == "cmake --build _build/x --parallel 1"
 
 
+def test_command_run_interrupt_skips_error_logging( monkeypatch, capsys ):
+    """SIGINT from first Ctrl-C is drain, not ``cuppa: command: [error]``."""
+    import signal
+
+    progress.reset_progress_ledger()
+    progress.reset_build_interrupted()
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        stdout_processor( "ninja: build stopped: interrupted by user." )
+        return -signal.SIGINT
+
+    monkeypatch.setattr(
+            "cuppa.utility.command.IncrementalSubProcess.Popen2",
+            fake_popen2,
+    )
+    env = {
+            "terse_output": True,
+            "variant": type( "V", (), { "name": lambda self: "dbg" } )(),
+            "toolchain": type( "T", (), { "name": lambda self: "gcc16" } )(),
+            "target_arch": "x86_64",
+            "abi": "cxx2c",
+            "sconscript_file": "./pkg/sconscript",
+    }
+    action = run(
+            "cmake --build _build/x --parallel 14",
+            working_dir="/tmp",
+            terse_summary="-B _build/x --parallel 14",
+            terse_action="cmake-build",
+    )
+    assert action( [ "cmake.build.complete" ], [], env ) == -signal.SIGINT
+    out = capsys.readouterr().out
+    assert "ninja: build stopped: interrupted by user." in out
+    # No failure dump — interrupt banner owns the close.
+    assert "terminated by signal" not in out
+    assert "Failure detail" not in out
+    assert "[error]" not in out
+
+
 def test_command_run_terse_without_delegate_opts_skips_launch( monkeypatch, capsys ):
     progress.reset_progress_ledger()
     progress.take_terse_launch()

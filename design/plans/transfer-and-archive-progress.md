@@ -168,6 +168,14 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | ``[ready]`` after all toolchains × sconscripts read | Done — no longer closes on the first tip ``BuildWith`` (gcc16 collect was after ready) |
 | Property-based resolve ensure phases | **Deferred** — see below; decide after current soak |
 | Docs / CHANGELOG / soak | In progress |
+| URL ``https://`` on publish/transfer (no ``normpath``) | Done on this PR (content OK in soak) |
+| Publish dest ``<registry>/name/ver/file`` + map | Done on this PR (content OK in soak) |
+| Clear progress bar before delegate/cmake ``→`` | Superseded by owned-stream ``write_line`` |
+| CMake ``-- Up-to-date:`` flood suppressed | Done on this PR |
+| CMake ``-- All targets Up-to-date`` summary | Done — preamble ignored for “other” |
+| Deduplicate mode banners (OFFLINE ×2) | Fixed via nested ``CUPPA_STDOUT_IS_TTY`` preserve (+ once-per-process guard) |
+| Cascade tip→nest transition marker | Pending |
+| **One console write path** (TTY ownership) | Done on this PR — [`console-write-ownership.md`](console-write-ownership.md); soak next |
 
 ## Deferred: property-based resolve ensure phases
 

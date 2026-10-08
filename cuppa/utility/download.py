@@ -74,6 +74,27 @@ _TTY_INTERVAL_S = 0.35
 _LINE_INTERVAL_S = 2.0
 _LINE_PERCENT_STEP = 5
 
+# Active TTY progress bar (compress/upload/download). Transcript writers clear
+# this before printing so ``Compressing …`` cannot shear onto cmake ``→`` lines.
+_active_progress = None
+
+
+def register_active_progress( reporter ):
+    """Remember the live ``ProgressReporter`` so transcript can wipe its row."""
+    global _active_progress
+    _active_progress = reporter
+
+
+def clear_active_progress():
+    """Blank the active progress bar row without finishing the transfer."""
+    reporter = _active_progress
+    if reporter is None:
+        return
+    try:
+        reporter.interrupt_clear()
+    except Exception:
+        pass
+
 
 def format_duration( seconds ):
     """Compact ETA / elapsed for progress lines (``45s``, ``6m20s``, ``1h05m``)."""
@@ -396,6 +417,7 @@ class ProgressReporter( object ):
             hb.clear()
         except Exception:
             pass
+        register_active_progress( self )
         self._resolve_presentation()
         self._label = label or 'transfer'
         if action is not None:
@@ -482,10 +504,17 @@ class ProgressReporter( object ):
             pass
         self._last_line = ''
 
+    def interrupt_clear( self ):
+        """Wipe the rewriting row so a transcript line can own the TTY."""
+        self._clear_line()
+
     def done( self, bytes_so_far=None ):
+        global _active_progress
         if self._finished:
             return
         self._finished = True
+        if _active_progress is self:
+            _active_progress = None
         if bytes_so_far is None:
             bytes_so_far = 0
         now = self._clock()

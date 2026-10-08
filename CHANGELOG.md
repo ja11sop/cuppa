@@ -45,8 +45,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The package token inside ``<downloads>/packages/<token>/…`` stays subdued
   (the line already leads with ``<token>``); only the archive leaf is
   emphasised. Terse/quiet transfer progress subdues the progress body while
-  the alive ECG stays hospital-green. Property-based resolve ensure phases
-  remain deferred — see ``design/plans/transfer-and-archive-progress.md``.
+  the alive ECG stays hospital-green. Publish/transfer identity lines keep
+  ``https://`` intact (no ``normpath`` collapse to ``https:/``) and shorten
+  GitLab generic package destinations to ``<registry>/name/ver/file`` after
+  the ``[registry]`` map. Terse cmake delegate stdout turns
+  ``-- Up-to-date:`` into a quiet-heartbeat ephemeral pulse and, when every
+  line was up-to-date, prints one muted ``-- All targets Up-to-date``
+  confirmation; ``-- Installing:`` / ninja build lines still stream.
+  Transcript writes clear a live ``ProgressReporter`` bar so compress/upload
+  cannot shear onto cmake ``→`` children. Identical mode banners
+  (e.g. ``Running in OFFLINE mode``) emit once per process. Quiet+TTY durable
+  lines (terse transcript and console reports) share ``heartbeat.write_line``:
+  clear status and write on the heartbeat stream under one lock when the
+  ultimate console is interactive — never dual-write TTY+pipe (fixes ECG
+  shear and nested OFFLINE ×2). Nested ``cuppa`` preserves outermost
+  ``CUPPA_STDOUT_IS_TTY``. CMake install preamble no longer blocks
+  ``-- All targets Up-to-date``. Plan:
+  ``design/plans/console-write-ownership.md``. Cascade nested ``cuppa`` sessions
+  are remembered like build children and torn down as a **process tree** on
+  tip Ctrl-C (first interrupt stops a long nest; no orphaned ninja/cmake
+  writing to ``/dev/tty`` after the shell returns). Between nests the tip
+  announces ``parent session`` plus terse ``[cascade] … exiting|entering``
+  around consume refresh/extract (``entering`` also before the first nest;
+  one rule between nests — no double-rule gap). Tip-scoped
+  ``[cascade] tip [==ver] · begin|end · N packages|uploads`` bookends the
+  nest run (blank after plan; blank then ``end`` after the
+  ``cascade sessions complete`` banner). Nest labels use plan pin spelling
+  (``name [==version] (package)``); nest end says
+  ``uploaded [archive.tar.gz]`` (brackets plain, leaf notice) when the
+  marker carries a path. Property-based resolve ensure phases remain
+  deferred — see ``design/plans/transfer-and-archive-progress.md``.
 - Quiet+TTY heartbeat: console report bodies (purge/list/wipe tables, not only
   mode banners) route through ``write_report`` while diverting, so stdout-pipe
   chunks cannot glue onto the status caption (``…downloadsRemoving…`` /
@@ -109,12 +137,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binary's ``[fail]`` roll-up.
   ``--show-test-cases`` also prints the cases that passed. Without
   ``--terse-output`` they are left alone. Ctrl-C prints
-  ``interrupted — finishing in-flight actions...`` instead of a per-target
-  ``Error -2`` list. Actions that then finish keep their ordinary status
-  line, and the drain closes with ``finished in-flight actions``, then
-  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``.
+  ``interrupted — stopping in-flight actions...`` instead of a per-target
+  ``Error -2`` list.   The first Ctrl-C also ``SIGINT``s remembered build
+  children (including ``cmake --build`` / ninja delegates) so a long
+  delegated graph stops and drains, rather than continuing until a second
+  interrupt; a SIGINT exit is not logged as ``cuppa: command: [error]`` /
+  ``[error]`` terse status — the interrupt banner owns the close
+  (``stopped in-flight actions``, then
+  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``).
   The fraction is the whole build, completed against what was going to run.
-  A second Ctrl-C prints ``aborted`` and stops them,
+  A second Ctrl-C prints ``aborted`` and ``SIGTERM``s stubborn children,
   with no closing line. An action line leads with
   this sconscript and variant's tally and the whole-build percent
   (`` 19/182 · 10%``). The fraction is that sconscript and variant; the
@@ -363,8 +395,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cascade Phase **2c**: ``--force`` with ``--build-and-publish-dependencies``
   rebuilds and uploads every resolved dependency even when the tip's consume
   archive already matches the registry. Nested sessions that are current are
-  skipped with a ``skipped (current)`` banner; end banners report ``uploaded``
-  or ``no registry upload``. Design:
+  skipped with a ``skipped (current)`` banner; end banners report
+  ``uploaded [archive.tar.gz]`` (basename when known) or ``no registry upload``.
+  Design:
   [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 

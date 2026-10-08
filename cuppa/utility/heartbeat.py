@@ -480,47 +480,31 @@ def transfer_progress_allowed():
     return logger.isEnabledFor( logging.INFO )
 
 
-def write_transcript( text, *, dwell=True ):
-    """Serialize a stdout transcript write; clear the status line first when diverting.
+def resolve_cuppa_stdout_is_tty( environ=None, stdout_is_tty=None ):
+    """Env value for ``CUPPA_STDOUT_IS_TTY`` passed to the SCons child.
 
-    Parallel ``-j`` / ``--parallel`` jobs must not interleave terse lines (that
-    produced ``format.ovariant`` shearing). Dwell waits run *outside* the
-    transcript lock so one job's animation hold does not block others' writes
-    for the whole cycle — only the clear+write critical section is serialised.
-
-    Console reports pass ``dwell=False`` so mode banners are not delayed; they
-    still clear under the same lock so a status redraw cannot win the row.
-
-    Marks the transcript idle gate so INFO captions stay pending (latest wins)
-    until the stream has been quiet for ``_IDLE_GATE_S``.
-
-    Also clears a terse-without-quiet ``operation_status`` row so ``→ [update]``
-    cannot share the physical line with a pulse rewrite.
+    Preserve an outermost interactive flag through nested ``python -m cuppa``
+    (cascade). Only probe ``stdout.isatty()`` when the flag is unset.
     """
-    if dwell and diverting():
-        ensure_min_dwell()
-    # Drop any standalone operation_status paint before the transcript line.
-    clear_operation_status( dwell=dwell )
-    with _transcript_lock:
-        if diverting():
-            with _draw_lock:
-                _mark_transcript_unlocked()
-                if _last_line or _body is not None:
-                    # Keep unpainted INFO so it can show after the idle gate.
-                    _clear_unlocked( advance=False, keep_pending=True )
-        sys.stdout.write( text )
+    env = os.environ if environ is None else environ
+    inherited = env.get( 'CUPPA_STDOUT_IS_TTY' )
+    if inherited is not None and str( inherited ).strip() != '':
+        return str( inherited ).strip()
+    if stdout_is_tty is None:
         try:
-            sys.stdout.flush()
+            stdout_is_tty = bool( sys.stdout.isatty() )
         except Exception:
-            pass
+            stdout_is_tty = False
+    return '1' if stdout_is_tty else '0'
 
 
 def _outer_stdout_is_tty():
-    """Whether the ``cuppa`` launcher's stdout is a TTY (interactive console).
+    """Whether the ultimate human console is a TTY.
 
-    The launcher sets ``CUPPA_STDOUT_IS_TTY`` because this process's stdout is
-    always a pipe under ``python -m cuppa``. Unset (direct SCons) means
-    "assume interactive" so banners stay on the progress TTY only.
+    The outermost ``cuppa`` launcher sets ``CUPPA_STDOUT_IS_TTY`` because the
+    SCons child's stdout is always a pipe. Nested cascade must **preserve**
+    that flag (nested ``cuppa`` stdout is also a pipe). Unset (direct SCons)
+    means "assume interactive".
     """
     flag = os.environ.get( 'CUPPA_STDOUT_IS_TTY' )
     if flag is None:
@@ -528,39 +512,76 @@ def _outer_stdout_is_tty():
     return flag.strip() not in ( '0', 'false', 'False', 'no', 'NO' )
 
 
-def write_report( text ):
-    """Console report while diverting: clear status, write without dwell.
+def write_line( text, *, dwell=False, keep_pending=False ):
+    """Durable console line — one owner for transcript and console reports.
 
-    On an interactive launcher (``CUPPA_STDOUT_IS_TTY=1``), write only on the
-    progress TTY so the stdout pipe cannot append the banner onto
-    ``working …``. When the launcher itself is piped (CI, ``>log``), also
-    write on stdout so the wrapper can forward the report — CONOUT$ /
-    ``/dev/tty`` alone would hide it from capture. Non-diverting callers keep
-    using stdout only.
+    Under quiet diverting on an interactive console, clear the status row and
+    write on the heartbeat stream under the same locks so a pulse cannot
+    repaint between clear and the durable line (ECG shear). Never dual-write
+    TTY + pipe: interactive → owned stream only; CI / piped launcher → pipe
+    only (after clearing any status).
 
-    Marks the transcript idle gate so an INFO caption cannot repaint between
-    report chunks (purge/list tables) and shear onto the next line.
+    When not diverting, write ``sys.stdout`` (after clearing operation_status /
+    ProgressReporter so terse-without-quiet rows cannot glue).
     """
+    global _pending, _pending_is_sticky
+    if dwell and diverting():
+        ensure_min_dwell()
+    clear_operation_status( dwell=dwell )
+    try:
+        from cuppa.utility.download import clear_active_progress
+        clear_active_progress()
+    except Exception:
+        pass
     with _transcript_lock:
-        wrote_tty = False
-        with _draw_lock:
-            if _last_line or _body is not None:
-                _clear_unlocked( advance=False )
-            _mark_transcript_unlocked()
-            if _heartbeat_active and _stream is not None:
-                try:
-                    _stream.write( text )
-                    _stream.flush()
-                    wrote_tty = True
-                except Exception:
-                    pass
-            if wrote_tty and _outer_stdout_is_tty():
-                return
+        if diverting():
+            interactive = _outer_stdout_is_tty()
+            with _draw_lock:
+                _mark_transcript_unlocked()
+                if _last_line or _body is not None:
+                    _clear_unlocked( advance=False, keep_pending=keep_pending )
+                elif not keep_pending:
+                    # Reports drop pending INFO even when the row is blank.
+                    _pending = None
+                    _pending_is_sticky = False
+                if interactive and _heartbeat_active and _stream is not None:
+                    try:
+                        _stream.write( text )
+                        _stream.flush()
+                        return
+                    except Exception:
+                        pass
+            # Piped launcher / CI: durable line on the pipe only.
+            sys.stdout.write( text )
+            try:
+                sys.stdout.flush()
+            except Exception:
+                pass
+            return
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
         except Exception:
             pass
+
+
+def write_transcript( text, *, dwell=True ):
+    """Serialize a durable transcript write (terse lines, muted cmake children).
+
+    Parallel ``-j`` / ``--parallel`` jobs must not interleave terse lines.
+    Dwell waits run *outside* the transcript lock. Keeps unpainted INFO for
+    the idle gate (``keep_pending=True``).
+    """
+    write_line( text, dwell=dwell, keep_pending=True )
+
+
+def write_report( text ):
+    """Console report while diverting: durable line without animation dwell.
+
+    Same ownership as ``write_line`` / ``write_transcript``. Drops pending INFO
+    so a purge/list table is not followed by a stale caption.
+    """
+    write_line( text, dwell=False, keep_pending=False )
 
 
 def quiet_console():
@@ -942,6 +963,23 @@ def operation_status( message ):
         stop.set()
         thread.join( timeout=2.0 )
         clear_operation_status( dwell=True )
+
+
+def pulse_ephemeral_status( message ):
+    """Show a short-lived status caption that must not become transcript.
+
+    Used for cmake ``-- Up-to-date:`` under ``--terse-output``: little durable
+    value, but useful as a disappearing “still working” cue. Under quiet
+    diverting this is ordinary event INFO on the heartbeat. Otherwise a no-op
+    (caller still suppresses the durable ``→`` child and may emit a summary).
+    """
+    from cuppa.output_processor import strip_ansi
+
+    text = strip_ansi( ( message or '' ).replace( '\n', ' ' ) ).strip()
+    if not text:
+        return
+    if diverting():
+        show_info( text, sticky=False )
 
 
 def show_info( message, sticky=False ):

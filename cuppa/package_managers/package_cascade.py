@@ -20,6 +20,7 @@ import hashlib
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 from collections import defaultdict, deque
@@ -1199,8 +1200,8 @@ def _edges_from_publish_file( directory: str ) -> list[dict]:
 
 
 def node_label( entry ) -> str:
-    """``name version (package)`` — the label cascade reports a node by."""
-    return "{} {} ({})".format(
+    """``name [==version] (package)`` — same pin spelling as the cascade plan."""
+    return "{} [=={}] ({})".format(
             entry.get( "name" ), entry.get( "version" ), entry.get( "package" )
     )
 
@@ -2177,8 +2178,11 @@ def session_end_lines(
 ) -> list[str]:
     """Banner closing one nested session.
 
-    ``outcome`` is ``uploaded``, ``skipped (current)``, or ``None`` (legacy: exit
-    only). Phase 2c sets an explicit outcome when the tip knows what happened.
+    ``outcome`` is a pre-coloured body from :func:`nested_upload_outcome`
+    (e.g. ``uploaded [archive.tar.gz]``), ``no registry upload``, or ``None``.
+    No trailing blank after the rule — the tip's ``parent session`` line (or
+    the next session begin) follows immediately so we do not print a double
+    rule gap.
     """
     taken = ""
     if elapsed_nanosecs is not None:
@@ -2190,12 +2194,21 @@ def session_end_lines(
             "{}: {}{}".format( head, as_info( str( label ) ), taken ),
     ]
     if outcome:
-        lines.append( "  {}".format( as_notice( str( outcome ) ) ) )
-    lines.extend( [
-            as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ),
-            "",
-    ] )
+        # Outcome already colours the archive leaf; keep the key plain like
+        # ``publisher […]`` / ``command […]`` on the begin banner.
+        lines.append( "  {}".format( outcome ) )
+    lines.append( as_subdued( RULE * ( width or storage.WIDEST_PROSE ) ) )
     return lines
+
+
+def nested_upload_outcome( uploaded, archive_path=None ) -> str:
+    """Close-line body for a nested publish (brackets plain, leaf notice)."""
+    if not uploaded:
+        return "no registry upload"
+    name = os.path.basename( str( archive_path or "" ).rstrip( "\\/" ) )
+    if name:
+        return "uploaded [{}]".format( as_notice( name ) )
+    return "uploaded"
 
 
 def session_skipped_lines(
@@ -2217,24 +2230,25 @@ def session_skipped_lines(
     ]
 
 
-def sessions_complete_lines(
-        total, tip_package, tip_version, width=None, clean=False,
-        skipped: int = 0, uploaded: int = 0, build_only: bool = False,
-) -> list[str]:
-    """Banner handing the console back to this package's build (or clean)."""
+def _cascade_run_summary(
+        total, skipped=0, uploaded=0, clean=False, build_only=False, *, begin=False,
+) -> str:
+    """Short count phrase for tip-scoped ``[cascade] … · begin|end`` lines."""
+    if begin:
+        return storage.emphasised_count_phrase( total, "package", "packages" )
     nest_singular = "nested build" if build_only else "nested publish"
     nest_plural = "nested builds" if build_only else "nested publishes"
     skip_singular = "skipped build" if build_only else "skipped publish"
     skip_plural = "skipped builds" if build_only else "skipped publishes"
     if clean:
-        nested = storage.emphasised_count_phrase(
+        return storage.emphasised_count_phrase(
                 total, "nested clean", "nested cleans",
         )
-    elif skipped and skipped == total:
-        nested = storage.emphasised_count_phrase(
+    if skipped and skipped == total:
+        return storage.emphasised_count_phrase(
                 total, skip_singular, skip_plural,
         )
-    elif skipped or uploaded:
+    if skipped or uploaded:
         parts = []
         ran = total - skipped
         if uploaded:
@@ -2249,13 +2263,23 @@ def sessions_complete_lines(
             parts.append( storage.emphasised_count_phrase(
                     skipped, "skipped", "skipped",
             ) )
-        nested = "; ".join( parts ) if parts else storage.emphasised_count_phrase(
+        return "; ".join( parts ) if parts else storage.emphasised_count_phrase(
                 total, nest_singular, nest_plural,
         )
-    else:
-        nested = storage.emphasised_count_phrase(
-                total, nest_singular, nest_plural,
-        )
+    return storage.emphasised_count_phrase(
+            total, nest_singular, nest_plural,
+    )
+
+
+def sessions_complete_lines(
+        total, tip_package, tip_version, width=None, clean=False,
+        skipped: int = 0, uploaded: int = 0, build_only: bool = False,
+) -> list[str]:
+    """Banner handing the console back to this package's build (or clean)."""
+    nested = _cascade_run_summary(
+            total, skipped=skipped, uploaded=uploaded,
+            clean=clean, build_only=build_only,
+    )
     resume = "resuming clean of this package" if clean else "resuming this package"
     return [
             "",
@@ -2273,6 +2297,95 @@ def write_lines( lines, out=None ) -> None:
     """Emit report lines unprefixed — tree glyphs do not survive log labels."""
     from cuppa.utility.console_report import write_report_lines
     write_report_lines( lines, out=out )
+
+
+def parent_session_lines(
+        tip_package,
+        tip_version,
+        tip_name=None,
+        width=None,
+) -> list[str]:
+    """Banner when the tip briefly owns the console between nested sessions.
+
+    Reuses the preceding session-end rule — do not print another rule here.
+    A blank line after the chip separates it from ``[cascade] exiting|entering``.
+    """
+    head = as_info_label( "parent session" )
+    name = tip_name or tip_package
+    label = "{} [=={}] ({})".format( name, tip_version, tip_package )
+    return [
+            "{}: {}".format( head, as_info( str( label ) ) ),
+            "",
+    ]
+
+
+def _run_nested_cuppa( argv, cwd, env ) -> int:
+    """Run nested ``python -m cuppa`` without orphaning cmake on tip Ctrl-C.
+
+    Nested cuppa is started in its own session and remembered like build
+    tool children. The tip's first Ctrl-C both ``SIGINT``s remembered
+    children (via :func:`note_stop_request`) and makes this wait see
+    ``stop_count() >= 1`` so the nested tree — including ninja/cmake that
+    used ``start_new_session`` — is torn down before durable ``→`` lines
+    keep writing to ``/dev/tty`` after the tip has returned to the shell.
+    """
+    from cuppa.utility.build_children import (
+            child_popen_kwargs,
+            forget_child,
+            remember_child,
+            stop_count,
+            terminate_process_tree,
+    )
+
+    process = subprocess.Popen(
+            argv,
+            cwd=cwd,
+            env=env,
+            **child_popen_kwargs(),
+    )
+    remember_child( process )
+    returncode = None
+    try:
+        while True:
+            try:
+                returncode = process.wait( timeout=0.25 )
+                break
+            except subprocess.TimeoutExpired:
+                if stop_count() < 1:
+                    continue
+                terminate_process_tree( process.pid, signal.SIGTERM )
+                try:
+                    returncode = process.wait( timeout=15 )
+                except subprocess.TimeoutExpired:
+                    terminate_process_tree( process.pid, signal.SIGKILL )
+                    try:
+                        returncode = process.wait( timeout=5 )
+                    except subprocess.TimeoutExpired:
+                        returncode = -9
+                break
+            except KeyboardInterrupt:
+                terminate_process_tree( process.pid, signal.SIGTERM )
+                try:
+                    process.wait( timeout=15 )
+                except Exception:
+                    terminate_process_tree( process.pid, signal.SIGKILL )
+                    try:
+                        process.wait( timeout=5 )
+                    except Exception:
+                        pass
+                raise
+    finally:
+        if process.poll() is None:
+            terminate_process_tree( process.pid, signal.SIGTERM )
+            try:
+                process.wait( timeout=10 )
+            except Exception:
+                terminate_process_tree( process.pid, signal.SIGKILL )
+        forget_child( process )
+    if returncode is not None:
+        return returncode
+    code = process.returncode
+    return code if code is not None else -1
 
 
 def _raise_options_error( headline, reasons, short_message, encoding=None, out=None ):
@@ -3722,12 +3835,10 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
             ordinal, total, label, publisher_dir, " ".join( argv )
     ) )
     session_timer = timer.Timer()
-    completion = None
+    returncode = None
     try:
-        completion = subprocess.run(
-                argv,
-                cwd=publisher_dir,
-                env=nested_env,
+        returncode = _run_nested_cuppa(
+                argv, cwd=publisher_dir, env=nested_env,
         )
     finally:
         uploaded = _nested_session_uploaded( marker_dir )
@@ -3736,8 +3847,12 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
         if marker_dir:
             shutil.rmtree( marker_dir, ignore_errors=True )
         session_timer.stop()
-    if completion is None or completion.returncode != 0:
-        code = completion.returncode if completion is not None else "unknown"
+    if returncode is None or returncode != 0:
+        from cuppa.utility.build_children import stop_count
+        if stop_count() >= 1:
+            # Tip Ctrl-C tore the nest down — do not dress it up as a publish failure.
+            raise KeyboardInterrupt
+        code = returncode if returncode is not None else "unknown"
         verb = "clean" if _clean_enabled( env ) else "publish"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
@@ -3746,7 +3861,7 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
         )
     outcome = None
     if not _clean_enabled( env ):
-        outcome = "uploaded" if uploaded else "no registry upload"
+        outcome = nested_upload_outcome( uploaded, archive_path )
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall,
             outcome=outcome,
@@ -3769,17 +3884,18 @@ def run_nested_stage( env, publisher_dir: str, label: str ) -> None:
     ) )
     sys.stdout.flush()
     session_timer = timer.Timer()
-    completion = subprocess.run(
-            argv,
-            cwd=publisher_dir,
-            env=nested_env,
+    returncode = _run_nested_cuppa(
+            argv, cwd=publisher_dir, env=nested_env,
     )
     session_timer.stop()
-    if completion.returncode != 0:
+    if returncode != 0:
+        from cuppa.utility.build_children import stop_count
+        if stop_count() >= 1:
+            raise KeyboardInterrupt
         verb = "clean" if _clean_enabled( env ) else "stage"
         raise SCons.Errors.StopError(
                 "develop {} of [{}] failed with return code [{}] (cwd={})"
-                .format( verb, label, completion.returncode, publisher_dir )
+                .format( verb, label, returncode, publisher_dir )
         )
     write_lines( session_end_lines(
             1, 1, label, session_timer.elapsed().wall, kind=kind
@@ -3805,17 +3921,18 @@ def run_nested_location_project(
     ) )
     sys.stdout.flush()
     session_timer = timer.Timer()
-    completion = subprocess.run(
-            argv,
-            cwd=project_dir,
-            env=nested_env,
+    returncode = _run_nested_cuppa(
+            argv, cwd=project_dir, env=nested_env,
     )
     session_timer.stop()
-    if completion.returncode != 0:
+    if returncode != 0:
+        from cuppa.utility.build_children import stop_count
+        if stop_count() >= 1:
+            raise KeyboardInterrupt
         verb = "clean" if _clean_enabled( env ) else "build"
         raise SCons.Errors.StopError(
                 "develop {} of location [{}] failed with return code [{}] (cwd={})"
-                .format( verb, label, completion.returncode, project_dir )
+                .format( verb, label, returncode, project_dir )
         )
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall, kind=kind
@@ -3841,20 +3958,21 @@ def run_nested_build(
     ) )
     sys.stdout.flush()
     session_timer = timer.Timer()
-    completion = subprocess.run(
-            argv,
-            cwd=publisher_dir,
-            env=nested_env,
+    returncode = _run_nested_cuppa(
+            argv, cwd=publisher_dir, env=nested_env,
     )
     session_timer.stop()
-    if completion.returncode != 0:
+    if returncode != 0:
+        from cuppa.utility.build_children import stop_count
+        if stop_count() >= 1:
+            raise KeyboardInterrupt
         verb = "clean" if _clean_enabled( env ) else "build"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
                 .format(
                         ordinal, total, verb, label,
-                        completion.returncode, publisher_dir,
+                        returncode, publisher_dir,
                 )
         )
     write_lines( session_end_lines(
@@ -4866,6 +4984,81 @@ def maybe_run_cascade( env, publisher ) -> None:
     total = len( order )
     skipped = 0
     uploaded_count = 0
+
+    def _will_nest( candidate ):
+        if build_cascade_deps:
+            return True
+        if cleaning:
+            return True
+        if force:
+            return True
+        return not package_pin_is_current(
+                env, candidate, tip_publisher=publisher,
+        )
+
+    def _next_nest_entry( after_index ):
+        for later in order[ after_index: ]:
+            candidate = nodes[ later ]
+            if _will_nest( candidate ):
+                return candidate
+        return None
+
+    def _cascade_publisher_sconstruct( nest_entry ):
+        return storage.display_path(
+                os.path.join(
+                        str( nest_entry.get( "_publisher_dir" ) or "" ),
+                        "sconstruct",
+                )
+        )
+
+    def _announce_parent_exit( exiting_entry ):
+        write_lines( parent_session_lines( tip_package, tip_version ) )
+        try:
+            import cuppa.progress as progress
+            progress.write_terse_cascade_checkpoint(
+                    env,
+                    exiting_entry.get( "name" ) or exiting_entry.get( "package" ),
+                    exiting_entry.get( "version" ),
+                    "exiting",
+                    _cascade_publisher_sconstruct( exiting_entry ),
+            )
+        except Exception:
+            pass
+
+    def _announce_parent_enter( entering_entry ):
+        if entering_entry is None:
+            return
+        try:
+            import cuppa.progress as progress
+            progress.write_terse_cascade_checkpoint(
+                    env,
+                    entering_entry.get( "name" ) or entering_entry.get( "package" ),
+                    entering_entry.get( "version" ),
+                    "entering",
+                    _cascade_publisher_sconstruct( entering_entry ),
+            )
+        except Exception:
+            pass
+
+    def _announce_cascade_run( verb, summary ):
+        try:
+            import cuppa.progress as progress
+            progress.write_terse_cascade_run_checkpoint(
+                    env, tip_package, tip_version, verb, summary=summary,
+            )
+        except Exception:
+            pass
+
+    # Tip-scoped span: plan → blank → begin → (first entering) → nests →
+    # complete banner → end.
+    write_lines( [ "" ] )
+    _announce_cascade_run(
+            "begin",
+            _cascade_run_summary( total, begin=True ),
+    )
+    if not build_cascade_deps and not cleaning:
+        _announce_parent_enter( _next_nest_entry( 0 ) )
+
     for ordinal, key in enumerate( order, start=1 ):
         entry = nodes[key]
         label = node_label( entry )
@@ -4900,16 +5093,13 @@ def maybe_run_cascade( env, publisher ) -> None:
         # Skip-if-current sessions never ran; refresh only after a real upload.
         if cleaning:
             continue
-        if result.uploaded:
-            uploaded_count += 1
-            refresh_package_consume_cache(
-                    env,
-                    entry,
-                    tip_publisher=publisher,
-                    nested_package_dir=result.package_dir,
-                    nested_archive=result.archive_path,
-            )
-        elif force:
+        if result.uploaded or force:
+            if result.uploaded:
+                uploaded_count += 1
+            next_entry = _next_nest_entry( ordinal )
+            # Tip owns the console briefly: parent banner + exiting, then extract,
+            # then entering the next nest (if any).
+            _announce_parent_exit( entry )
             # Forced rebuild may have rewritten stamps without a detectable upload
             # marker race; still refresh so tip consume matches nested output.
             refresh_package_consume_cache(
@@ -4919,12 +5109,23 @@ def maybe_run_cascade( env, publisher ) -> None:
                     nested_package_dir=result.package_dir,
                     nested_archive=result.archive_path,
             )
+            _announce_parent_enter( next_entry )
 
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
             skipped=skipped, uploaded=uploaded_count,
             build_only=build_cascade_deps,
     ) )
+    # Blank before the tip ``end`` twin so the complete banner does not glue
+    # onto the next terse checkpoint (``end``, then tip ``[ready]``).
+    write_lines( [ "" ] )
+    _announce_cascade_run(
+            "end",
+            _cascade_run_summary(
+                    total, skipped=skipped, uploaded=uploaded_count,
+                    clean=cleaning, build_only=build_cascade_deps,
+            ),
+    )
     _cascade_nested_done.add( nested_key )
     if build_cascade_deps:
         # No nested upload — tip must not fail waiting on registry artefacts.
