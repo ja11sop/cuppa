@@ -3179,7 +3179,6 @@ def gitlab_registry_map_url( registry ):
 
 def label_terse_registry( env, registry ):
     """Emit ``→ [registry] <token> = …/packages/generic`` once. Return the token."""
-    global _written_registries
     token = gitlab_registry_token( registry )
     if not token:
         return ""

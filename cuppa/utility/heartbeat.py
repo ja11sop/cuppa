@@ -789,7 +789,6 @@ def clear_operation_status( dwell=True ):
         owns = _operation_owns
         painted = _operation_painted
         since = _operation_since
-        last = _operation_last
         _operation_stop = None
         _operation_stream = None
         _operation_owns = False
