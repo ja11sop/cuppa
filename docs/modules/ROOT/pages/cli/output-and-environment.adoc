@@ -44,13 +44,14 @@ captions stay pending until a short idle gap (latest message wins) so a fast
 `terse`–info–`terse` burst cannot seize the row and stall the next line. Terse transcript writes
 are serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from
 the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent for the
-heartbeat. Download, extract, and package compress progress share one engine:
+heartbeat. Download, extract, package compress, and registry upload (publish) progress share
+one engine:
 
 * **Normal TTY** — progress bar only (no alive widget); under `-Q`/`-s` the same bar is muted,
   appears only after the idle gate, and is overwritten on completion.
 * **`--terse-output` TTY** — alive widget (unless `--quiet-heartbeat=off`) + `→` + progress bar,
   always muted; idle-gate reveal; overwrite on completion after one animation dwell; then a
-  durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · …` line).
+  durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
 * **Non-TTY / CI** — periodic whole lines in **normal** mode only (not under `--terse-output`).
 
 `--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables the heartbeat
