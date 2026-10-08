@@ -29,6 +29,7 @@ from cuppa.log import logger
 from cuppa.progress import (
         NotifyProgress,
         is_interrupt_returncode,
+        note_build_failure_draining,
         note_build_interrupted,
         render_terse_spawn,
         take_terse_command,
@@ -466,6 +467,8 @@ class SpawnedProcessor(object):
                 self.summary( returncode ),
         ):
             _emit_transcript( line )
+        if returncode or self._processor.errors:
+            note_build_failure_draining()
 
 
 

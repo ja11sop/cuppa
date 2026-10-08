@@ -307,9 +307,17 @@ class Construct(object):
             set_logging_level( quiet_kind )
             return
 
+        # ``-c`` / ``--clean`` floods SCons ``display("Removed …")`` lines that
+        # never pass ``PRINT_CMD_LINE_FUNC``. A quiet status row on ``/dev/tty``
+        # shears under the launcher (``|•--------|Removed …``). Force classic
+        # quiet (no heartbeat) even when ``--quiet-heartbeat=pulse`` is saved.
+        heartbeat_style = cuppa_env.get( 'quiet_heartbeat' )
+        if cuppa_env.get_option( 'clean' ):
+            heartbeat_style = 'off'
+
         quiet_heartbeat.configure_quiet_console(
                 quiet_kind,
-                style=cuppa_env.get( 'quiet_heartbeat' ),
+                style=heartbeat_style,
                 compact=bool( cuppa_env.get( 'terse_output' ) ),
         )
 
@@ -409,6 +417,13 @@ class Construct(object):
         # Re-apply quiet once output options are settled: quiet+TTY diverts
         # INFO onto the heartbeat status line (works with terse and normal).
         self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
+        # Heal TTY autowrap if a prior cuppa left ``?7l`` on (heartbeat exit
+        # without ``?7h``) — otherwise long compile lines truncate mid-flag.
+        try:
+            from cuppa.utility.heartbeat import restore_terminal_wrap
+            restore_terminal_wrap( force=True )
+        except Exception:
+            pass
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 

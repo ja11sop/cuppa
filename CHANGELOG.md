@@ -84,23 +84,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
+  ``-c`` / ``--clean`` forces classic quiet (no status row): SCons prints
+  ``Removed …`` via ``display()``, which used to shear onto the heartbeat
+  (``|•--------|Removed …`` / ``downloadsRemoved``). While diverting, SCons
+  ``display()`` is also routed through ``write_line`` as a safety net.
+  Heartbeat ``?7l`` (disable autowrap) is always paired with ``?7h`` on
+  clear/reset/atexit, and construct start force-heals wrap if a prior cuppa
+  exited mid-pulse — otherwise later builds look "unwrapped" (long ``g++``
+  lines truncate at the terminal margin).
   Default ``--quiet-heartbeat=pulse`` is a bordered ECG widget (hospital-green
   QRS); ``spinner`` selects classic ASCII; ``off`` disables the status line.
   Pulse form is ``|<widget>|  <message>`` (no ``working`` word — the ECG is
   enough); spinner keeps ``working <spinner>  <message>``. With ``--terse-output``
   the ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
-  not flash unreadably (warnings clear immediately). After a transcript write,
+  not flash unreadably (warnings clear immediately).   After a transcript write,
   INFO captions stay pending until a short idle gate (latest wins) so a fast
   ``terse–info–terse`` stream cannot seize the row and stall the next line.
-  Console mode banners clear the status on the progress TTY so the ``cuppa``
-  launcher cannot append them to ``working …``; when the launcher itself is
-  piped (CI, redirects) the banner is also written on the stdout pipe so
-  capture still sees it. Terse and command transcript writes are serialised
-  under ``-j`` / ``--parallel``. Pipelines and CI stay silent (no heartbeat
-  without a TTY). Transfer/archive progress under quiet uses the same muted
-  alive+metrics line (not the old multi-line download bar).
-  ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+  Same-row caption updates keep the current ECG/spinner frame and do not
+  restart the pulse timer (only the pulse tick advances the widget and
+  re-arms). Leaving the status row (clear / transcript) resets the cycle
+  so a mid-beat does not resume on the next line. Quiet retrieve
+  ``operation_status`` hands off with an in-row sticky release (no
+  full-cycle dwell+clear between Updating captions). Console mode banners
+  clear the status on the
+  progress TTY so the ``cuppa`` launcher cannot append them to ``working …``;
+  when the launcher itself is piped (CI, redirects) the banner is also
+  written on the stdout pipe so capture still sees it. Terse and command
+  transcript writes are serialised under ``-j`` / ``--parallel``. Pipelines
+  and CI stay silent (no heartbeat without a TTY). Transfer/archive progress
+  under quiet uses the same muted alive+metrics line (not the old multi-line
+  download bar). ``--verbosity=`` still wins. Plan:
+  ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal
@@ -145,7 +160,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``[error]`` terse status — the interrupt banner owns the close
   (``stopped in-flight actions``, then
   ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``).
-  The fraction is the whole build, completed against what was going to run.
+  Under ``-j`` / ``--parallel``, the first terse ``[error]`` is followed once
+  by ``failed — draining in-flight jobs...`` so later ``[ok]`` lines from
+  already-running jobs are not mistaken for keep-going. Serial builds and
+  interrupt banners skip that note. The fraction is the whole build,
+  completed against what was going to run.
   A second Ctrl-C prints ``aborted`` and ``SIGTERM``s stubborn children,
   with no closing line. An action line leads with
   this sconscript and variant's tally and the whole-build percent

@@ -23,6 +23,7 @@ expires (latest wins). That avoids a fast ``terse–info–terse`` pattern
 seizing the row and forcing a full-cycle dwell before the next transcript.
 """
 
+import atexit
 import logging
 import os
 import sys
@@ -109,6 +110,9 @@ _draw_lock = threading.Lock()
 _pulse_enabled = True
 _suppress_depth = 0
 _wrap_disabled = False
+# True after we emit ``_WRAP_OFF`` on a real TTY. Autowrap is a *terminal*
+# mode: if we exit without ``_WRAP_ON``, the shell keeps truncating long lines.
+_wrap_off_sent = False
 _style = _STYLE_PULSE
 _compact = False
 _transcript_lock = threading.Lock()
@@ -127,6 +131,10 @@ _operation_last = ''
 _operation_painted = False
 _operation_since = None
 _operation_lock = threading.Lock()
+# SCons ``display()`` (clean ``Removed …``, etc.) bypasses PRINT_CMD_LINE;
+# route those lines through ``write_line`` while the heartbeat is diverting.
+_scons_display_patched = False
+_scons_display_original = None
 
 
 def _terminal_columns():
@@ -512,6 +520,90 @@ def _outer_stdout_is_tty():
     return flag.strip() not in ( '0', 'false', 'False', 'no', 'NO' )
 
 
+def _ensure_scons_display_routed():
+    """Patch SCons ``DisplayEngine`` so durable messages clear the status row.
+
+    Clean tasks print ``Removed …`` via ``display()``, not
+    ``PRINT_CMD_LINE_FUNC``. Without this, the launcher can echo those lines
+    onto a live ``/dev/tty`` heartbeat. Idempotent; no-ops when not diverting.
+    """
+    global _scons_display_patched, _scons_display_original
+    if _scons_display_patched:
+        return
+    try:
+        from SCons.Util import DisplayEngine
+    except Exception:
+        return
+    if _scons_display_original is None:
+        _scons_display_original = DisplayEngine.__call__
+
+    def routed( self, text, append_newline=1 ):
+        if not getattr( self, "print_it", True ):
+            return
+        if diverting():
+            message = str( text )
+            if append_newline:
+                message = message + "\n"
+            try:
+                write_line( message, dwell=False, keep_pending=False )
+                return
+            except Exception:
+                pass
+        return _scons_display_original( self, text, append_newline=append_newline )
+
+    DisplayEngine.__call__ = routed
+    _scons_display_patched = True
+
+
+def _write_wrap_on( stream ):
+    """Best-effort ``DECAWM`` on (autowrap). Failures are ignored."""
+    if stream is None:
+        return False
+    try:
+        stream.write( _WRAP_ON )
+        stream.flush()
+        return True
+    except Exception:
+        return False
+
+
+def restore_terminal_wrap( *, force=False ):
+    """Re-enable TTY autowrap after heartbeat / operation_status ``WRAP_OFF``.
+
+    Autowrap is a terminal attribute, not process-local. Leaving ``?7l`` on
+    after exit makes later builds look "unwrapped" (long ``g++`` lines truncate
+    at the margin). Call on clear/reset, process exit, and construct start
+    (``force=True`` heals a wrap-off left by a prior cuppa).
+    """
+    global _wrap_disabled, _wrap_off_sent
+    with _draw_lock:
+        needs = force or _wrap_off_sent or _wrap_disabled
+        stream = _stream
+        _wrap_disabled = False
+        _wrap_off_sent = False
+    if not needs:
+        return
+    if _write_wrap_on( stream ):
+        return
+    try:
+        from cuppa.utility.download import open_progress_stream
+        tty, is_tty, owns = open_progress_stream()
+    except Exception:
+        return
+    try:
+        if is_tty:
+            _write_wrap_on( tty )
+    finally:
+        if owns and tty is not None:
+            try:
+                tty.close()
+            except Exception:
+                pass
+
+
+atexit.register( restore_terminal_wrap )
+
+
 def write_line( text, *, dwell=False, keep_pending=False ):
     """Durable console line — one owner for transcript and console reports.
 
@@ -622,8 +714,25 @@ def _cancel_pulse():
             _pulse = None
 
 
+def _start_pulse_timer_unlocked():
+    """Schedule the next pulse tick (caller holds ``_pulse_lock``)."""
+    global _pulse
+    if (
+            not _pulse_enabled
+            or not _heartbeat_active
+            or _body is None
+            or _suppress_depth
+    ):
+        _pulse = None
+        return
+    timer = threading.Timer( _next_pulse_interval(), _on_pulse )
+    timer.daemon = True
+    _pulse = timer
+    timer.start()
+
+
 def _arm_pulse():
-    """Keep the ECG pulse moving while a status line is held (long waits)."""
+    """Schedule the next ECG tick after a pulse frame (replace any prior timer)."""
     global _pulse
     with _pulse_lock:
         if _pulse is not None:
@@ -632,17 +741,20 @@ def _arm_pulse():
             except Exception:
                 pass
             _pulse = None
-        if (
-                not _pulse_enabled
-                or not _heartbeat_active
-                or _body is None
-                or _suppress_depth
-        ):
+        _start_pulse_timer_unlocked()
+
+
+def _ensure_pulse():
+    """Start the ECG timer only if none is running.
+
+    Caption flushes must call this instead of :func:`_arm_pulse`. Restarting
+    the timer on every message update resets the beat cadence and looks jumpy
+    even when ``_spin`` is left alone.
+    """
+    with _pulse_lock:
+        if _pulse is not None:
             return
-        timer = threading.Timer( _next_pulse_interval(), _on_pulse )
-        timer.daemon = True
-        _pulse = timer
-        timer.start()
+        _start_pulse_timer_unlocked()
 
 
 def _expire_message_unlocked( now ):
@@ -665,7 +777,13 @@ def _expire_message_unlocked( now ):
 
 
 def _on_pulse():
-    global _spin
+    global _spin, _pulse
+    # This firing is done — drop the handle before any early return so
+    # :func:`_ensure_pulse` can start a fresh timer (a cancelled/finished
+    # ``Timer`` left in ``_pulse`` looked "armed" and permanently stalled
+    # the ECG after suppress/clear races).
+    with _pulse_lock:
+        _pulse = None
     if not _heartbeat_active or _body is None or _suppress_depth:
         return
     with _draw_lock:
@@ -675,6 +793,25 @@ def _on_pulse():
         _spin += 1
         _draw_unlocked( _body )
     _arm_pulse()
+
+
+def _release_sticky_caption():
+    """End an in-progress sticky hold without erasing the status row.
+
+    Used when one quiet retrieve hands off to the next: the following
+    sticky ``show_info`` rewrites the caption on the same row and keeps
+    ``_spin`` / the pulse timer. Resetting via ``clear()`` would restart
+    the ECG and (with ``ensure_min_dwell``) wait a full cycle per handoff.
+    """
+    global _sticky, _message_shown_at
+    with _draw_lock:
+        if not _sticky:
+            return
+        _sticky = False
+        # Restart the event-caption hold so a trailing retrieve line can age
+        # out to the pulse anchor if nothing replaces it.
+        if _body:
+            _message_shown_at = _clock()
 
 
 def reset():
@@ -688,6 +825,10 @@ def reset():
         _cancel_idle_flush_unlocked()
     clear_operation_status( dwell=False )
     clear()
+    # clear() restores wrap while ``_stream`` is still open; keep a belt-and-
+    # braces restore in case a pulse raced after clear or wrap was left by a
+    # prior process (``force`` heals inherited ``?7l``).
+    restore_terminal_wrap( force=True )
     if _owns_stream and _stream is not None:
         try:
             _stream.close()
@@ -796,6 +937,7 @@ def configure_quiet_console(
     _stream = stream
     _owns_stream = bool( owns_stream )
     _heartbeat_active = True
+    _ensure_scons_display_routed()
     # Generate INFO so the handler can divert it; multi-line INFO stays off.
     set_logging_level( 'info' )
 
@@ -804,6 +946,7 @@ def clear_operation_status( dwell=True ):
     """Erase a terse-without-quiet ``operation_status`` row, if any."""
     global _operation_stop, _operation_stream, _operation_owns
     global _operation_last, _operation_painted, _operation_since
+    global _wrap_off_sent, _wrap_disabled
     with _operation_lock:
         stop = _operation_stop
         stream = _operation_stream
@@ -832,6 +975,8 @@ def clear_operation_status( dwell=True ):
     try:
         stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
         stream.flush()
+        _wrap_off_sent = False
+        _wrap_disabled = False
     except Exception:
         pass
     if owns:
@@ -870,8 +1015,14 @@ def operation_status( message ):
         try:
             yield
         finally:
-            ensure_min_dwell()
-            clear()
+            # Do **not** full-cycle dwell + clear here. That left the status
+            # row, reset ``_spin``, and forced one ECG cycle between every
+            # sequential retrieve caption — the opposite of same-row
+            # continuity (multiple Updating rewrites per cycle with a smooth
+            # beat). Release sticky so the next ``show_info`` can replace
+            # in-row (or event INFO can take over); durable transcript /
+            # warn / the next phase still ``clear()`` as usual.
+            _release_sticky_caption()
         return
 
     if not _compact or _style == _STYLE_OFF:
@@ -898,6 +1049,7 @@ def operation_status( message ):
 
     def _paint():
         global _operation_last, _operation_painted, _operation_since
+        global _wrap_off_sent, _wrap_disabled
         from cuppa.colourise import as_subdued
         from cuppa.output_processor import strip_ansi as _strip
 
@@ -920,6 +1072,8 @@ def operation_status( message ):
                 stream.flush()
             except Exception:
                 return
+            _wrap_off_sent = True
+            _wrap_disabled = True
             if not _operation_painted:
                 _operation_painted = True
                 _operation_since = _clock()
@@ -1120,7 +1274,8 @@ def allow():
 
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
-    global _message_shown_at, _visible_since, _sticky, _pending_is_sticky
+    global _wrap_off_sent, _message_shown_at, _visible_since, _sticky
+    global _pending_is_sticky, _spin
     _cancel_pulse()
     # Keep ``_pending`` when suppressing or clearing for transcript so INFO
     # during a busy stream can show after the idle gate; warn/report drops it.
@@ -1132,9 +1287,18 @@ def _clear_unlocked( advance=False, keep_pending=False ):
     _sticky = False
     _message_shown_at = 0.0
     _visible_since = 0.0
+    # Leaving the status row — next paint is a new line; restart the cycle
+    # so a mid-beat ECG does not resume after transcript / terse output.
+    _spin = 0
     if not _heartbeat_active or _stream is None:
         _last_line = ''
-        _wrap_disabled = False
+        # Still owe the TTY a wrap-on if a prior paint sent wrap-off.
+        if _wrap_disabled or _wrap_off_sent:
+            _wrap_disabled = False
+            _wrap_off_sent = False
+            # Stream may already be gone — caller / atexit uses restore.
+        else:
+            _wrap_disabled = False
         return
     try:
         # Erase the status row and restore autowrap. ``advance`` ends the row
@@ -1145,6 +1309,7 @@ def _clear_unlocked( advance=False, keep_pending=False ):
             text += '\n'
         _stream.write( text )
         _stream.flush()
+        _wrap_off_sent = False
     except Exception:
         pass
     _wrap_disabled = False
@@ -1153,24 +1318,37 @@ def _clear_unlocked( advance=False, keep_pending=False ):
 
 
 def _flush_unlocked( now ):
-    global _pending, _last_emit, _body, _spin, _message_shown_at
+    """Paint pending caption without disturbing same-row ECG cadence.
+
+    * Same status row (``_last_line`` set): keep ``_spin`` and the running
+      pulse timer (:func:`_ensure_pulse`) so caption text can change without
+      jumping the beat.
+    * New status row (after clear / transcript): start the cycle at rest
+      (``_spin = 0``) so animation does not resume mid-beat on a fresh line.
+
+    Still a full-row ``\\r`` rewrite (option 1). Column-local caption paint
+    (option 2) is a follow-on if soak still shows widget flicker.
+    """
+    global _pending, _last_emit, _body, _message_shown_at, _spin
     global _sticky, _pending_is_sticky
     if _pending is None or _stream is None or _suppress_depth:
         return
+    same_row = bool( _last_line )
     _body = _pending
     _sticky = bool( _pending_is_sticky )
     _pending = None
     _pending_is_sticky = False
     _message_shown_at = now
-    _spin += 1
+    if not same_row:
+        _spin = 0
     _draw_unlocked( _body )
     _last_emit = now
-    _arm_pulse()
+    _ensure_pulse()
 
 
 def _draw_unlocked( body ):
     """Write one status line fitted to the TTY width."""
-    global _last_line, _wrap_disabled, _visible_since
+    global _last_line, _wrap_disabled, _wrap_off_sent, _visible_since
     if _stream is None or body is None or _suppress_depth:
         return
     from cuppa.colourise import as_subdued
@@ -1193,10 +1371,12 @@ def _draw_unlocked( body ):
     try:
         # Disable wrap so a wrong column count cannot leave debris; erase the
         # tail instead of space-padding to the full width (padding raced with
-        # piped stdout and looked like a trail of blanks).
+        # piped stdout and looked like a trail of blanks). Must pair with
+        # ``_WRAP_ON`` on clear/reset/atexit — wrap is a terminal mode.
         _stream.write( _WRAP_OFF + '\r' + styled + _ERASE_EOL )
         _stream.flush()
         _wrap_disabled = True
+        _wrap_off_sent = True
     except Exception:
         pass
     _last_line = styled

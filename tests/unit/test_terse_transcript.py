@@ -666,6 +666,51 @@ def test_spawn_reprints_the_command_when_the_tool_fails(capsys):
     assert "bad.cpp: error" in out
     assert out.rstrip().endswith( "[error] compile · hello.cpp → hello.o" )
     assert "[ok]" not in out
+    assert "draining in-flight" not in out
+
+
+def test_parallel_terse_error_notes_draining_once(capsys, monkeypatch):
+    monkeypatch.setattr( progress, "_parallel_build_active", lambda: True )
+
+    progress.stash_terse_command("g++ -c hello.cpp", ["hello.o"], ["hello.cpp"], {})
+    spawned = _spawned(True)
+    spawned._processor.errors = 1
+    spawned._buffered.append("bad.cpp: error\n")
+    spawned.finish(1)
+    first = capsys.readouterr().out
+    assert first.rstrip().endswith( "failed — draining in-flight jobs..." )
+    assert first.count( "failed — draining in-flight jobs..." ) == 1
+    assert "[error] compile · hello.cpp → hello.o" in first
+
+    progress.stash_terse_command("g++ -c other.cpp", ["other.o"], ["other.cpp"], {})
+    again = _spawned(True)
+    again._processor.errors = 1
+    again.finish(1)
+    second = capsys.readouterr().out
+    assert "[error] compile · other.cpp → other.o" in second
+    assert "draining in-flight" not in second
+
+
+def test_parallel_python_action_error_notes_draining(capsys, monkeypatch):
+    monkeypatch.setattr( progress, "_parallel_build_active", lambda: True )
+    progress._report_python_action(
+            ["_docker/order_matcher/docker-compose-dbg.yml"],
+            ["_build/order_matcher/gcc16/dbg/x86_64/cxx2c/final/docker-compose-dbg.yml"],
+            _variant_env(),
+            failed=True,
+    )
+    out = capsys.readouterr().out
+    assert "[error]" in out
+    assert out.rstrip().endswith( "failed — draining in-flight jobs..." )
+
+    progress.note_build_interrupted()
+    progress.reset_build_interrupted()
+    monkeypatch.setattr( progress, "_parallel_build_active", lambda: True )
+    progress.note_build_interrupted()
+    progress._report_python_action( ["a.o"], ["a.cpp"], {}, failed=True )
+    mixed = capsys.readouterr()
+    assert "draining in-flight" not in mixed.out
+    assert "interrupted" in mixed.err
 
 
 class _Node:

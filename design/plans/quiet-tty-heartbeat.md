@@ -2,9 +2,9 @@
 
 - **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
-- **Updated:** 2026-10-05
+- **Updated:** 2026-10-08
 - **Impact:** `minor`
-- **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356)
+- **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356); caption/spin decoupling follow-on on transfer/archive branch
 
 ## Problem
 
@@ -215,3 +215,4 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Follow-on | Filter false-positive `probably a directory` warn — [`filter-directory-warn.md`](filter-directory-warn.md); done (see that plan) |
 | Caption hold + pulse | Done — full-cycle min dwell; `pulse`/`spinner`/`off`; terse compact arrow form; transcript lock under `-j` |
 | Transcript idle-gate | Done — after transcript, INFO stays pending until ~0.2s quiet (latest wins); avoids dwell stalls on busy terse–info interleave |
+| Caption flush vs ECG spin | Done (fourth try) — same-row keep ``_spin`` + ``_ensure_pulse``; clear/new-row reset spin; diverting ``operation_status`` releases sticky **without** dwell+clear so sequential Updating captions replace in-row (multiple per cycle). Option 2 deferred |

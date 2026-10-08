@@ -170,3 +170,6 @@ enter/exit. `[ready]` after tip prepare→plan remains open.
 | Cascade tip bookend (E) | Done for nest handoffs + tip ``begin``/``end`` twins (after complete banner); tip prepare→plan ``[ready]`` still open |
 | Cascade Ctrl-C process-tree kill | Done — ``_run_nested_cuppa`` + ``terminate_process_tree`` |
 | First Ctrl-C forwards stop to delegates | Done — ``interrupt_build_children`` (``SIGINT``) on first stop; ``SIGTERM`` on second |
+| Parallel terse failure drain note | Done — once after first ``[error]`` under ``-j``: ``failed — draining in-flight jobs...`` |
+| Quiet heartbeat vs ``-c`` clean | Done — clean forces heartbeat ``off``; SCons ``display()`` routed through ``write_line`` while diverting |
+| TTY autowrap restore after heartbeat | Done — ``restore_terminal_wrap`` on clear/reset/atexit + construct start heal |

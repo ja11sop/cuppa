@@ -43,6 +43,7 @@ def _write_terse_stdout( text ):
 _interrupt_announced = False
 _abort_announced = False
 _interrupt_finished = False
+_failure_drain_announced = False
 _interrupt_lock = threading.Lock()
 _terse_activity_seen = False
 _terse_activity_lock = threading.Lock()
@@ -124,12 +125,14 @@ def write_terse_build_completion( env ):
 
 
 def reset_build_interrupted():
-    """Allow another build in this process to report Ctrl-C once."""
+    """Allow another build in this process to report Ctrl-C / failure drain once."""
     global _interrupt_announced, _abort_announced, _interrupt_finished
+    global _failure_drain_announced
     with _interrupt_lock:
         _interrupt_announced = False
         _abort_announced = False
         _interrupt_finished = False
+        _failure_drain_announced = False
 
 
 def is_interrupt_returncode( returncode ):
@@ -140,6 +143,32 @@ def is_interrupt_returncode( returncode ):
         return False
     interrupted = signal.SIGINT
     return code in ( -interrupted, 128 + interrupted )
+
+
+def _parallel_build_active():
+    """True when SCons may still be draining other jobs after a failure."""
+    try:
+        from SCons.Script import GetOption
+        return int( GetOption( "num_jobs" ) or 1 ) > 1
+    except Exception:
+        return False
+
+
+def note_build_failure_draining():
+    """One subdued line after the first terse ``[error]`` under ``-j`` / ``--parallel``.
+
+    Serial builds stop scheduling immediately, so there is nothing to explain.
+    An interrupt banner already owns the close — do not stack a drain note on
+    top of ``interrupted — stopping in-flight actions...``.
+    """
+    global _failure_drain_announced
+    with _interrupt_lock:
+        if _failure_drain_announced or _interrupt_announced:
+            return
+        if not _parallel_build_active():
+            return
+        _failure_drain_announced = True
+    _write_terse_stdout( as_subdued( "failed — draining in-flight jobs..." ) + "\n" )
 
 
 def _interrupt_stream():
@@ -3794,6 +3823,8 @@ def _report_python_action( target, source, env, failed ):
     note_terse_build_activity()
     _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
+    if severity == "error":
+        note_build_failure_draining()
 
 def _wrap_action( action ):
     """Replace a ``FunctionAction`` body without changing its build signature.
