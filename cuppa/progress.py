@@ -3208,12 +3208,16 @@ def _emphasised_token( token ):
 
 
 def _package_archive_dest_cell( token, archive_name ):
-    """``<downloads>/packages/<token>/archive.tar.gz`` with bold token + filename."""
+    """``<downloads>/packages/<token>/archive.tar.gz`` — bold archive leaf only.
+
+    The package token in the path stays subdued: the line already leads with
+    ``<token>``, so emphasising it again inside ``packages/`` is visual noise.
+    """
     name = str( archive_name or "" ).strip()
-    shown = as_subdued( "<downloads>/packages/" ) + _emphasised_token( token )
+    prefix = "<downloads>/packages/<" + str( token ) + ">"
     if name:
-        shown += as_subdued( "/" ) + as_emphasised( as_info( name ) )
-    return shown
+        return as_subdued( prefix + "/" ) + as_emphasised( as_info( name ) )
+    return as_subdued( prefix )
 
 
 def _package_extract_dest_cell( token, tool_variant ):

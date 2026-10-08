@@ -42,9 +42,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``[collect]`` / ``[extract]`` use
   ``<registry> → <downloads>/packages/<token>/archive`` and
   ``… → <dependencies>/<stem>/<token>`` (token already carries version).
-  Terse/quiet transfer progress subdues the progress body while the alive ECG
-  stays hospital-green. Property-based resolve ensure phases remain deferred —
-  see ``design/plans/transfer-and-archive-progress.md``.
+  The package token inside ``<downloads>/packages/<token>/…`` stays subdued
+  (the line already leads with ``<token>``); only the archive leaf is
+  emphasised. Terse/quiet transfer progress subdues the progress body while
+  the alive ECG stays hospital-green. Property-based resolve ensure phases
+  remain deferred — see ``design/plans/transfer-and-archive-progress.md``.
 - Quiet+TTY heartbeat: console report bodies (purge/list/wipe tables, not only
   mode banners) route through ``write_report`` while diverting, so stdout-pipe
   chunks cannot glue onto the status caption (``…downloadsRemoving…`` /

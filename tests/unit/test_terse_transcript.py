@@ -1839,6 +1839,7 @@ def test_package_collect_extract_use_registry_and_stem_tokens( monkeypatch, caps
     assert progress.label_terse_registry( env, registry ) == token
     assert capsys.readouterr().out == ""
 
+    from cuppa.colourise import as_emphasised, as_info, as_subdued, colouriser
     from cuppa.output_processor import strip_ansi
 
     archive = "google-cloud-cpp_debian_gcc16_rel_x86_64_cxx2c.tar.gz"
@@ -1855,6 +1856,21 @@ def test_package_collect_extract_use_registry_and_stem_tokens( monkeypatch, caps
     ) in collect
     # Token already carries name/version — do not insert another version segment.
     assert "/packages/<google_cloud_cpp>/3.9.0/" not in collect
+    # Path token is subdued; only the archive leaf is emphasised info.
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        painted = progress.format_terse_package_collect(
+                env, "google_cloud_cpp", "3.9.0", token, archive,
+        )
+        assert as_subdued( "<downloads>/packages/<google_cloud_cpp>/" ) in painted
+        assert as_emphasised( as_info( archive ) ) in painted
+        assert (
+                as_subdued( "<downloads>/packages/" )
+                + as_emphasised( as_info( "<google_cloud_cpp>" ) )
+        ) not in painted
+    finally:
+        colouriser.use_colour = was
 
     assert progress.write_terse_package_extract(
             env, "google_cloud_cpp", "3.9.0", archive, "gcc16_rel_x86_64_cxx2c",
