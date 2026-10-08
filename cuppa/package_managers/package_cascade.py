@@ -227,6 +227,60 @@ def reset_cascade_nested_done() -> None:
     _cascade_nested_done.clear()
 
 
+# Tip ``GitlabPackagePublisher`` remembers itself *and* the sconscript env
+# (methods like ``BuildWith``) during construction; cascade runs after resolve
+# ``[ready]`` so plan/begin are not inside prepare→ready. Must not use the
+# baseline ``cuppa_env`` — it has options/factories but no BuildWith.
+_deferred_tip_publisher = None
+_deferred_tip_env = None
+
+
+def reset_deferred_tip_cascade() -> None:
+    """Drop a remembered tip publisher (tests / session boundaries)."""
+    global _deferred_tip_publisher, _deferred_tip_env
+    _deferred_tip_publisher = None
+    _deferred_tip_env = None
+
+
+def defer_tip_cascade( env, publisher ) -> None:
+    """Remember the tip publisher; :func:`maybe_run_tip_cascade` runs it later.
+
+    Called from ``GitlabPackagePublisher`` construction instead of running
+    cascade immediately. Keeps the first registration (multi-toolchain re-entry
+    constructs the publisher again). Stores the build env so graph fill can
+    call ``env.BuildWith`` after the sconscript read.
+    """
+    global _deferred_tip_publisher, _deferred_tip_env
+    if not cascade_enabled( env ) or _is_nested():
+        return
+    if _deferred_tip_publisher is None:
+        _deferred_tip_publisher = publisher
+        _deferred_tip_env = env
+
+
+def maybe_run_tip_cascade( env ) -> None:
+    """Run cascade after the tip sconscript read (after terse ``[ready]``).
+
+    Prefers a deferred ``GitlabPackagePublisher`` tip on its build env;
+    otherwise seeds a consume-only tip from package factories on ``env``.
+    Either path prints plan then tip ``[cascade] … · begin|end`` *after*
+    resolve has closed.
+    """
+    global _deferred_tip_publisher, _deferred_tip_env
+    if not cascade_enabled( env ) or _is_nested():
+        _deferred_tip_publisher = None
+        _deferred_tip_env = None
+        return
+    publisher = _deferred_tip_publisher
+    tip_env = _deferred_tip_env if _deferred_tip_env is not None else env
+    _deferred_tip_publisher = None
+    _deferred_tip_env = None
+    if publisher is not None:
+        maybe_run_cascade( tip_env, publisher )
+        return
+    maybe_run_consume_tip_cascade( env )
+
+
 def _cascade_nested_key( env, publisher ) -> tuple[str, str, str]:
     getter = getattr( env, "get", None )
     sconstruct = ""
@@ -1176,11 +1230,10 @@ def cascade_ran_for_tip( env ) -> bool:
 
 
 def maybe_run_consume_tip_cascade( env ) -> None:
-    """Run cascade from tip package factories when no tip publisher ran it.
+    """Run cascade from tip package factories when no tip publisher was deferred.
 
-    Called after the tip sconscript read (:func:`cuppa.construct.Construct`) so a
-    ``GitlabPackagePublisher`` tip still owns entry via ``maybe_run_cascade`` during
-    construction. Consume-only tips seed from ``_edges_from_consume_tip``.
+    Prefer :func:`maybe_run_tip_cascade` from construct (publisher or consume).
+    Consume-only tips seed from ``_edges_from_consume_tip``.
     """
     if not cascade_enabled( env ) or _is_nested():
         return
@@ -5049,8 +5102,9 @@ def maybe_run_cascade( env, publisher ) -> None:
         except Exception:
             pass
 
-    # Tip-scoped span: plan → blank → begin → (first entering) → nests →
-    # complete banner → end.
+    # Tip-scoped span (after resolve ``[ready]``): blank → begin →
+    # (first entering) → nests → complete banner → blank → end.
+    # Plan report was already printed above.
     write_lines( [ "" ] )
     _announce_cascade_run(
             "begin",
@@ -5117,7 +5171,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             build_only=build_cascade_deps,
     ) )
     # Blank before the tip ``end`` twin so the complete banner does not glue
-    # onto the next terse checkpoint (``end``, then tip ``[ready]``).
+    # onto ``[cascade] … · end`` (resolve ``[ready]`` already closed before plan).
     write_lines( [ "" ] )
     _announce_cascade_run(
             "end",

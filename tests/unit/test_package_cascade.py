@@ -450,6 +450,130 @@ def test_maybe_run_consume_tip_cascade_skips_when_publisher_already_ran():
     assert cascade.plan_reports()[0]["package"] == "widget"
 
 
+def test_defer_tip_cascade_runs_after_ready_via_maybe_run_tip_cascade( tmp_path ):
+    """Publisher tips register during BuildWith; cascade runs after ``[ready]``."""
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.reset_deferred_tip_cascade()
+    publisher_dir = tmp_path / "widget"
+    publisher_dir.mkdir()
+    write_publish_manifest( str( publisher_dir ), "widget", "1.0.0", dependencies=[] )
+
+    class _Publisher:
+        _package = "widget"
+        _version = "1.0.0"
+        _dependencies = []
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _variant = "rel"
+
+    class _BuildEnv:
+        """Sconscript env — has BuildWith; baseline cuppa_env does not."""
+
+        def __init__( self ):
+            self.build_with_calls = []
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return str( tmp_path / "tip" )
+            if name == "dependencies":
+                return { "noise": object() }
+            return default
+
+        def BuildWith( self, name ):
+            self.build_with_calls.append( name )
+            raise AssertionError( "empty tip deps should not call BuildWith" )
+
+    class _CuppaEnv:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return str( tmp_path / "tip" )
+            return default
+
+    tip = _Publisher()
+    build_env = _BuildEnv()
+    cascade.defer_tip_cascade( build_env, tip )
+    assert cascade.plan_reports() == []
+    assert cascade._deferred_tip_env is build_env
+
+    # Construct passes cuppa_env; tip cascade must use the deferred build env.
+    cascade.maybe_run_tip_cascade( _CuppaEnv() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "widget"
+    assert reports[0]["version"] == "1.0.0"
+    assert reports[0]["consume_tip"] is False
+    assert cascade._deferred_tip_env is None
+
+
+def test_defer_tip_cascade_keeps_first_publisher():
+    cascade.reset_deferred_tip_cascade()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "build-and-publish-dependencies"
+
+        def get( self, name, default=None ):
+            return default
+
+    first = type( "P", (), { "_package": "first", "_version": "1" } )()
+    second = type( "P", (), { "_package": "second", "_version": "2" } )()
+    first_env = _Env()
+    cascade.defer_tip_cascade( first_env, first )
+    cascade.defer_tip_cascade( _Env(), second )
+    assert cascade._deferred_tip_publisher is first
+    assert cascade._deferred_tip_env is first_env
+    cascade.reset_deferred_tip_cascade()
+
+
+def test_maybe_run_tip_cascade_falls_back_to_consume( tmp_path ):
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.reset_deferred_tip_cascade()
+    publisher = tmp_path / "widget"
+    publisher.mkdir()
+    write_publish_manifest( str( publisher ), "widget", "1.0.0", dependencies=[] )
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.0.0"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = str( publisher )
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            if name == "sconstruct_dir":
+                return str( tmp_path / "app" )
+            return default
+
+    cascade.maybe_run_tip_cascade( _Env() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "app"
+    assert reports[0]["consume_tip"] is True
+
+
 def test_tip_forward_args_drops_publish_cascade_dependencies():
     argv = [
             "cuppa", "-D", "--rel",

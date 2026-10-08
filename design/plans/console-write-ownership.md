@@ -131,14 +131,19 @@ Treat install **preamble** as neither work nor uptodate:
 
 ### Cascade bookend (product, separate small slice)
 
-Tip still jumps `prepare` → plan with no `[ready]`. Nest handoffs are in:
-blank after plan → tip `[cascade] … · begin · N packages` → first nest
-`entering` → nest banners → `parent session` + exiting|entering between
-nests → `cascade sessions complete` banner → blank → tip
-`[cascade] … · end · …`.
+Resolve closes before cascade. Order:
+
+```text
+[prepare] → location/update/collect children → [ready]
+cascade plan report
+blank → tip [cascade] tip [==ver] · begin · N packages
+  first nest entering → nests → parent session + exiting|entering
+cascade sessions complete → blank → tip [cascade] … · end
+```
 
 Tip begin/end use the tip pin (no `<token>`) so they stay distinct from nest
-enter/exit. `[ready]` after tip prepare→plan remains open.
+enter/exit. Publisher tips `defer_tip_cascade` during construction;
+`maybe_run_tip_cascade` runs after `[ready]` (same hook as consume-only).
 
 ## Implementation lean
 
@@ -167,7 +172,7 @@ enter/exit. `[ready]` after tip prepare→plan remains open.
 | Owned-stream `write_line` | Done on this PR — `heartbeat.write_line`; transcript + report share it |
 | Nested `CUPPA_STDOUT_IS_TTY` preserve | Done on this PR — `resolve_cuppa_stdout_is_tty` in `__main__` |
 | Cmake preamble-aware summary | Done on this PR — preamble does not block `-- All targets Up-to-date` |
-| Cascade tip bookend (E) | Done for nest handoffs + tip ``begin``/``end`` twins (after complete banner); tip prepare→plan ``[ready]`` still open |
+| Cascade tip bookend (E) | Done — nest handoffs + tip ``begin``/``end``; prepare→``[ready]``→plan via deferred tip cascade |
 | Cascade Ctrl-C process-tree kill | Done — ``_run_nested_cuppa`` + ``terminate_process_tree`` |
 | First Ctrl-C forwards stop to delegates | Done — ``interrupt_build_children`` (``SIGINT``) on first stop; ``SIGTERM`` on second |
 | Parallel terse failure drain note | Done — once after first ``[error]`` under ``-j``: ``failed — draining in-flight jobs...`` |

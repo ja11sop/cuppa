@@ -174,7 +174,7 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | CMake ``-- Up-to-date:`` flood suppressed | Done on this PR |
 | CMake ``-- All targets Up-to-date`` summary | Done — preamble ignored for “other” |
 | Deduplicate mode banners (OFFLINE ×2) | Fixed via nested ``CUPPA_STDOUT_IS_TTY`` preserve (+ once-per-process guard) |
-| Cascade tip→nest transition marker | Pending |
+| Cascade tip→nest transition marker | Done — tip ``begin``/``end`` + nest entering/exiting; prepare→``[ready]``→plan |
 | **One console write path** (TTY ownership) | Done on this PR — [`console-write-ownership.md`](console-write-ownership.md); soak next |
 
 ## Deferred: property-based resolve ensure phases

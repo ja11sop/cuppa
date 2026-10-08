@@ -870,8 +870,10 @@ class GitlabPackagePublisher:
         self._package_built_id = env.File( sidecar + '.packaged' )
         self._package_published_id = env.File( sidecar + '.published' )
 
-        from cuppa.package_managers.package_cascade import maybe_run_cascade
-        maybe_run_cascade( env, self )
+        # Defer until after resolve ``[ready]`` so plan/begin are not inside
+        # prepare→ready (multi-toolchain BuildWith still reading).
+        from cuppa.package_managers.package_cascade import defer_tip_cascade
+        defer_tip_cascade( env, self )
 
 
     def build_package( self, target, source, env ):

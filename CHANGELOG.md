@@ -70,7 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one rule between nests — no double-rule gap). Tip-scoped
   ``[cascade] tip [==ver] · begin|end · N packages|uploads`` bookends the
   nest run (blank after plan; blank then ``end`` after the
-  ``cascade sessions complete`` banner). Nest labels use plan pin spelling
+  ``cascade sessions complete`` banner). Publisher tips defer cascade until
+  after resolve ``[ready]`` (same post-read hook as consume-only), so the
+  order is prepare → children → ``[ready]`` → plan → begin → nests → end
+  rather than plan inside the prepare span. Nest labels use plan pin spelling
   (``name [==version] (package)``); nest end says
   ``uploaded [archive.tar.gz]`` (brackets plain, leaf notice) when the
   marker carries a path. Property-based resolve ensure phases remain
