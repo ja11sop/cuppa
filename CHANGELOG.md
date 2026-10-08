@@ -29,7 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Terse-without-quiet ``operation_status`` uses the same wrap-off / erase-EOL
   protocol as the quiet heartbeat, fits the caption to the TTY width, and is
   cleared before each terse transcript line (so pulse frames no longer shear
-  into ``→ [update]``). Upload progress still open. Plan:
+  into ``→ [update]``). GitLab package **publish** uploads via shared
+  ``upload_file`` (HTTP PUT + ``ProgressReporter``) instead of silent
+  ``curl --upload-file``, so large registry puts get the same mode-tuned bar
+  as download/compress; durable ``[publish]`` identity lines unchanged. Plan:
   ``design/plans/transfer-and-archive-progress.md``.
 - Terse resolve honesty and package retrieve identity: ``[ready]`` closes after
   every toolchain × variant × sconscript has been read (no longer on the first

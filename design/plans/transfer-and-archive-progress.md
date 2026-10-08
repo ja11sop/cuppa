@@ -126,7 +126,7 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | HTTP download | `ProgressReporter` bar (alone) | Shared alive + progress; mode-tuned; CI lines |
 | Tar/zip **extract** | Shared helpers in `download.py` | Same |
 | Package **compress** (`create_package_archive`) | Silent `tar` / zip walk | Same (bytes or entry count) |
-| Package **upload** (curl / API put) | Often quiet / tool-native | Same |
+| Package **upload** (GitLab publish PUT) | Was silent ``curl --upload-file`` | ``upload_file`` + ``ProgressReporter`` (same as download) |
 | Git / Conan | Streamed tool progress | Keep; do not regress; prefer shared engine where Cuppa owns the stream |
 
 ### Implementation lean
@@ -144,9 +144,10 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 
 ## Open questions
 
-1. Whether upload uses Cuppa’s HTTP stack (progress for free) or keeps curl with
-   `--progress-meter` parsed into the reporter (publish identity line exists;
-   live upload bar still open).
+1. ~~Upload transport~~ — **Settled:** Cuppa HTTP PUT via ``upload_file`` (same
+   stack as collect’s ``download_file`` + ``ProgressReporter``). Curl
+   ``--progress-meter`` parsing declined (fragile; second dialect). Keep curl
+   only as an emergency escape hatch if a soak shows a real TLS/proxy gap.
 2. Zip / tar create: currently uncompressed file bytes as they are added (good
    enough; precompute walk cost accepted for package trees).
 
@@ -160,7 +161,7 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | Shared engine + mode-tuned `ProgressReporter` | Done on this PR |
 | Compress (`create_package_archive`) | Done on this PR |
 | Terse completion identity (download / extract / compress / publish) | Done on this PR |
-| Upload live progress bar | Open — follow-on |
+| Upload live progress bar | Done — ``upload_file`` PUT + ``ProgressReporter``; ``GitlabPackagePublisher.publish_package`` no longer shells to curl |
 | Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO); captions ``Updating   <token> · url@branch`` (pad to ``[location]``), full ``~/`` path line in normal (incl. ``-Q``) |
 | Terse transfer mute body (keep green ECG) | Done — verb/label/metrics subdued; alive prefix stays hospital-green |
 | Package ``[collect]`` / ``[extract]`` with ``src → dest`` | Done — ``<registry>`` / ``<downloads>`` / stem tokens; package location RHS is ``name/ver`` (token carries version; no extra ``/3.9.0/`` segment) |

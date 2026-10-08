@@ -254,6 +254,132 @@ def test_download_file_cleans_partial_on_failure( tmp_path, monkeypatch ):
     assert not os.path.isfile( str( dest ) + '.partial' )
 
 
+def test_upload_file_http_server( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    payload = b'upload-payload-' * 2048
+    src = tmp_path / 'pkg.tar.gz'
+    src.write_bytes( payload )
+    received = {}
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            received['body'] = self.rfile.read( length )
+            received['content_type'] = self.headers.get( 'Content-Type' )
+            received['path'] = self.path
+            self.send_response( 201 )
+            self.end_headers()
+            self.wfile.write( b'{"message":"201 Created"}' )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/packages/generic/widget/1.0.0/pkg.tar.gz'.format(
+                server.server_address[1]
+        )
+        stream = io.StringIO()
+        reporter = dl.ProgressReporter(
+                stream=stream, is_tty=False, line_interval_s=0, action='Uploading',
+        )
+        path = dl.upload_file(
+                url, str( src ), label='pkg.tar.gz', show_progress=True, reporter=reporter,
+        )
+        assert path == str( src )
+        assert received.get( 'body' ) == payload
+        assert received.get( 'content_type' ) == 'application/octet-stream'
+        assert 'Uploading pkg.tar.gz' in stream.getvalue()
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_sends_headers( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    src = tmp_path / 'pkg.bin'
+    src.write_bytes( b'payload' )
+    seen = {}
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            seen['private'] = self.headers.get( 'Private-Token' )
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            self.rfile.read( length )
+            self.send_response( 201 )
+            self.end_headers()
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/pkg.bin'.format( server.server_address[1] )
+        dl.upload_file(
+                url,
+                str( src ),
+                show_progress=False,
+                headers={ 'PRIVATE-TOKEN': 'secret-token' },
+        )
+        assert seen.get( 'private' ) == 'secret-token'
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_http_error_includes_body( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    src = tmp_path / 'pkg.bin'
+    src.write_bytes( b'payload' )
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            self.rfile.read( length )
+            body = b'{"error":"unauthorized"}'
+            self.send_response( 401 )
+            self.send_header( 'Content-Length', str( len( body ) ) )
+            self.end_headers()
+            self.wfile.write( body )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/pkg.bin'.format( server.server_address[1] )
+        with pytest.raises( dl.UploadError ) as raised:
+            dl.upload_file( url, str( src ), show_progress=False )
+        assert raised.value.http_status == 401
+        assert 'unauthorized' in str( raised.value.parameter )
+        assert 'unauthorized' in ( raised.value.body or '' )
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_missing_source( tmp_path ):
+    missing = tmp_path / 'gone.bin'
+    with pytest.raises( dl.UploadError ) as raised:
+        dl.upload_file( 'http://example.com/pkg.bin', str( missing ), show_progress=False )
+    assert 'missing' in str( raised.value.parameter )
+
+
 def test_transfer_file_reports_extract_progress( tmp_path ):
     src = tmp_path / 'payload.bin'
     payload = b'xyz' * 10000

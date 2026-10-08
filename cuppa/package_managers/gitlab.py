@@ -11,9 +11,7 @@
 # Python imports
 import platform
 import os
-import shlex
 import shutil
-import subprocess
 import tarfile
 import zipfile
 
@@ -773,6 +771,20 @@ def download_registry_package( url, dest_path, custom_token=None, label=None ):
     )
 
 
+def upload_registry_package( url, source_path, custom_token=None, label=None ):
+    """Publish a GitLab generic package archive via ``upload_file`` (progress + auth headers).
+
+    Raises ``UploadError`` on failure.
+    """
+    from cuppa.utility.download import upload_file
+    return upload_file(
+            url,
+            source_path,
+            label=label or os.path.basename( source_path ) or url,
+            headers=registry_auth_headers( custom_token ),
+    )
+
+
 class GitlabPackagePublisher:
 
     def __init__(
@@ -850,11 +862,6 @@ class GitlabPackagePublisher:
                 package=package,
                 version=concrete_version,
                 omit_os=omit_os,
-        )
-        self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
-                token = get_header_token( custom_token ),
-                package_file = str( self._package_archive ),
-                package_location = self._package_location,
         )
 
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
@@ -1138,27 +1145,39 @@ class GitlabPackagePublisher:
     def publish_package( self, target, source, env ):
 
         from SCons.Script import Touch
+        from cuppa.utility.download import UploadError
 
-        logger.info( "Publishing package [{}]...".format( as_info( str(self._package_archive) ) ) )
-        logger.info( "Using command [{}]".format( as_notice( self._curl_command ) ) )
+        archive_path = str( self._package_archive )
+        location = getattr( self, '_package_location', None ) or archive_path
+        logger.info( "Publishing package [{}] to [{}]...".format(
+                as_info( archive_path ),
+                as_info( location ),
+        ) )
 
-        completion = subprocess.run( shlex.split( self._curl_command ) )
-        if completion.returncode != 0:
-            logger.error( "Executing [{}] failed with return code [{}]".format(
-                    as_error( self._curl_command ),
-                    as_error( str(completion.returncode) ) )
+        try:
+            upload_registry_package(
+                    location,
+                    archive_path,
+                    custom_token=getattr( self, '_custom_token', None ),
+                    label=os.path.basename( archive_path ) or archive_path,
             )
-            return completion.returncode
+        except UploadError as error:
+            logger.error( "Publishing [{}] to [{}] failed: {}".format(
+                    as_error( archive_path ),
+                    as_error( location ),
+                    as_error( str( error.parameter ) ),
+            ) )
+            return 1
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
+        logger.info( "Package [{}] published".format( as_info( archive_path ) ) )
         try:
             import cuppa.progress
             cuppa.progress.write_terse_transfer_action(
                     env,
                     "publish",
-                    str( self._package_archive ),
-                    getattr( self, '_package_location', None ) or str( self._package_archive ),
+                    archive_path,
+                    location,
             )
         except Exception:
             pass
@@ -1166,7 +1185,7 @@ class GitlabPackagePublisher:
             from cuppa.package_managers.package_cascade import record_nested_upload
             record_nested_upload(
                     package_dir=str( self._package_base_dir ),
-                    archive_path=str( self._package_archive ),
+                    archive_path=archive_path,
             )
         except Exception:
             pass

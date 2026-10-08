@@ -3,10 +3,11 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""HTTP file downloads with a shared transfer-progress reporter.
+"""HTTP file transfer helpers with a shared progress reporter.
 
-Used by location archive fetches and toolchain archives. See
-``design/archive/download-progress.md``.
+Downloads (location / toolchain / GitLab collect) and uploads (GitLab publish)
+share ``ProgressReporter``. See ``design/archive/download-progress.md`` and
+``design/plans/transfer-and-archive-progress.md``.
 
 Progress prefers the controlling terminal (``/dev/tty`` / ``CONOUT$``) so a
 rewriting line still works when the ``cuppa`` launcher pipes scons stdout/stderr
@@ -38,6 +39,18 @@ class DownloadError( CuppaException ):
     def __init__( self, value, http_status=None ):
         self.parameter = value
         self.http_status = http_status
+
+    def __str__( self ):
+        return repr( self.parameter )
+
+
+class UploadError( CuppaException ):
+    """HTTP PUT / upload failure (registry publish, etc.)."""
+
+    def __init__( self, value, http_status=None, body=None ):
+        self.parameter = value
+        self.http_status = http_status
+        self.body = body
 
     def __str__( self ):
         return repr( self.parameter )
@@ -850,3 +863,173 @@ def download_file(
         )
         wrapped.__cause__ = error
         raise wrapped
+
+
+class _ProgressFileReader( object ):
+    """File body for ``urlopen`` that advances ``ProgressReporter`` as bytes leave.
+
+    ``urllib`` reads from this object while sending the PUT, so ``read`` is a
+    faithful upload progress signal (same idea as ``transfer_file``).
+    """
+
+    def __init__( self, path, progress=None, chunk_size=_CHUNK_SIZE ):
+        self._handle = open( path, 'rb' )
+        self._progress = progress
+        self._chunk_size = chunk_size if chunk_size and chunk_size > 0 else _CHUNK_SIZE
+        self._sent = 0
+        try:
+            self._total = os.path.getsize( path )
+        except OSError:
+            self._total = 0
+
+    def __len__( self ):
+        return int( self._total )
+
+    def read( self, size=-1 ):
+        if size is None or size < 0:
+            size = self._chunk_size
+        chunk = self._handle.read( size )
+        if chunk:
+            self._sent += len( chunk )
+            if self._progress is not None:
+                self._progress.update( self._sent )
+        return chunk
+
+    def close( self ):
+        try:
+            self._handle.close()
+        except Exception:
+            pass
+
+
+def _http_error_body( error ):
+    """Best-effort response body text from an ``HTTPError`` (fail-with-body)."""
+    try:
+        raw = error.read()
+    except Exception:
+        return ""
+    if raw is None:
+        return ""
+    if isinstance( raw, bytes ):
+        try:
+            return raw.decode( 'utf-8', 'replace' )
+        except Exception:
+            return repr( raw )
+    return str( raw )
+
+
+def upload_file(
+        url,
+        source_path,
+        *,
+        label=None,
+        show_progress=None,
+        reporter=None,
+        headers=None,
+):
+    """Upload ``source_path`` to ``url`` with an HTTP PUT and shared progress.
+
+    Mirrors ``download_file`` for registry publish: same ``ProgressReporter``,
+    auth ``headers``, and controlling-TTY rewrite. Sets ``Content-Length`` and
+    ``Content-Type: application/octet-stream`` (urllib would otherwise default
+    form-urlencoded). Non-2xx responses raise ``UploadError`` with status and
+    body when available (curl ``--fail-with-body`` equivalent).
+
+    Returns ``source_path`` on success.
+    """
+    if not os.path.isfile( source_path ):
+        raise UploadError(
+            "upload source missing [{}]".format( source_path )
+        )
+
+    progress = _maybe_reporter( show_progress, reporter, 'Uploading' )
+    display = label or os.path.basename( source_path ) or url
+    total = os.path.getsize( source_path )
+    body = None
+    bytes_so_far = 0
+
+    try:
+        if progress:
+            progress.begin( display, total if total > 0 else None, action='Uploading' )
+        body = _ProgressFileReader( source_path, progress=progress )
+        request = Request( url, data=body, method='PUT' )
+        # Explicit length + binary type: urllib defaults POST/PUT bodies to
+        # application/x-www-form-urlencoded, which GitLab generic packages reject.
+        request.add_header( 'Content-Length', str( total ) )
+        request.add_header( 'Content-Type', 'application/octet-stream' )
+        if headers:
+            for name, value in headers.items():
+                if name is None or value is None:
+                    continue
+                request.add_header( str( name ), str( value ) )
+        response = urlopen( request )
+        try:
+            status = getattr( response, 'status', None )
+            if status is None:
+                status = response.getcode()
+            status = int( status )
+            # Drain so the connection can close cleanly.
+            try:
+                response.read()
+            except Exception:
+                pass
+            if status < 200 or status >= 300:
+                raise UploadError(
+                    "failed to upload [{}] to [{}]: HTTP {}".format(
+                            source_path, url, status
+                    ),
+                    http_status=status,
+                )
+        finally:
+            try:
+                response.close()
+            except Exception:
+                pass
+        bytes_so_far = total
+        if progress:
+            progress.done( bytes_so_far )
+        return source_path
+    except UploadError:
+        if progress is not None:
+            try:
+                progress.done( getattr( body, '_sent', bytes_so_far ) )
+            except Exception:
+                pass
+        raise
+    except HTTPError as error:
+        if progress is not None:
+            try:
+                progress.done( getattr( body, '_sent', bytes_so_far ) )
+            except Exception:
+                pass
+        body_text = _http_error_body( error )
+        status = getattr( error, 'code', None )
+        detail = body_text.strip() if body_text else str( error )
+        wrapped = UploadError(
+            "failed to upload [{}] to [{}]: {}".format( source_path, url, detail ),
+            http_status=status,
+            body=body_text,
+        )
+        wrapped.__cause__ = error
+        raise wrapped
+    except Exception as error:
+        if progress is not None:
+            try:
+                progress.done( getattr( body, '_sent', bytes_so_far ) )
+            except Exception:
+                pass
+        if isinstance( error, UploadError ):
+            raise
+        status = getattr( error, 'code', None )
+        wrapped = UploadError(
+            "failed to upload [{}] to [{}]: {}".format( source_path, url, error ),
+            http_status=status,
+        )
+        wrapped.__cause__ = error
+        raise wrapped
+    finally:
+        if body is not None:
+            try:
+                body.close()
+            except Exception:
+                pass
