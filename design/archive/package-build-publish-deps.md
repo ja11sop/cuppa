@@ -29,6 +29,7 @@ consume-only tips, tip ``payload_sha256`` overlay, collect reused/cloned finish,
 | Soft Phase 4 follow-ons: extract-seed (**1b**), package ``develop=`` polish (**2b**) | Parked; not blockers |
 | Package ``develop=`` prefix → source-tree migration | [`package-develop-local.md`](package-develop-local.md) **Slice E declined** — dual inference kept |
 | Opt-in same-version archive re-fetch | [`package-download-refresh.md`](package-download-refresh.md) / [#296](https://github.com/ja11sop/cuppa/issues/296) |
+| Master flag rename (``--cascade``; long form synonym) | [`cascade-enable-rename.md`](../plans/cascade-enable-rename.md) |
 
 Landing PRs (associate with [#297](https://github.com/ja11sop/cuppa/issues/297)):
 [#302](https://github.com/ja11sop/cuppa/pull/302)–[#305](https://github.com/ja11sop/cuppa/pull/305),
@@ -321,7 +322,7 @@ design.
 | File layout | **Phase 1 bridge (superseded by 2d):** dual file. **Phase 2d:** single traveling ``cuppa-publish.json``. |
 | Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
 | Flag without `--publish-package` | **Refuse** bare cascade for real nest-publish (Phase 1). Stop modes may omit it. **Phase 4:** nest-deps-only is a **separate companion action** (name TBD) — not tip-type inference |
-| Flag name | **`--build-and-publish-dependencies`** (aliases later) |
+| Flag name | **`--build-and-publish-dependencies`** (historical master enable). Rename / primary alias **`--cascade`**: [`cascade-enable-rename.md`](../plans/cascade-enable-rename.md) |
 | `--publisher-root` | Optional; resolve missing/`package_source` URL by trying `{root}/{name}`, `{root}/{package}`, then one-level `{root}/*/{name\|package}` |
 | Nested recurse | Children run **without** the cascade flag (`CUPPA_CASCADE_NESTED=1`); fail-stop |
 | When cascade runs | During tip `GitlabPackagePublisher` construction (SConscript time), **before** CMake Actions, so refreshed extracts are visible to the tip build |
