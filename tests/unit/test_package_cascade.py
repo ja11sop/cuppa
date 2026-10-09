@@ -450,6 +450,130 @@ def test_maybe_run_consume_tip_cascade_skips_when_publisher_already_ran():
     assert cascade.plan_reports()[0]["package"] == "widget"
 
 
+def test_defer_tip_cascade_runs_after_ready_via_maybe_run_tip_cascade( tmp_path ):
+    """Publisher tips register during BuildWith; cascade runs after ``[ready]``."""
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.reset_deferred_tip_cascade()
+    publisher_dir = tmp_path / "widget"
+    publisher_dir.mkdir()
+    write_publish_manifest( str( publisher_dir ), "widget", "1.0.0", dependencies=[] )
+
+    class _Publisher:
+        _package = "widget"
+        _version = "1.0.0"
+        _dependencies = []
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _variant = "rel"
+
+    class _BuildEnv:
+        """Sconscript env — has BuildWith; baseline cuppa_env does not."""
+
+        def __init__( self ):
+            self.build_with_calls = []
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return str( tmp_path / "tip" )
+            if name == "dependencies":
+                return { "noise": object() }
+            return default
+
+        def BuildWith( self, name ):
+            self.build_with_calls.append( name )
+            raise AssertionError( "empty tip deps should not call BuildWith" )
+
+    class _CuppaEnv:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return str( tmp_path / "tip" )
+            return default
+
+    tip = _Publisher()
+    build_env = _BuildEnv()
+    cascade.defer_tip_cascade( build_env, tip )
+    assert cascade.plan_reports() == []
+    assert cascade._deferred_tip_env is build_env
+
+    # Construct passes cuppa_env; tip cascade must use the deferred build env.
+    cascade.maybe_run_tip_cascade( _CuppaEnv() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "widget"
+    assert reports[0]["version"] == "1.0.0"
+    assert reports[0]["consume_tip"] is False
+    assert cascade._deferred_tip_env is None
+
+
+def test_defer_tip_cascade_keeps_first_publisher():
+    cascade.reset_deferred_tip_cascade()
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "build-and-publish-dependencies"
+
+        def get( self, name, default=None ):
+            return default
+
+    first = type( "P", (), { "_package": "first", "_version": "1" } )()
+    second = type( "P", (), { "_package": "second", "_version": "2" } )()
+    first_env = _Env()
+    cascade.defer_tip_cascade( first_env, first )
+    cascade.defer_tip_cascade( _Env(), second )
+    assert cascade._deferred_tip_publisher is first
+    assert cascade._deferred_tip_env is first_env
+    cascade.reset_deferred_tip_cascade()
+
+
+def test_maybe_run_tip_cascade_falls_back_to_consume( tmp_path ):
+    cascade.reset_plan_reports()
+    cascade.reset_cascade_nested_done()
+    cascade.reset_deferred_tip_cascade()
+    publisher = tmp_path / "widget"
+    publisher.mkdir()
+    write_publish_manifest( str( publisher ), "widget", "1.0.0", dependencies=[] )
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "widget"
+        _package = "widget"
+        _version = "1.0.0"
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = str( publisher )
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "build-and-publish-dependencies",
+                    "cascade-plan",
+            )
+
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return { "widget": type( "F", (), { "__self__": _Owner } )() }
+            if name == "sconstruct_dir":
+                return str( tmp_path / "app" )
+            return default
+
+    cascade.maybe_run_tip_cascade( _Env() )
+    reports = cascade.plan_reports()
+    assert len( reports ) == 1
+    assert reports[0]["package"] == "app"
+    assert reports[0]["consume_tip"] is True
+
+
 def test_tip_forward_args_drops_publish_cascade_dependencies():
     argv = [
             "cuppa", "-D", "--rel",
@@ -975,7 +1099,7 @@ def test_finish_plan_only_exit_status_follows_resolution():
 
 
 def test_session_banners_carry_ordinal_and_total():
-    from cuppa.colourise import as_info_label, colouriser
+    from cuppa.colourise import as_info_label, as_notice, colouriser
 
     def plain( text ):
         return re.sub( r"\x1b\[[0-9;]*m", "", text )
@@ -984,21 +1108,25 @@ def test_session_banners_carry_ordinal_and_total():
     colouriser.use_colour = True
     try:
         begin = "\n".join( cascade.session_begin_lines(
-                1, 2, "capy develop (capy)", "/home/user/coding/packages/capy",
+                1, 2, "capy [==develop] (capy)", "/home/user/coding/packages/capy",
                 "python -m cuppa -D --rel --publish-package",
         ) )
         assert as_info_label( "cascade session 1 of 2" ) in begin
-        assert "capy develop (capy)" in plain( begin )
+        assert "capy [==develop] (capy)" in plain( begin )
         assert "publisher [/home/user/coding/packages/capy]" in plain( begin )
         assert "command [python -m cuppa -D --rel --publish-package]" in plain( begin )
 
+        upload_outcome = cascade.nested_upload_outcome( True, "/tmp/out/capy.tar.gz" )
         end_lines = cascade.session_end_lines(
-                1, 2, "capy develop (capy)", 1500000000
+                1, 2, "capy [==develop] (capy)", 1500000000,
+                outcome=upload_outcome,
         )
         assert as_info_label( "cascade session 1 of 2 finished" ) in end_lines[0]
-        assert "capy develop (capy) in 00:00:01" in plain( end_lines[0] )
-        assert set( plain( end_lines[1] ) ) == { "-" }
-        assert end_lines[2] == ""
+        assert "capy [==develop] (capy) in 00:00:01" in plain( end_lines[0] )
+        assert plain( end_lines[1] ) == "  uploaded [capy.tar.gz]"
+        assert as_notice( "capy.tar.gz" ) in end_lines[1]
+        assert set( plain( end_lines[2] ) ) == { "-" }
+        assert len( end_lines ) == 3
 
         stage_begin = "\n".join( cascade.session_begin_lines(
                 1, 1, "capy/develop/rel", "/home/user/coding/packages/capy",
@@ -1012,7 +1140,7 @@ def test_session_banners_carry_ordinal_and_total():
         )
         assert as_info_label( "develop stage 1 of 1 finished" ) in stage_end_lines[0]
         assert set( plain( stage_end_lines[1] ) ) == { "-" }
-        assert stage_end_lines[2] == ""
+        assert len( stage_end_lines ) == 2
 
         complete = "\n".join( cascade.sessions_complete_lines( 2, "corosio", "0.2.0" ) )
         assert as_info_label( "cascade sessions complete" ) in complete
@@ -1024,8 +1152,90 @@ def test_session_banners_carry_ordinal_and_total():
         assert "1 nested clean; resuming clean of this package corosio [==0.2.0]" in plain(
                 clean_complete
         )
+
+        parent_lines = cascade.parent_session_lines( "corosio", "0.2.0" )
+        assert as_info_label( "parent session" ) in parent_lines[0]
+        assert "corosio [==0.2.0] (corosio)" in plain( parent_lines[0] )
+        assert parent_lines[1] == ""
+        # No second rule — reuses the session-end rule above.
+        assert not any( set( plain( line ) ) == { "-" } for line in parent_lines )
+
+        assert plain( cascade.nested_upload_outcome(
+                True, "/tmp/out/abseil-cpp_debian_gcc16.tar.gz",
+        ) ) == "uploaded [abseil-cpp_debian_gcc16.tar.gz]"
+        assert cascade.nested_upload_outcome( False ) == "no registry upload"
+        assert cascade.nested_upload_outcome( True ) == "uploaded"
+        assert cascade.node_label( {
+                "name": "abseil_cpp",
+                "version": "20250814.2",
+                "package": "abseil-cpp",
+        } ) == "abseil_cpp [==20250814.2] (abseil-cpp)"
+
+        assert "7 packages" in plain( cascade._cascade_run_summary( 7, begin=True ) )
+        assert "7 uploads" in plain( cascade._cascade_run_summary(
+                7, uploaded=7,
+        ) )
+        assert "2 skipped publishes" in plain( cascade._cascade_run_summary(
+                2, skipped=2,
+        ) )
     finally:
         colouriser.use_colour = was
+
+
+def test_run_nested_cuppa_tears_down_on_tip_interrupt( monkeypatch ):
+    """First tip Ctrl-C must kill the nested process tree, not orphan cmake."""
+    from cuppa.utility import build_children
+
+    class _Proc( object ):
+        def __init__( self ):
+            self.pid = 4242
+            self.returncode = None
+            self._waits = 0
+
+        def wait( self, timeout=None ):
+            self._waits += 1
+            if timeout is not None and self._waits == 1:
+                raise subprocess.TimeoutExpired( cmd="cuppa", timeout=timeout )
+            self.returncode = -15
+            return self.returncode
+
+        def poll( self ):
+            return self.returncode
+
+    proc = _Proc()
+    seen = {}
+    trees = []
+
+    def fake_popen( *args, **kwargs ):
+        seen["kwargs"] = kwargs
+        return proc
+
+    monkeypatch.setattr( cascade.subprocess, "Popen", fake_popen )
+    monkeypatch.setattr(
+            "cuppa.utility.build_children.child_popen_kwargs",
+            lambda: { "start_new_session": True },
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.build_children.remember_child",
+            lambda process: None,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.build_children.forget_child",
+            lambda process: None,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.build_children.stop_count",
+            lambda: 1,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.build_children.terminate_process_tree",
+            lambda pid, sig=None: trees.append( ( pid, sig ) ),
+    )
+    build_children.reset_stop_requests()
+    code = cascade._run_nested_cuppa( [ "python", "-m", "cuppa" ], cwd="/tmp", env={} )
+    assert code == -15
+    assert seen["kwargs"].get( "start_new_session" ) is True
+    assert trees and trees[0][0] == 4242
 
 
 def test_cascade_plan_lines_clean_mode_retargets_intro_and_notes_cmake():

@@ -14,7 +14,6 @@ Listings and removals run instead of a build. Report body and the mode banner go
 
 import os
 import re
-import sys
 
 from cuppa.colourise import (
     as_emphasised,
@@ -24,6 +23,7 @@ from cuppa.colourise import (
     as_remove_notice,
     as_subdued,
 )
+from cuppa.utility.console_report import ensure_report_stream
 from cuppa.core import (
     dependency_downloads,
     dependency_identity,
@@ -366,7 +366,7 @@ def emit_location_unqualified_duplicate_hints( out=None ):
     ``--list-dependencies`` merges and prints the same hint itself.
     """
     from cuppa.location import Location
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     tokens = Location.take_unqualified_duplicate_wipe_tokens()
     write_unqualified_duplicate_wipe_hint(
             out, tokens, see_earlier_warnings=bool( tokens )
@@ -1497,7 +1497,7 @@ def _write_collating( out ):
 
 def write_unknown_remove_names_error( construct, cuppa_env, error, out=None ):
     """Stdout report when ``--remove-dependencies`` names are not project-used."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     unknown = list( error.unknown )
     highlighted = [
             as_emphasised( as_error( name ) ) for name in unknown
@@ -1958,7 +1958,7 @@ def write_list_downloads_report( out, data, cuppa_env, verbose=False ):
 
 def list_dependencies( construct, cuppa_env, out=None ):
     """``--list-dependencies``. Always exits 0 unless a storage error is raised."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     if list_format != 'json':
         _write_collating( out )
@@ -2039,7 +2039,7 @@ def list_dependencies( construct, cuppa_env, out=None ):
 
 def list_downloads( construct, cuppa_env, out=None ):
     """``--list-downloads``. Always exits 0 unless a storage error is raised."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     list_format = cuppa_env.get( 'list_format' ) or 'text'
     if list_format != 'json':
         out.write( as_subdued( "Collating downloads tree..." ) + "\n" )
@@ -2093,7 +2093,7 @@ def list_downloads( construct, cuppa_env, out=None ):
 
 
 def run( construct, cuppa_env, out=None ):
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     try:
         conflict = dependency_removal.conflicting_dependency_modes( cuppa_env )
         if conflict:

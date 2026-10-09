@@ -89,8 +89,9 @@ def test_configure_without_tty_uses_classic_quiet():
     assert hb.multi_line_progress_allowed() is False
 
 
-def test_configure_keeps_heartbeat_for_terse_gaps():
+def test_configure_keeps_heartbeat_for_terse_gaps( monkeypatch ):
     """Terse transcript and heartbeat coexist; clear before each terse line."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -103,17 +104,18 @@ def test_configure_keeps_heartbeat_for_terse_gaps():
     assert _status_body( stream )[ : hb._PULSE_WIDTH ] in hb._PULSE_FRAMES
 
     from cuppa.progress import _write_terse_stdout
-    import cuppa.progress as progress_module
+    import cuppa.utility.heartbeat as heartbeat_module
     out = io.StringIO()
-    real_stdout = progress_module.sys.stdout
-    progress_module.sys.stdout = out
+    real_stdout = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
     try:
         _write_terse_stdout( '  1/2 · 10% [ok] … · compile a.cpp\n' )
     finally:
-        progress_module.sys.stdout = real_stdout
-    assert out.getvalue().endswith( 'compile a.cpp\n' )
-    # Heartbeat status line was cleared before the transcript write.
-    assert stream.getvalue().endswith( '\r' ) or ' ' in stream.getvalue()
+        heartbeat_module.sys.stdout = real_stdout
+    # Owned stream: durable terse line on the heartbeat TTY, not the pipe.
+    assert 'compile a.cpp\n' in stream.getvalue()
+    assert out.getvalue() == ''
+    assert 'Updating [libfoo]' not in _status_body( stream )
 
 
 def test_fit_plain_truncates_with_ellipsis():
@@ -235,8 +237,9 @@ def test_compact_terse_spinner_aligns_arrow_with_location_maps():
     assert arrow_at == terse_arrow_column()
 
 
-def test_write_transcript_serializes_parallel_lines():
+def test_write_transcript_serializes_parallel_lines( monkeypatch ):
     """Two writers must not shear into ``format.ovariant``."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -249,15 +252,16 @@ def test_write_transcript_serializes_parallel_lines():
         hb.write_transcript( 'variant     18% [progress] end\n' )
     finally:
         heartbeat_module.sys.stdout = real
-    assert out.getvalue() == (
-            'format.o\n'
-            'variant     18% [progress] end\n'
-    )
-    assert 'format.ovariant' not in out.getvalue()
+    # Interactive diverting: durable lines on the owned heartbeat stream.
+    assert 'format.o\n' in stream.getvalue()
+    assert 'variant     18% [progress] end\n' in stream.getvalue()
+    assert 'format.ovariant' not in stream.getvalue()
+    assert out.getvalue() == ''
 
 
-def test_info_during_busy_transcript_stays_pending_until_idle():
+def test_info_during_busy_transcript_stays_pending_until_idle( monkeypatch ):
     """INFO after a terse line must not seize the row before the idle gate."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock( start=1000.0 )
     _configure( stream, clock, columns=120 )
@@ -267,6 +271,7 @@ def test_info_during_busy_transcript_stays_pending_until_idle():
     heartbeat_module.sys.stdout = out
     try:
         hb.write_transcript( '  1/2 · 10% [ok] · compile a.cpp\n' )
+        assert '1/2' in stream.getvalue()
         before = stream.getvalue()
         logger.info( 'Updating [libfoo]' )
         assert stream.getvalue() == before
@@ -283,10 +288,12 @@ def test_info_during_busy_transcript_stays_pending_until_idle():
     finally:
         heartbeat_module.sys.stdout = real
     assert 'Updating [libfoo]' in _status_body( stream )
+    assert out.getvalue() == ''
 
 
-def test_busy_transcript_coalesces_and_drops_intermediate_infos():
+def test_busy_transcript_coalesces_and_drops_intermediate_infos( monkeypatch ):
     """Rapid terse–info–terse must not force full-cycle dwells on each info."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock( start=1000.0 )
     _configure( stream, clock, columns=120 )
@@ -298,7 +305,7 @@ def test_busy_transcript_coalesces_and_drops_intermediate_infos():
         hb.write_transcript( 'terse-1\n' )
         logger.info( 'Updating [a]' )
         assert hb._pending == 'Updating [a]'
-        assert 'Updating [a]' not in stream.getvalue()
+        assert 'Updating [a]' not in _status_body( stream )
 
         # Next terse while the gate is still closed: no dwell (nothing drawn).
         hb.write_transcript( 'terse-2\n' )
@@ -310,7 +317,7 @@ def test_busy_transcript_coalesces_and_drops_intermediate_infos():
 
         hb.write_transcript( 'terse-3\n' )
         assert clock.now == 1000.0
-        assert 'Updating' not in stream.getvalue()
+        assert 'Updating' not in _status_body( stream )
 
         clock.advance( hb._IDLE_GATE_S )
         hb.flush_pending()
@@ -319,7 +326,10 @@ def test_busy_transcript_coalesces_and_drops_intermediate_infos():
     assert 'Updating [c]' in _status_body( stream )
     assert 'Updating [a]' not in stream.getvalue()
     assert 'Updating [b]' not in stream.getvalue()
-    assert out.getvalue() == 'terse-1\nterse-2\nterse-3\n'
+    assert 'terse-1\n' in stream.getvalue()
+    assert 'terse-2\n' in stream.getvalue()
+    assert 'terse-3\n' in stream.getvalue()
+    assert out.getvalue() == ''
 
 
 def test_info_before_any_transcript_still_paints_immediately():
@@ -427,8 +437,9 @@ def test_stale_caption_drops_to_pulse_anchor():
     assert 'Updating [libfoo]' in _status_body( stream )
 
 
-def test_reveal_waits_one_full_animation_cycle():
+def test_reveal_waits_one_full_animation_cycle( monkeypatch ):
     """Status must not flash away — hold one full cycle before erase-for-transcript."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock( start=1000.0 )
     _configure( stream, clock, columns=120 )
@@ -437,18 +448,19 @@ def test_reveal_waits_one_full_animation_cycle():
     cycle = hb._cycle_duration_s()
 
     from cuppa.progress import heartbeat_print_cmd_line
-    import cuppa.progress as progress_module
+    import cuppa.utility.heartbeat as heartbeat_module
     out = io.StringIO()
-    real_stdout = progress_module.sys.stdout
-    progress_module.sys.stdout = out
+    real_stdout = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
     try:
         heartbeat_print_cmd_line( '/usr/bin/g++ -c foo.cpp', [], [], {} )
     finally:
-        progress_module.sys.stdout = real_stdout
+        heartbeat_module.sys.stdout = real_stdout
 
     assert clock.now == pytest.approx( 1000.0 + cycle )
     assert hb._last_line == ''
-    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
+    assert '/usr/bin/g++ -c foo.cpp\n' in stream.getvalue()
+    assert out.getvalue() == ''
 
 
 def test_warn_clear_does_not_wait_for_animation_cycle( monkeypatch ):
@@ -535,7 +547,7 @@ def test_report_on_default_stdout_uses_tty_when_diverting( monkeypatch ):
 
 
 def test_report_also_reaches_stdout_when_launcher_is_piped( monkeypatch ):
-    """CI / redirects: outer stdout is not a TTY — forward banners on the pipe."""
+    """CI / redirects: outer stdout is not a TTY — durable line on the pipe only."""
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
     stream = io.StringIO()
     clock = FakeClock()
@@ -552,8 +564,71 @@ def test_report_also_reaches_stdout_when_launcher_is_piped( monkeypatch ):
         heartbeat_module.sys.stdout = real
 
     assert pipe.getvalue() == 'Running in OFFLINE mode\n'
-    assert 'Running in OFFLINE mode\n' in stream.getvalue()
+    # Never dual-write: CI capture is the pipe; status row was cleared only.
+    assert 'Running in OFFLINE mode\n' not in stream.getvalue()
     assert 'using sconstruct file' not in _status_body( stream )
+
+
+def test_write_transcript_owned_stream_when_interactive( monkeypatch ):
+    """Diverting + interactive: clear+write on heartbeat stream, not the pipe."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Updating [libfoo]' )
+    assert 'Updating [libfoo]' in _status_body( stream )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript( '              → -- Configuring done (0.1s)\n' )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    assert '→ -- Configuring done (0.1s)\n' in stream.getvalue()
+    assert 'Updating [libfoo]' not in _status_body( stream )
+
+
+def test_write_transcript_pipe_only_when_launcher_piped( monkeypatch ):
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Updating [libfoo]' )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript( '              → ninja: no work to do.\n' )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == '              → ninja: no work to do.\n'
+    assert 'ninja: no work to do.' not in stream.getvalue()
+
+
+def test_resolve_cuppa_stdout_is_tty_preserves_inherited():
+    assert hb.resolve_cuppa_stdout_is_tty(
+            environ={ 'CUPPA_STDOUT_IS_TTY': '1' },
+            stdout_is_tty=False,
+    ) == '1'
+    assert hb.resolve_cuppa_stdout_is_tty(
+            environ={ 'CUPPA_STDOUT_IS_TTY': '0' },
+            stdout_is_tty=True,
+    ) == '0'
+    assert hb.resolve_cuppa_stdout_is_tty(
+            environ={},
+            stdout_is_tty=True,
+    ) == '1'
+    assert hb.resolve_cuppa_stdout_is_tty(
+            environ={},
+            stdout_is_tty=False,
+    ) == '0'
 
 
 def test_spawn_suppress_clears_in_place_and_defers_redraw():
@@ -587,8 +662,9 @@ def test_spawn_suppress_clears_in_place_and_defers_redraw():
     assert 'Updating [libfoo] during spawn' in _status_body( stream )
 
 
-def test_reveal_before_print_cmd_line_reuses_status_row():
-    """PRINT_CMD_LINE clears working in place; SPAWN must not insert a newline."""
+def test_reveal_before_print_cmd_line_reuses_status_row( monkeypatch ):
+    """PRINT_CMD_LINE clears working in place; durable cmd on the owned stream."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -597,39 +673,41 @@ def test_reveal_before_print_cmd_line_reuses_status_row():
     before_reveal = stream.getvalue()
 
     from cuppa.progress import heartbeat_print_cmd_line
-    import cuppa.progress as progress_module
+    import cuppa.utility.heartbeat as heartbeat_module
     out = io.StringIO()
-    real_stdout = progress_module.sys.stdout
-    progress_module.sys.stdout = out
+    real_stdout = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
     try:
         heartbeat_print_cmd_line( '/usr/bin/g++ -c foo.cpp', [], [], {} )
     finally:
-        progress_module.sys.stdout = real_stdout
+        heartbeat_module.sys.stdout = real_stdout
 
-    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
+    assert '/usr/bin/g++ -c foo.cpp\n' in stream.getvalue()
+    assert out.getvalue() == ''
     assert hb._last_line == ''
+    # Clear (\\r erase) then durable newline on the same owned stream.
     revealed = stream.getvalue()[ len( before_reveal ): ]
-    assert '\n' not in revealed
-    after_reveal = stream.getvalue()
+    assert revealed.endswith( '/usr/bin/g++ -c foo.cpp\n' )
+    after_cmd = stream.getvalue()
 
     hb.suppress( advance=False )
     assert hb._suppress_depth == 1
-    added = stream.getvalue()[ len( after_reveal ): ]
+    added = stream.getvalue()[ len( after_cmd ): ]
     assert '\n' not in added
     hb.allow()
 
-    # No status visible → reveal is a no-op between commands.
-    before_second = stream.getvalue()
-    progress_module.sys.stdout = out
+    # No status visible → second command is still a durable owned-stream write.
+    heartbeat_module.sys.stdout = out
     try:
         heartbeat_print_cmd_line( '/usr/bin/g++ -c bar.cpp', [], [], {} )
     finally:
-        progress_module.sys.stdout = real_stdout
-    assert stream.getvalue() == before_second
-    assert out.getvalue().endswith( '/usr/bin/g++ -c bar.cpp\n' )
+        heartbeat_module.sys.stdout = real_stdout
+    assert '/usr/bin/g++ -c bar.cpp\n' in stream.getvalue()
+    assert out.getvalue() == ''
 
 
-def test_spawn_transcript_clears_heartbeat():
+def test_spawn_transcript_clears_heartbeat( monkeypatch ):
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -645,7 +723,8 @@ def test_spawn_transcript_clears_heartbeat():
         op._emit_transcript( '/usr/bin/g++ -c foo.cpp' )
     finally:
         heartbeat_module.sys.stdout = real
-    assert out.getvalue() == '/usr/bin/g++ -c foo.cpp\n'
+    assert '/usr/bin/g++ -c foo.cpp\n' in stream.getvalue()
+    assert out.getvalue() == ''
     assert hb._last_line == ''
     assert hb._body is None
 
@@ -659,3 +738,375 @@ def test_verbosity_override_resets_heartbeat():
     set_logging_level( 'info' )
     assert hb.diverting() is False
     assert hb.multi_line_progress_allowed() is True
+
+
+def test_transfer_progress_allowed_under_quiet_tty():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='pulse' )
+    assert hb.transfer_progress_allowed() is True
+    assert hb.multi_line_progress_allowed() is False
+    hb.reset()
+
+
+def test_transfer_progress_denied_when_quiet_heartbeat_off():
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='off' )
+    assert hb.transfer_progress_allowed() is False
+    hb.reset()
+
+
+def test_format_alive_prefix_pulse_and_off():
+    plain, styled = hb.format_alive_prefix( 0, style='pulse', compact=False )
+    assert plain.startswith( '|' )
+    assert plain.endswith( '  ' )
+    assert styled
+    plain_off, styled_off = hb.format_alive_prefix( 0, style='off' )
+    assert plain_off == '' and styled_off == ''
+
+
+def test_set_presentation_updates_style_and_compact():
+    hb.reset()
+    hb.set_presentation( style='spinner', compact=True )
+    assert hb.style() == 'spinner'
+    assert hb.compact() is True
+    plain, _styled = hb.format_alive_prefix( 1, style=None, compact=None )
+    assert 'working' in plain
+    assert '→' in plain
+    hb.reset()
+
+
+def test_operation_status_under_diverting_uses_heartbeat( monkeypatch ):
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, style='pulse' )
+    seen = []
+
+    def fake_show( message, sticky=False ):
+        seen.append( ( message, sticky ) )
+
+    monkeypatch.setattr( hb, 'show_info', fake_show )
+    with hb.operation_status( 'Updating [libfoo] in [/tmp/libfoo]' ):
+        assert seen == [ ( 'Updating [libfoo] in [/tmp/libfoo]', True ) ]
+    hb.reset()
+
+
+def test_sticky_caption_does_not_age_out():
+    """In-progress captions stay until clear; event INFO still ages out."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert hb._sticky is True
+
+    hold = hb._caption_hold_s()
+    clock.advance( hold + 1.0 )
+    hb._on_pulse()
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert hb._body == 'Updating [libfoo]'
+
+    # Event INFO must not steal the sticky row; it becomes pending.
+    clock.advance( 0.15 )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert 'Updating [libfoo]' in _status_body( stream )
+    assert 'Using [/tmp]' not in _status_body( stream )
+
+    hb.clear()
+    assert hb._sticky is False
+    hb.reset()
+
+
+def test_caption_flush_does_not_advance_spin():
+    """Same-row message updates keep the ECG frame; only pulse advances spin."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    assert hb._spin == 0
+    assert 'Updating [libfoo]' in _status_body( stream )
+    # Mid-cycle on the *same* row — caption change must not reset or bump.
+    hb._spin = 7
+
+    clock.advance( 0.15 )
+    hb.show_info( 'Updating [libbar]', sticky=True )
+    assert hb._spin == 7
+    assert 'Updating [libbar]' in _status_body( stream )
+
+    hb._on_pulse()
+    assert hb._spin == 8
+    hb.reset()
+
+
+def test_caption_flush_does_not_restart_pulse_timer( monkeypatch ):
+    """Re-arming on every INFO reset the beat cadence (choppy heartbeat)."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    # Real timers would fire; stub so we only watch arm/ensure behaviour.
+    monkeypatch.setattr( hb, '_pulse_enabled', True )
+    started = []
+
+    class _FakeTimer( object ):
+        def __init__( self, interval, callback ):
+            self.interval = interval
+            self.callback = callback
+            self.daemon = False
+
+        def start( self ):
+            started.append( self )
+
+        def cancel( self ):
+            pass
+
+    monkeypatch.setattr( hb.threading, 'Timer', _FakeTimer )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    assert len( started ) == 1
+    first = started[0]
+    assert hb._pulse is first
+
+    clock.advance( 0.15 )
+    hb.show_info( 'Updating [libbar]', sticky=True )
+    assert len( started ) == 1
+    assert hb._pulse is first
+
+    hb.reset()
+
+
+def test_clear_resets_spin_so_new_row_starts_at_rest():
+    """After transcript/clear, the next status row must not resume mid-beat."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    hb._spin = 9
+    hb.clear()
+    assert hb._spin == 0
+    assert hb._last_line == ''
+
+    hb.show_info( 'Updating [libbar]', sticky=True )
+    assert hb._spin == 0
+    assert hb._pulse_frame( hb._spin ) == hb._PULSE_REST
+    assert 'Updating [libbar]' in _status_body( stream )
+    hb.reset()
+
+
+def test_operation_status_handoff_keeps_spin_without_full_cycle_dwell():
+    """Sequential quiet retrieves must replace in-row, not dwell+clear each time."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+
+    with hb.operation_status( 'Updating [libfoo]' ):
+        assert 'Updating [libfoo]' in _status_body( stream )
+        hb._spin = 5
+
+    # Released sticky, but the row and spin remain for the next caption.
+    assert hb._sticky is False
+    assert hb._spin == 5
+    assert hb._last_line
+    assert 'Updating [libfoo]' in _status_body( stream )
+
+    clock.advance( 0.05 )
+    with hb.operation_status( 'Updating [libbar]' ):
+        assert hb._spin == 5
+        assert 'Updating [libbar]' in _status_body( stream )
+        assert 'Updating [libfoo]' not in _status_body( stream )
+
+    hb.reset()
+
+
+def test_rapid_non_sticky_info_can_flush_several_times_per_cycle():
+    """Event INFO throttle is ~0.12s — not one flush per full ECG cycle."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock, columns=120 )
+    cycle = hb._cycle_duration_s()
+    paints = 0
+    t = 0.0
+    while t < cycle:
+        hb.show_info( 'Updating [pkg-{}]'.format( paints ) )
+        paints += 1
+        clock.advance( hb._MESSAGE_INTERVAL_S + 0.01 )
+        t += hb._MESSAGE_INTERVAL_S + 0.01
+    assert paints >= 5
+    assert 'Updating [pkg-{}]'.format( paints - 1 ) in _status_body( stream )
+    hb.reset()
+
+
+def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatch ):
+    """Compact terse arms the same heartbeat row — not a second painter."""
+    import cuppa.utility.download as download_mod
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    sleeps = []
+
+    def sleep( seconds ):
+        sleeps.append( seconds )
+        clock.advance( seconds )
+
+    monkeypatch.setattr( hb, '_clock', clock )
+    monkeypatch.setattr( hb, '_sleep', sleep )
+    monkeypatch.setattr(
+            download_mod, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setattr( hb, '_columns', 200 )
+
+    assert hb.ensure_status_row() is True
+    assert hb.status_row_active() is True
+    assert hb.diverting() is False
+    assert hb.quiet_console() is False
+
+    with hb.operation_status(
+            'Updating [libfoo] · git+https://example.com/very/long/path@master'
+    ):
+        body = _status_body( stream )
+        assert 'Updating [libfoo]' in body
+        # Shared column probe on the owned TTY — not the pipe's 80 fallback.
+        assert '\u2026' not in body
+        assert visible_len( body ) > 80
+
+    # Exit releases sticky without full-cycle dwell.
+    cycle = hb._cycle_duration_s()
+    assert sum( sleeps ) < cycle * 0.5
+    assert hb.diverting() is False
+    hb.reset()
+
+
+def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monkeypatch ):
+    """Uncounted resolve children must not seize one ECG cycle each."""
+    import cuppa.utility.download as download_mod
+    from cuppa.progress import _write_terse_stdout
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    sleeps = []
+
+    def sleep( seconds ):
+        sleeps.append( seconds )
+        clock.advance( seconds )
+
+    monkeypatch.setattr( hb, '_clock', clock )
+    monkeypatch.setattr( hb, '_sleep', sleep )
+    monkeypatch.setattr(
+            download_mod, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+
+    out = io.StringIO()
+    real_stdout = hb.sys.stdout
+    hb.sys.stdout = out
+    try:
+        with hb.operation_status( 'Updating [fmt]' ):
+            assert 'Updating [fmt]' in _status_body( stream )
+        _write_terse_stdout(
+                '              → [update]   <fmt> · main · abcdef01\n',
+                dwell=False,
+        )
+        _write_terse_stdout(
+                '              → [location] <date> = git_https_… · repository\n',
+                dwell=False,
+        )
+    finally:
+        hb.sys.stdout = real_stdout
+
+    cycle = hb._cycle_duration_s()
+    assert sum( sleeps ) < cycle * 0.5
+    assert '[update]' in out.getvalue()
+    assert '[location]' in out.getvalue()
+    hb.reset()
+
+
+def test_scons_display_clears_heartbeat_before_removed_line( monkeypatch ):
+    """Clean ``Removed …`` must not glue onto the quiet status row."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies and [/tmp/dl] for downloads' )
+    assert 'Using [/tmp]' in _status_body( stream )
+
+    from SCons.Util import display
+    display( 'Removed _build/foo.o' )
+
+    # StringIO keeps CR history; treat CR as a line break the way a TTY would.
+    lines = [
+            line.rstrip()
+            for line in strip_ansi( stream.getvalue() ).replace( '\r', '\n' ).split( '\n' )
+            if line.strip()
+    ]
+    assert any( line == 'Removed _build/foo.o' for line in lines )
+    assert all( 'downloadsRemoved' not in line for line in lines )
+    assert 'Using [/tmp]' not in _status_body( stream )
+
+
+def test_clean_quiet_uses_classic_quiet_without_heartbeat():
+    """``-Q -c`` must not arm the status row (SCons clean bypasses PRINT_CMD_LINE)."""
+    from cuppa.construct import Construct
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            options = {
+                'verbosity': None,
+                'silent': False,
+                'no_progress': True,
+                'clean': True,
+                'quiet_heartbeat': 'pulse',
+                'terse_output': False,
+            }
+            return options.get( name, default )
+
+        def get( self, name, default=None ):
+            return self.get_option( name, default )
+
+    Construct._set_verbosity_level( _Env(), apply_quiet_heartbeat=True )
+    assert hb.quiet_console() is True
+    assert hb.diverting() is False
+    assert not logger.isEnabledFor( logging.INFO )
+
+
+def test_reset_and_atexit_restore_terminal_wrap():
+    """Leaving ``?7l`` on makes later builds truncate long lines at the margin."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies' )
+    assert hb._wrap_off_sent is True
+    assert hb._WRAP_OFF in stream.getvalue()
+
+    before = stream.getvalue()
+    hb.reset()
+    after = stream.getvalue()[ len( before ): ]
+    assert hb._WRAP_ON in after
+    assert hb._wrap_off_sent is False
+    assert hb._wrap_disabled is False
+
+    # Simulate a prior process that exited mid-pulse: force-heal without flags.
+    hb._wrap_off_sent = False
+    hb._wrap_disabled = False
+    healed = io.StringIO()
+    hb.restore_terminal_wrap( force=True )
+    # No active stream — force opens a progress stream; with no TTY in tests
+    # that may be stderr. Call again with an injected stream via paint path.
+    hb.configure_quiet_console(
+            'warn',
+            stream=healed,
+            is_tty=True,
+            owns_stream=False,
+            clock=clock,
+            columns=120,
+            pulse=False,
+    )
+    logger.info( 'again' )
+    assert hb._wrap_off_sent is True
+    hb.restore_terminal_wrap()
+    assert hb._WRAP_ON in healed.getvalue()
+    assert hb._wrap_off_sent is False

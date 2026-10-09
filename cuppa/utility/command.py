@@ -73,6 +73,7 @@ class run:
         delegated = terse and (
                 self._terse_summary is not None or self._terse_action is not None
         )
+        cmake_filter = None
         if delegated:
             action = self._terse_action or progress.spell_terse_action(
                     self._command, target, env,
@@ -81,17 +82,23 @@ class run:
             progress.write_terse_launch(
                     action, summary, env, command=self._command, target=target,
             )
+            if progress.is_cmake_delegate( action, self._command ):
+                cmake_filter = progress.CmakeDelegatedChildFilter( env )
 
         def process_stdout( line ):
             captured_lines.append( line )
-            if delegated:
+            if cmake_filter is not None:
+                cmake_filter.handle( line )
+            elif delegated:
                 progress.write_terse_muted_child( line, env )
             else:
                 sys.stdout.write( line + '\n' )
 
         def process_stderr( line ):
             captured_lines.append( line )
-            if delegated:
+            if cmake_filter is not None:
+                cmake_filter.handle( line )
+            elif delegated:
                 progress.write_terse_muted_child( line, env )
             else:
                 sys.stderr.write( line + '\n' )
@@ -126,6 +133,13 @@ class run:
                     # launch bookend or the counted status line owns that role.
                     suppress_output=terse,
             )
+            if cmake_filter is not None and return_code == 0:
+                cmake_filter.finish()
+            # First Ctrl-C SIGINTs delegates; treat that exit as interrupt drain,
+            # not a build failure (no ``cuppa: command: [error]`` spam).
+            if progress.is_interrupt_returncode( return_code ):
+                progress.note_build_interrupted()
+                return return_code
             if return_code < 0:
                 logger.error( "Execution of [{}] terminated by signal: {}".format( as_notice( self._command ), as_error( str(-return_code) ) ) )
                 log_failure_detail()

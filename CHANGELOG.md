@@ -9,25 +9,125 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Transfer and archive progress: shared engine for download, extract, and package
+  ``compress``. **Normal TTY** shows the progress bar only (no alive widget);
+  under ``-Q``/``-s`` that bar is muted, idle-gate delayed, and overwritten on
+  completion. **``--terse-output`` TTY** shows alive (unless
+  ``--quiet-heartbeat=off``) + ``→`` + bar, muted, idle-gate reveal, animation
+  dwell then overwrite, then a durable identity line
+  (``→ [download] src → dest`` / variant ``[ok] · download · …``). Non-TTY
+  periodic lines are **normal mode only**. Package archive create no longer runs
+  a silent multi-minute ``tar``.   Location git update/clone under terse now arms
+  ``operation_status`` so the idle-gate alive wait is not starved (retrieve skips
+  multi-line INFO and pip's ``git fetch`` is quiet). Captions are mode-aware:
+  terse correlates the location-map ``<token>`` with the resolved ``url@branch``
+  form, padded to the ``[location]`` column (``Updating   <base64> ·
+  git+https://…@master``); normal (including ``-Q`` without terse) keeps a full
+  ``Updating […] in [~/…] on <branch>`` line so short names are not shown
+  unanchored. In-progress captions are sticky (do
+  not age out to the pulse-only anchor); ordinary event INFO still ages out.
+  Terse-without-quiet ``operation_status`` uses the same wrap-off / erase-EOL
+  protocol as the quiet heartbeat, fits the caption to the TTY width, and is
+  cleared before each terse transcript line (so pulse frames no longer shear
+  into ``→ [update]``). GitLab package **publish** uploads via shared
+  ``upload_file`` (HTTP PUT + ``ProgressReporter``) instead of silent
+  ``curl --upload-file``, so large registry puts get the same mode-tuned bar
+  as download/compress; durable ``[publish]`` identity lines unchanged. Plan:
+  ``design/plans/transfer-and-archive-progress.md``.
+- Terse resolve honesty and package retrieve identity: ``[ready]`` closes after
+  every toolchain × variant × sconscript has been read (no longer on the first
+  tip ``BuildWith``), so multi-toolchain package collects stay under
+  prepare→ready. Resolve maps ``<downloads>`` and ``[registry] <host_project>``;
+  package ``[location]`` RHS is ``name/version`` (no tool-variant stem);
+  ``[collect]`` / ``[extract]`` use
+  ``<registry> → <downloads>/packages/<token>/archive`` and
+  ``… → <dependencies>/<stem>/<token>`` (token already carries version).
+  The package token inside ``<downloads>/packages/<token>/…`` stays subdued
+  (the line already leads with ``<token>``); only the archive leaf is
+  emphasised. Terse/quiet transfer progress subdues the progress body while
+  the alive ECG stays hospital-green. Publish/transfer identity lines keep
+  ``https://`` intact (no ``normpath`` collapse to ``https:/``) and shorten
+  GitLab generic package destinations to ``<registry>/name/ver/file`` after
+  the ``[registry]`` map. Terse cmake delegate stdout turns
+  ``-- Up-to-date:`` into a quiet-heartbeat ephemeral pulse and, when every
+  line was up-to-date, prints one muted ``-- All targets Up-to-date``
+  confirmation; ``-- Installing:`` / ninja build lines still stream.
+  Transcript writes clear a live ``ProgressReporter`` bar so compress/upload
+  cannot shear onto cmake ``→`` children. Identical mode banners
+  (e.g. ``Running in OFFLINE mode``) emit once per process. Quiet+TTY durable
+  lines (terse transcript and console reports) share ``heartbeat.write_line``:
+  clear status and write on the heartbeat stream under one lock when the
+  ultimate console is interactive — never dual-write TTY+pipe (fixes ECG
+  shear and nested OFFLINE ×2). Nested ``cuppa`` preserves outermost
+  ``CUPPA_STDOUT_IS_TTY``. CMake install preamble no longer blocks
+  ``-- All targets Up-to-date``. Plan:
+  ``design/plans/console-write-ownership.md``. Cascade nested ``cuppa`` sessions
+  are remembered like build children and torn down as a **process tree** on
+  tip Ctrl-C (first interrupt stops a long nest; no orphaned ninja/cmake
+  writing to ``/dev/tty`` after the shell returns). Between nests the tip
+  announces ``parent session`` plus terse ``[cascade] … exiting|entering``
+  around consume refresh/extract (``entering`` also before the first nest;
+  one rule between nests — no double-rule gap). Tip-scoped
+  ``[cascade] tip [==ver] · begin|end · N packages|uploads`` bookends the
+  nest run (blank after plan; blank then ``end`` after the
+  ``cascade sessions complete`` banner). Publisher tips defer cascade until
+  after resolve ``[ready]`` (same post-read hook as consume-only), so the
+  order is prepare → children → ``[ready]`` → plan → begin → nests → end
+  rather than plan inside the prepare span. Nest labels use plan pin spelling
+  (``name [==version] (package)``); nest end says
+  ``uploaded [archive.tar.gz]`` (brackets plain, leaf notice) when the
+  marker carries a path. Property-based resolve ensure phases remain
+  deferred — see ``design/plans/transfer-and-archive-progress.md``.
+- Quiet+TTY / terse heartbeat: one shared status-row writer for retrieve
+  ``operation_status`` (quiet diverting *and* compact ``--terse-output``
+  without ``-Q``). Dropped the second paint loop that truncated captions at
+  the launcher pipe's 80-column fallback and froze a single ECG frame while
+  full-cycle dwelling. Uncounted resolve children (``[location]`` /
+  ``[update]`` / …) clear the row without that dwell so prepare→ready stays
+  network-bound instead of ~1.5s×N sleeps. ``diverting()`` means quiet+armed
+  only; compact terse may arm the row via ``ensure_status_row`` without
+  folding INFO onto it.
+- Quiet+TTY heartbeat: console report bodies (purge/list/wipe tables, not only
+  mode banners) route through ``write_report`` while diverting, so stdout-pipe
+  chunks cannot glue onto the status caption (``…downloadsRemoving…`` /
+  rule-line shear). ``ensure_report_stream`` wraps default ``sys.stdout`` for
+  dependency, storage, toolchain, and publisher actions; report writes also
+  mark the transcript idle gate so INFO cannot repaint between table lines.
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
+  ``-c`` / ``--clean`` forces classic quiet (no status row): SCons prints
+  ``Removed …`` via ``display()``, which used to shear onto the heartbeat
+  (``|•--------|Removed …`` / ``downloadsRemoved``). While diverting, SCons
+  ``display()`` is also routed through ``write_line`` as a safety net.
+  Heartbeat ``?7l`` (disable autowrap) is always paired with ``?7h`` on
+  clear/reset/atexit, and construct start force-heals wrap if a prior cuppa
+  exited mid-pulse — otherwise later builds look "unwrapped" (long ``g++``
+  lines truncate at the terminal margin).
   Default ``--quiet-heartbeat=pulse`` is a bordered ECG widget (hospital-green
   QRS); ``spinner`` selects classic ASCII; ``off`` disables the status line.
   Pulse form is ``|<widget>|  <message>`` (no ``working`` word — the ECG is
   enough); spinner keeps ``working <spinner>  <message>``. With ``--terse-output``
   the ``→`` lines up with location-map arrows.
   Captions and transcript reveal wait one full animation cycle so the line does
-  not flash unreadably (warnings clear immediately). After a transcript write,
+  not flash unreadably (warnings clear immediately).   After a transcript write,
   INFO captions stay pending until a short idle gate (latest wins) so a fast
   ``terse–info–terse`` stream cannot seize the row and stall the next line.
-  Console mode banners clear the status on the progress TTY so the ``cuppa``
-  launcher cannot append them to ``working …``; when the launcher itself is
-  piped (CI, redirects) the banner is also written on the stdout pipe so
-  capture still sees it. Terse and command transcript writes are serialised
-  under ``-j`` / ``--parallel``. Pipelines and CI stay silent (no heartbeat
-  without a TTY). Git/download progress bars remain off under quiet.
-  ``--verbosity=`` still wins. Plan: ``design/plans/quiet-tty-heartbeat.md``.
+  Same-row caption updates keep the current ECG/spinner frame and do not
+  restart the pulse timer (only the pulse tick advances the widget and
+  re-arms). Leaving the status row (clear / transcript) resets the cycle
+  so a mid-beat does not resume on the next line. Quiet retrieve
+  ``operation_status`` hands off with an in-row sticky release (no
+  full-cycle dwell+clear between Updating captions). Console mode banners
+  clear the status on the
+  progress TTY so the ``cuppa`` launcher cannot append them to ``working …``;
+  when the launcher itself is piped (CI, redirects) the banner is also
+  written on the stdout pipe so capture still sees it. Terse and command
+  transcript writes are serialised under ``-j`` / ``--parallel``. Pipelines
+  and CI stay silent (no heartbeat without a TTY). Transfer/archive progress
+  under quiet uses the same muted alive+metrics line (not the old multi-line
+  download bar). ``--verbosity=`` still wins. Plan:
+  ``design/plans/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal
@@ -64,12 +164,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   binary's ``[fail]`` roll-up.
   ``--show-test-cases`` also prints the cases that passed. Without
   ``--terse-output`` they are left alone. Ctrl-C prints
-  ``interrupted — finishing in-flight actions...`` instead of a per-target
-  ``Error -2`` list. Actions that then finish keep their ordinary status
-  line, and the drain closes with ``finished in-flight actions``, then
-  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``.
-  The fraction is the whole build, completed against what was going to run.
-  A second Ctrl-C prints ``aborted`` and stops them,
+  ``interrupted — stopping in-flight actions...`` instead of a per-target
+  ``Error -2`` list.   The first Ctrl-C also ``SIGINT``s remembered build
+  children (including ``cmake --build`` / ninja delegates) so a long
+  delegated graph stops and drains, rather than continuing until a second
+  interrupt; a SIGINT exit is not logged as ``cuppa: command: [error]`` /
+  ``[error]`` terse status — the interrupt banner owns the close
+  (``stopped in-flight actions``, then
+  ``[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date``).
+  Under ``-j`` / ``--parallel``, the first terse ``[error]`` is followed once
+  by ``failed — draining in-flight jobs...`` so later ``[ok]`` lines from
+  already-running jobs are not mistaken for keep-going. Serial builds and
+  interrupt banners skip that note. The fraction is the whole build,
+  completed against what was going to run.
+  A second Ctrl-C prints ``aborted`` and ``SIGTERM``s stubborn children,
   with no closing line. An action line leads with
   this sconscript and variant's tally and the whole-build percent
   (`` 19/182 · 10%``). The fraction is that sconscript and variant; the
@@ -318,8 +426,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cascade Phase **2c**: ``--force`` with ``--build-and-publish-dependencies``
   rebuilds and uploads every resolved dependency even when the tip's consume
   archive already matches the registry. Nested sessions that are current are
-  skipped with a ``skipped (current)`` banner; end banners report ``uploaded``
-  or ``no registry upload``. Design:
+  skipped with a ``skipped (current)`` banner; end banners report
+  ``uploaded [archive.tar.gz]`` (basename when known) or ``no registry upload``.
+  Design:
   [`package-build-publish-deps`](design/archive/package-build-publish-deps.md)
   ([#297](https://github.com/ja11sop/cuppa/issues/297)).
 

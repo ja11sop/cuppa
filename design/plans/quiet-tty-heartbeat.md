@@ -2,9 +2,9 @@
 
 - **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
-- **Updated:** 2026-10-05
+- **Updated:** 2026-10-08
 - **Impact:** `minor`
-- **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356)
+- **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356); caption/spin decoupling follow-on on transfer/archive branch
 
 ## Problem
 
@@ -215,3 +215,126 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | Follow-on | Filter false-positive `probably a directory` warn — [`filter-directory-warn.md`](filter-directory-warn.md); done (see that plan) |
 | Caption hold + pulse | Done — full-cycle min dwell; `pulse`/`spinner`/`off`; terse compact arrow form; transcript lock under `-j` |
 | Transcript idle-gate | Done — after transcript, INFO stays pending until ~0.2s quiet (latest wins); avoids dwell stalls on busy terse–info interleave |
+| Caption flush vs ECG spin | Done (fourth try) — same-row keep ``_spin`` + ``_ensure_pulse``; clear/new-row reset spin; diverting ``operation_status`` releases sticky **without** dwell+clear so sequential Updating captions replace in-row (multiple per cycle). Option 2 deferred |
+| One alive writer + resolve continuity | Done — see [§ One alive writer + resolve continuity](#one-alive-writer--resolve-continuity) |
+
+## One alive writer + resolve continuity
+
+Soak (order_matcher cascade-plan): `-Q --terse-output` and `--terse-output`
+alone were ~70s real with ~6s CPU; `-Q --normal-output` / normal ~30s. The gap
+was **sleep** — full-cycle ECG dwell (~1.5s) between durable resolve children
+after an alive caption, not “animation during git”.
+
+Non-quiet terse also showed a **second painter**: private `operation_status`
+loop via another `open_progress_stream`, columns falling back through the
+launcher pipe to **80** (ellipsis truncation), and a frozen first frame while
+exit dwell slept. Same product surface, two implementations.
+
+### Nutshell: dwell and idle gate
+
+| Mechanism | Resolve uncounted children (`→ [location]` / `→ [update]` / prepare·ready / collect·extract maps) | Other terse (tool cmds, `[ok]` progress, bar-backed transfers, interrupt) |
+|-----------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| **Full-cycle dwell** | Off (`dwell=False`) | Still on by default |
+| **Idle gate** (~0.2s before status may paint after a transcript) | Still on | Still on |
+
+Terse mode does **not** disable idle gate or dwell globally. Only prepare→ready
+ledger lines skip full-cycle seize. `operation_status` still respects the idle
+gate before Updating appears; on exit it releases sticky **without** dwell; the
+durable `[update]` line clears/prints immediately.
+
+### Who owns the alive row
+
+```mermaid
+flowchart TB
+  subgraph before [Before — two painters]
+    Q1["-Q + TTY"] --> HB1["heartbeat _stream<br/>show_info / pulse"]
+    T1["--terse without -Q"] --> OP1["private operation_status<br/>second open_progress_stream<br/>columns ≈ 80"]
+  end
+
+  subgraph after [After — one painter]
+    Q2["-Q + TTY"] --> HB2["shared status row"]
+    T2["--terse without -Q"] --> ESR["ensure_status_row()"]
+    ESR --> HB2
+    HB2 --> Sticky["sticky show_info + pulse"]
+    HB2 --> Div{"quiet?"}
+    Div -->|yes| Info["diverting: INFO → status"]
+    Div -->|no| Std["INFO stays on stdout"]
+  end
+```
+
+`diverting()` = quiet ∧ armed. Compact terse may arm the row without folding INFO.
+
+### One retrieve under prepare (after)
+
+```mermaid
+sequenceDiagram
+  participant Prep as prepare span
+  participant Loc as "→ [location]"
+  participant Op as operation_status
+  participant Git as git fetch
+  participant Up as "→ [update]"
+  participant Row as shared status row
+
+  Prep->>Loc: dwell=False clear+print
+  Loc->>Op: Updating caption
+  Op->>Row: sticky show_info (pulse runs)
+  Op->>Git: work while row animates
+  Git-->>Op: done
+  Op->>Row: release sticky (no dwell)
+  Op->>Up: dwell=False clear+print
+  Note over Row,Up: next location can follow immediately
+```
+
+### Wall-clock tax
+
+```mermaid
+flowchart LR
+  subgraph old [Old terse path]
+    A1["Updating sticky / paint"] --> B1["git ~real time"]
+    B1 --> C1["full-cycle dwell ~1.5s<br/>frozen frame"]
+    C1 --> D1["print update"]
+    D1 --> E1["next location may dwell again"]
+  end
+
+  subgraph neu [New path]
+    A2["Updating sticky"] --> B2["git ~real time"]
+    B2 --> C2["release sticky"]
+    C2 --> D2["print update dwell=False"]
+    D2 --> E2["next location dwell=False"]
+  end
+```
+
+Roughly **N updates × ~1.5s** sleep removed; remaining time is network-bound
+(~30s normal band on the same tip).
+
+### When the row arms
+
+```mermaid
+flowchart TD
+  Start["cuppa start"] --> Pres["set_presentation<br/>style + compact=terse"]
+  Pres --> Quiet{"-Q / -s + TTY?"}
+  Quiet -->|yes| Cfg["configure_quiet_console<br/>arm row + diverting"]
+  Quiet -->|no| Compact{"compact terse?"}
+  Compact -->|yes| Lazy["ensure_status_row on first<br/>operation_status"]
+  Compact -->|no| None["no status row"]
+  Cfg --> Dwell["tool / transfer reveal:<br/>dwell=True OK"]
+  Lazy --> Resolve["resolve children:<br/>dwell=False"]
+  Cfg --> Resolve
+```
+
+### Durable write vs status row
+
+```mermaid
+flowchart TB
+  W["write_line / write_transcript"] --> D{"dwell?"}
+  D -->|yes and row painted| Sleep["ensure_min_dwell<br/>tool reveal / transfer"]
+  D -->|no| Clear
+  Sleep --> Clear["clear shared status row"]
+  Clear --> Dest{"diverting and interactive?"}
+  Dest -->|yes| TTY["write durable on owned TTY"]
+  Dest -->|no| Out["write durable on stdout<br/>terse without -Q, CI pipe"]
+```
+
+**Product rule:** under `[prepare]` → `[ready]`, uncounted resolve children are
+a ledger; the alive cue travels with that span and is not seized for a full
+ECG cycle between lines. See also [`console-write-ownership.md`](console-write-ownership.md).

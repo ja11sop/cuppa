@@ -16,7 +16,6 @@ the same toolchain and variant options that decide where a build writes. Artefac
 
 import os
 import re
-import sys
 from collections import defaultdict
 
 import SCons.Script
@@ -34,7 +33,7 @@ from cuppa.colourise import (
 from cuppa.core import build_layout
 from cuppa.log import logger
 from cuppa.utility import storage
-from cuppa.utility.console_report import report_mode_banner
+from cuppa.utility.console_report import ensure_report_stream, report_mode_banner
 
 
 INDENT = '  '
@@ -1162,7 +1161,7 @@ def _apply_removal_outcomes( rows, outcomes_by_path ):
 
 def list_builds( construct, cuppa_env, out=None ):
     """Print folder, toolchain-variant, and sconscript views of the build root."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     abs_build_root = cuppa_env['abs_build_root']
     selected = selected_tool_variant_dirs( construct, cuppa_env )
     rows = _collect_variant_rows( abs_build_root, selected )
@@ -1227,7 +1226,7 @@ def _refuse_suspicious_build_root( abs_build_root, sconstruct_dir ):
 
 def remove_builds( construct, cuppa_env, out=None ):
     """Remove variant subtrees matching the current selection. Returns an exit status."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     abs_build_root = cuppa_env['abs_build_root']
     _refuse_suspicious_build_root( abs_build_root, cuppa_env['sconstruct_dir'] )
 
@@ -1411,7 +1410,7 @@ def _stamp_remove_all_outcomes( rows, succeeded, error=None ):
 
 def remove_all_builds( cuppa_env, out=None ):
     """Remove the entire build root. Returns an exit status."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     abs_build_root = cuppa_env['abs_build_root']
     project_dir = cuppa_env['sconstruct_dir']
     _refuse_suspicious_build_root( abs_build_root, project_dir )
@@ -1513,7 +1512,7 @@ def remove_all_builds( cuppa_env, out=None ):
 
 def run( construct, cuppa_env, out=None ):
     """Dispatch the requested storage action. Returns an exit status."""
-    out = out or sys.stdout
+    out = ensure_report_stream( out )
     from cuppa.core import dependency_actions
     try:
         if cuppa_env.get( 'remove_all_builds' ) and (

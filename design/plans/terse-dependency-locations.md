@@ -49,9 +49,13 @@ sconstruct   0% [prepare] ~/src/app/sconstruct · resolve · 35 declared depende
               → [location] <dependencies> = ~/_cuppa/_download · root
               → [location] <fmt> = git_https_github.com__fmtlib_fmt.git@master · repository
               → [update]   <fmt> · master · 9197f515
+              → [location] <downloads> = ~/.cuppa/downloads · root
+              → [registry] <example_com_org_registry> = https://…/packages/generic
               → [location] <google_cloud_cpp> = google-cloud-cpp/3.9.0 · package
+              → [collect]  <google_cloud_cpp> · 3.9.0 · <example_com_org_registry> → <downloads>/packages/<google_cloud_cpp>/….tar.gz
+              → [extract]  <google_cloud_cpp> · 3.9.0 · <downloads>/packages/<google_cloud_cpp>/….tar.gz → <dependencies>/gcc16_rel_…/<google_cloud_cpp>
               → [location] <protobuf> = protobuf/36.1 · package · transitive
-              → [collect]  <protobuf> · 36.1
+              … (further toolchains’ package stems while reading their envs) …
 sconstruct   0% [ready] ~/src/app/sconstruct · resolve · 42 dependencies (35 declared, 7 transitive) · 34 repositories · 8 packages
 scons: done reading SConscript files.
 scons: Building targets ...
@@ -61,12 +65,12 @@ sconstruct  11% [progress] ~/src/app/sconstruct · begin · 6 sconscripts · 1 v
 | Piece | Choice | Why |
 |-------|--------|-----|
 | Open badge | `[prepare]` | Cuppa is about to resolve trees; may stall. Info+bold, like `[launch]` / `[progress]`. Not `[initiate]` / `[process]`. |
-| Close badge | `[ready]` | Maps and totals known; build can start. Not `[done]` (delegated close). |
+| Close badge | `[ready]` | Emitted **after** every toolchain × variant × sconscript has been read (construct), so multi-stem package collects are not orphans after ready. Not on the first tip `BuildWith`. |
 | Action | `resolve` | Same word on both ends (as `cmake-build` on launch/done). Scope column already says `sconstruct`. |
 | Open summary | `35 declared dependencies` | What is known: `default_dependencies`. Not bare `35 declared`. |
 | Close summary | `42 dependencies (35 declared, 7 transitive) · 34 repositories · 8 packages` | Resolved graph. Parenthetical qualifies the total. Kind counts unqualified. |
 | Percent | `0%` | No action ledger yet. Not `N/A`. Not `0/36`. |
-| Children | Live `→` lines during `BuildWith` | Honest progress. Do not buffer until close. |
+| Children | Live `→` lines during `BuildWith` | Honest progress. Do not buffer until close. Package collect/extract spell `src → dest` (concrete stem). |
 | Maps | Under `[prepare]`, not on `[progress] · begin` | Token then event. Do not reprint on sconstruct begin or `[ready]`. |
 | Variant maps | Stay on variant `[progress] · begin` | Build-layout, not resolve. |
 

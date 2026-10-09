@@ -302,7 +302,7 @@ def test_an_interrupt_summarises_the_whole_build_not_only_the_drain(capsys):
     progress_module.write_terse_interrupt_finish()
     out = capsys.readouterr().out
     assert out.endswith(
-            "finished in-flight actions\n"
+            "stopped in-flight actions\n"
             "[interrupted] reached 67%: 2/3 · 1 ran · 1 up to date · 2 test cases\n"
     )
 

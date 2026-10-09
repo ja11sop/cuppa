@@ -43,7 +43,7 @@ from cuppa.utility.download import (
     format_duration,
 )
 from cuppa.utility.python2to3 import as_str, as_byte_str
-from cuppa.utility.storage import human_size
+from cuppa.utility.storage import display_path, human_size
 
 from cuppa.utility.pip_imports import pip_vcs, pip_download, pip_exceptions, pip_is_url, pip_is_archive_file, get_url_rev, obtain, update, make_rev_options
 
@@ -323,8 +323,9 @@ class Location(object):
 
 
     @classmethod
-    def extract( cls, filename, target_dir ):
+    def extract( cls, filename, target_dir, cuppa_env=None ):
         os.makedirs( target_dir )
+        extracted = False
         if tarfile.is_tarfile( filename ):
             try:
                 size_text = human_size( os.path.getsize( filename ) )
@@ -352,6 +353,7 @@ class Location(object):
                             as_info( format_duration( time.time() - started ) ),
                     )
             )
+            extracted = True
 
         if zipfile.is_zipfile( filename ):
             try:
@@ -380,9 +382,16 @@ class Location(object):
                             as_info( format_duration( time.time() - started ) ),
                     )
             )
+            extracted = True
 
         while cls.remove_common_top_directory_under( target_dir ):
             pass
+
+        if extracted and cuppa_env is not None:
+            import cuppa.progress
+            cuppa.progress.write_terse_transfer_resolve(
+                    cuppa_env, "extract", filename, target_dir,
+            )
 
 
     @classmethod
@@ -516,7 +525,11 @@ class Location(object):
                     as_info( cached_archive ),
                     as_info( location )
             ) )
-            self.extract( cached_archive, local_dir_with_sub_dir )
+            self.extract(
+                    cached_archive,
+                    local_dir_with_sub_dir,
+                    cuppa_env=self._cuppa_env,
+            )
         else:
             terse = self._terse_retrieve()
             if not terse:
@@ -538,8 +551,12 @@ class Location(object):
                                 as_info( location ),
                                 as_info( cached_archive )
                         ) )
-                    self._terse_child( "download" )
-                    self.extract( cached_archive, local_dir_with_sub_dir )
+                    self._terse_transfer( "download", location, cached_archive )
+                    self.extract(
+                            cached_archive,
+                            local_dir_with_sub_dir,
+                            cuppa_env=self._cuppa_env,
+                    )
                 else:
                     handle, filename = tempfile.mkstemp( prefix='cuppa-download-' )
                     os.close( handle )
@@ -554,15 +571,19 @@ class Location(object):
                                     as_info( location ),
                                     as_info( filename )
                             ) )
-                        self._terse_child( "download" )
-                        self.extract( filename, local_dir_with_sub_dir )
+                        self._terse_transfer( "download", location, filename )
+                        self.extract(
+                                filename,
+                                local_dir_with_sub_dir,
+                                cuppa_env=self._cuppa_env,
+                        )
                     finally:
                         if os.path.isfile( filename ):
                             os.remove( filename )
             except DownloadError as error:
-                self._terse_child(
-                        "download", status="error",
-                        remark="download failed, no extract available",
+                self._terse_transfer(
+                        "download", location, "",
+                        status="error",
                 )
                 if not terse:
                     logger.error( "Download of [{}] failed with error [{}]".format(
@@ -579,15 +600,29 @@ class Location(object):
         rev_options = self.get_rev_options( vc_type, vcs_backend, local_remote=remote )
         version = self.ver_rev_summary( branch, revision, self._full_url.path )[0]
         terse = self._terse_retrieve()
+        shown_path = display_path( local_dir_with_sub_dir )
+        on_ref = branch or ( rev_options and str( rev_options ) or "" )
         if not terse:
             logger.info( "Updating [{}] in [{}]{} at [{}]".format(
                     as_info( location ),
-                    as_notice( local_dir_with_sub_dir ),
-                    ( rev_options and  " on {}".format( as_notice( str(rev_options) ) ) or "" ),
+                    as_notice( shown_path ),
+                    ( on_ref and " on {}".format( as_notice( on_ref ) ) or "" ),
                     as_info( version )
             ) )
+        # Terse skips multi-line INFO, which would otherwise arm the quiet
+        # heartbeat; pip's git fetch is quiet and has no Cuppa progress bar.
+        # operation_status supplies the missing start trigger / alive wait.
+        # Captions are mode-aware: terse correlates ``<token>`` with url@branch;
+        # normal (including -Q without terse) keeps the full ~path line.
+        from cuppa.utility.heartbeat import operation_status
+        status_msg = self._retrieve_status_message(
+                "Updating", location, local_dir_with_sub_dir,
+                branch=branch, revision=revision, rev_options=rev_options,
+                version=version,
+        )
         try:
-            update( vcs_backend, local_dir_with_sub_dir, rev_options )
+            with operation_status( status_msg ):
+                update( vcs_backend, local_dir_with_sub_dir, rev_options )
             logger.debug( "Successfully updated [{}]".format( as_info( location ) ) )
             self._terse_child( "update", branch or "", revision or version )
             return
@@ -597,15 +632,16 @@ class Location(object):
                     and git.Git.is_tags_fetch_failure( error )
             ):
                 try:
-                    git.Git.fetch_tags_force( local_dir_with_sub_dir )
-                    update( vcs_backend, local_dir_with_sub_dir, rev_options )
+                    with operation_status( status_msg ):
+                        git.Git.fetch_tags_force( local_dir_with_sub_dir )
+                        update( vcs_backend, local_dir_with_sub_dir, rev_options )
                     self._terse_child( "update", branch or "", revision or version )
                     if not terse:
                         logger.info(
                                 "Remote tags had moved for [{}] in [{}]; "
                                 "forced tags and updated".format(
                                         as_info( location ),
-                                        as_notice( local_dir_with_sub_dir ),
+                                        as_notice( shown_path ),
                                 )
                         )
                     return
@@ -618,8 +654,8 @@ class Location(object):
             if not terse:
                 logger.warn( "Could not update [{}] in [{}]{} due to error [{}]".format(
                         as_warning( location ),
-                        as_warning( local_dir_with_sub_dir ),
-                        ( rev_options and  " at {}".format( as_warning( str(rev_options) ) ) or "" ),
+                        as_warning( shown_path ),
+                        ( on_ref and " at {}".format( as_warning( on_ref ) ) or "" ),
                         as_warning( str(error) )
                 ) )
 
@@ -632,16 +668,25 @@ class Location(object):
         max_attempts = 2
         attempt = 1
         terse = self._terse_retrieve()
+        shown_path = display_path( local_dir_with_sub_dir )
+        from cuppa.utility.heartbeat import operation_status
         while attempt <= max_attempts:
+            attempt_note = attempt > 1 and " (attempt {})".format( str(attempt) ) or ""
             if not terse or attempt > 1:
                 logger.info( "{} [{}] into [{}]{}".format(
                         action,
                         as_info( location ),
-                        as_info( local_dir_with_sub_dir ),
-                        attempt > 1 and "(attempt {})".format( str(attempt) ) or ""
+                        as_info( shown_path ),
+                        attempt_note
                 ) )
+            status_msg = self._retrieve_status_message(
+                    action, location, local_dir_with_sub_dir,
+                    rev_options=rev_options,
+                    attempt_note=attempt_note,
+            )
             try:
-                obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
+                with operation_status( status_msg ):
+                    obtain( vcs_backend, local_dir_with_sub_dir, vcs_backend.url )
                 logger.debug( "Successfully retrieved [{}]".format( as_info( location ) ) )
                 self._terse_child( "clone" )
                 break
@@ -658,7 +703,7 @@ class Location(object):
                 if not terse:
                     log_as( "Could not retrieve [{}] into [{}]{} due to error [{}]".format(
                             as_info( location ),
-                            as_notice( local_dir_with_sub_dir ),
+                            as_notice( shown_path ),
                             ( rev_options and  " to {}".format( as_notice(  str(rev_options) ) ) or ""),
                             as_error( str(error) )
                     ) )
@@ -1145,6 +1190,80 @@ class Location(object):
         return str( getattr( self, "_name_hint", "" ) or "" ).strip()
 
 
+    @classmethod
+    def _dependency_spec( cls, location, branch=None, revision=None ):
+        """Resolved dependency identity in ``url@branch`` / ``url@tag`` form.
+
+        After ``--location-match-current-branch`` (and friends) ``location``
+        already carries the chosen ref. When it does not, append the
+        checked-out branch or revision so captions show what is actually
+        being updated — hard-coded pin vs dynamic match.
+        """
+        loc = str( location or "" ).strip()
+        ref = str( branch or revision or "" ).strip()
+        if not loc:
+            return ref
+        if loc.endswith( "@" ):
+            return loc + ref if ref else loc[:-1]
+        try:
+            _scm, _vc, _repo, versioning = cls.get_scm_system_and_info( loc )
+        except Exception:
+            versioning = None
+        if versioning:
+            return loc
+        if ref:
+            return "{}@{}".format( loc, ref )
+        return loc
+
+
+    # Match ``progress._RESOLVE_CHILD_WIDTH`` / ``[location]`` so semi-terse
+    # retrieve captions line the short name up under the location-map token.
+    _RETRIEVE_STATUS_WIDTH = len( "[location]" )
+
+    def _retrieve_status_message(
+            self, action, location, local_directory,
+            branch=None, revision=None, rev_options=None, version=None,
+            attempt_note="",
+    ):
+        """Caption for ``operation_status`` (and the shape of normal INFO).
+
+        Terse builds already introduced ``<token>`` on the location map, so the
+        status correlates that anchor with the resolved ``url@branch`` form and
+        pads the verb to the ``[location]`` column (no extra brackets):
+
+        ``→ [location] <base64> = … · repository``
+        ``→ Updating   <base64> · git+https://…@master``
+
+        Normal builds — including quiet without terse — keep a full line with a
+        ``~``-shortened path; short names alone are not anchored there.
+        """
+        spec = self._dependency_spec( location, branch, revision )
+        note = attempt_note or ""
+        if self._terse_retrieve():
+            verb = str( action )
+            pad = self._RETRIEVE_STATUS_WIDTH - len( verb )
+            if pad > 0:
+                verb = verb + ( " " * pad )
+            token = self._terse_token()
+            if token:
+                return "{} <{}> · {}{}".format( verb, token, spec, note )
+            return "{} {}{}".format( verb, spec, note )
+
+        shown_path = display_path( local_directory )
+        on_part = ""
+        if branch:
+            on_part = " on {}".format( branch )
+        elif rev_options:
+            on_part = " on {}".format( rev_options )
+        at_part = ""
+        if version is not None and str( version ) != "":
+            at_part = " at [{}]".format( version )
+        shown_loc = location or spec
+        return "{} [{}] in [{}]{}{}{}".format(
+                action, shown_loc, shown_path, on_part, at_part, note
+        )
+
+
     def _label_terse_source( self, path, kind ):
         token = self._terse_token()
         if not token or not path:
@@ -1175,6 +1294,17 @@ class Location(object):
         return cuppa.progress.write_terse_resolve_child(
                 env, badge, self._terse_token(), *fields,
                 status=status, remark=remark,
+        )
+
+
+    def _terse_transfer( self, action, source, dest, status="ok" ):
+        """Resolve-phase download/extract identity: ``→ [download] src → dest``."""
+        import cuppa.progress
+        env = getattr( self, "_cuppa_env", None )
+        if env is None:
+            return False
+        return cuppa.progress.write_terse_transfer_resolve(
+                env, action, source, dest, status=status,
         )
 
 

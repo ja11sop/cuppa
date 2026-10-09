@@ -491,3 +491,103 @@ def test_build_package_seed_keeps_latest_stage_is_concrete( tmp_path, monkeypatc
     seed = read_publish_manifest( str( publisher_root ) )
     assert staged["version"] == "1.92"
     assert seed["version"] == "latest"
+
+
+def test_create_package_archive_reports_progress( tmp_path ):
+    import io
+    from cuppa.utility import download as dl
+
+    working = tmp_path / 'final'
+    source = working / 'pkg' / '1.0.0'
+    ( source / 'include' ).mkdir( parents=True )
+    ( source / 'include' / 'a.h' ).write_text( 'x' * 5000, encoding='utf-8' )
+    ( source / 'lib' ).mkdir( parents=True )
+    ( source / 'lib' / 'a.a' ).write_bytes( b'y' * 8000 )
+    archive = tmp_path / 'pkg-1.0.0.tar.gz'
+    stream = io.StringIO()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=False, line_interval_s=0, action='Compressing',
+            alive_style='off',
+    )
+    rc = gitlab.create_package_archive(
+            str( archive ),
+            str( working ),
+            'pkg/1.0.0',
+            show_progress=True,
+            reporter=reporter,
+    )
+    assert rc == 0
+    assert archive.is_file() and archive.stat().st_size > 0
+    assert 'Compressing' in stream.getvalue()
+    assert 'pkg-1.0.0.tar.gz' in stream.getvalue()
+
+
+def test_publish_package_uses_upload_registry_package( tmp_path, monkeypatch ):
+    archive = tmp_path / 'widget.tar.gz'
+    archive.write_bytes( b'archive-bytes' )
+    staging = tmp_path / 'staging'
+    staging.mkdir()
+    include_dir = staging / 'include'
+    lib_dir = staging / 'lib'
+    include_dir.mkdir()
+    lib_dir.mkdir()
+    publisher = _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive )
+    publisher._package_location = 'https://git.example.com/api/v4/projects/1/packages/generic/widget/1.0.0/widget.tar.gz'
+    publisher._custom_token = 'MY_TOKEN'
+    publisher._package_base_dir = str( staging )
+
+    calls = []
+
+    def fake_upload( url, source_path, custom_token=None, label=None ):
+        calls.append( {
+                'url': url,
+                'source_path': source_path,
+                'custom_token': custom_token,
+                'label': label,
+        } )
+        return source_path
+
+    monkeypatch.setattr( gitlab, 'upload_registry_package', fake_upload )
+    recorded = []
+    monkeypatch.setattr(
+            'cuppa.package_managers.package_cascade.record_nested_upload',
+            lambda **kwargs: recorded.append( kwargs ),
+    )
+    monkeypatch.setattr(
+            'cuppa.progress.write_terse_transfer_action',
+            lambda *args, **kwargs: None,
+    )
+
+    touched = []
+    env = _publisher_env( tmp_path, touched )
+    stamp = tmp_path / 'stamp.published'
+    assert publisher.publish_package( [ str( stamp ) ], [], env ) is None
+    assert len( calls ) == 1
+    assert calls[0]['url'] == publisher._package_location
+    assert calls[0]['source_path'] == str( archive )
+    assert calls[0]['custom_token'] == 'MY_TOKEN'
+    assert recorded and recorded[0]['archive_path'] == str( archive )
+    assert touched  # Touch stamp
+
+
+def test_publish_package_returns_nonzero_on_upload_error( tmp_path, monkeypatch ):
+    from cuppa.utility.download import UploadError
+
+    archive = tmp_path / 'widget.tar.gz'
+    archive.write_bytes( b'archive-bytes' )
+    staging = tmp_path / 'staging'
+    staging.mkdir()
+    include_dir = staging / 'include'
+    lib_dir = staging / 'lib'
+    include_dir.mkdir()
+    lib_dir.mkdir()
+    publisher = _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive )
+    publisher._package_location = 'https://git.example.com/pkg'
+    publisher._package_base_dir = str( staging )
+
+    def boom( *args, **kwargs ):
+        raise UploadError( 'denied', http_status=403, body='{"error":"denied"}' )
+
+    monkeypatch.setattr( gitlab, 'upload_registry_package', boom )
+    env = _publisher_env( tmp_path )
+    assert publisher.publish_package( [ str( tmp_path / 'stamp.published' ) ], [], env ) == 1

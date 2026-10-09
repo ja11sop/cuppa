@@ -73,9 +73,11 @@ def add_output_options( add_option ):
 
     add_option( '--quiet-heartbeat', dest='quiet_heartbeat', type='string', nargs=1,
                             default='pulse', metavar='STYLE',
-                            help="Quiet+TTY status under -Q/-s: pulse (ECG-style, default), "
-                                 "spinner (classic ASCII), or off (no status line). Ignored "
-                                 "without a TTY or when --verbosity= overrides quiet" )
+                            help="Alive animation style for quiet+TTY heartbeat and for "
+                                 "transfer/archive progress: pulse (ECG-style, default), "
+                                 "spinner (classic ASCII), or off. Under -Q/-s, off disables "
+                                 "the status line; without a TTY or when --verbosity= "
+                                 "overrides quiet, heartbeat diversion is off" )
 
 
 def skips_spawn_processor( env ):
@@ -127,11 +129,15 @@ def process_output_options( env ):
             "--terse-output-show-actions requires --terse-output",
     )
 
-    from cuppa.utility.heartbeat import normalize_style
+    from cuppa.utility.heartbeat import normalize_style, set_presentation
     try:
         env['quiet_heartbeat'] = normalize_style( env.get_option( 'quiet_heartbeat' ) )
     except ValueError as exc:
         raise SCons.Errors.StopError( str( exc ) )
+    set_presentation(
+            style=env['quiet_heartbeat'],
+            compact=bool( env['terse_output'] ),
+    )
 
     # Native passthrough cannot classify lines the way --minimal-output needs.
     if env['native_output'] and env['minimal_output']:

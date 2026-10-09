@@ -641,3 +641,62 @@ def test_update_from_repository_does_not_retry_unrelated_pip_error(
     assert calls["update"] == 1
     assert calls["force"] == 0
     assert "Could not update" in caplog.text
+
+
+def test_dependency_spec_keeps_url_at_branch_and_appends_when_missing():
+    pinned = "git+https://github.com/org/repo.git@master"
+    assert Location._dependency_spec( pinned ) == pinned
+    assert Location._dependency_spec( pinned, branch="other" ) == pinned
+
+    bare = "git+https://github.com/org/repo.git"
+    assert Location._dependency_spec( bare, branch="feature" ) == bare + "@feature"
+    assert Location._dependency_spec( bare + "@", branch="develop" ) == bare + "@develop"
+    assert Location._dependency_spec( bare + "@" ) == bare
+
+
+def test_retrieve_status_message_terse_correlates_token_with_url_at_branch(
+        monkeypatch, tmp_path
+):
+    location = Location.__new__( Location )
+    location._cuppa_env = { "terse_output": True }
+    location._name_hint = "base64"
+    monkeypatch.setattr(
+            location, "_terse_retrieve", lambda: True
+    )
+    msg = location._retrieve_status_message(
+            "Updating",
+            "git+https://github.com/tobiaslocker/base64.git@master",
+            str( tmp_path / "deps" / "base64" ),
+            branch="master",
+            version="master rev. abc",
+    )
+    # ``Updating`` (8) padded to ``[location]`` (10) so ``<base64>`` lines up.
+    assert msg == (
+            "Updating   <base64> · "
+            "git+https://github.com/tobiaslocker/base64.git@master"
+    )
+
+
+def test_retrieve_status_message_normal_uses_home_shortened_path(
+        monkeypatch, tmp_path
+):
+    location = Location.__new__( Location )
+    location._cuppa_env = {}
+    location._name_hint = "base64"
+    monkeypatch.setattr( location, "_terse_retrieve", lambda: False )
+
+    home_deps = os.path.join( os.path.expanduser( "~" ), "cuppa-deps", "repo" )
+    msg = location._retrieve_status_message(
+            "Updating",
+            "git+https://github.com/org/repo.git@master",
+            home_deps,
+            branch="master",
+            version="master rev. abc",
+    )
+    assert msg.startswith(
+            "Updating [git+https://github.com/org/repo.git@master] in [~/cuppa-deps/repo]"
+    )
+    assert " on master" in msg
+    assert " at [master rev. abc]" in msg
+    # Short token alone is not used in normal mode (no location-map anchors).
+    assert "<base64>" not in msg

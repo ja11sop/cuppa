@@ -307,9 +307,17 @@ class Construct(object):
             set_logging_level( quiet_kind )
             return
 
+        # ``-c`` / ``--clean`` floods SCons ``display("Removed …")`` lines that
+        # never pass ``PRINT_CMD_LINE_FUNC``. A quiet status row on ``/dev/tty``
+        # shears under the launcher (``|•--------|Removed …``). Force classic
+        # quiet (no heartbeat) even when ``--quiet-heartbeat=pulse`` is saved.
+        heartbeat_style = cuppa_env.get( 'quiet_heartbeat' )
+        if cuppa_env.get_option( 'clean' ):
+            heartbeat_style = 'off'
+
         quiet_heartbeat.configure_quiet_console(
                 quiet_kind,
-                style=cuppa_env.get( 'quiet_heartbeat' ),
+                style=heartbeat_style,
                 compact=bool( cuppa_env.get( 'terse_output' ) ),
         )
 
@@ -409,6 +417,13 @@ class Construct(object):
         # Re-apply quiet once output options are settled: quiet+TTY diverts
         # INFO onto the heartbeat status line (works with terse and normal).
         self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
+        # Heal TTY autowrap if a prior cuppa left ``?7l`` on (heartbeat exit
+        # without ``?7h``) — otherwise long compile lines truncate mid-flag.
+        try:
+            from cuppa.utility.heartbeat import restore_terminal_wrap
+            restore_terminal_wrap( force=True )
+        except Exception:
+            pass
 
         cuppa_env['offline'] = cuppa_env.get_option( 'offline' )
 
@@ -1036,7 +1051,8 @@ class Construct(object):
 
     def build( self, cuppa_env ):
         # Before SCons installs its own SIGINT handler. The first Ctrl-C stops
-        # new tasks and lets the ones already running finish.
+        # new tasks and signals in-flight children (incl. cmake/ninja delegates)
+        # to stop, then waits for those actions to exit cleanly.
         from cuppa.utility.build_children import install_graceful_interrupt
         install_graceful_interrupt()
 
@@ -1151,6 +1167,12 @@ class Construct(object):
                             build_env['env'].Decider( decider )
                         self.call_project_sconscript_files( toolchain, build_env['variant'], build_env['target_arch'], build_env['abi'], build_env['env'], sconscript )
 
+            # Close resolve after every active toolchain has had a chance to
+            # BuildWith (package stems are per tool_variant). Closing on the
+            # first tip cell left later collects after ``[ready]``.
+            if cuppa_env.get( 'terse_output' ):
+                cuppa.progress.write_terse_resolve_ready( cuppa_env )
+
             if cuppa_env['dump']:
                 print( "cuppa: Performing dump only, so no builds will be attempted." )
                 print( "cuppa: Nothing to be done. Exiting." )
@@ -1161,11 +1183,11 @@ class Construct(object):
             from cuppa.package_managers.gitlab import audit_refresh_downloads
             audit_refresh_downloads( cuppa_env )
 
-            # Cascade plan/collect resolve as each tip publisher is constructed, so
-            # the exit waits for the read to finish and report every tip. Consume-only
-            # tips (no GitlabPackagePublisher) seed from package factories here.
+            # Cascade after resolve ``[ready]``: deferred tip publisher (if any)
+            # or consume-only factories. Plan / begin / nests / end stay outside
+            # the prepare→ready span.
             from cuppa.package_managers import package_cascade
-            package_cascade.maybe_run_consume_tip_cascade( cuppa_env )
+            package_cascade.maybe_run_tip_cascade( cuppa_env )
             if package_cascade.cascade_stop_before_build( cuppa_env ):
                 SCons.Script.Exit( package_cascade.finish_cascade_stop( cuppa_env ) )
 

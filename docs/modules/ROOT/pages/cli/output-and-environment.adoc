@@ -26,7 +26,7 @@ output. These options let you change one layer without accidentally hiding anoth
 | `--dump` | Dump the default construction environment and exit
 | `-Q` | Suppress SCons reading/building progress and Cuppa multi-line info logs. Warnings, commands, and console reports stay. On a TTY, diverted info becomes one subdued status line (`|<pulse>|  <message>`, or `working <spinner>  <message>`) so a long wait does not look hung
 | `-s` / `--silent` / `--quiet` | Also suppress warnings and SCons command lines. Console reports stay. The same TTY status line applies when info would otherwise be hidden
-| `--quiet-heartbeat=STYLE` | Quiet+TTY status: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off` (no status line). Ignored without a TTY or when `--verbosity=` overrides quiet
+| `--quiet-heartbeat=STYLE` | Alive animation for quiet+TTY heartbeat **and** transfer/archive progress: `pulse` (ECG-style, default), `spinner` (classic ASCII), or `off`. Under `-Q`/`-s`, `off` disables the status line; without a TTY or when `--verbosity=` overrides quiet, heartbeat diversion is off
 |===
 
 `-Q` is usually the right companion for `--list-*`: it removes SCons framing and multi-line info
@@ -43,11 +43,20 @@ erasing the status row (warnings and reports still clear at once). After a trans
 captions stay pending until a short idle gap (latest message wins) so a fast
 `terse`–info–`terse` burst cannot seize the row and stall the next line. Terse transcript writes
 are serialised under `--parallel` / `-j` so status lines do not shear together. Width comes from
-the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent. Git and
-download progress bars stay off under quiet. `--verbosity=LEVEL` overrides the level `-Q` or
-`-s` would set and disables the status line. `--minimal-output` filters Cuppa's processed build
-messages and needs that processor, so it cannot be combined with `--raw-output` or
-`--scons-output`.
+the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI stay silent for the
+heartbeat. Download, extract, package compress, and registry upload (publish) progress share
+one engine:
+
+* **Normal TTY** — progress bar only (no alive widget); under `-Q`/`-s` the same bar is muted,
+  appears only after the idle gate, and is overwritten on completion.
+* **`--terse-output` TTY** — alive widget (unless `--quiet-heartbeat=off`) + `→` + progress bar,
+  always muted; idle-gate reveal; overwrite on completion after one animation dwell; then a
+  durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
+* **Non-TTY / CI** — periodic whole lines in **normal** mode only (not under `--terse-output`).
+
+`--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables the heartbeat
+diversion. `--minimal-output` filters Cuppa's processed build messages and needs that processor,
+so it cannot be combined with `--raw-output` or `--scons-output`.
 
 === Native toolchain output
 
@@ -307,16 +316,19 @@ and requires `--terse-output`. `run` and `benchmark` stay `[ok]`.
 
 ==== Interrupting a build
 
-Ctrl-C prints `interrupted — finishing in-flight actions...`. Tasks that have already
-started are left to finish, and those lines look the same as any other status line. No
-new tasks are started. When they have finished, one line says `finished in-flight actions`, then
+Ctrl-C prints `interrupted — stopping in-flight actions...`. No new SCons tasks are
+started. Children (including **delegates** such as `cmake --build` / ninja) are started
+outside the terminal session so the broadcast SIGINT does not hit them directly; Cuppa
+forwards `SIGINT` to those process trees and **waits** for the current action to exit
+cleanly — so a long delegated build is told to stop rather than continuing its graph.
+When they have exited, one line says `stopped in-flight actions`, then
 `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. The fraction is
 actions completed against the actions that were going to run, including those already up
 to date. `[interrupted]` is notice, not an error. A second Ctrl-C prints `aborted` and
-stops what is still running, with no closing line. The per-target `Error -2` lines from
-jobs that were still running are dropped. `-Q` does not hide this close: SCons omits its
-own `scons: Build interrupted.` line in quiet mode, and Cuppa prints the close when the
-jobs return.
+sends `SIGTERM` to what is still running, with no closing line. The per-target `Error -2`
+lines from jobs that were still running are dropped. `-Q` does not hide this close:
+SCons omits its own `scons: Build interrupted.` line in quiet mode, and Cuppa prints the
+close when the jobs return.
 
 `--scons-output` is the spawn half of `--raw-output`: SCons launches child processes, and Cuppa still colours logs and console reports. `--scons-output` together with `--standard-output` is the same outcome as `--raw-output` (no processor, no colour). Neither flag removes Cuppa progress nodes, and the `cuppa` wrapper still masks `*TOKEN*` values.
 

@@ -11,9 +11,8 @@
 # Python imports
 import platform
 import os
-import shlex
 import shutil
-import subprocess
+import tarfile
 import zipfile
 
 # cuppa imports
@@ -347,24 +346,65 @@ def strip_package_archive_extension( name ):
     return text
 
 
-def create_package_archive( archive_path, working_dir, source_dir ):
-    """Create ``archive_path`` from ``working_dir/source_dir`` (zip on Windows, tar.gz elsewhere)."""
-    if archive_path.endswith( '.zip' ):
-        root = os.path.join( working_dir, source_dir )
-        with zipfile.ZipFile( archive_path, 'w', zipfile.ZIP_DEFLATED ) as archive:
-            for dirpath, _dirnames, filenames in os.walk( root ):
-                for filename in filenames:
-                    full = os.path.join( dirpath, filename )
+def create_package_archive( archive_path, working_dir, source_dir, show_progress=None, reporter=None ):
+    """Create ``archive_path`` from ``working_dir/source_dir`` (zip on Windows, tar.gz elsewhere).
+
+    Reports compress progress through the shared transfer reporter when allowed
+    (alive + progress bar / compact / muted per console mode).
+    """
+    from cuppa.utility.download import _maybe_reporter
+
+    root = os.path.join( working_dir, source_dir )
+    files = []
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk( root ):
+        for filename in filenames:
+            full = os.path.join( dirpath, filename )
+            files.append( full )
+            try:
+                total += os.path.getsize( full )
+            except OSError:
+                pass
+
+    progress = _maybe_reporter( show_progress, reporter, 'Compressing' )
+    label = os.path.basename( archive_path ) or archive_path
+    bytes_so_far = [ 0 ]
+    if progress:
+        progress.begin( label, total if total > 0 else None, action='Compressing' )
+
+    try:
+        if archive_path.endswith( '.zip' ):
+            with zipfile.ZipFile( archive_path, 'w', zipfile.ZIP_DEFLATED ) as archive:
+                for full in files:
                     arcname = os.path.relpath( full, working_dir )
                     archive.write( full, arcname )
+                    try:
+                        bytes_so_far[0] += os.path.getsize( full )
+                    except OSError:
+                        pass
+                    if progress:
+                        progress.update( bytes_so_far[0] )
+        else:
+            with tarfile.open( archive_path, 'w:gz' ) as handle:
+                for full in files:
+                    arcname = os.path.relpath( full, working_dir )
+                    handle.add( full, arcname=arcname )
+                    try:
+                        bytes_so_far[0] += os.path.getsize( full )
+                    except OSError:
+                        pass
+                    if progress:
+                        progress.update( bytes_so_far[0] )
+        if progress:
+            progress.done( bytes_so_far[0] if bytes_so_far[0] else total )
         return 0
-    command = 'tar -C {working_dir} -czf {package_file} {source_dir}'.format(
-            working_dir = working_dir,
-            package_file = archive_path,
-            source_dir = source_dir,
-    )
-    completion = subprocess.run( shlex.split( command ) )
-    return completion.returncode
+    except Exception:
+        if progress is not None:
+            try:
+                progress.done( bytes_so_far[0] )
+            except Exception:
+                pass
+        raise
 
 
 def newest_mtime_under( root ):
@@ -731,6 +771,20 @@ def download_registry_package( url, dest_path, custom_token=None, label=None ):
     )
 
 
+def upload_registry_package( url, source_path, custom_token=None, label=None ):
+    """Publish a GitLab generic package archive via ``upload_file`` (progress + auth headers).
+
+    Raises ``UploadError`` on failure.
+    """
+    from cuppa.utility.download import upload_file
+    return upload_file(
+            url,
+            source_path,
+            label=label or os.path.basename( source_path ) or url,
+            headers=registry_auth_headers( custom_token ),
+    )
+
+
 class GitlabPackagePublisher:
 
     def __init__(
@@ -809,11 +863,6 @@ class GitlabPackagePublisher:
                 version=concrete_version,
                 omit_os=omit_os,
         )
-        self._curl_command = 'curl --fail-with-body --header "{token}" --upload-file {package_file} "{package_location}"'.format(
-                token = get_header_token( custom_token ),
-                package_file = str( self._package_archive ),
-                package_location = self._package_location,
-        )
 
         self._package_file_path = os.path.join( self._package_folder, self._package_file_name )
 
@@ -821,8 +870,10 @@ class GitlabPackagePublisher:
         self._package_built_id = env.File( sidecar + '.packaged' )
         self._package_published_id = env.File( sidecar + '.published' )
 
-        from cuppa.package_managers.package_cascade import maybe_run_cascade
-        maybe_run_cascade( env, self )
+        # Defer until after resolve ``[ready]`` so plan/begin are not inside
+        # prepare→ready (multi-toolchain BuildWith still reading).
+        from cuppa.package_managers.package_cascade import defer_tip_cascade
+        defer_tip_cascade( env, self )
 
 
     def build_package( self, target, source, env ):
@@ -954,6 +1005,15 @@ class GitlabPackagePublisher:
             )
             return returncode
 
+        try:
+            import cuppa.progress
+            stage = os.path.join( env['abs_final_dir'], self._package_source_dir )
+            cuppa.progress.write_terse_transfer_action(
+                    env, "compress", stage, archive_path,
+            )
+        except Exception:
+            pass
+
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
 
@@ -1070,6 +1130,15 @@ class GitlabPackagePublisher:
             )
             return returncode
 
+        try:
+            import cuppa.progress
+            stage = os.path.join( abs_final, self._package_source_dir )
+            cuppa.progress.write_terse_transfer_action(
+                    env, "compress", stage, archive_path,
+            )
+        except Exception:
+            pass
+
         env.Execute( Touch( target[0] ) )
         logger.info( "Package [{}] amended".format( as_info( archive_path ) ) )
         return None
@@ -1078,25 +1147,47 @@ class GitlabPackagePublisher:
     def publish_package( self, target, source, env ):
 
         from SCons.Script import Touch
+        from cuppa.utility.download import UploadError
 
-        logger.info( "Publishing package [{}]...".format( as_info( str(self._package_archive) ) ) )
-        logger.info( "Using command [{}]".format( as_notice( self._curl_command ) ) )
+        archive_path = str( self._package_archive )
+        location = getattr( self, '_package_location', None ) or archive_path
+        logger.info( "Publishing package [{}] to [{}]...".format(
+                as_info( archive_path ),
+                as_info( location ),
+        ) )
 
-        completion = subprocess.run( shlex.split( self._curl_command ) )
-        if completion.returncode != 0:
-            logger.error( "Executing [{}] failed with return code [{}]".format(
-                    as_error( self._curl_command ),
-                    as_error( str(completion.returncode) ) )
+        try:
+            upload_registry_package(
+                    location,
+                    archive_path,
+                    custom_token=getattr( self, '_custom_token', None ),
+                    label=os.path.basename( archive_path ) or archive_path,
             )
-            return completion.returncode
+        except UploadError as error:
+            logger.error( "Publishing [{}] to [{}] failed: {}".format(
+                    as_error( archive_path ),
+                    as_error( location ),
+                    as_error( str( error.parameter ) ),
+            ) )
+            return 1
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] published".format( as_info( str(self._package_archive) ) ) )
+        logger.info( "Package [{}] published".format( as_info( archive_path ) ) )
+        try:
+            import cuppa.progress
+            cuppa.progress.write_terse_transfer_action(
+                    env,
+                    "publish",
+                    archive_path,
+                    location,
+            )
+        except Exception:
+            pass
         try:
             from cuppa.package_managers.package_cascade import record_nested_upload
             record_nested_upload(
                     package_dir=str( self._package_base_dir ),
-                    archive_path=str( self._package_archive ),
+                    archive_path=archive_path,
             )
         except Exception:
             pass
@@ -1475,17 +1566,37 @@ class GitlabPackageDependency:
         )
 
 
-    def _terse_collect( self, status="ok", remark="" ):
+    def _terse_collect( self, status="ok", remark="", registry="", archive_path="" ):
+        """``→ [collect]  <name> · ver · <registry> → <downloads>/packages/<name>/file``."""
         import cuppa.progress
-        return cuppa.progress.write_terse_resolve_child(
+        reg_token = ""
+        if registry:
+            reg_token = cuppa.progress.label_terse_registry( self._cuppa_env, registry )
+        archive = os.path.basename( str( archive_path or "" ) )
+        return cuppa.progress.write_terse_package_collect(
                 self._cuppa_env,
-                "collect",
                 self._dependency_name,
                 self.version(),
+                reg_token,
+                archive,
                 status=status,
                 remark=remark,
         )
 
+
+    def _terse_extract( self, status="ok", remark="", archive_path="" ):
+        """``→ [extract]  <name> · ver · <downloads>/…/file → <dependencies>/<stem>/<name>``."""
+        import cuppa.progress
+        archive = os.path.basename( str( archive_path or "" ) )
+        return cuppa.progress.write_terse_package_extract(
+                self._cuppa_env,
+                self._dependency_name,
+                self.version(),
+                archive,
+                getattr( self, "_tool_variant", "" ) or "",
+                status=status,
+                remark=remark,
+        )
 
     def is_option_set( self, option ):
         return option in self._cuppa_env and self._cuppa_env[option] or False
@@ -1795,6 +1906,8 @@ class GitlabPackageDependency:
                     self._terse_collect(
                             status="error",
                             remark="collect failed, no package available",
+                            registry=registry,
+                            archive_path=self._download_target,
                     )
                     if not terse:
                         logger.error( "Downloading package archives [{}] failed: {}".format(
@@ -1807,7 +1920,10 @@ class GitlabPackageDependency:
                                 error.parameter,
                         )
                     )
-                self._terse_collect()
+                self._terse_collect(
+                        registry=registry,
+                        archive_path=self._download_target,
+                )
                 if not terse:
                     logger.info( "Package archive [{}] downloaded successfully for package [{}] from [{}]".format(
                             as_info( package_file ),
@@ -1829,39 +1945,53 @@ class GitlabPackageDependency:
         # If there is no include_dir then we didn't successfully extract this before
         if not os.path.exists( self._include_dir ):
             if os.path.exists( self._download_target ):
+                # Map may already exist after collect; safe if this is extract-only
+                # from a cached archive (no download this run).
+                self._label_terse_package()
                 logger.debug( "Extracting package [{}] to [{}]".format(
                         as_info( self._download_target ),
                         as_info( self._extraction_dir ),
                 ) )
-                logger.info( "Extracting package archive [{}] to [{}]...".format(
-                        as_info( package_file ),
-                        as_info( self._extraction_dir )
-                ) )
+                terse = self._terse_retrieve()
+                if not terse:
+                    logger.info( "Extracting package archive [{}] to [{}]...".format(
+                            as_info( package_file ),
+                            as_info( self._extraction_dir )
+                    ) )
                 returncode = extract_package_archive( self._download_target, self._extraction_dir )
                 if returncode != 0:
-                    logger.error( "Extracting [{}] failed with return code [{}]".format(
-                            as_error( self._download_target ),
-                            as_error( str( returncode ) )
-                    ) )
+                    self._terse_extract(
+                            status="error",
+                            remark="extract failed",
+                            archive_path=self._download_target,
+                    )
+                    if not terse:
+                        logger.error( "Extracting [{}] failed with return code [{}]".format(
+                                as_error( self._download_target ),
+                                as_error( str( returncode ) )
+                        ) )
                     raise GitlabPackageDependencyException(
                         "Extracting [{}] failed with return code [{}]".format(
                                 self._download_target, str( returncode )
                         )
                     )
-                logger.info( "Package archive [{}] successfully extracted to [{}]".format(
-                        as_info( package_file ),
-                        as_info( self._extraction_dir )
-                ) )
+                self._terse_extract( archive_path=self._download_target )
+                if not terse:
+                    logger.info( "Package archive [{}] successfully extracted to [{}]".format(
+                            as_info( package_file ),
+                            as_info( self._extraction_dir )
+                    ) )
             else:
                 logger.error( "Cannot extract [{}] for package [{}] as the file does not exist".format(
                         as_error( self._download_target ),
                         as_error( self._package_id )
                 ) )
         else:
-            logger.info( "Using package [{}] from [{}]".format(
-                    as_info( self._package_id ),
-                    as_notice( os.path.join( self._extraction_dir, package, self.version() ) )
-            ) )
+            if not self._terse_retrieve():
+                logger.info( "Using package [{}] from [{}]".format(
+                        as_info( self._package_id ),
+                        as_notice( os.path.join( self._extraction_dir, package, self.version() ) )
+                ) )
 
 
     # Observers

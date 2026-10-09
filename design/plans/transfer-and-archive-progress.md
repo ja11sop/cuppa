@@ -1,9 +1,10 @@
 # Plan: Uniform transfer and archive progress (terse-aware)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
-- **Updated:** 2026-10-06
+- **Updated:** 2026-10-08
 - **Impact:** minor — UX / shared progress channel; no package format change
+- **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)
 
 ## Problem
 
@@ -73,26 +74,39 @@ One Cuppa approach for **download, upload, compress, and extract** progress that
 
 ### Shared capabilities, mode-tuned presentation
 
-Analogous to quiet heartbeat (same widget head; normal quiet vs terse compact
-arrow form; muted colours; clear before transcript):
-
 | Capability | Role |
 |------------|------|
-| **Alive** | Pulse or spinner — process is working (existing `--quiet-heartbeat` styles) |
-| **Progress** | Improved bar / percent / bytes / rate / ETA — how far through this transfer |
-| **Phase caption** | `download` / `extract` / `compress` / `upload` + label |
-| **Throttle + clear** | Shared rewrite stream, transcript lock, idle-gate coexistence |
+| **Alive** | Pulse or spinner — terse TTY only (unless `--quiet-heartbeat=off`) |
+| **Progress bar** | Percent / bytes / rate / ETA bar — normal and terse |
+| **Idle reveal** | Do not paint progress until the idle gate (~0.2s) has elapsed — **except** normal TTY without `-Q`/`-s` (show immediately). Fast small transfers never flash |
+| **Dwell** | If progress (and alive) was shown, wait one full animation cycle before clearing / printing the next transcript line |
+| **Overwrite** | Ephemeral `\r` status: clear on completion (no durable 100% newline) when muted/overwrite applies |
 
-| Mode | Presentation (sketch — exact spelling TBD) |
-|------|-----------------------------------------------|
-| Interactive, **normal** | Alive + fuller progress (bar and/or percent/bytes/rate); full colour |
-| Interactive, **`--terse-output`** | Same capabilities, **compact** layout (arrow-aligned / denser — parallel to heartbeat’s terse form); clear before counted terse lines |
-| Interactive, **`-Q` / `-s`** | Same capabilities, **muted**; off if `--quiet-heartbeat=off`; do not resurrect a loud multi-line private dialect |
-| **Non-TTY / CI** | No `\r` rewrite; periodic whole-line updates (phase + percent or bytes), throttled — useful in build logs |
+| Mode | TTY presentation |
+|------|------------------|
+| **Normal** (no quiet) | **No** alive widget; progress bar in full colour; show immediately; final 100% line may remain (durable) |
+| **Normal + `-Q`/`-s`** | Same as normal (no alive) but **muted**; idle-gate reveal; **overwrite** on completion |
+| **`--terse-output`** (± `-Q`/`-s`) | Alive (unless `off`) + `→` + progress **bar**, always **muted**; idle-gate reveal; overwrite on completion; then a durable terse identity line |
+| **Non-TTY / CI** | Periodic whole lines **only in normal** mode (not under `--terse-output`) |
 
-Exact composition (when bar appears vs percent-only, how alive sits next to the
-bar) is an implementation soak detail — the requirement is **one engine**,
-mode-tuned views, not three independent progress products.
+### Terse completion identity (durable)
+
+After a transfer finishes under `--terse-output`, print an identity line (progress
+status already cleared). Global / resolve form:
+
+```text
+              → [download] https://example.com/…/pkg.tgz → <downloads>/pkg.tgz
+              → [extract]  <downloads>/pkg.tgz → <dependencies>/<variant>/pkg
+```
+
+Variant / action form (ordinary terse ledger):
+
+```text
+   6/  8 ·  19% [ok]   test/matching_engine · gcc16_dbg_… · download · url → <final>/…
+              → [ok]   test/matching_engine · gcc16_dbg_… · extract · <final>/… → <artefacts>/…
+```
+
+Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 
 ### Unify the stacks (not erase the bar)
 
@@ -112,7 +126,7 @@ mode-tuned views, not three independent progress products.
 | HTTP download | `ProgressReporter` bar (alone) | Shared alive + progress; mode-tuned; CI lines |
 | Tar/zip **extract** | Shared helpers in `download.py` | Same |
 | Package **compress** (`create_package_archive`) | Silent `tar` / zip walk | Same (bytes or entry count) |
-| Package **upload** (curl / API put) | Often quiet / tool-native | Same |
+| Package **upload** (GitLab publish PUT) | Was silent ``curl --upload-file`` | ``upload_file`` + ``ProgressReporter`` (same as download) |
 | Git / Conan | Streamed tool progress | Keep; do not regress; prefer shared engine where Cuppa owns the stream |
 
 ### Implementation lean
@@ -130,19 +144,55 @@ mode-tuned views, not three independent progress products.
 
 ## Open questions
 
-1. Caption spelling for phases and how densely alive + bar compose in each mode.
-2. Whether upload uses Cuppa’s HTTP stack (progress for free) or keeps curl with
-   `--progress-meter` parsed into the reporter.
-3. Zip / tar create: progress by uncompressed bytes vs file count when total
-   size is expensive to precompute.
-4. Migration: compress-first then migrate download look, or one PR for both.
+1. ~~Upload transport~~ — **Settled:** Cuppa HTTP PUT via ``upload_file`` (same
+   stack as collect’s ``download_file`` + ``ProgressReporter``). Curl
+   ``--progress-meter`` parsing declined (fragile; second dialect). Keep curl
+   only as an emergency escape hatch if a soak shows a real TLS/proxy gap.
+2. Zip / tar create: currently uncompressed file bytes as they are added (good
+   enough; precompute walk cost accepted for package trees).
 
 ## Progress
 
 | Item | Status |
 |------|--------|
 | Need split from cmake package-archive-progress | Done — this proposal |
-| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) (bar; to share engine with alive) |
-| Settled: shared alive + progress capabilities; mode-tuned presentation; TTY vs CI | Done — this revision |
-| Compress / upload + shared engine | Proposal |
-| Implementation | Not started |
+| Download / extract foundation | Shipped — [`download-progress.md`](../archive/download-progress.md) |
+| Settled presentation (normal / terse / quiet / idle / CI) | Done — this revision |
+| Shared engine + mode-tuned `ProgressReporter` | Done on this PR |
+| Compress (`create_package_archive`) | Done on this PR |
+| Terse completion identity (download / extract / compress / publish) | Done on this PR |
+| Upload live progress bar | Done — ``upload_file`` PUT + ``ProgressReporter``; ``GitlabPackagePublisher.publish_package`` no longer shells to curl |
+| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO); captions ``Updating   <token> · url@branch`` (pad to ``[location]``), full ``~/`` path line in normal (incl. ``-Q``); one shared status row + resolve children ``dwell=False`` (no ~1.5s×N seize) |
+| Terse transfer mute body (keep green ECG) | Done — verb/label/metrics subdued; alive prefix stays hospital-green |
+| Package ``[collect]`` / ``[extract]`` with ``src → dest`` | Done — ``<registry>`` / ``<downloads>`` / stem tokens; package location RHS is ``name/ver`` (token carries version; no extra ``/3.9.0/`` segment) |
+| ``[ready]`` after all toolchains × sconscripts read | Done — no longer closes on the first tip ``BuildWith`` (gcc16 collect was after ready) |
+| Property-based resolve ensure phases | **Deferred** — see below; decide after current soak |
+| Docs / CHANGELOG / soak | In progress |
+| URL ``https://`` on publish/transfer (no ``normpath``) | Done on this PR (content OK in soak) |
+| Publish dest ``<registry>/name/ver/file`` + map | Done on this PR (content OK in soak) |
+| Clear progress bar before delegate/cmake ``→`` | Superseded by owned-stream ``write_line`` |
+| CMake ``-- Up-to-date:`` flood suppressed | Done on this PR |
+| CMake ``-- All targets Up-to-date`` summary | Done — preamble ignored for “other” |
+| Deduplicate mode banners (OFFLINE ×2) | Fixed via nested ``CUPPA_STDOUT_IS_TTY`` preserve (+ once-per-process guard) |
+| Cascade tip→nest transition marker | Done — tip ``begin``/``end`` + nest entering/exiting; prepare→``[ready]``→plan |
+| **One console write path** (TTY ownership) | Done on this PR — [`console-write-ownership.md`](console-write-ownership.md); soak next |
+
+## Deferred: property-based resolve ensure phases
+
+Today resolve is still the mixed ``BuildWith(default_dependencies)`` walk (live
+children). ``[ready]`` now waits until every toolchain × variant × sconscript
+has been read, so multi-stem package collects stay under prepare→ready.
+
+A later optional redesign (not required for 1.12.0 transfer UX):
+
+| Phase | Scope | Examples |
+|-------|--------|----------|
+| ``once`` | Identity not toolchain-keyed | Location repos / URL archives |
+| ``per-identity`` | Active package/Conan stems | GitLab package tip → transitives; Conan settings |
+
+Factories would advertise ``ensure_scope`` + idempotent ``ensure(identity)``.
+Orchestrator runs ``once`` then each active identity; ``[ready]`` closes after.
+Do **not** grow hard-coded product passes (``repos → gitlab → conan → …``).
+
+Decide after soaks of the honesty + collect/extract work whether this is worth
+a follow-on plan / PR.

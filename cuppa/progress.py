@@ -21,15 +21,18 @@ from cuppa.colourise import (
 from SCons.Script import Action
 
 
-def _write_terse_stdout( text ):
+def _write_terse_stdout( text, *, dwell=True ):
     """Write a terse transcript fragment; serialize under ``-j`` / ``--parallel``.
 
-    Clears the quiet heartbeat first when diverting. A process-wide transcript
-    lock prevents interleaved lines such as ``format.ovariant``.
+    Clears the status row first when armed. A process-wide transcript lock
+    prevents interleaved lines such as ``format.ovariant``.
+
+    ``dwell=False`` for uncounted resolve children (location / update / …)
+    so the alive cue is not seized for a full ECG cycle between each line.
     """
     try:
         from cuppa.utility.heartbeat import write_transcript
-        write_transcript( text )
+        write_transcript( text, dwell=dwell )
         return
     except Exception:
         pass
@@ -43,6 +46,7 @@ def _write_terse_stdout( text ):
 _interrupt_announced = False
 _abort_announced = False
 _interrupt_finished = False
+_failure_drain_announced = False
 _interrupt_lock = threading.Lock()
 _terse_activity_seen = False
 _terse_activity_lock = threading.Lock()
@@ -90,7 +94,7 @@ def enable_terse_build_summary():
 
 
 def write_terse_interrupt_finish():
-    """Close a graceful Ctrl-C once the actions already running have finished.
+    """Close a graceful Ctrl-C once signalled in-flight actions have exited.
 
     An ``aborted`` build has no closing line. The counts are the same ones a
     successful build would report.
@@ -100,7 +104,7 @@ def write_terse_interrupt_finish():
         if _abort_announced or _interrupt_finished or not _interrupt_announced:
             return
         _interrupt_finished = True
-    _write_terse_stdout( as_subdued( "finished in-flight actions" ) + "\n" )
+    _write_terse_stdout( as_subdued( "stopped in-flight actions" ) + "\n" )
     summary = ""
     if _summary_enabled:
         summary = _progress_ledger.interrupt_summary()
@@ -124,12 +128,14 @@ def write_terse_build_completion( env ):
 
 
 def reset_build_interrupted():
-    """Allow another build in this process to report Ctrl-C once."""
+    """Allow another build in this process to report Ctrl-C / failure drain once."""
     global _interrupt_announced, _abort_announced, _interrupt_finished
+    global _failure_drain_announced
     with _interrupt_lock:
         _interrupt_announced = False
         _abort_announced = False
         _interrupt_finished = False
+        _failure_drain_announced = False
 
 
 def is_interrupt_returncode( returncode ):
@@ -140,6 +146,32 @@ def is_interrupt_returncode( returncode ):
         return False
     interrupted = signal.SIGINT
     return code in ( -interrupted, 128 + interrupted )
+
+
+def _parallel_build_active():
+    """True when SCons may still be draining other jobs after a failure."""
+    try:
+        from SCons.Script import GetOption
+        return int( GetOption( "num_jobs" ) or 1 ) > 1
+    except Exception:
+        return False
+
+
+def note_build_failure_draining():
+    """One subdued line after the first terse ``[error]`` under ``-j`` / ``--parallel``.
+
+    Serial builds stop scheduling immediately, so there is nothing to explain.
+    An interrupt banner already owns the close — do not stack a drain note on
+    top of ``interrupted — stopping in-flight actions...``.
+    """
+    global _failure_drain_announced
+    with _interrupt_lock:
+        if _failure_drain_announced or _interrupt_announced:
+            return
+        if not _parallel_build_active():
+            return
+        _failure_drain_announced = True
+    _write_terse_stdout( as_subdued( "failed — draining in-flight jobs..." ) + "\n" )
 
 
 def _interrupt_stream():
@@ -168,7 +200,7 @@ def note_build_interrupted():
         if _interrupt_announced:
             return
         _interrupt_announced = True
-    _write_interrupt_word( "interrupted — finishing in-flight actions..." )
+    _write_interrupt_word( "interrupted — stopping in-flight actions..." )
 
 
 def note_build_aborted():
@@ -853,6 +885,7 @@ def reset_progress_ledger():
     with _terse_locations_lock:
         _terse_locations[:] = []
         _written_sconstruct_maps.clear()
+    _written_registries.clear()
 
 
 def register_terse_actions( env, nodes ):
@@ -1414,6 +1447,18 @@ def _slash( path ):
     return os.path.normpath( str( path ) ).replace( "\\", "/" )
 
 
+def _is_remote_url( text ):
+    """True for http(s)/ftp/ssh/git URLs that must not go through ``normpath``.
+
+    POSIX ``os.path.normpath('https://host/path')`` collapses ``//`` to
+    ``https:/host/path`` — the publish dest bug in soak logs.
+    """
+    lower = str( text or "" ).strip().lower()
+    return lower.startswith( (
+            "http://", "https://", "ftp://", "ssh://", "git+", "git@",
+    ) )
+
+
 def _under( path, root ):
     """True when ``path`` is ``root`` or a file inside it. No ``..`` climb."""
     if not path or not root:
@@ -1428,6 +1473,8 @@ def _under( path, root ):
 def _to_abs( raw, env ):
     """Absolute path. Relative node paths are from the project root, as SCons stores them."""
     text = str( raw or "" )
+    if _is_remote_url( text ):
+        return text
     if text.startswith( "~" ):
         return os.path.normpath( os.path.expanduser( text ) )
     if os.path.isabs( raw ):
@@ -1535,6 +1582,8 @@ def _display_source_path( raw, env ):
     if not raw:
         return ""
     text = str( raw ).replace( "\\", "/" )
+    if _is_remote_url( text ):
+        return text
     if text.startswith( "~/" ) or text == "~":
         return text
     climbs = text == ".." or text.startswith( "../" )
@@ -1670,7 +1719,8 @@ def _is_project_root( path, env ):
     return False
 
 
-_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages" ) )
+_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages", "downloads" ) )
+_written_registries = set()
 
 
 def _nested_author_match( abs_path, env ):
@@ -1728,6 +1778,36 @@ def _token_for_build_folder( folder ):
     return ""
 
 
+def _split_gitlab_generic_package_url( url ):
+    """``(registry_api_url, 'name/version/file')`` for a generic package PUT/GET URL.
+
+    Returns ``(None, None)`` when ``url`` is not a GitLab generic package path.
+    """
+    text = str( url or "" ).strip()
+    marker = "/packages/generic/"
+    lower = text.lower()
+    idx = lower.find( marker )
+    if idx < 0:
+        return None, None
+    registry = text[ : idx ].rstrip( "/" )
+    rest = text[ idx + len( marker ): ].lstrip( "/" )
+    if not registry or not rest:
+        return None, None
+    return registry, rest
+
+
+def _locate_remote_url( raw, env ):
+    """Map a remote URL to ``(token, relative)`` when it is a known registry package."""
+    text = str( raw or "" ).strip()
+    registry, rest = _split_gitlab_generic_package_url( text )
+    if not registry:
+        return "", text.replace( "\\", "/" )
+    token = label_terse_registry( env, registry )
+    if not token:
+        return "", text.replace( "\\", "/" )
+    return token, rest.replace( "\\", "/" )
+
+
 def _locate( raw, env, allow_variant_roots=True ):
     """``(root, relative)`` for a path on a status line.
 
@@ -1740,6 +1820,8 @@ def _locate( raw, env, allow_variant_roots=True ):
     """
     if not raw:
         return "", ""
+    if _is_remote_url( raw ):
+        return _locate_remote_url( raw, env )
     abs_path = _to_abs( raw, env )
     if allow_variant_roots:
         roots = (
@@ -1834,7 +1916,10 @@ def _paths_style( nodes ):
     return ""
 
 
-_TRANSFER_ACTIONS = ( "copy", "move", "expand", "render" )
+_TRANSFER_ACTIONS = (
+        "copy", "move", "expand", "render",
+        "download", "extract", "compress", "upload", "publish",
+)
 _PATH_ACTIONS = ( "delete", "mkdir", "chmod" )
 _TRANSFORM_ACTIONS = ( "markdown", "asciidoc" )
 _RUN_FILE_ACTIONS = ( "run", "test", "benchmark" )
@@ -2106,9 +2191,17 @@ def _location_badge():
 
 
 def _location_map_rhs( token, path, env ):
-    """Map value: nested under a parent token when contained, else display path."""
+    """Map value: nested under a parent token when contained, else display path.
+
+    Package maps use the registered ``build_folder`` (``name/version``) so the
+    RHS does not pin a single tool-variant stem; stems belong on collect/extract.
+    """
     if str( token ) == "variant":
         return _slash( path ).strip( "/" )
+    for item in _author_locations():
+        _scope, _script, _cell, other, _root, folder, kind = _unpack_location( item )
+        if other == token and kind == "package" and folder:
+            return str( folder ).replace( "\\", "/" ).strip( "/" )
     abs_path = _to_abs( path, env )
     if str( token ) not in ( "working", "final", "artefacts" ):
         parents = []
@@ -2471,6 +2564,95 @@ def write_terse_muted_child( text, env ):
         return
     _write_terse_stdout( format_terse_muted_child( text, env ) + "\n" )
     sys.stdout.flush()
+
+
+_CMAKE_UP_TO_DATE = "-- Up-to-date:"
+_CMAKE_ALL_UP_TO_DATE = "-- All targets Up-to-date"
+
+
+def is_cmake_delegate( action, command=None ):
+    """True when a delegated ``run`` is a cmake configure/build/install."""
+    label = str( action or "" ).strip().lower()
+    if label.startswith( "cmake" ):
+        return True
+    text = str( command or "" ).lstrip()
+    if not text:
+        return False
+    # ``cmake …``, ``/usr/bin/cmake …``, ``cmake.exe …``
+    head = text.split( None, 1 )[ 0 ].replace( "\\", "/" )
+    leaf = os.path.basename( head ).lower()
+    return leaf in ( "cmake", "cmake.exe" )
+
+
+def is_cmake_uptodate_line( text ):
+    """True for cmake file-install ``-- Up-to-date: path`` lines."""
+    return str( text or "" ).lstrip().startswith( _CMAKE_UP_TO_DATE )
+
+
+def is_cmake_install_preamble( text ):
+    """True for install bookkeeping that is neither work nor up-to-date files.
+
+    ``[0/1] Install the project...`` and ``-- Install configuration:`` still
+    stream as muted children, but must not block ``-- All targets Up-to-date``.
+    """
+    stripped = str( text or "" ).lstrip()
+    if not stripped:
+        return False
+    if stripped.startswith( "-- Install configuration:" ):
+        return True
+    if "Install the project" in stripped:
+        return True
+    return False
+
+
+def is_cmake_install_work( text ):
+    """True for a real cmake file install (not up-to-date, not preamble)."""
+    return str( text or "" ).lstrip().startswith( "-- Installing:" )
+
+
+class CmakeDelegatedChildFilter( object ):
+    """Route cmake ``-- Up-to-date:`` to a heartbeat pulse; summarise when alone.
+
+    Individual up-to-date paths are low-value under ``--terse-output`` and
+    flood the transcript (abseil install). Pulse them as disappearing status
+    when the quiet heartbeat is diverting. If the run saw up-to-date lines and
+    no ``-- Installing:`` / build work, print one muted confirmation so silence
+    is not ambiguous. Install preamble stays durable but does not count as work.
+    """
+
+    def __init__( self, env ):
+        self._env = env
+        self._uptodate = 0
+        self._other = False
+
+    def handle( self, line ):
+        text = str( line or "" ).rstrip( "\n" )
+        stripped = text.lstrip()
+        if stripped.startswith( _CMAKE_UP_TO_DATE ):
+            self._uptodate += 1
+            path = stripped[ len( _CMAKE_UP_TO_DATE ): ].strip()
+            leaf = os.path.basename( path ) or path
+            try:
+                from cuppa.utility.heartbeat import pulse_ephemeral_status
+                pulse_ephemeral_status( _CMAKE_UP_TO_DATE + " " + leaf )
+            except Exception:
+                pass
+            return
+        if not stripped:
+            # Drop blank padding while the install is still all up-to-date.
+            if self._uptodate and not self._other:
+                return
+            write_terse_muted_child( text, self._env )
+            return
+        if is_cmake_install_preamble( stripped ):
+            write_terse_muted_child( text, self._env )
+            return
+        self._other = True
+        write_terse_muted_child( text, self._env )
+
+    def finish( self ):
+        if self._uptodate and not self._other:
+            write_terse_muted_child( _CMAKE_ALL_UP_TO_DATE, self._env )
 
 
 def _output_severity( lines ):
@@ -2942,6 +3124,83 @@ def _format_resolve_bookend( env, badge, summary ):
     return line
 
 
+def format_terse_cascade_checkpoint( env, token, version, verb, path ):
+    """``sconstruct 0% [cascade] <token> · ver · exiting|entering · path``."""
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    parts = [
+            lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( "[cascade]" ) ),
+            "<" + str( token ) + ">",
+    ]
+    line = " ".join( parts )
+    ver = str( version or "" ).strip()
+    if ver:
+        line += as_subdued( " · " ) + ver
+    line += as_subdued( " · " ) + str( verb or "" )
+    shown = str( path or "" ).strip()
+    if shown:
+        line += as_subdued( " · " ) + as_subdued( shown )
+    return line
+
+
+def write_terse_cascade_checkpoint( env, token, version, verb, path ):
+    """Print a tip↔nest handoff line under ``--terse-output``."""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    _write_terse_stdout(
+            format_terse_cascade_checkpoint(
+                    env, token, version, verb, path,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
+def format_terse_cascade_run_checkpoint( env, tip_package, tip_version, verb, summary="" ):
+    """Tip-scoped cascade span: ``[cascade] tip [==ver] · begin|end · summary``.
+
+    Subject is the tip pin (no ``<token>``) so nest enter/exit lines stay
+    visually distinct. ``verb`` is ``begin`` / ``end`` (action-label ink).
+    """
+    counts = _progress_ledger.checkpoint_counts( None, None )
+    percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    tip = "{} [=={}]".format(
+            as_emphasised( as_info( str( tip_package ) ) ),
+            as_emphasised( as_info( str( tip_version ) ) ),
+    )
+    parts = [
+            lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( "[cascade]" ) ),
+            tip,
+    ]
+    line = " ".join( parts ) + as_subdued( " · " ) + _action_label( verb )
+    shown = str( summary or "" ).strip()
+    if shown:
+        line += as_subdued( " · " ) + shown
+    return line
+
+
+def write_terse_cascade_run_checkpoint(
+        env, tip_package, tip_version, verb, summary="",
+):
+    """Print tip-scoped cascade begin/end under ``--terse-output``."""
+    if not _env_get( env, "terse_output" ):
+        return False
+    # Clean cascades still get begin/end — nest enter/exit stay suppressed.
+    _write_terse_stdout(
+            format_terse_cascade_run_checkpoint(
+                    env, tip_package, tip_version, verb, summary=summary,
+            ) + "\n"
+    )
+    sys.stdout.flush()
+    return True
+
+
 def write_terse_resolve_prepare( env ):
     """Open the resolve span. Location maps and retrieve children follow live."""
     global _terse_prepare_written, _terse_ready_written
@@ -2960,12 +3219,19 @@ def write_terse_resolve_prepare( env ):
         summary = _counted_phrase(
                 len( declared ), "declared dependency", "declared dependencies",
         )
-    _write_terse_stdout( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
+    _write_terse_stdout(
+            _format_resolve_bookend( env, "[prepare]", summary ) + "\n",
+            dwell=False,
+    )
     sys.stdout.flush()
 
 
 def write_terse_resolve_ready( env ):
-    """Close the resolve span with resolved totals. Does not reprint maps."""
+    """Close the resolve span with resolved totals. Does not reprint maps.
+
+    ``construct`` calls this after every toolchain × variant × sconscript has
+    been read so multi-stem package collects are not orphans after ``[ready]``.
+    """
     global _terse_ready_written
     if not _env_get( env, "terse_output" ):
         return
@@ -2979,7 +3245,8 @@ def write_terse_resolve_ready( env ):
     _terse_ready_written = True
     _write_terse_stdout(
             _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
-            + "\n"
+            + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
 
@@ -3048,9 +3315,304 @@ def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="
     _write_terse_stdout(
             format_terse_resolve_child(
                     env, badge, token, *fields, status=status, remark=remark,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
+    return True
+
+
+def _transfer_end_from_path( path, env, dest ):
+    """Colour one side of a transfer ``source → dest`` for a raw path or URL."""
+    text = str( path or "" ).strip()
+    if not text:
+        return ""
+    # Remote URLs: registry package paths become ``<token>/name/ver/file``;
+    # other URLs stay literal (never ``normpath`` — that breaks ``https://``).
+    if _is_remote_url( text ):
+        token, relative = _locate_remote_url( text, env )
+        shown = _coloured_transfer_end( token, relative, dest=dest )
+        if shown:
+            return shown
+        return as_subdued( text )
+    token, relative = _locate( text, env )
+    if token or relative:
+        shown = _coloured_transfer_end( token, relative, dest=dest )
+        if shown:
+            return shown
+    return as_subdued( text )
+
+
+def format_terse_resolve_transfer(
+        env, badge, token, *fields, source="", dest="", status="ok", remark="",
+):
+    """``→ [collect]  <token> · 3.9.0 · url → <downloads>/file``.
+
+    Like a resolve child, but ends with a spelled-out ``source → dest`` so
+    package retrieve lines name the concrete stem (multi-toolchain safe).
+    """
+    lead = _location_map_prefix( env, _resolve_child_badge( badge, status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    for field in fields:
+        text = str( field or "" ).strip()
+        if text:
+            parts.append( text )
+    left = _transfer_end_from_path( source, env, dest=False )
+    right = _transfer_end_from_path( dest, env, dest=True )
+    if left or right:
+        parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    text = str( remark or "" ).strip()
+    if text:
+        if status in ( "error", "fail" ):
+            painted = as_colour( "error", text )
+        elif status == "warn":
+            painted = as_colour( "warning", text )
+        else:
+            painted = as_colour( "success", text )
+        line += as_subdued( " · " ) + painted
+    return line
+
+
+def write_terse_resolve_transfer(
+        env, badge, token, *fields, source="", dest="", status="ok", remark="",
+):
+    """Print a resolve retrieve with ``src → dest``. True when emitted."""
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_resolve_transfer(
+                    env, badge, token, *fields,
+                    source=source, dest=dest, status=status, remark=remark,
+            ) + "\n",
+            dwell=False,
+    )
+    sys.stdout.flush()
+    return True
+
+
+def gitlab_registry_token( registry ):
+    """Short token for a GitLab package registry URL (host + project path)."""
+    try:
+        from urllib.parse import urlparse, unquote
+    except ImportError:
+        from urlparse import urlparse, unquote
+    text = str( registry or "" ).strip().rstrip( "/" )
+    if not text:
+        return "registry"
+    parsed = urlparse( text )
+    host = ( parsed.netloc or "" ).split( "@" )[ -1 ].lower()
+    # ``git.example.com`` → ``example_com`` (drop a leading git. service label).
+    if host.startswith( "git." ):
+        host = host[ 4: ]
+    host = host.replace( ".", "_" ).replace( ":", "_" )
+    path = unquote( parsed.path or "" )
+    project = ""
+    marker = "/projects/"
+    if marker in path:
+        project = path.split( marker, 1 )[ 1 ].strip( "/" )
+        if "/packages" in project:
+            project = project.split( "/packages", 1 )[ 0 ]
+        project = project.replace( "/", "_" )
+    if host and project:
+        return host + "_" + project
+    return host or project or "registry"
+
+
+def gitlab_registry_map_url( registry ):
+    """``…/packages/generic`` base shown on the ``[registry]`` map line."""
+    text = str( registry or "" ).strip().rstrip( "/" )
+    if not text:
+        return text
+    lower = text.lower()
+    if lower.endswith( "/packages/generic" ):
+        return text
+    if "/packages/generic/" in lower:
+        idx = lower.index( "/packages/generic" )
+        return text[ : idx + len( "/packages/generic" ) ]
+    return text + "/packages/generic"
+
+
+def label_terse_registry( env, registry ):
+    """Emit ``→ [registry] <token> = …/packages/generic`` once. Return the token."""
+    token = gitlab_registry_token( registry )
+    if not token:
+        return ""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return token
+    if not _terse_prepare_written:
+        return token
+    if token in _written_registries:
+        return token
+    _written_registries.add( token )
+    base = gitlab_registry_map_url( registry )
+    badge = as_emphasised( as_subdued( "[registry]" ) )
+    lead = _location_map_prefix( env, badge )
+    line = (
+            lead + " "
+            + "<" + token + ">"
+            + as_subdued( " = " )
+            + as_subdued( base )
+    )
+    _write_terse_stdout( line + "\n", dwell=False )
+    sys.stdout.flush()
+    return token
+
+
+def _emphasised_token( token ):
+    return as_emphasised( as_info( "<" + str( token ) + ">" ) )
+
+
+def _package_archive_dest_cell( token, archive_name ):
+    """``<downloads>/packages/<token>/archive.tar.gz`` — bold archive leaf only.
+
+    The package token in the path stays subdued: the line already leads with
+    ``<token>``, so emphasising it again inside ``packages/`` is visual noise.
+    """
+    name = str( archive_name or "" ).strip()
+    prefix = "<downloads>/packages/<" + str( token ) + ">"
+    if name:
+        return as_subdued( prefix + "/" ) + as_emphasised( as_info( name ) )
+    return as_subdued( prefix )
+
+
+def _package_extract_dest_cell( token, tool_variant ):
+    """``<dependencies>/<stem>/<token>`` with bold stem + package token."""
+    stem = str( tool_variant or "" ).strip().strip( "/" )
+    shown = as_subdued( "<dependencies>/" )
+    if stem:
+        shown += as_emphasised( as_info( stem ) ) + as_subdued( "/" )
+    shown += _emphasised_token( token )
+    return shown
+
+
+def _resolve_transfer_remark( status, remark ):
+    text = str( remark or "" ).strip()
+    if not text:
+        return ""
+    if status in ( "error", "fail" ):
+        painted = as_colour( "error", text )
+    elif status == "warn":
+        painted = as_colour( "warning", text )
+    else:
+        painted = as_colour( "success", text )
+    return as_subdued( " · " ) + painted
+
+
+def format_terse_package_collect(
+        env, token, version, registry_token, archive_name, status="ok", remark="",
+):
+    """``→ [collect]  <token> · ver · <registry> → <downloads>/packages/<token>/file``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( "collect", status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    ver = str( version or "" ).strip()
+    if ver:
+        parts.append( ver )
+    left = as_subdued( "<" + str( registry_token ) + ">" ) if registry_token else ""
+    right = _package_archive_dest_cell( token, archive_name )
+    if left or right:
+        parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    return line + _resolve_transfer_remark( status, remark )
+
+
+def write_terse_package_collect(
+        env, token, version, registry_token, archive_name, status="ok", remark="",
+):
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_package_collect(
+                    env, token, version, registry_token, archive_name,
+                    status=status, remark=remark,
+            ) + "\n",
+            dwell=False,
+    )
+    sys.stdout.flush()
+    return True
+
+
+def format_terse_package_extract(
+        env, token, version, archive_name, tool_variant, status="ok", remark="",
+):
+    """``→ [extract]  <token> · ver · <downloads>/…/file → <dependencies>/<stem>/<token>``."""
+    lead = _location_map_prefix( env, _resolve_child_badge( "extract", status ) )
+    parts = [ "<" + str( token ) + ">" ]
+    ver = str( version or "" ).strip()
+    if ver:
+        parts.append( ver )
+    left = _package_archive_dest_cell( token, archive_name )
+    right = _package_extract_dest_cell( token, tool_variant )
+    parts.append( left + " " + as_subdued( "→" ) + " " + right )
+    line = lead + " " + ( " " + as_subdued( "·" ) + " " ).join( parts )
+    return line + _resolve_transfer_remark( status, remark )
+
+
+def write_terse_package_extract(
+        env, token, version, archive_name, tool_variant, status="ok", remark="",
+):
+    if not terse_resolve_child_enabled( env, token ):
+        return False
+    _write_terse_stdout(
+            format_terse_package_extract(
+                    env, token, version, archive_name, tool_variant,
+                    status=status, remark=remark,
+            ) + "\n",
+            dwell=False,
+    )
+    sys.stdout.flush()
+    return True
+
+
+def format_terse_transfer_resolve( env, action, source, dest, status="ok" ):
+    """Global / resolve form: ``→ [download] url → <downloads>/file``."""
+    badge = _resolve_child_badge( str( action or "download" ), status )
+    lead = _location_map_prefix( env, badge )
+    left = _transfer_end_from_path( source, env, dest=False )
+    right = _transfer_end_from_path( dest, env, dest=True )
+    return lead + " " + left + " " + as_subdued( "→" ) + " " + right
+
+
+def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
+    """Print a resolve-phase transfer identity line. True when emitted."""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    if not _terse_prepare_written:
+        return False
+    _write_terse_stdout(
+            format_terse_transfer_resolve(
+                    env, action, source, dest, status=status,
+            ) + "\n",
+            dwell=False,
+    )
+    sys.stdout.flush()
+    return True
+
+
+def write_terse_transfer_action( env, action, source, dest, status="ok", count=True ):
+    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line."""
+    if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
+        return False
+    holder = type( "T", (), {} )()
+    holder.path = dest
+    attributes = type( "A", (), {} )()
+    attributes.cuppa_terse_action = str( action or "download" )
+    attributes.cuppa_terse_paths = "transfer"
+    holder.attributes = attributes
+    line = format_terse_line(
+            status,
+            "",
+            [ holder ],
+            [ source ],
+            env,
+            count=count,
+    )
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    if count:
+        note_terse_status_emitted()
+    else:
+        note_terse_nested_action()
     return True
 
 
@@ -3061,7 +3623,8 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
     _write_terse_stdout(
             format_terse_location_line(
                     token, path, env, scope="sconstruct", kind=kind,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
 
@@ -3171,10 +3734,35 @@ class _TersePythonCallable( object ):
             except Exception:
                 self._finish_python_action( target, source, env, failed=True )
                 raise
+            if self._interrupted_result( result ):
+                # Delegate SIGINT drain — interrupt banner owns the close; do
+                # not paint ``[error]`` / reprint argv as a failed spawn.
+                self._finish_interrupted_action( target, env )
+                return result
             self._finish_python_action( target, source, env, failed=bool( result ) )
             return result
         finally:
             forget_terse_action_target()
+
+    @staticmethod
+    def _interrupted_result( result ):
+        if is_interrupt_returncode( result ):
+            return True
+        try:
+            from cuppa.utility.build_children import stop_count
+            return stop_count() >= 1 and bool( result )
+        except Exception:
+            return False
+
+    def _finish_interrupted_action( self, target, env ):
+        note_build_interrupted()
+        take_terse_command()
+        take_terse_children()
+        take_terse_launch()
+        take_terse_status_emitted()
+        if not take_terse_action_accounted():
+            _account_and_prefix( target, env, count=True, mark=False )
+        note_terse_build_activity()
 
     def _finish_python_action( self, target, source, env, failed ):
         if take_terse_status_emitted():
@@ -3248,6 +3836,8 @@ def _report_python_action( target, source, env, failed ):
     note_terse_build_activity()
     _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
+    if severity == "error":
+        note_build_failure_draining()
 
 def _wrap_action( action ):
     """Replace a ``FunctionAction`` body without changing its build signature.

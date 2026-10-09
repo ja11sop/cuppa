@@ -22,21 +22,74 @@ class _Child( object ):
         self.pid = pid
 
 
-def test_the_first_ctrl_c_leaves_children_running_and_the_second_stops_them( monkeypatch ):
+def test_the_first_ctrl_c_signals_children_and_the_second_hard_stops_them( monkeypatch ):
+    """Delegates must learn about the first Ctrl-C; second is SIGTERM."""
     killed = []
-    monkeypatch.setattr( build_children.os, "killpg", lambda pid, sig: killed.append( ( pid, sig ) ) )
+    monkeypatch.setattr(
+            build_children, "terminate_process_tree",
+            lambda pid, sig=None: killed.append( ( pid, sig or signal.SIGTERM ) ),
+    )
     build_children.reset_stop_requests()
     child = _Child( 42 )
     try:
         build_children.remember_child( child )
         assert build_children.note_stop_request() == 1
-        assert killed == []
+        assert build_children.stop_count() == 1
+        if os.name != "nt":
+            assert killed == [ ( 42, signal.SIGINT ) ]
         assert build_children.note_stop_request() == 2
         if os.name != "nt":
-            assert killed == [ ( 42, signal.SIGTERM ) ]
+            assert killed == [ ( 42, signal.SIGINT ), ( 42, signal.SIGTERM ) ]
     finally:
         build_children.forget_child( child )
         build_children.reset_stop_requests()
+
+
+def test_terminate_process_tree_signals_descendants( monkeypatch ):
+    if os.name == "nt":
+        pytest.skip( "POSIX process groups only" )
+    import sys
+    sent = []
+
+    class _FakeChild( object ):
+        def __init__( self, pid ):
+            self.pid = pid
+
+        def send_signal( self, sig ):
+            sent.append( ( self.pid, sig ) )
+
+    class _FakeProc( object ):
+        def __init__( self, pid ):
+            self.pid = pid
+
+        def children( self, recursive=False ):
+            assert recursive is True
+            return [ _FakeChild( 7 ), _FakeChild( 8 ) ]
+
+        def send_signal( self, sig ):
+            sent.append( ( self.pid, sig ) )
+
+    class _FakePsutil( object ):
+        Error = type( "Error", ( Exception, ), {} )
+
+        @staticmethod
+        def Process( pid ):
+            return _FakeProc( pid )
+
+    monkeypatch.setitem( sys.modules, "psutil", _FakePsutil() )
+    killed_pg = []
+    monkeypatch.setattr(
+            build_children.os, "killpg",
+            lambda pid, sig: killed_pg.append( ( pid, sig ) ),
+    )
+    monkeypatch.setattr( build_children.os, "kill", lambda pid, sig: None )
+    build_children.terminate_process_tree( 42, signal.SIGTERM )
+    assert sent == [
+            ( 8, signal.SIGTERM ),
+            ( 7, signal.SIGTERM ),
+            ( 42, signal.SIGTERM ),
+    ]
+    assert killed_pg == [ ( 42, signal.SIGTERM ) ]
 
 
 def test_a_build_child_is_started_outside_the_terminal_session( monkeypatch ):
@@ -155,7 +208,7 @@ def test_jobs_returning_closes_a_quiet_interrupt( capsys ):
         capsys.readouterr()
         jobs.Jobs.run( object(), lambda: None )
         out = capsys.readouterr().out
-        assert out.startswith( "finished in-flight actions\n[interrupted]" )
+        assert out.startswith( "stopped in-flight actions\n[interrupted]" )
 
         progress.reset_build_interrupted()
         progress.note_build_interrupted()

@@ -254,6 +254,132 @@ def test_download_file_cleans_partial_on_failure( tmp_path, monkeypatch ):
     assert not os.path.isfile( str( dest ) + '.partial' )
 
 
+def test_upload_file_http_server( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    payload = b'upload-payload-' * 2048
+    src = tmp_path / 'pkg.tar.gz'
+    src.write_bytes( payload )
+    received = {}
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            received['body'] = self.rfile.read( length )
+            received['content_type'] = self.headers.get( 'Content-Type' )
+            received['path'] = self.path
+            self.send_response( 201 )
+            self.end_headers()
+            self.wfile.write( b'{"message":"201 Created"}' )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/packages/generic/widget/1.0.0/pkg.tar.gz'.format(
+                server.server_address[1]
+        )
+        stream = io.StringIO()
+        reporter = dl.ProgressReporter(
+                stream=stream, is_tty=False, line_interval_s=0, action='Uploading',
+        )
+        path = dl.upload_file(
+                url, str( src ), label='pkg.tar.gz', show_progress=True, reporter=reporter,
+        )
+        assert path == str( src )
+        assert received.get( 'body' ) == payload
+        assert received.get( 'content_type' ) == 'application/octet-stream'
+        assert 'Uploading pkg.tar.gz' in stream.getvalue()
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_sends_headers( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    src = tmp_path / 'pkg.bin'
+    src.write_bytes( b'payload' )
+    seen = {}
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            seen['private'] = self.headers.get( 'Private-Token' )
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            self.rfile.read( length )
+            self.send_response( 201 )
+            self.end_headers()
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/pkg.bin'.format( server.server_address[1] )
+        dl.upload_file(
+                url,
+                str( src ),
+                show_progress=False,
+                headers={ 'PRIVATE-TOKEN': 'secret-token' },
+        )
+        assert seen.get( 'private' ) == 'secret-token'
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_http_error_includes_body( tmp_path ):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    src = tmp_path / 'pkg.bin'
+    src.write_bytes( b'payload' )
+
+    class Handler( BaseHTTPRequestHandler ):
+        def do_PUT( self ):
+            length = int( self.headers.get( 'Content-Length', '0' ) )
+            self.rfile.read( length )
+            body = b'{"error":"unauthorized"}'
+            self.send_response( 401 )
+            self.send_header( 'Content-Length', str( len( body ) ) )
+            self.end_headers()
+            self.wfile.write( body )
+
+        def log_message( self, format, *args ):
+            return
+
+    server = HTTPServer( ( '127.0.0.1', 0 ), Handler )
+    thread = threading.Thread( target=server.serve_forever )
+    thread.daemon = True
+    thread.start()
+    try:
+        url = 'http://127.0.0.1:{}/pkg.bin'.format( server.server_address[1] )
+        with pytest.raises( dl.UploadError ) as raised:
+            dl.upload_file( url, str( src ), show_progress=False )
+        assert raised.value.http_status == 401
+        assert 'unauthorized' in str( raised.value.parameter )
+        assert 'unauthorized' in ( raised.value.body or '' )
+    finally:
+        server.shutdown()
+        thread.join( timeout=5 )
+
+
+def test_upload_file_missing_source( tmp_path ):
+    missing = tmp_path / 'gone.bin'
+    with pytest.raises( dl.UploadError ) as raised:
+        dl.upload_file( 'http://example.com/pkg.bin', str( missing ), show_progress=False )
+    assert 'missing' in str( raised.value.parameter )
+
+
 def test_transfer_file_reports_extract_progress( tmp_path ):
     src = tmp_path / 'payload.bin'
     payload = b'xyz' * 10000
@@ -337,3 +463,128 @@ def test_is_http_not_found():
     assert dl.is_http_not_found( dl.DownloadError( 'missing', http_status=404 ) )
     assert not dl.is_http_not_found( dl.DownloadError( 'denied', http_status=403 ) )
     assert not dl.is_http_not_found( dl.DownloadError( 'no status' ) )
+
+
+def test_format_progress_line_compact_drops_bar():
+    full = dl.format_progress_line( 'f.bin', 50, 100, 1.0, compact=False )
+    compact = dl.format_progress_line( 'f.bin', 50, 100, 1.0, compact=True )
+    assert '[' in full and ']' in full
+    assert '[' not in compact
+    assert '50%' in compact
+    assert 'ETA' in compact
+
+
+def test_format_progress_line_muted_subdues_verb_and_label():
+    """Terse/quiet mute the progress body; ECG colour is separate."""
+    from cuppa.colourise import as_subdued, colouriser
+    from cuppa.output_processor import strip_ansi
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        muted = dl.format_progress_line(
+                'pkg.tgz', 50, 100, 1.0, muted=True, include_bar=True,
+        )
+        plain = strip_ansi( muted )
+        assert 'Downloading' in plain
+        assert 'pkg.tgz' in plain
+        assert as_subdued( 'Downloading' ) in muted
+        assert as_subdued( 'pkg.tgz' ) in muted
+    finally:
+        colouriser.use_colour = was
+
+
+def test_reporter_normal_tty_has_no_alive_widget():
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=False )
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream, is_tty=True, clock=clock, tty_interval_s=0.1,
+    )
+    reporter.begin( 'file.tgz', total_size=100 )
+    clock.advance( 0.2 )
+    reporter.update( 50 )
+    reporter.done( 100 )
+    plain = strip_ansi( stream.getvalue() )
+    assert 'Downloading file.tgz' in plain
+    assert '[' in plain  # progress bar
+    assert not plain.lstrip( '\r' ).startswith( '|' )  # no pulse head
+    assert plain.endswith( '\n' )  # durable final line
+    hb.reset()
+
+
+def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+
+    def sleep( seconds ):
+        clock.advance( seconds )
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            sleep=sleep,
+            tty_interval_s=0.1,
+            compact=True,
+            alive_style='pulse',
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
+    # Below idle gate — no paint yet.
+    clock.advance( 0.05 )
+    reporter.update( 50 )
+    assert stream.getvalue() == ''
+    # Past idle gate — paint alive + → + bar.
+    clock.advance( 0.20 )
+    reporter.update( 100 )
+    mid = strip_ansi( stream.getvalue() )
+    assert '→' in mid
+    assert '|' in mid
+    assert '[' in mid  # terse keeps the bar
+    assert 'Compressing pkg.tar.gz' in mid
+    reporter.done( 200 )
+    # Overwrite clears the ephemeral status (no durable 100% newline).
+    assert not strip_ansi( stream.getvalue() ).rstrip().endswith( '100%' )
+    hb.reset()
+
+
+def test_reporter_terse_non_tty_stays_silent():
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=False,
+            clock=clock,
+            line_interval_s=0,
+            compact=True,
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=100 )
+    clock.advance( 1.0 )
+    reporter.update( 50 )
+    reporter.done( 100 )
+    assert stream.getvalue() == ''
+
+
+def test_reporter_fast_terse_never_reveals():
+    """Transfers that finish before the idle gate never flash progress."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            compact=True,
+            alive_style='pulse',
+    )
+    reporter.begin( 'tiny.bin', total_size=10 )
+    clock.advance( 0.05 )  # still under idle gate
+    reporter.done( 10 )
+    assert stream.getvalue() == ''
