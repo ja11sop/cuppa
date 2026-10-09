@@ -160,7 +160,7 @@ class PublishPackageMethod(object):
         )
         add_option(
                 '--cascade',
-                dest='build-and-publish-dependencies',
+                dest='cascade',
                 action='store_true',
                 help=(
                         'Enable package-dependency cascade (resolve publisher '
@@ -173,17 +173,15 @@ class PublishPackageMethod(object):
                         '--update-publishers. Not compatible with -n/--no-exec '
                         'when nested sessions would run. Nested publishes that '
                         'are already current in the registry are skipped unless '
-                        '--force is set. Synonym: '
-                        '--build-and-publish-dependencies.'
+                        '--force is set.'
                 ),
         )
         add_option(
                 '--build-and-publish-dependencies',
-                dest='build-and-publish-dependencies',
+                dest='cascade',
                 action='store_true',
                 help=(
-                        'Synonym for --cascade (historical name). Does not by '
-                        'itself upload; pair with a companion action.'
+                        'Deprecated alias of --cascade (removed in Cuppa 2.0)'
                 ),
         )
         add_option(

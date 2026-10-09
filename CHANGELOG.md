@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- ``--cascade`` as the primary master flag to enable package-dependency cascade
-  (nest sessions / publisher trees). ``--build-and-publish-dependencies`` remains
-  a synonym; companions still choose nest-build vs nest-publish
-  (``--build-cascade-dependencies`` is the no-upload “as-if published” path).
-  Plan: ``design/plans/cascade-enable-rename.md``.
+- ``--cascade`` as the master flag to enable package-dependency cascade (nest
+  sessions / publisher trees). ``--build-and-publish-dependencies`` is a
+  **deprecated** alias (removed in 2.0); companions still choose nest-build vs
+  nest-publish (``--build-cascade-dependencies`` is the no-upload “as-if
+  published” path). Plan: ``design/plans/cascade-enable-rename.md``.
 - Transfer and archive progress: shared engine for download, extract, and package
   ``compress``. **Normal TTY** shows the progress bar only (no alive widget);
   under ``-Q``/``-s`` that bar is muted, idle-gate delayed, and overwritten on

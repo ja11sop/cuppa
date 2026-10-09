@@ -212,7 +212,7 @@ def test_build_cascade_graph_reads_nested_publish_file( tmp_path ):
 def test_maybe_run_cascade_requires_publish_package():
     class _Env:
         def get_option( self, name, default=None ):
-            return name == "build-and-publish-dependencies"
+            return name == "cascade"
 
     class _Publisher:
         _dependencies = []
@@ -230,7 +230,7 @@ def test_maybe_run_cascade_accepts_publish_cascade_dependencies():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-cascade-dependencies",
             )
 
@@ -247,7 +247,7 @@ def test_maybe_run_cascade_refuses_publish_cascade_deps_with_publish_package():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-cascade-dependencies",
                     "publish-package",
             )
@@ -268,7 +268,7 @@ def test_maybe_run_cascade_accepts_build_cascade_dependencies():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "build-cascade-dependencies",
             )
 
@@ -285,7 +285,7 @@ def test_maybe_run_cascade_refuses_build_cascade_with_publish_package():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "build-cascade-dependencies",
                     "publish-package",
             )
@@ -303,7 +303,7 @@ def test_maybe_run_cascade_refuses_build_and_publish_cascade_together():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "build-cascade-dependencies",
                     "publish-cascade-dependencies",
             )
@@ -321,10 +321,10 @@ def test_tip_forward_args_drops_build_cascade_dependencies():
     forwarded = cascade.tip_forward_args( [
             "scons", "-D", "--rel",
             "--build-cascade-dependencies",
-            "--build-and-publish-dependencies",
+            "--cascade",
     ] )
     assert "--build-cascade-dependencies" not in forwarded
-    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--cascade" not in forwarded
     assert "--publish-package" in forwarded
 
 
@@ -339,6 +339,7 @@ def test_tip_forward_args_drops_cascade_primary_and_legacy():
     assert "--build-and-publish-dependencies" not in forwarded
     assert "--build-cascade-dependencies" not in forwarded
     assert "--publish-package" in forwarded
+
 
 
 def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
@@ -362,7 +363,7 @@ def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
 
     class _Env:
         def get_option( self, name, default=None ):
-            return name == "build-and-publish-dependencies"
+            return name == "cascade"
 
         def get( self, name, default=None ):
             if name == "sconstruct_dir":
@@ -419,7 +420,7 @@ def test_maybe_run_consume_tip_cascade_plans_from_factories( tmp_path ):
     class _Env:
         def __init__( self ):
             self._opts = {
-                    "build-and-publish-dependencies": True,
+                    "cascade": True,
                     "cascade-plan": True,
             }
 
@@ -449,7 +450,7 @@ def test_maybe_run_consume_tip_cascade_skips_when_publisher_already_ran():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "cascade-plan",
             )
 
@@ -487,7 +488,7 @@ def test_defer_tip_cascade_runs_after_ready_via_maybe_run_tip_cascade( tmp_path 
 
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "cascade-plan",
             )
 
@@ -505,7 +506,7 @@ def test_defer_tip_cascade_runs_after_ready_via_maybe_run_tip_cascade( tmp_path 
     class _CuppaEnv:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "cascade-plan",
             )
 
@@ -535,7 +536,7 @@ def test_defer_tip_cascade_keeps_first_publisher():
 
     class _Env:
         def get_option( self, name, default=None ):
-            return name == "build-and-publish-dependencies"
+            return name == "cascade"
 
         def get( self, name, default=None ):
             return default
@@ -569,7 +570,7 @@ def test_maybe_run_tip_cascade_falls_back_to_consume( tmp_path ):
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "cascade-plan",
             )
 
@@ -590,13 +591,13 @@ def test_maybe_run_tip_cascade_falls_back_to_consume( tmp_path ):
 def test_tip_forward_args_drops_publish_cascade_dependencies():
     argv = [
             "cuppa", "-D", "--rel",
-            "--build-and-publish-dependencies",
+            "--cascade",
             "--publish-cascade-dependencies",
             "--publisher-root=/tmp/packages",
     ]
     forwarded = cascade.tip_forward_args( argv )
     assert "--publish-cascade-dependencies" not in forwarded
-    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--cascade" not in forwarded
     assert "--publish-package" in forwarded
 
 
@@ -609,7 +610,7 @@ def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-package",
                     "no_exec",
             )
@@ -700,7 +701,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
 
     env = _PlanEnv( {
             "cascade-plan": True,
-            "build-and-publish-dependencies": True,
+            "cascade": True,
     } )
     cascade.maybe_run_cascade( env, _Publisher() )
 
@@ -737,7 +738,7 @@ def test_collect_cascade_and_cascade_plan_cannot_combine():
     env = _PlanEnv( {
             "collect-cascade": True,
             "cascade-plan": True,
-            "build-and-publish-dependencies": True,
+            "cascade": True,
     } )
     with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
         cascade.maybe_run_cascade( env, type( "P", (), {
@@ -785,7 +786,7 @@ def test_collect_cascade_clones_then_stops_without_nested_publish(
     env = _PlanEnv(
             {
                     "collect-cascade": True,
-                    "build-and-publish-dependencies": True,
+                    "cascade": True,
                     "clone-publishers": True,
             },
             { "storage_root": str( tmp_path / "store" ) },
@@ -824,7 +825,7 @@ def test_collect_cascade_footer_counts_zero_trees_when_clone_opt_in_is_missing(
     env = _PlanEnv(
             {
                     "collect-cascade": True,
-                    "build-and-publish-dependencies": True,
+                    "cascade": True,
             },
             { "storage_root": str( tmp_path / "store" ) },
     )
@@ -883,7 +884,7 @@ def test_collect_cascade_reuses_an_existing_publisher_tree( tmp_path, monkeypatc
     env = _PlanEnv(
             {
                     "collect-cascade": True,
-                    "build-and-publish-dependencies": True,
+                    "cascade": True,
                     "clone-publishers": True,
             },
             { "storage_root": str( tmp_path / "store" ) },
@@ -1267,7 +1268,7 @@ def test_cascade_plan_lines_clean_mode_retargets_intro_and_notes_cmake():
     visible = plain( "\n".join( cascade.cascade_plan_lines(
             nodes, order, "corosio", "develop", clean=True,
             argv=[ "cuppa", "-D", "--rel", "-c", "--publish-package",
-                   "--build-and-publish-dependencies" ],
+                   "--cascade" ],
     ) ) )
     assert "Printing Cascade plan for cleaning package corosio [==develop]" in visible
     assert "then clean corosio [==develop] from this tree" in visible
@@ -1283,7 +1284,7 @@ def test_maybe_run_cascade_clean_skips_consume_refresh( monkeypatch ):
     class _Env( dict ):
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-package",
                     "clean",
             ) or default
@@ -1378,7 +1379,7 @@ def test_maybe_run_cascade_skips_current_and_skips_refresh( monkeypatch ):
     class _Env( dict ):
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-package",
             ) or default
 
@@ -1433,7 +1434,7 @@ def test_maybe_run_cascade_runs_nested_graph_once( monkeypatch ):
 
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-package",
             ) or default
 
@@ -1490,7 +1491,7 @@ def test_maybe_run_cascade_build_deps_uses_nested_build_not_publish( monkeypatch
 
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "build-cascade-dependencies",
             ) or default
 
@@ -1554,7 +1555,7 @@ def test_maybe_run_cascade_refreshes_only_after_upload( monkeypatch ):
     class _Env( dict ):
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "publish-package",
             ) or default
 
@@ -1625,13 +1626,13 @@ def test_cascade_stop_before_build_update_without_publish():
             return name in self._flags or default
 
     assert cascade.cascade_stop_before_build( _Env( {
-            "build-and-publish-dependencies", "update-publishers",
+            "cascade", "update-publishers",
     } ) )
     assert not cascade.cascade_stop_before_build( _Env( {
-            "build-and-publish-dependencies", "update-publishers", "publish-package",
+            "cascade", "update-publishers", "publish-package",
     } ) )
     assert not cascade.cascade_stop_before_build( _Env( {
-            "build-and-publish-dependencies", "update-publishers",
+            "cascade", "update-publishers",
             "publish-cascade-dependencies",
     } ) )
 
@@ -1640,7 +1641,7 @@ def test_maybe_run_cascade_refuses_plan_with_update():
     class _Env:
         def get_option( self, name, default=None ):
             return name in (
-                    "build-and-publish-dependencies",
+                    "cascade",
                     "cascade-plan",
                     "update-publishers",
             ) or default
@@ -1907,7 +1908,7 @@ def test_update_publisher_trees_leaves_alone_when_untracked_would_overwrite( mon
 def test_tip_forward_args_drops_cascade_plan():
     tip = [
             "scons", "-D", "--rel",
-            "--build-and-publish-dependencies",
+            "--cascade",
             "--cascade-plan",
     ]
     assert cascade.tip_forward_args( tip ) == [
@@ -1924,7 +1925,7 @@ def test_tip_forward_args_keeps_variant_and_toolchains_drops_cascade():
             "--rel",
             "--toolchains=gcc15",
             "--publish-package",
-            "--build-and-publish-dependencies",
+            "--cascade",
             "--publisher-root=../../",
             "--cuppa-mode",
     ]
@@ -1948,7 +1949,7 @@ def test_tip_forward_args_drops_publisher_root_separate_value():
             "--publish-package",
             "--publisher-root",
             "/pubs",
-            "--build-and-publish-dependencies",
+            "--cascade",
     ]
     assert cascade.tip_forward_args( tip ) == [
             "-D",
@@ -3211,7 +3212,7 @@ def test_the_plan_says_when_a_develop_tree_was_configured_but_not_used():
     }
     body = "\n".join( cascade.cascade_plan_lines(
             nodes, [ key ], "corosio", "0.2.0",
-            argv=[ "cuppa", "-D", "--cascade-plan", "--build-and-publish-dependencies" ],
+            argv=[ "cuppa", "-D", "--cascade-plan", "--cascade" ],
     ) )
 
     assert "given the command:" in body
@@ -3240,7 +3241,7 @@ def test_unused_develop_with_no_other_tree_is_notes_not_a_false_error():
     }
     body = "\n".join( cascade.cascade_plan_lines(
             nodes, [ key ], "corosio", "0.2.0",
-            argv=[ "cuppa", "-D", "--cascade-plan", "--build-and-publish-dependencies" ],
+            argv=[ "cuppa", "-D", "--cascade-plan", "--cascade" ],
     ) )
     # highlight_values wraps --flags in ANSI, so assert tokens rather than a contiguous phrase.
     visible = re.sub( r"\x1b\[[0-9;]*m", "", body )
@@ -3392,7 +3393,7 @@ def test_a_cloneable_url_without_clone_flag_is_a_plan_warning_not_an_error( tmp_
             nodes, [ ( "capy", "capy", "develop" ) ], "corosio", "0.2.0",
             argv=[
                     "cuppa", "-D", "--rel", "--toolchains=gcc15",
-                    "--build-and-publish-dependencies", "--cascade-plan",
+                    "--cascade", "--cascade-plan",
             ],
     ) )
     assert "given the command:" in body
@@ -3416,12 +3417,12 @@ def test_colour_plan_command_line_drops_cuppa_mode():
 def test_colour_plan_command_line_emphasises_cascade_flags():
     coloured = cascade.colour_plan_command_line( [
             "cuppa", "-D", "--rel", "--toolchains=gcc15",
-            "--build-and-publish-dependencies", "--cascade-plan",
+            "--cascade", "--cascade-plan",
             "--capy-gitlab-develop=../capy",
     ] )
     assert coloured.startswith( "cuppa " )
     # Emphasised tokens wrap the flag; values after '=' stay info-coloured.
-    assert "--build-and-publish-dependencies" in coloured
+    assert "--cascade" in coloured
     assert "--cascade-plan" in coloured
     assert "--capy-gitlab-develop" in coloured
     assert "../capy" in coloured
@@ -3587,7 +3588,7 @@ def test_tip_forward_args_drops_tip_dependency_options():
             "--capy-gitlab-develop=../capy",
             "--capy-gitlab-package-source=git@gitlab.example:packages/capy@develop",
             "--publish-package",
-            "--build-and-publish-dependencies",
+            "--cascade",
     ], env=env )
 
     assert "--develop" in argv
@@ -3620,7 +3621,7 @@ def test_a_develop_path_with_sconstruct_is_a_publisher_source( tmp_path ):
 
     assert cascade.develop_is_publisher_source( _PlanEnv( {} ), str( tree ) )
     assert cascade.develop_is_publisher_source(
-            _PlanEnv( { "build-and-publish-dependencies": True } ), str( tree )
+            _PlanEnv( { "cascade": True } ), str( tree )
     )
 
 
@@ -4572,7 +4573,7 @@ def test_tip_package_eligible_via_declared_package_source( tmp_path ):
     dependency = _package_dependency( "capy", None )
     dependency._package_source = "git@gitlab.example:packages/capy"
     env = _PlanEnv(
-            { "build-and-publish-dependencies": True },
+            { "cascade": True },
             {
                     "sconstruct_dir": str( tmp_path / "project" ),
                     "dependencies": { "capy": dependency },
@@ -4585,7 +4586,7 @@ def test_tip_package_eligible_via_develop_path( tmp_path ):
     ( tmp_path / "project" ).mkdir()
     env = _develop_env(
             tmp_path, "capy", "../capy",
-            **{ "build-and-publish-dependencies": True },
+            **{ "cascade": True },
     )
     assert cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "1.0" )
 
@@ -4607,7 +4608,7 @@ def test_tip_package_eligible_via_publish_manifest_edge( tmp_path ):
             ],
     )
     env = _PlanEnv(
-            { "build-and-publish-dependencies": True },
+            { "cascade": True },
             { "sconstruct_dir": str( project ) },
     )
     assert cascade.tip_package_is_cascade_eligible( env, "capy", "capy", "2.0" )
@@ -4632,7 +4633,7 @@ def test_tip_package_ineligible_when_nested( tmp_path, monkeypatch ):
     dependency = _package_dependency( "capy", None )
     dependency._package_source = "git@gitlab.example:packages/capy"
     env = _PlanEnv(
-            { "build-and-publish-dependencies": True },
+            { "cascade": True },
             {
                     "sconstruct_dir": str( tmp_path / "project" ),
                     "dependencies": { "capy": dependency },
@@ -4654,7 +4655,7 @@ def test_tip_package_ineligible_registry_only( tmp_path ):
             ],
     )
     env = _PlanEnv(
-            { "build-and-publish-dependencies": True },
+            { "cascade": True },
             {
                     "sconstruct_dir": str( project ),
                     "dependencies": { "capy": _package_dependency( "capy", None ) },

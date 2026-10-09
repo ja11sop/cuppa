@@ -52,8 +52,8 @@ from cuppa.scms.git import Git
 from cuppa.utility import storage
 
 
-# Primary master enable spelling. Env dest stays the historical name so existing
-# get_option / saved-option paths keep working; both CLI flags set that dest.
+# Primary master enable (CLI + env dest). Legacy spelling is a deprecated CLI
+# alias on the same dest; remove in Cuppa 2.0.
 CASCADE_OPTION = "cascade"
 CASCADE_OPTION_LEGACY = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
@@ -104,8 +104,9 @@ def cascade_enabled( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if not callable( getter ):
         return False
-    # Both ``--cascade`` and ``--build-and-publish-dependencies`` store here.
-    return bool( getter( CASCADE_OPTION_LEGACY ) )
+    # Primary dest is ``cascade``. Accept the legacy dest name if anything still
+    # stores it (tests / old fixtures); CLI alias maps onto ``CASCADE_OPTION``.
+    return bool( getter( CASCADE_OPTION ) or getter( CASCADE_OPTION_LEGACY ) )
 
 
 # Tip package pins whose registry fetch was deferred until cascade publishes them.

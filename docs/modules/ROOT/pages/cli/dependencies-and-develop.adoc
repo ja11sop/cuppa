@@ -171,9 +171,8 @@ CMake* methods no-op; other `Command()` graphs should follow the same pattern if
 they participate). Pair with `--publish-package` to upload. See
 xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
-`--cascade` enables cascade for GitLab package dependencies (synonym:
-`--build-and-publish-dependencies`). Pair with a companion action:
-`--publish-package` (nested publish + tip upload),
+`--cascade` enables cascade for GitLab package dependencies.
+Pair with a companion action: `--publish-package` (nested publish + tip upload),
 `--publish-cascade-dependencies` (nested publish, tip build only — consume-only
 and publisher tips), `--build-cascade-dependencies` (nested build without
 registry upload, tip build only), or a stop mode (`--cascade-plan` /
@@ -182,6 +181,9 @@ overrides the default `<storage-root>/publishers` forest when resolving trees.
 See
 xref:dependencies/publishing/cascade.adoc#cascade[Cascading dependency publishes]
 and xref:dependencies/publishing/cascade.adoc#cascade-consume-only[Consume-only tips].
+
+IMPORTANT: `--build-and-publish-dependencies` is a deprecated alias of
+`--cascade` (removed in Cuppa 2.0).
 
 `--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
 continues with the tip **build** (no tip upload). Requires `--cascade`. Cannot

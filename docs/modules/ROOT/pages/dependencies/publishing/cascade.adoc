@@ -18,9 +18,9 @@ require that nested ``cuppa <...> --publish-package`` can stage ``include/`` /
 (``--build-cascade-dependencies``) runs nested project builds without that
 upload.
 
-Pass ``--cascade`` (synonym: ``--build-and-publish-dependencies``) with
-**exactly one** companion action. The master flag only *enables* cascade; it
-does not by itself upload — the companion chooses nest-build vs nest-publish:
+Pass ``--cascade`` with **exactly one** companion action. The master flag only
+*enables* cascade; it does not by itself upload — the companion chooses
+nest-build vs nest-publish:
 
 [cols="2,3,3"]
 |===
@@ -56,6 +56,9 @@ does not by itself upload — the companion chooses nest-build vs nest-publish:
 Bare ``--cascade`` alone is refused. The nest companions
 (``--publish-package``, ``--publish-cascade-dependencies``,
 ``--build-cascade-dependencies``) cannot be combined with each other.
+
+IMPORTANT: ``--build-and-publish-dependencies`` is a **deprecated** alias of
+``--cascade`` and will be removed in Cuppa **2.0**. Prefer ``--cascade``.
 
 [source,shell]
 ----

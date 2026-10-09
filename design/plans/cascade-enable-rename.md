@@ -7,7 +7,7 @@
 
 ## Problem
 
-`--build-and-publish-dependencies` is the **master switch** that enables package-DAG
+`--build-and-publish-dependencies` was the **master switch** that enables package-DAG
 cascade (resolve publisher trees, allow nest sessions). It does **not** mean
 “you will upload.” End-state is chosen by a companion:
 
@@ -19,8 +19,8 @@ cascade (resolve publisher trees, allow nest sessions). It does **not** mean
 | `--publish-package` | nest-publish | tip upload too | yes |
 
 Operators who want “build deps and consume them as-if published” correctly pass
-`--build-and-publish-dependencies --build-cascade-dependencies`, but the master
-name implies publish. That naming stuck from the first design (cascade ≈ build
+the master enable plus `--build-cascade-dependencies`, but the old master name
+implied publish. That naming stuck from the first design (cascade ≈ build
 **and** publish); nest-build without upload landed later ([#339](https://github.com/ja11sop/cuppa/pull/339)).
 
 ## Settled direction
@@ -28,14 +28,15 @@ name implies publish. That naming stuck from the first design (cascade ≈ build
 | Question | Decision |
 |----------|----------|
 | Primary spelling | **`--cascade`** — short master enable; matches how operators already talk (“pass `--cascade`”) |
-| Old flag | Keep **`--build-and-publish-dependencies`** as a **synonym** (same dest); no deprecation warning in 1.12.0 unless soak shows confusion remains |
+| Old flag | **`--build-and-publish-dependencies`** is a **deprecated CLI alias** on the same dest (`cascade`); **remove in Cuppa 2.0**. Product docs: one IMPORTANT admonition only (not in main prose / samples). `--help`: short “Deprecated alias of --cascade” |
 | Companions | Unchanged names and refuse rules (still require the master enable) |
-| Docs / samples | Prefer `--cascade` in Antora and generated samples; mention the long form once as alias |
-| Help text | Master: “enable package-dependency cascade (pair with a companion action)”. Long form help notes it is an alias for `--cascade` |
-| Code constant | Prefer `CASCADE_OPTION = "cascade"` (or dual registration); keep string `"build-and-publish-dependencies"` accepted via `add_option` alias / second dest |
+| Docs / samples | Antora and generated samples use **`--cascade` only** (plus the deprecation admonition) |
+| Help / refusals | Master and companions name `--cascade`; nested drop still strips the legacy spelling |
+| Code | `CASCADE_OPTION = "cascade"` (dest); `CASCADE_OPTION_LEGACY` kept for nested drop / banner emphasise until 2.0 |
+| Historical design plans | **Do not rewrite** archive / past CHANGELOG entries that document the old flag name |
 
 Refuse inventing a third parallel name (`--enable-cascade`, `--cascade-dependencies`)
-in the same PR — one primary + one historical synonym is enough.
+in the same PR — one primary + one deprecated alias is enough.
 
 ## Mental model (after)
 
@@ -49,19 +50,19 @@ in the same PR — one primary + one historical synonym is enough.
 
 ## Implementation sketch
 
-1. Register `--cascade` (and keep `--build-and-publish-dependencies`) on the same
-   dest used by `cascade_enabled()` / `CASCADE_OPTION`.
-2. Update Options Error / StopError / plan finish copy that hard-codes the long
-   name to say `--cascade` (mention alias where refusal text lists the flag).
-3. Antora + CHANGELOG: primary examples use `--cascade`; long form = synonym.
-4. Unit tests: either spelling enables cascade; companions still require enable.
+1. Register `--cascade` (`dest=cascade`) and keep `--build-and-publish-dependencies`
+   as deprecated alias on the same dest.
+2. Options Error / StopError / plan finish copy use `--cascade`.
+3. Antora + samples: `--cascade` only; one deprecation admonition for the old name.
+4. Unit tests: primary dest `cascade`; coverage that nested argv still drops the legacy spelling.
 5. No behaviour change to nest argv, skip-if-current, or tip consume vs publish.
 
 ## Non-goals
 
 - Renaming `--build-cascade-dependencies` / `--publish-cascade-dependencies`.
 - Making bare `--cascade` imply nest-build or nest-publish (still need a companion).
-- Removing the long form in 1.12.0.
+- Removing the long form before 2.0.
+- Rewriting shipped design-archive history that named the old flag.
 - Forest stem keying (still deferred on the shipped cascade plan).
 
 ## Progress
@@ -69,5 +70,5 @@ in the same PR — one primary + one historical synonym is enough.
 | Item | Status |
 |------|--------|
 | Problem / settle table | Done — this proposal |
-| Implementation | Done on this PR — ``--cascade`` + legacy synonym; nested drop both spellings |
-| Docs / samples / tests | Done on this PR — Antora cascade page, refusal copy, unit coverage |
+| Implementation | Done on this PR — ``--cascade`` dest + deprecated alias; nested drop both spellings |
+| Product docs / samples / tests | Done — admonition-only deprecation; archive plans left historical |

@@ -93,7 +93,7 @@ widget = cuppa.package_dependency(
 
 It is metadata: nothing about consuming the package reads it. Two workflows do.
 xref:dependencies/managing/develop.adoc#package-dependencies[`--clone-develop`] uses it to create
-the develop working copy above, and xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[cascade]
+the develop working copy above, and xref:dependencies/publishing/cascade.adoc#cascade[cascade]
 uses it to find the project that publishes the package. An optional `@branch` pin may be given,
 and `--<name>-<manager>-package-source=` overrides the declaration for one run.
 
