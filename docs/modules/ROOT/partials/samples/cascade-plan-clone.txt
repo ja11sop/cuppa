@@ -1,5 +1,5 @@
 Printing Cascade plan for building and publishing package widget [==0.2.0] given the command:
-cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan --clone-publishers
+cuppa -D --rel --toolchains=gcc15 --cascade --cascade-plan --clone-publishers
 
 Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 errors][0 warnings][2 notes]
 │

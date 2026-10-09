@@ -333,7 +333,7 @@ def test_a_publisher_source_tree_is_not_swapped_in_during_a_cascade(
             tmp_path,
             monkeypatch,
             storage_resolve_only=True,
-            **{"build-and-publish-dependencies": True},
+            **{"cascade": True},
         ),
         registry="https://gitlab.example/api/v4/projects/1",
         package="widget",
@@ -470,7 +470,7 @@ def test_a_built_prefix_is_still_swapped_in_during_a_cascade(tmp_path, monkeypat
 
     package = GitlabPackageDependency(
         _develop_env(
-            tmp_path, monkeypatch, **{"build-and-publish-dependencies": True}
+            tmp_path, monkeypatch, **{"cascade": True}
         ),
         registry="https://gitlab.example/api/v4/projects/1",
         package="widget",

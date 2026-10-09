@@ -2174,7 +2174,7 @@ def _cascade_plan_publisher_fixture():
     order = [ ( 'capy', 'capy', 'develop' ), ( 'corosio', 'corosio', '0.3.1' ) ]
     argv = [
             'cuppa', '-D', '--rel', '--toolchains=gcc15',
-            '--build-and-publish-dependencies', '--cascade-plan',
+            '--cascade', '--cascade-plan',
             '--publisher-root=~/coding/packages',
     ]
     return nodes, order, 'widget', '0.2.0', argv
@@ -2201,7 +2201,7 @@ def _cascade_plan_consume_fixture():
     order = [ ( 'capy', 'capy', 'develop' ), ( 'corosio', 'corosio', '0.3.1' ) ]
     argv = [
             'cuppa', '-D', '--rel', '--toolchains=gcc15',
-            '--build-and-publish-dependencies', '--cascade-plan',
+            '--cascade', '--cascade-plan',
     ]
     return nodes, order, 'widget', 'consume', argv
 
@@ -2224,7 +2224,7 @@ def _cascade_plan_clone_fixture():
     order = [ ( 'capy', 'capy', 'develop' ) ]
     argv = [
             'cuppa', '-D', '--rel', '--toolchains=gcc15',
-            '--build-and-publish-dependencies', '--cascade-plan',
+            '--cascade', '--cascade-plan',
             '--clone-publishers',
     ]
     return nodes, order, 'widget', '0.2.0', argv

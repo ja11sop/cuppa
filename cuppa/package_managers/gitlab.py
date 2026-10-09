@@ -1899,7 +1899,7 @@ class GitlabPackageDependency:
                         logger.info(
                                 "Package [{}] is not in the registry yet (404); "
                                 "deferring tip consume until "
-                                "--build-and-publish-dependencies publishes it"
+                                "--cascade publishes it"
                                 .format( as_info( self._package_id ) )
                         )
                         return
