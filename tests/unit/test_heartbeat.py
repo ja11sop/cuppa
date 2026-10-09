@@ -935,20 +935,19 @@ def test_rapid_non_sticky_info_can_flush_several_times_per_cycle():
     hb.reset()
 
 
-def test_operation_status_terse_tty_reveals_after_idle_gate( monkeypatch ):
-    from cuppa.output_processor import strip_ansi
+def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatch ):
+    """Compact terse arms the same heartbeat row — not a second painter."""
     import cuppa.utility.download as download_mod
 
     hb.reset()
     hb.set_presentation( style='pulse', compact=True )
     stream = io.StringIO()
     clock = FakeClock()
-    # Worker thread advances the shared fake clock when it sleeps.
-    lock = __import__( 'threading' ).Lock()
+    sleeps = []
 
     def sleep( seconds ):
-        with lock:
-            clock.advance( seconds )
+        sleeps.append( seconds )
+        clock.advance( seconds )
 
     monkeypatch.setattr( hb, '_clock', clock )
     monkeypatch.setattr( hb, '_sleep', sleep )
@@ -956,18 +955,73 @@ def test_operation_status_terse_tty_reveals_after_idle_gate( monkeypatch ):
             download_mod, 'open_progress_stream',
             lambda: ( stream, True, False ),
     )
-    monkeypatch.setattr( hb, '_IDLE_GATE_S', 0.05 )
-    monkeypatch.setattr( hb, '_PULSE_INTERVAL_S', 0.01 )
-    monkeypatch.setattr( hb, '_PULSE_REST_INTERVAL_S', 0.01 )
+    monkeypatch.setattr( hb, '_columns', 200 )
 
-    with hb.operation_status( 'Updating [libfoo]' ):
-        # Let the worker run past the idle gate and paint at least once.
-        import time as time_mod
-        for _ in range( 40 ):
-            if 'Updating [libfoo]' in strip_ansi( stream.getvalue() ):
-                break
-            time_mod.sleep( 0.01 )
-        assert 'Updating [libfoo]' in strip_ansi( stream.getvalue() )
+    assert hb.ensure_status_row() is True
+    assert hb.status_row_active() is True
+    assert hb.diverting() is False
+    assert hb.quiet_console() is False
+
+    with hb.operation_status(
+            'Updating [libfoo] · git+https://example.com/very/long/path@master'
+    ):
+        body = _status_body( stream )
+        assert 'Updating [libfoo]' in body
+        # Shared column probe on the owned TTY — not the pipe's 80 fallback.
+        assert '\u2026' not in body
+        assert visible_len( body ) > 80
+
+    # Exit releases sticky without full-cycle dwell.
+    cycle = hb._cycle_duration_s()
+    assert sum( sleeps ) < cycle * 0.5
+    assert hb.diverting() is False
+    hb.reset()
+
+
+def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monkeypatch ):
+    """Uncounted resolve children must not seize one ECG cycle each."""
+    import cuppa.utility.download as download_mod
+    from cuppa.progress import _write_terse_stdout
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    sleeps = []
+
+    def sleep( seconds ):
+        sleeps.append( seconds )
+        clock.advance( seconds )
+
+    monkeypatch.setattr( hb, '_clock', clock )
+    monkeypatch.setattr( hb, '_sleep', sleep )
+    monkeypatch.setattr(
+            download_mod, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+
+    out = io.StringIO()
+    real_stdout = hb.sys.stdout
+    hb.sys.stdout = out
+    try:
+        with hb.operation_status( 'Updating [fmt]' ):
+            assert 'Updating [fmt]' in _status_body( stream )
+        _write_terse_stdout(
+                '              → [update]   <fmt> · main · abcdef01\n',
+                dwell=False,
+        )
+        _write_terse_stdout(
+                '              → [location] <date> = git_https_… · repository\n',
+                dwell=False,
+        )
+    finally:
+        hb.sys.stdout = real_stdout
+
+    cycle = hb._cycle_duration_s()
+    assert sum( sleeps ) < cycle * 0.5
+    assert '[update]' in out.getvalue()
+    assert '[location]' in out.getvalue()
     hb.reset()
 
 

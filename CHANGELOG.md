@@ -78,6 +78,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``uploaded [archive.tar.gz]`` (brackets plain, leaf notice) when the
   marker carries a path. Property-based resolve ensure phases remain
   deferred — see ``design/plans/transfer-and-archive-progress.md``.
+- Quiet+TTY / terse heartbeat: one shared status-row writer for retrieve
+  ``operation_status`` (quiet diverting *and* compact ``--terse-output``
+  without ``-Q``). Dropped the second paint loop that truncated captions at
+  the launcher pipe's 80-column fallback and froze a single ECG frame while
+  full-cycle dwelling. Uncounted resolve children (``[location]`` /
+  ``[update]`` / …) clear the row without that dwell so prepare→ready stays
+  network-bound instead of ~1.5s×N sleeps. ``diverting()`` means quiet+armed
+  only; compact terse may arm the row via ``ensure_status_row`` without
+  folding INFO onto it.
 - Quiet+TTY heartbeat: console report bodies (purge/list/wipe tables, not only
   mode banners) route through ``write_report`` while diverting, so stdout-pipe
   chunks cannot glue onto the status caption (``…downloadsRemoving…`` /

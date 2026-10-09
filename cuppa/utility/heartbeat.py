@@ -122,15 +122,6 @@ _last_transcript_at = 0.0
 # They do not age out to the pulse-only anchor until cleared or replaced.
 _sticky = False
 _pending_is_sticky = False
-# Terse-without-quiet operation_status owns a TTY status row separate from
-# quiet diversion; transcript writes must clear it the same way.
-_operation_stop = None
-_operation_stream = None
-_operation_owns = False
-_operation_last = ''
-_operation_painted = False
-_operation_since = None
-_operation_lock = threading.Lock()
 # SCons ``display()`` (clean ``Removed …``, etc.) bypasses PRINT_CMD_LINE;
 # route those lines through ``write_line`` while the heartbeat is diverting.
 _scons_display_patched = False
@@ -613,43 +604,43 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     TTY + pipe: interactive → owned stream only; CI / piped launcher → pipe
     only (after clearing any status).
 
-    When not diverting, write ``sys.stdout`` (after clearing operation_status /
-    ProgressReporter so terse-without-quiet rows cannot glue).
+    When not diverting, write ``sys.stdout`` after clearing any armed status
+    row (compact terse ``operation_status`` shares that row) and any active
+    ProgressReporter so rows cannot glue.
     """
     global _pending, _pending_is_sticky
-    if dwell and diverting():
+    if dwell and status_row_active():
         ensure_min_dwell()
-    clear_operation_status( dwell=dwell )
     try:
         from cuppa.utility.download import clear_active_progress
         clear_active_progress()
     except Exception:
         pass
     with _transcript_lock:
-        if diverting():
-            interactive = _outer_stdout_is_tty()
-            with _draw_lock:
-                _mark_transcript_unlocked()
-                if _last_line or _body is not None:
-                    _clear_unlocked( advance=False, keep_pending=keep_pending )
-                elif not keep_pending:
-                    # Reports drop pending INFO even when the row is blank.
-                    _pending = None
-                    _pending_is_sticky = False
-                if interactive and _heartbeat_active and _stream is not None:
-                    try:
-                        _stream.write( text )
-                        _stream.flush()
-                        return
-                    except Exception:
-                        pass
-            # Piped launcher / CI: durable line on the pipe only.
-            sys.stdout.write( text )
-            try:
-                sys.stdout.flush()
-            except Exception:
-                pass
-            return
+        interactive = _outer_stdout_is_tty()
+        with _draw_lock:
+            _mark_transcript_unlocked()
+            if _last_line or _body is not None:
+                _clear_unlocked( advance=False, keep_pending=keep_pending )
+            elif not keep_pending:
+                # Reports drop pending INFO even when the row is blank.
+                _pending = None
+                _pending_is_sticky = False
+            # Quiet diverting + interactive: durable line on the owned TTY.
+            if (
+                    diverting()
+                    and interactive
+                    and _heartbeat_active
+                    and _stream is not None
+            ):
+                try:
+                    _stream.write( text )
+                    _stream.flush()
+                    return
+                except Exception:
+                    pass
+        # Non-diverting (incl. compact terse status row) or piped launcher:
+        # durable line on the pipe / stdout only (status already cleared).
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
@@ -682,8 +673,18 @@ def quiet_console():
 
 
 def diverting():
-    """True when INFO is folded onto the TTY status line."""
-    return _heartbeat_active
+    """True when INFO is folded onto the TTY status line.
+
+    Requires quiet console configuration *and* an armed status row. Compact
+    terse may arm the same row for ``operation_status`` without diverting INFO
+    (see :func:`ensure_status_row`).
+    """
+    return bool( _quiet_console and _heartbeat_active )
+
+
+def status_row_active():
+    """True when the owned TTY status row is armed (quiet or compact terse)."""
+    return bool( _heartbeat_active and _stream is not None )
 
 
 def suppress_below():
@@ -942,48 +943,44 @@ def configure_quiet_console(
     set_logging_level( 'info' )
 
 
-def clear_operation_status( dwell=True ):
-    """Erase a terse-without-quiet ``operation_status`` row, if any."""
-    global _operation_stop, _operation_stream, _operation_owns
-    global _operation_last, _operation_painted, _operation_since
-    global _wrap_off_sent, _wrap_disabled
-    with _operation_lock:
-        stop = _operation_stop
-        stream = _operation_stream
-        owns = _operation_owns
-        painted = _operation_painted
-        since = _operation_since
-        _operation_stop = None
-        _operation_stream = None
-        _operation_owns = False
-        _operation_last = ''
-        _operation_painted = False
-        _operation_since = None
-    if stop is not None:
-        stop.set()
-    if not painted or stream is None:
+def ensure_status_row():
+    """Arm the owned TTY status row for compact terse without INFO diversion.
+
+    Quiet+TTY already arms via :func:`configure_quiet_console`. Compact
+    ``--terse-output`` without ``-Q`` needs the same row for retrieve
+    ``operation_status`` captions so there is one painter (columns, wrap,
+    pulse) — not a second ``open_progress_stream`` loop.
+    """
+    global _stream, _owns_stream, _heartbeat_active
+    if _style == _STYLE_OFF or not _compact:
+        return False
+    if _heartbeat_active and _stream is not None:
+        return True
+    from cuppa.utility.download import open_progress_stream
+    stream, is_tty, owns = open_progress_stream()
+    if not is_tty:
         if owns and stream is not None:
             try:
                 stream.close()
             except Exception:
                 pass
-        return
-    if dwell and since is not None:
-        remaining = max( 0.0, _cycle_duration_s() - ( _clock() - since ) )
-        if remaining > 0:
-            _sleep( remaining )
-    try:
-        stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
-        stream.flush()
-        _wrap_off_sent = False
-        _wrap_disabled = False
-    except Exception:
-        pass
-    if owns:
-        try:
-            stream.close()
-        except Exception:
-            pass
+        return False
+    _stream = stream
+    _owns_stream = bool( owns )
+    _heartbeat_active = True
+    return True
+
+
+def clear_operation_status( dwell=True ):
+    """Compatibility clear for the unified status row.
+
+    Older call sites cleared a private terse ``operation_status`` painter.
+    That path is gone — clear the shared heartbeat row instead.
+    """
+    if dwell and status_row_active():
+        ensure_min_dwell()
+    if status_row_active() and ( _last_line or _body is not None ):
+        clear()
 
 
 @contextmanager
@@ -991,16 +988,16 @@ def operation_status( message ):
     """Keep the console alive during a long wait (git update, clone, …).
 
     Location retrieve uses pip's quiet ``git fetch``, so Cuppa owns no byte
-    bar there. This arms the same alive presentation the transfer engine uses:
+    bar there. One shared status row (quiet diverting *or* compact terse):
 
-    * **Quiet diverting** — caption on the heartbeat (idle-gate aware, like INFO).
-    * **Terse + TTY** (not quiet) — alive + ``→`` + message after the idle gate;
-      pulse while waiting; dwell one cycle and clear on exit (and before any
-      terse transcript line via ``write_transcript``).
-    * **Otherwise** — no-op (callers still ``logger.info`` when not terse).
+    * Arm via quiet configure or :func:`ensure_status_row`.
+    * Sticky :func:`show_info` caption; pulse on the owned TTY.
+    * Exit releases sticky **without** full-cycle dwell (same-row continuity
+      for sequential retrieves; durable ``[update]`` / transcript clears).
+    * Otherwise — no-op (callers still ``logger.info`` when not terse).
 
     Under ``--terse-output`` the retrieve path skips multi-line INFO so the
-    heartbeat would never see a start trigger without this helper.
+    status row would never see a start trigger without this helper.
     """
     from cuppa.output_processor import strip_ansi
 
@@ -1009,7 +1006,7 @@ def operation_status( message ):
         yield
         return
 
-    if diverting():
+    if diverting() or ensure_status_row():
         # In-progress: keep the caption until we clear (do not age out to pulse-only).
         show_info( text, sticky=True )
         try:
@@ -1025,98 +1022,7 @@ def operation_status( message ):
             _release_sticky_caption()
         return
 
-    if not _compact or _style == _STYLE_OFF:
-        yield
-        return
-
-    from cuppa.utility.download import open_progress_stream
-
-    # Replace any prior operation_status before starting a new one.
-    clear_operation_status( dwell=False )
-
-    stream, is_tty, owns = open_progress_stream()
-    if not is_tty:
-        if owns and stream is not None:
-            try:
-                stream.close()
-            except Exception:
-                pass
-        yield
-        return
-
-    stop = threading.Event()
-    spin = [ 0 ]
-
-    def _paint():
-        global _operation_last, _operation_painted, _operation_since
-        global _wrap_off_sent, _wrap_disabled
-        from cuppa.colourise import as_subdued
-        from cuppa.output_processor import strip_ansi as _strip
-
-        if stop.is_set():
-            return
-        plain_prefix, styled_prefix = format_alive_prefix(
-                spin[0], style=_style, compact=True,
-        )
-        cols = _terminal_columns()
-        budget = max( 1, cols - len( plain_prefix ) )
-        fitted = _fit_plain( _strip( text ), budget )
-        line = styled_prefix + as_subdued( fitted )
-        with _operation_lock:
-            # Cleared or superseded by another operation_status / transcript.
-            if _operation_stream is not stream or stop.is_set():
-                return
-            try:
-                # Same protocol as quiet heartbeat: no wrap, erase tail.
-                stream.write( _WRAP_OFF + '\r' + line + _ERASE_EOL )
-                stream.flush()
-            except Exception:
-                return
-            _wrap_off_sent = True
-            _wrap_disabled = True
-            if not _operation_painted:
-                _operation_painted = True
-                _operation_since = _clock()
-            _operation_last = line
-        spin[0] += 1
-
-    def _run():
-        deadline = _clock() + _IDLE_GATE_S
-        while _clock() < deadline:
-            if stop.is_set():
-                return
-            _sleep( min( 0.02, deadline - _clock() ) )
-        if stop.is_set():
-            return
-        while not stop.is_set():
-            _paint()
-            if _style == _STYLE_PULSE and _pulse_frame( spin[0] ) == _PULSE_REST:
-                delay = _PULSE_REST_INTERVAL_S
-            else:
-                delay = _PULSE_INTERVAL_S
-            end = _clock() + delay
-            while _clock() < end and not stop.is_set():
-                _sleep( min( 0.02, end - _clock() ) )
-
-    with _operation_lock:
-        global _operation_stop, _operation_stream, _operation_owns
-        global _operation_last, _operation_painted, _operation_since
-        _operation_stop = stop
-        _operation_stream = stream
-        _operation_owns = bool( owns )
-        _operation_last = ''
-        _operation_painted = False
-        _operation_since = None
-
-    thread = threading.Thread( target=_run, name='cuppa-operation-status' )
-    thread.daemon = True
-    thread.start()
-    try:
-        yield
-    finally:
-        stop.set()
-        thread.join( timeout=2.0 )
-        clear_operation_status( dwell=True )
+    yield
 
 
 def pulse_ephemeral_status( message ):

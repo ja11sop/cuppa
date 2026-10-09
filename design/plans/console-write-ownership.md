@@ -116,9 +116,14 @@ dedupe (dedupe remains a belt-and-braces for same-process double Construct).
 
 ### ProgressReporter / operation_status
 
-Enrol on the same stream + lock as heartbeat (already partially true).
-`clear_active_progress` stays, but becomes redundant for shear once durable
-lines never leave the owned stream.
+Enrol on the same stream + lock as heartbeat. Compact terse
+``operation_status`` arms that row via ``ensure_status_row`` (no second
+painter / no pipe 80-col fit). ``diverting()`` stays quiet-only so INFO is
+not folded when only the status row is armed. Uncounted resolve children
+write with ``dwell=False`` — **not** all of terse: idle gate and tool/transfer
+dwell remain. Diagrams and the dwell/idle-gate table live in
+[`quiet-tty-heartbeat.md` § One alive writer + resolve continuity](quiet-tty-heartbeat.md#one-alive-writer--resolve-continuity).
+`clear_active_progress` stays for transfer bars.
 
 ### Cmake Up-to-date summary (content follow-on, after ownership)
 
@@ -177,4 +182,5 @@ enter/exit. Publisher tips `defer_tip_cascade` during construction;
 | First Ctrl-C forwards stop to delegates | Done — ``interrupt_build_children`` (``SIGINT``) on first stop; ``SIGTERM`` on second |
 | Parallel terse failure drain note | Done — once after first ``[error]`` under ``-j``: ``failed — draining in-flight jobs...`` |
 | Quiet heartbeat vs ``-c`` clean | Done — clean forces heartbeat ``off``; SCons ``display()`` routed through ``write_line`` while diverting |
+| One alive writer + resolve ``dwell=False`` | Done — ``ensure_status_row``; resolve map/child/bookend skip full-cycle dwell |
 | TTY autowrap restore after heartbeat | Done — ``restore_terminal_wrap`` on clear/reset/atexit + construct start heal |

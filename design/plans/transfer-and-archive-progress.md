@@ -162,7 +162,7 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | Compress (`create_package_archive`) | Done on this PR |
 | Terse completion identity (download / extract / compress / publish) | Done on this PR |
 | Upload live progress bar | Done — ``upload_file`` PUT + ``ProgressReporter``; ``GitlabPackagePublisher.publish_package`` no longer shells to curl |
-| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO); captions ``Updating   <token> · url@branch`` (pad to ``[location]``), full ``~/`` path line in normal (incl. ``-Q``) |
+| Location git update/clone start trigger under terse | Done — ``heartbeat.operation_status`` (pip fetch is quiet; terse skipped INFO); captions ``Updating   <token> · url@branch`` (pad to ``[location]``), full ``~/`` path line in normal (incl. ``-Q``); one shared status row + resolve children ``dwell=False`` (no ~1.5s×N seize) |
 | Terse transfer mute body (keep green ECG) | Done — verb/label/metrics subdued; alive prefix stays hospital-green |
 | Package ``[collect]`` / ``[extract]`` with ``src → dest`` | Done — ``<registry>`` / ``<downloads>`` / stem tokens; package location RHS is ``name/ver`` (token carries version; no extra ``/3.9.0/`` segment) |
 | ``[ready]`` after all toolchains × sconscripts read | Done — no longer closes on the first tip ``BuildWith`` (gcc16 collect was after ready) |

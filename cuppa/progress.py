@@ -21,15 +21,18 @@ from cuppa.colourise import (
 from SCons.Script import Action
 
 
-def _write_terse_stdout( text ):
+def _write_terse_stdout( text, *, dwell=True ):
     """Write a terse transcript fragment; serialize under ``-j`` / ``--parallel``.
 
-    Clears the quiet heartbeat first when diverting. A process-wide transcript
-    lock prevents interleaved lines such as ``format.ovariant``.
+    Clears the status row first when armed. A process-wide transcript lock
+    prevents interleaved lines such as ``format.ovariant``.
+
+    ``dwell=False`` for uncounted resolve children (location / update / …)
+    so the alive cue is not seized for a full ECG cycle between each line.
     """
     try:
         from cuppa.utility.heartbeat import write_transcript
-        write_transcript( text )
+        write_transcript( text, dwell=dwell )
         return
     except Exception:
         pass
@@ -3216,7 +3219,10 @@ def write_terse_resolve_prepare( env ):
         summary = _counted_phrase(
                 len( declared ), "declared dependency", "declared dependencies",
         )
-    _write_terse_stdout( _format_resolve_bookend( env, "[prepare]", summary ) + "\n" )
+    _write_terse_stdout(
+            _format_resolve_bookend( env, "[prepare]", summary ) + "\n",
+            dwell=False,
+    )
     sys.stdout.flush()
 
 
@@ -3239,7 +3245,8 @@ def write_terse_resolve_ready( env ):
     _terse_ready_written = True
     _write_terse_stdout(
             _format_resolve_bookend( env, "[ready]", _read_checkpoint_summary( env ) )
-            + "\n"
+            + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
 
@@ -3308,7 +3315,8 @@ def write_terse_resolve_child( env, badge, token, *fields, status="ok", remark="
     _write_terse_stdout(
             format_terse_resolve_child(
                     env, badge, token, *fields, status=status, remark=remark,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
     return True
@@ -3376,7 +3384,8 @@ def write_terse_resolve_transfer(
             format_terse_resolve_transfer(
                     env, badge, token, *fields,
                     source=source, dest=dest, status=status, remark=remark,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
     return True
@@ -3445,7 +3454,7 @@ def label_terse_registry( env, registry ):
             + as_subdued( " = " )
             + as_subdued( base )
     )
-    _write_terse_stdout( line + "\n" )
+    _write_terse_stdout( line + "\n", dwell=False )
     sys.stdout.flush()
     return token
 
@@ -3516,7 +3525,8 @@ def write_terse_package_collect(
             format_terse_package_collect(
                     env, token, version, registry_token, archive_name,
                     status=status, remark=remark,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
     return True
@@ -3547,7 +3557,8 @@ def write_terse_package_extract(
             format_terse_package_extract(
                     env, token, version, archive_name, tool_variant,
                     status=status, remark=remark,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
     return True
@@ -3571,7 +3582,8 @@ def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
     _write_terse_stdout(
             format_terse_transfer_resolve(
                     env, action, source, dest, status=status,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
     return True
@@ -3611,7 +3623,8 @@ def _emit_sconstruct_location_map( token, path, env, kind="" ):
     _write_terse_stdout(
             format_terse_location_line(
                     token, path, env, scope="sconstruct", kind=kind,
-            ) + "\n"
+            ) + "\n",
+            dwell=False,
     )
     sys.stdout.flush()
 
