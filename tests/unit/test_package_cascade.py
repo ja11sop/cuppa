@@ -328,6 +328,19 @@ def test_tip_forward_args_drops_build_cascade_dependencies():
     assert "--publish-package" in forwarded
 
 
+def test_tip_forward_args_drops_cascade_primary_and_legacy():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--cascade",
+            "--build-and-publish-dependencies",
+            "--build-cascade-dependencies",
+    ] )
+    assert "--cascade" not in forwarded
+    assert "--build-and-publish-dependencies" not in forwarded
+    assert "--build-cascade-dependencies" not in forwarded
+    assert "--publish-package" in forwarded
+
+
 def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
     forwarded = cascade.tip_forward_args(
             [ "scons", "-D", "--rel", "--publish-package" ],
@@ -611,7 +624,7 @@ def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     try:
         with pytest.raises(
                 SCons.Errors.StopError,
-                match=r"Invalid option combination \(--build-and-publish-dependencies and -n/--no-exec\)",
+                match=r"Invalid option combination \(--cascade and -n/--no-exec\)",
         ):
             cascade.maybe_run_cascade( _Env(), _Publisher() )
     finally:
@@ -620,7 +633,7 @@ def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     out = capsys.readouterr().out
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out )
     assert "Options Error" in visible
-    assert "--build-and-publish-dependencies cannot run under -n/--no-exec" in visible
+    assert "--cascade cannot run under -n/--no-exec" in visible
     assert ".sconf_temp" in visible
     assert "--cascade-plan" in visible
     assert "--collect-cascade" in visible
@@ -654,7 +667,7 @@ def test_cascade_plan_requires_the_cascade_flag():
     env = _PlanEnv( { "cascade-plan": True } )
     with pytest.raises(
             SCons.Errors.StopError,
-            match="--cascade-plan requires --build-and-publish-dependencies",
+            match="--cascade-plan requires --cascade",
     ):
         cascade.maybe_run_cascade( env, _Publisher() )
 
@@ -713,7 +726,7 @@ def test_collect_cascade_requires_the_cascade_flag():
     env = _PlanEnv( { "collect-cascade": True } )
     with pytest.raises(
             SCons.Errors.StopError,
-            match="--collect-cascade requires --build-and-publish-dependencies",
+            match="--collect-cascade requires --cascade",
     ):
         cascade.maybe_run_cascade( env, type( "P", (), {
                 "_dependencies": [], "_package": "w", "_version": "1",
@@ -1059,7 +1072,7 @@ def test_finish_plan_only_names_the_missing_cascade_flag():
     out = io.StringIO()
     env = _PlanEnv( { "cascade-plan": True } )
     assert cascade.finish_plan_only( env, out=out ) == 1
-    assert "requires --build-and-publish-dependencies" in out.getvalue()
+    assert "requires --cascade" in out.getvalue()
 
 
 def test_finish_plan_only_exit_status_follows_resolution():

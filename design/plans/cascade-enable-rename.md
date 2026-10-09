@@ -1,6 +1,6 @@
 # Plan: Rename cascade master flag
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `cascade-enable-rename`; shipped cascade [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) ([#297](https://github.com/ja11sop/cuppa/issues/297)); companions `--build-cascade-dependencies` / `--publish-cascade-dependencies`
 - **Updated:** 2026-10-09
 - **Impact:** `minor` (CLI rename / alias; behaviour unchanged)
@@ -69,5 +69,5 @@ in the same PR — one primary + one historical synonym is enough.
 | Item | Status |
 |------|--------|
 | Problem / settle table | Done — this proposal |
-| Implementation | Pending |
-| Docs / samples / tests | Pending |
+| Implementation | Done on this PR — ``--cascade`` + legacy synonym; nested drop both spellings |
+| Docs / samples / tests | Done on this PR — Antora cascade page, refusal copy, unit coverage |

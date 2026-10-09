@@ -159,14 +159,13 @@ class PublishPackageMethod(object):
                 ),
         )
         add_option(
-                '--build-and-publish-dependencies',
+                '--cascade',
                 dest='build-and-publish-dependencies',
                 action='store_true',
                 help=(
-                        'Enable cascade for GitLab package dependencies '
-                        '(requires package_source and/or --publisher-root). '
-                        'Pair with a companion action: --publish-package '
-                        '(nested publish + tip upload), '
+                        'Enable package-dependency cascade (resolve publisher '
+                        'trees / nest sessions). Pair with a companion: '
+                        '--publish-package (nested publish + tip upload), '
                         '--publish-cascade-dependencies (nested publish, tip '
                         'build only), --build-cascade-dependencies (nested '
                         'build, no registry upload, tip build only), '
@@ -174,7 +173,17 @@ class PublishPackageMethod(object):
                         '--update-publishers. Not compatible with -n/--no-exec '
                         'when nested sessions would run. Nested publishes that '
                         'are already current in the registry are skipped unless '
-                        '--force is set.'
+                        '--force is set. Synonym: '
+                        '--build-and-publish-dependencies.'
+                ),
+        )
+        add_option(
+                '--build-and-publish-dependencies',
+                dest='build-and-publish-dependencies',
+                action='store_true',
+                help=(
+                        'Synonym for --cascade (historical name). Does not by '
+                        'itself upload; pair with a companion action.'
                 ),
         )
         add_option(
@@ -182,10 +191,10 @@ class PublishPackageMethod(object):
                 dest='force',
                 action='store_true',
                 help=(
-                        'With --build-and-publish-dependencies, rebuild and '
-                        'upload every resolved dependency even when the tip\'s '
-                        'consume archive already matches the registry. Also '
-                        'forces nested PublishPackage targets to rebuild.'
+                        'With --cascade, rebuild and upload every resolved '
+                        'dependency even when the tip\'s consume archive '
+                        'already matches the registry. Also forces nested '
+                        'PublishPackage targets to rebuild.'
                 ),
         )
         add_option(
@@ -193,13 +202,12 @@ class PublishPackageMethod(object):
                 dest='publish-cascade-dependencies',
                 action='store_true',
                 help=(
-                        'With --build-and-publish-dependencies, build and '
-                        '--publish-package each resolved GitLab package '
-                        'dependency (leaf-first), refresh tip consume caches, '
-                        'then continue with the tip build only — do not upload '
-                        'the tip. Cannot be combined with --publish-package or '
-                        '--build-cascade-dependencies. Works for consume-only '
-                        'tips and publisher tips.'
+                        'With --cascade, build and --publish-package each '
+                        'resolved GitLab package dependency (leaf-first), '
+                        'refresh tip consume caches, then continue with the tip '
+                        'build only — do not upload the tip. Cannot be combined '
+                        'with --publish-package or --build-cascade-dependencies. '
+                        'Works for consume-only tips and publisher tips.'
                 ),
         )
         add_option(
@@ -207,11 +215,10 @@ class PublishPackageMethod(object):
                 dest='build-cascade-dependencies',
                 action='store_true',
                 help=(
-                        'With --build-and-publish-dependencies, build each '
-                        'resolved GitLab package dependency (leaf-first) '
-                        'without registry upload, then continue with the tip '
-                        'build only. Nested sessions do not pass '
-                        '--publish-package. Cannot be combined with '
+                        'With --cascade, build each resolved GitLab package '
+                        'dependency (leaf-first) without registry upload, then '
+                        'continue with the tip build only. Nested sessions do '
+                        'not pass --publish-package. Cannot be combined with '
                         '--publish-package or --publish-cascade-dependencies. '
                         'Works for consume-only tips and publisher tips.'
                 ),
@@ -224,9 +231,8 @@ class PublishPackageMethod(object):
                         'Report the resolved cascade publish order and each '
                         'dependency\'s publisher tree, then stop without '
                         'cloning, building, publishing, or uploading anything. '
-                        'Requires --build-and-publish-dependencies; '
-                        '--publish-package is not needed because nothing is '
-                        'published.'
+                        'Requires --cascade; --publish-package is not needed '
+                        'because nothing is published.'
                 ),
         )
         add_option(
@@ -237,9 +243,9 @@ class PublishPackageMethod(object):
                         'Resolve the cascade graph and clone missing publisher '
                         'trees (with --clone-publishers) into the publishers '
                         'forest, reusing trees that already exist, then stop '
-                        'without building or publishing. Requires '
-                        '--build-and-publish-dependencies; --publish-package is '
-                        'not needed. Not the same as --publish-package -n.'
+                        'without building or publishing. Requires --cascade; '
+                        '--publish-package is not needed. Not the same as '
+                        '--publish-package -n.'
                 ),
         )
         add_option(
@@ -250,13 +256,12 @@ class PublishPackageMethod(object):
                         'Fetch and fast-forward publisher working trees the '
                         'cascade would use (same clean/behind gates as '
                         '--update-develop). Skips --develop trees. Requires '
-                        '--build-and-publish-dependencies. Alone or with '
-                        '--collect-cascade it stops before build/upload; with '
-                        '--publish-package or --publish-cascade-dependencies it '
-                        'updates then runs the nested publish. Not with '
-                        '--cascade-plan. Live update refuses '
-                        '--offline; -n still checks remotes when online. '
-                        'Reports an ACTION table (updated / no change / '
+                        '--cascade. Alone or with --collect-cascade it stops '
+                        'before build/upload; with --publish-package or '
+                        '--publish-cascade-dependencies it updates then runs '
+                        'the nested publish. Not with --cascade-plan. Live '
+                        'update refuses --offline; -n still checks remotes when '
+                        'online. Reports an ACTION table (updated / no change / '
                         'left alone; dry-run: would update / leave alone).'
                 ),
         )

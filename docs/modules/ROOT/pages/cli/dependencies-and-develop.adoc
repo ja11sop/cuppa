@@ -171,50 +171,49 @@ CMake* methods no-op; other `Command()` graphs should follow the same pattern if
 they participate). Pair with `--publish-package` to upload. See
 xref:dependencies/publishing/amend-and-external.adoc#amend-package-manifest[Amending metadata without rebuilding].
 
-`--build-and-publish-dependencies` enables cascade for GitLab package dependencies.
-Pair with a companion action: `--publish-package` (nested publish + tip upload),
+`--cascade` enables cascade for GitLab package dependencies (synonym:
+`--build-and-publish-dependencies`). Pair with a companion action:
+`--publish-package` (nested publish + tip upload),
 `--publish-cascade-dependencies` (nested publish, tip build only — consume-only
 and publisher tips), `--build-cascade-dependencies` (nested build without
 registry upload, tip build only), or a stop mode (`--cascade-plan` /
 `--collect-cascade` / `--update-publishers`). Optional `--publisher-root=PATH`
 overrides the default `<storage-root>/publishers` forest when resolving trees.
 See
-xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes]
+xref:dependencies/publishing/cascade.adoc#cascade[Cascading dependency publishes]
 and xref:dependencies/publishing/cascade.adoc#cascade-consume-only[Consume-only tips].
 
 `--publish-cascade-dependencies` nest-publishes the resolved dependency DAG then
-continues with the tip **build** (no tip upload). Requires
-`--build-and-publish-dependencies`. Cannot be combined with `--publish-package`
-or `--build-cascade-dependencies`.
-See xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+continues with the tip **build** (no tip upload). Requires `--cascade`. Cannot
+be combined with `--publish-package` or `--build-cascade-dependencies`.
+See xref:dependencies/publishing/cascade.adoc#cascade[Cascading dependency publishes].
 
 `--build-cascade-dependencies` nest-**builds** the resolved dependency DAG
 (nested sessions do not pass `--publish-package`; no registry upload) then
-continues with the tip **build**. Requires `--build-and-publish-dependencies`.
-Cannot be combined with `--publish-package` or `--publish-cascade-dependencies`.
-Prefer `--develop` when tip consume should use local publisher trees rather than
-registry archives. See
-xref:dependencies/publishing/cascade.adoc#build-and-publish-dependencies[Cascading dependency publishes].
+continues with the tip **build**. Requires `--cascade`. Cannot be combined with
+`--publish-package` or `--publish-cascade-dependencies`. Prefer `--develop` when
+tip consume should use local publisher trees rather than registry archives. See
+xref:dependencies/publishing/cascade.adoc#cascade[Cascading dependency publishes].
 
 `--cascade-plan` reports the resolved cascade order and each dependency's publisher
-tree, then stops without cloning, building, or uploading. It requires
-`--build-and-publish-dependencies`, but not `--publish-package`. Every unresolved
-publisher tree is reported rather than only the first, and the run exits non-zero
-when any remain. The finish line always names how to proceed: **to run this plan**
-with the companion publish action when every dependency already has a publisher
-path, or **to make this plan executable** when `--develop` and/or
-`--clone-publishers` are still required. Unused develop paths that listed publisher
-paths already cover may add an optional `--develop` preference (worded **where set**
-when only some dependencies have develop configured). Consume-only tips label the tip
-as **(this project)** and omit `--publish-package` from the remedy. See
+tree, then stops without cloning, building, or uploading. It requires `--cascade`,
+but not `--publish-package`. Every unresolved publisher tree is reported rather
+than only the first, and the run exits non-zero when any remain. The finish line
+always names how to proceed: **to run this plan** with the companion publish
+action when every dependency already has a publisher path, or **to make this plan
+executable** when `--develop` and/or `--clone-publishers` are still required.
+Unused develop paths that listed publisher paths already cover may add an
+optional `--develop` preference (worded **where set** when only some
+dependencies have develop configured). Consume-only tips label the tip as
+**(this project)** and omit `--publish-package` from the remedy. See
 xref:dependencies/publishing/cascade.adoc#cascade-plan[Checking the plan before anything uploads].
 
 `--collect-cascade` resolves the same graph and stops without building or publishing.
-It requires `--build-and-publish-dependencies`, but not `--publish-package`. It only
-**reuses** publisher trees already on disk unless you also pass `--clone-publishers`
-(permission to clone missing URL `package_source` trees). The finish line reports
-**newly cloned** vs **reused** counts when both happened. If the publishers root is
-already populated, collect alone is enough; clone is the cold-start / missing-tree
+It requires `--cascade`, but not `--publish-package`. It only **reuses** publisher
+trees already on disk unless you also pass `--clone-publishers` (permission to
+clone missing URL `package_source` trees). The finish line reports **newly cloned**
+vs **reused** counts when both happened. If the publishers root is already
+populated, collect alone is enough; clone is the cold-start / missing-tree
 opt-in. It is not `--publish-package -n` (a full cascade refuses `-n` / `--no-exec`
 because nested sessions still configure). See
 xref:dependencies/publishing/cascade.adoc#collect-cascade[Collecting publisher trees without building].

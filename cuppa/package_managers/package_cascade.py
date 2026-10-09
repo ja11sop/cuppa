@@ -52,7 +52,10 @@ from cuppa.scms.git import Git
 from cuppa.utility import storage
 
 
-CASCADE_OPTION = "build-and-publish-dependencies"
+# Primary master enable spelling. Env dest stays the historical name so existing
+# get_option / saved-option paths keep working; both CLI flags set that dest.
+CASCADE_OPTION = "cascade"
+CASCADE_OPTION_LEGACY = "build-and-publish-dependencies"
 CASCADE_PLAN_OPTION = "cascade-plan"
 COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
@@ -80,6 +83,7 @@ RULE = '-'
 # Flags emphasised on the plan's command-line banner (bold info).
 _PLAN_BANNER_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
+        "--" + CASCADE_OPTION_LEGACY,
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
@@ -100,7 +104,8 @@ def cascade_enabled( env ) -> bool:
     getter = getattr( env, "get_option", None )
     if not callable( getter ):
         return False
-    return bool( getter( CASCADE_OPTION ) )
+    # Both ``--cascade`` and ``--build-and-publish-dependencies`` store here.
+    return bool( getter( CASCADE_OPTION_LEGACY ) )
 
 
 # Tip package pins whose registry fetch was deferred until cascade publishes them.
@@ -2766,6 +2771,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
 # Flags that must not re-enter on nested publishes (exact match).
 _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
+        "--" + CASCADE_OPTION_LEGACY,
         "--" + CASCADE_PLAN_OPTION,
         "--" + COLLECT_CASCADE_OPTION,
         "--" + UPDATE_PUBLISHERS_OPTION,
@@ -2784,6 +2790,7 @@ _NESTED_DROP_EXACT = frozenset( {
 _NESTED_DROP_PREFIXES = tuple(
         flag + "=" for flag in (
                 "--" + CASCADE_OPTION,
+                "--" + CASCADE_OPTION_LEGACY,
                 "--" + PUBLISHER_ROOT_OPTION,
                 "--amend-package-manifest",
         )

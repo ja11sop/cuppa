@@ -1,5 +1,5 @@
 Printing Cascade plan for building this project widget [==consume] (dependencies publish; tip build only) given the command:
-cuppa -D --rel --toolchains=gcc15 --build-and-publish-dependencies --cascade-plan
+cuppa -D --rel --toolchains=gcc15 --cascade --cascade-plan
 
 Cascade plan: widget [==consume] (this project) with 2 package dependencies: [0 errors][0 warnings][0 notes]
 │
