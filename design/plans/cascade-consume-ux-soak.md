@@ -177,16 +177,56 @@ a concrete `12.2.0`. No new ranges bug found here — keep tracking on
 | `cascade-nest-rel` | Default nest `--rel`; opt-in dbg nest flag | Medium |
 | `skip-resolve` | Explore cheap plan/collect without full location update | Low — design first |
 
+## Settled lean: what `--list-dependencies` should say for “missing” packages
+
+Soak question: tip declared `fmt` / `date`, list showed **missing** for
+`gcc16_rel`, registry already had the pins (sibling `gcc15` extracts even sat in
+**unused**). Operator wondered: hard error? warn + extra step? or note?
+
+### What actually happens on tip build
+
+An **online** tip configure/build runs normal GitLab consume: download archive →
+extract under the tip toolchain stem → continue. **No cascade**, no publisher
+tree, no extra flag. That is why the later online run cleared “missing” and
+cascade skip-if-current then saw current pins.
+
+SCons `-n` still configures, so it can retrieve as well; it is not cascade-plan.
+
+### Severity lean (list is inventory, exit 0 today)
+
+| Situation | Lean | Copy sketch |
+|-----------|------|-------------|
+| Expected by tip resolve, **not on disk**, but row has registry `remote_location` (and/or `[dl]` archive already cached) | **Note** (not warn/error) | `not extracted` / `pending retrieve` — available from registry (or local download); **retrieved on next online build** |
+| Same, but tip is **`--offline`** and nothing local can satisfy | **Warn** | Cannot retrieve offline; drop `--offline` or plant extract/archive |
+| Expected, not on disk, **no** known registry URL / no archive (unusual for GitLab package_dependency) | Keep a clear gap remark; build/configure remains the hard fail if truly unavailable | Do not send operators to cascade |
+| Build/configure cannot fetch (404, auth, offline+empty) | **StopError** at consume time — not a list hard error | List stays inventory |
+
+So: **not a hard error on list**, and **not cascade**. The soak failure mode was
+**wording** (“missing”) that sounded like “unavailable / broken,” plus no note
+that the next online tip build is the fix.
+
+Prefer renaming the leaf remark away from bare `missing` when retrieval is the
+expected path (e.g. `not extracted` + note in the missing-dependencies roll-up).
+Keep `missing` only when we truly cannot point at a retrieve story.
+
+### Explicit non-implication
+
+List “not extracted” must **never** recommend `--cascade` / `--clone-publishers`
+as the primary fix. Those are for publisher trees, not tip consume cache.
+
 ## Non-goals
 
 - Changing skip-if-current semantics
 - Making `-n` mean cascade-plan
 - Auto-cascade when list shows missing
 - Implementing version-ranges here
+- Probing the registry on every list row (optional later; `remote_location` /
+  `[dl]` already give enough signal for the note path)
 
 ## Progress
 
 | Item | Status |
 |------|--------|
 | Soak capture + two-questions framing | Done — this proposal |
-| Antora / remedy / nest-rel / opt-compat slices | Not started |
+| Settled lean: list missing → note + tip build retrieves | Done — this revision |
+| Antora / remark copy / remedy / nest-rel / opt-compat slices | Not started |
