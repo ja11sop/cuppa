@@ -812,9 +812,10 @@ def test_tree_missing_gitlab_version_and_dashes():
     assert 'not extracted dependency' in plain
     leaf_lines = [ line for line in plain.splitlines() if 'gcc153_rel' in line ]
     assert leaf_lines and 'not extracted' in leaf_lines[0]
-    # Retrievable gap SIZE is ``??`` (unknown until extract), not 0B / bare dash.
+    # Retrievable gap SIZE is ``?`` (unknown until extract), not 0B / bare dash.
     assert '0B' not in plain
-    assert '??' in plain
+    assert '?' in plain
+    assert '??' not in plain
     identity = None
     for type_node in tree['sections'][0]['children']:
         if type_node.get( 'kind' ) != 'type':

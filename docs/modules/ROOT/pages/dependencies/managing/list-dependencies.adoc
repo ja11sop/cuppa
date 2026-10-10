@@ -56,7 +56,7 @@ Type groups always appear in this order (empty groups are omitted):
 
 Default dependencies that are expected but absent on disk appear as a **gap** remark.
 When Cuppa can point at a registry URL and/or a cached download archive, the remark is
-`not extracted` (same info paint as `in use`; SIZE shows `??` until extract size is
+`not extracted` (same info paint as `in use`; SIZE shows `?` until extract size is
 known) — the next **online tip build** retrieves them. Bare `missing` is reserved for
 gaps with no retrieve story. The used section opens with roll-ups when useful:
 `dependencies in use`, then

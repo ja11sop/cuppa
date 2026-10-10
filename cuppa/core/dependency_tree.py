@@ -636,7 +636,8 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
         'short_name': short,
         'family_key': group.get( 'family_key' ),
         'size_bytes': None if missing_only else size_bytes,
-        'last_used_epoch': None if missing_only else epoch,
+        # Keep prior resolve last_used on missing-only identities (use-then-remove).
+        'last_used_epoch': epoch,
         'remark': remark,
         'missing': missing_only,
         'retrievable': retrievable_gaps,
@@ -779,7 +780,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
             'kind': 'version',
             'label': version_label,
             'size_bytes': None if missing_only else size_bytes,
-            'last_used_epoch': None if missing_only else epoch,
+            'last_used_epoch': epoch,
             'remark': remark,
             # Registry URL is not a downloads-root archive — [dl] belongs on toolchain leaves.
             'location': version_location,
@@ -1214,8 +1215,9 @@ def _leaf_node( leaf, label, location=None ):
     node = {
         'kind': 'leaf',
         'label': label,
+        # Extract size unknown until present; keep prior resolve last_used when known.
         'size_bytes': None if missing else int( leaf.get( 'size_bytes' ) or 0 ),
-        'last_used_epoch': None if missing else leaf.get( 'last_used_epoch' ),
+        'last_used_epoch': leaf.get( 'last_used_epoch' ),
         'remark': remark,
         'location': location,
         'has_download': bool( leaf.get( 'has_download' ) ),
@@ -1435,16 +1437,14 @@ def tree_to_json( tree ):
                     ),
             ).strip(),
             'last_used': (
-                '-' if (
-                        node.get( 'state' ) == 'missing'
-                        or _is_gap_remark( node.get( 'remark' ) )
-                )
-                else (
-                    dependency_inventory.format_age(
-                            _epoch_to_iso( node.get( 'last_used_epoch' ) )
-                    ) if node.get( 'last_used_epoch' ) else (
-                        '-' if node.get( 'kind' ) == 'leaf' else ''
-                    )
+                dependency_inventory.format_age(
+                        _epoch_to_iso( node.get( 'last_used_epoch' ) )
+                ) if node.get( 'last_used_epoch' ) is not None else (
+                    '-' if (
+                            node.get( 'state' ) == 'missing'
+                            or _is_gap_remark( node.get( 'remark' ) )
+                            or node.get( 'kind' ) == 'leaf'
+                    ) else ''
                 )
             ),
             'remark': node.get( 'remark' ) or '',
@@ -1507,11 +1507,12 @@ def _size_text( size_bytes, kind=None, state=None, remark=None, retrievable=Fals
         return ''.rjust( SIZE_WIDTH )
     if state == 'missing' or _is_gap_remark( remark ):
         # Retrievable gaps will have a size after extract; unknown for now (not "empty").
-        text = '??' if (
+        text = '?' if (
                 retrievable or remark == RETRIEVABLE_GAP_REMARK
         ) else '-'
     elif size_bytes is None:
-        text = '-'
+        # Missing-only identity with a retrievable gap: same unknown-size token.
+        text = '?' if retrievable else '-'
     else:
         text = storage.human_size( int( size_bytes ) )
     return text.rjust( SIZE_WIDTH )
@@ -1679,7 +1680,13 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                         or remark == RETRIEVABLE_GAP_REMARK
                 ),
         )
-        if (
+        if node.get( 'last_used_epoch' ) is not None:
+            # Prefer prior resolve stamp even on not-extracted / missing leaves
+            # (use-then-remove still has inventory last_used).
+            last_used = dependency_inventory.format_age(
+                    _epoch_to_iso( node.get( 'last_used_epoch' ) )
+            )
+        elif (
                 state == 'missing'
                 or _is_gap_remark( remark )
                 or missing_identity
@@ -1688,10 +1695,6 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         elif kind in ( 'requires', 'requires_edge' ) and node.get( 'size_bytes' ) is None:
             # Structure / label-only requires: blank LAST USED, not '-'.
             last_used = ''
-        elif node.get( 'last_used_epoch' ) is not None:
-            last_used = dependency_inventory.format_age(
-                    _epoch_to_iso( node.get( 'last_used_epoch' ) )
-            )
         elif kind in ( 'leaf', 'summary' ) or node.get( 'size_bytes' ) is None:
             last_used = '-'
         else:

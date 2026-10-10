@@ -62,6 +62,30 @@ def test_referenced_summary_splits_missing_from_stale():
     assert 'potentially stale dependencies' not in summaries
 
 
+def test_size_text_retrievable_gap_is_single_question_mark():
+    assert dependency_tree._size_text(
+            None, kind='leaf', state='missing', remark='not extracted',
+            retrievable=True,
+    ).strip() == '?'
+    assert dependency_tree._size_text(
+            None, kind='leaf', state='missing', remark='missing',
+            retrievable=False,
+    ).strip() == '-'
+
+
+def test_leaf_node_keeps_last_used_when_missing():
+    leaf = _gitlab_leaf(
+            'cloud', '3.9.0', 'gcc16_rel', '/deps/gcc16/cloud/3.9.0',
+            state='missing',
+    )
+    leaf['size_bytes'] = None
+    leaf['last_used_epoch'] = 1_700_000_000.0
+    node = dependency_tree._leaf_node( leaf, label='gcc16_rel' )
+    assert node['size_bytes'] is None
+    assert node['last_used_epoch'] == 1_700_000_000.0
+    assert node['remark'] == 'not extracted'
+
+
 def test_referenced_summary_singular_not_extracted_label():
     leaves = [
             _leaf( 'widget', 'referenced' ),
@@ -621,7 +645,7 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     try:
         lines, _ = dependency_tree.render_tree_lines( tree, verbose=True )
         joined = '\n'.join( lines )
-        # Retrievable gap: same info paint as ``in use``; SIZE is plain ``??``.
+        # Retrievable gap: same info paint as ``in use``; SIZE is plain ``?``.
         # No notice colour — nothing for the operator to do on list.
         assert as_emphasised( as_info( 'cloud' ) ) in joined
         assert as_notice( 'cloud' ) not in joined
@@ -631,8 +655,9 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
         assert as_notice( 'not extracted' ) not in joined
         assert as_info( 'cloud_gcc16_rel.tar.gz' ) in joined
         assert as_notice( 'cloud_gcc16_rel.tar.gz' ) not in joined
-        assert '??' in joined
-        assert as_notice( '??' ) not in joined
+        assert '?' in joined
+        assert '??' not in joined
+        assert as_notice( '?' ) not in joined
         assert as_error( 'gcc15_rel' ) not in joined
         assert as_error( '2.28.0' ) not in joined
         assert as_error( 'requires' ) not in joined

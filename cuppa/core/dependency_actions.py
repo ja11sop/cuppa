@@ -549,6 +549,13 @@ def _last_used_epoch( iso_stamp ):
     return when.timestamp()
 
 
+def _resolve_last_used_epoch( entry ):
+    """Inventory resolve stamp only — never ``first_seen`` or path mtime."""
+    if not entry or entry.get( 'last_used_source' ) != 'resolve':
+        return None
+    return _last_used_epoch( entry.get( 'last_used' ) )
+
+
 def _age_epoch_for_entry( entry, path ):
     """Age for the LAST USED column.
 
@@ -557,10 +564,9 @@ def _age_epoch_for_entry( entry, path ):
     fall back to the directory mtime (when the tree was written / last changed
     on disk). Never use ``first_seen`` (inventory creation time).
     """
-    if entry.get( 'last_used_source' ) == 'resolve':
-        epoch = _last_used_epoch( entry.get( 'last_used' ) )
-        if epoch is not None:
-            return epoch
+    epoch = _resolve_last_used_epoch( entry )
+    if epoch is not None:
+        return epoch
     try:
         return os.path.getmtime( path )
     except OSError:
@@ -1364,6 +1370,15 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
                 tool_variant=item.tool_variant,
                 package_archive=package_archive,
         )
+        # Prefer a retained inventory resolve stamp (use-then-remove keeps the entry).
+        entry = by_path.get( real ) or {}
+        if not entry:
+            for key, candidate in by_path.items():
+                candidate_path = candidate.get( 'path' ) or key
+                if storage.real_path( candidate_path ) == real or candidate_path == item.path:
+                    entry = candidate
+                    break
+        age_epoch = _resolve_last_used_epoch( entry )
         rows.append( {
             'size': '-',
             'size_bytes': 0,
@@ -1371,8 +1386,8 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             'dependency': item.dependency or '-',
             'qualifier': qualifier or '-',
             'tool_variant': item.tool_variant or '-',
-            'last_used': '-',
-            'last_used_epoch': None,
+            'last_used': _format_age_epoch( age_epoch ),
+            'last_used_epoch': age_epoch,
             'state': 'missing',
             'path': item.path,
             'kind': storage_type,
