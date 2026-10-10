@@ -1,9 +1,9 @@
 # Plan: Cascade / consume UX soak notes (order_matcher)
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-enable-rename.md`](cascade-enable-rename.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc), [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc), [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc); version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
 - **Updated:** 2026-10-10
-- **Impact:** `none` for this capture; follow-on code slices likely `patch` / `minor`
+- **Impact:** `patch` — list gap wording + cascade remedies / `-n` guidance; nest-rel / skip-resolve later
 
 ## Problem
 
@@ -229,4 +229,9 @@ as the primary fix. Those are for publisher trees, not tip consume cache.
 |------|--------|
 | Soak capture + two-questions framing | Done — this proposal |
 | Settled lean: list missing → note + tip build retrieves | Done — this revision |
-| Antora / remark copy / remedy / nest-rel / opt-compat slices | Not started |
+| List remark ``not extracted`` + note paint when retrievable | Done — this PR |
+| Antora two-questions + gap table (list / cascade / packages) | Done — this PR |
+| Cascade finish-line remedy split (no-URL vs clone) | Done — this PR |
+| ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — this PR |
+| `cascade-nest-rel` / `skip-resolve` / full `opt-compat-early` | Later slices |
+| Design-index / ROADMAP row | Done with #365 capture; update status on merge |

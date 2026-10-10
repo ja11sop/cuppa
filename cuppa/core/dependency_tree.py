@@ -17,6 +17,7 @@ from cuppa.colourise import (
     as_emphasised,
     as_error,
     as_info,
+    as_notice,
     as_remove_notice,
     as_subdued,
 )
@@ -73,6 +74,9 @@ def type_selector_hint( type_key, verbose=False ):
     return TYPE_SELECTOR_HINTS_SHORT.get( type_key )
 
 REFERENCED_STATES = frozenset( ( 'referenced', 'missing', 'cached' ) )
+# Display remarks for tip-expected trees that are not on disk yet.
+GAP_REMARKS = frozenset( ( 'missing', 'not extracted' ) )
+RETRIEVABLE_GAP_REMARK = 'not extracted'
 
 # Match --list-builds: fixed width, right-aligned size column.
 SIZE_WIDTH = 8
@@ -197,6 +201,28 @@ def _max_epoch( left, right ):
     return max( left, right )
 
 
+def _leaf_is_retrievable( leaf ):
+    """True when list can point at a registry URL and/or cached archive for a gap."""
+    if not leaf:
+        return False
+    if leaf.get( 'remote_location' ) or leaf.get( 'source_url' ):
+        return True
+    if leaf.get( 'has_download' ) or leaf.get( 'download_path' ):
+        return True
+    return False
+
+
+def _gap_remark_for_leaf( leaf ):
+    """Soak lean: ``not extracted`` when tip build can retrieve; else bare ``missing``."""
+    if _leaf_is_retrievable( leaf ):
+        return RETRIEVABLE_GAP_REMARK
+    return 'missing'
+
+
+def _is_gap_remark( remark ):
+    return remark in GAP_REMARKS
+
+
 def _remark_for_used( used_count, leaf_state=None ):
     if leaf_state == 'missing':
         return 'missing'
@@ -263,7 +289,7 @@ def _iter_leaves( node ):
 
 def _measured_size( size_bytes, state=None, remark=None ):
     """Bytes that should contribute to a rollup; missing rows do not invent 0B."""
-    if state == 'missing' or remark == 'missing':
+    if state == 'missing' or _is_gap_remark( remark ):
         return None
     if size_bytes is None:
         return None
@@ -595,6 +621,12 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
             ) or location,
             missing_only=missing_only,
     )
+    gap_leaves = [
+            leaf for leaf in leaves_in if leaf.get( 'state' ) == 'missing'
+    ]
+    retrievable_gaps = bool( gap_leaves ) and all(
+            _leaf_is_retrievable( leaf ) for leaf in gap_leaves
+    )
     return {
         'kind': 'identity',
         'type': storage_type,
@@ -608,6 +640,7 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
         'last_used_epoch': None if missing_only else epoch,
         'remark': remark,
         'missing': missing_only,
+        'retrievable': retrievable_gaps,
         'location': location,
         'children': children,
         'used_count': used,
@@ -737,6 +770,12 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
                 )
             except ( VersionBoundError, ValueError, TypeError ):
                 version_label = str( version )
+        gap_variants = [
+                leaf for leaf in variants if leaf.get( 'state' ) == 'missing'
+        ]
+        retrievable_gaps = bool( gap_variants ) and all(
+                _leaf_is_retrievable( leaf ) for leaf in gap_variants
+        )
         children.append( {
             'kind': 'version',
             'label': version_label,
@@ -748,6 +787,7 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
             'has_download': version_has_download,
             'missing': missing_only,
             'has_missing_leaf': has_missing_leaf,
+            'retrievable': retrievable_gaps,
             'children': tool_children,
         } )
     return children
@@ -1161,8 +1201,10 @@ def _flat_variant_children( leaves_in, label_key='qualifier' ):
 def _leaf_node( leaf, label, location=None ):
     state = leaf.get( 'state' )
     remark = ''
+    retrievable = False
     if state == 'missing':
-        remark = 'missing'
+        remark = _gap_remark_for_leaf( leaf )
+        retrievable = remark == RETRIEVABLE_GAP_REMARK
     elif state == 'referenced':
         remark = 'in use'
     # state == 'cached': blank — identity row carries ``develop`` instead.
@@ -1179,6 +1221,7 @@ def _leaf_node( leaf, label, location=None ):
         'location': location,
         'has_download': bool( leaf.get( 'has_download' ) ),
         'state': state,
+        'retrievable': retrievable,
         'path': leaf.get( 'path' ),
         'children': [],
     }
@@ -1261,6 +1304,7 @@ def _build_section( name, identities ):
         used_count = 0
         unused_count = 0
         missing_count = 0
+        retrievable_gap_count = 0
         used_saw = False
         unused_saw = False
         missing_saw = False
@@ -1282,6 +1326,11 @@ def _build_section( name, identities ):
                 elif state == 'missing':
                     # Expected by this project but absent — not "stale".
                     missing_count += 1
+                    if (
+                            leaf.get( 'retrievable' )
+                            or leaf.get( 'remark' ) == RETRIEVABLE_GAP_REMARK
+                    ):
+                        retrievable_gap_count += 1
                     if leaf_bytes is not None:
                         missing_saw = True
                         missing_bytes = ( missing_bytes or 0 ) + leaf_bytes
@@ -1312,13 +1361,19 @@ def _build_section( name, identities ):
                 'children': [],
             } )
         if missing_count:
+            all_retrievable = retrievable_gap_count == missing_count
+            gap_word = RETRIEVABLE_GAP_REMARK if all_retrievable else 'missing'
             children.append( {
                 'kind': 'summary',
-                'label': 'missing dependencies',
+                'label': (
+                        'not extracted dependencies' if all_retrievable
+                        else 'missing dependencies'
+                ),
                 'size_bytes': missing_bytes,
                 'last_used_epoch': missing_epoch,
-                'remark': _remark_count( missing_count, 'missing' ),
+                'remark': _remark_count( missing_count, gap_word ),
                 'state': 'missing',
+                'retrievable': all_retrievable,
                 'location': '',
                 'children': [],
             } )
@@ -1370,7 +1425,10 @@ def tree_to_json( tree ):
                     node.get( 'state' ), node.get( 'remark' ),
             ).strip(),
             'last_used': (
-                '-' if node.get( 'state' ) == 'missing' or node.get( 'remark' ) == 'missing'
+                '-' if (
+                        node.get( 'state' ) == 'missing'
+                        or _is_gap_remark( node.get( 'remark' ) )
+                )
                 else (
                     dependency_inventory.format_age(
                             _epoch_to_iso( node.get( 'last_used_epoch' ) )
@@ -1394,6 +1452,8 @@ def tree_to_json( tree ):
             payload['label_detail'] = node['label_detail']
         if node.get( 'missing' ):
             payload['missing'] = True
+        if node.get( 'retrievable' ):
+            payload['retrievable'] = True
         if node.get( 'role' ):
             payload['role'] = node['role']
         if node.get( 'display_label' ):
@@ -1435,7 +1495,7 @@ def _size_text( size_bytes, kind=None, state=None, remark=None ):
     # Structure / label-only requires rows: blank SIZE, not a dash placeholder.
     if kind in ( 'requires', 'requires_edge' ) and size_bytes is None:
         return ''.rjust( SIZE_WIDTH )
-    if state == 'missing' or remark == 'missing':
+    if state == 'missing' or _is_gap_remark( remark ):
         text = '-'
     elif size_bytes is None:
         text = '-'
@@ -1530,6 +1590,20 @@ def _error_row_fields( label, size, last_used, remark, location, mute_location=F
     return label, size, last_used, remark, location
 
 
+def _notice_row_fields( label, size, last_used, remark, location, mute_location=False ):
+    """Softer paint for retrievable gaps (``not extracted``) — note, not error."""
+    if label:
+        label = as_notice( label )
+    if size.strip():
+        size = as_notice( size )
+    if last_used:
+        last_used = as_notice( last_used )
+    if remark:
+        remark = as_notice( remark )
+    _ = mute_location
+    return label, size, last_used, remark, location
+
+
 def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
     """Return ``(lines, columns)`` for the dependency tree text view."""
     columns = [
@@ -1555,10 +1629,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         )
         leaf_missing = bool(
                 kind == 'leaf'
-                and ( node.get( 'state' ) == 'missing' or node.get( 'remark' ) == 'missing' )
+                and (
+                        node.get( 'state' ) == 'missing'
+                        or _is_gap_remark( node.get( 'remark' ) )
+                )
         )
         state = node.get( 'state' )
         remark = node.get( 'remark' ) or ''
+        retrievable = bool( node.get( 'retrievable' ) )
         if kind == 'spacer':
             # Hanging continuation only — no tee/elbow.
             stem = ( prefix + pipe ).rstrip() if prefix else pipe.rstrip()
@@ -1577,6 +1655,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 '_missing_identity': False,
                 '_missing_version': False,
                 '_leaf_missing': False,
+                '_retrievable': False,
             } )
             return
         if is_root:
@@ -1595,7 +1674,11 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             if selector_hint:
                 label = ( label + ' ' + selector_hint ).rstrip()
         size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
-        if state == 'missing' or remark == 'missing' or missing_identity:
+        if (
+                state == 'missing'
+                or _is_gap_remark( remark )
+                or missing_identity
+        ):
             last_used = '-'
         elif kind in ( 'requires', 'requires_edge' ) and node.get( 'size_bytes' ) is None:
             # Structure / label-only requires: blank LAST USED, not '-'.
@@ -1624,13 +1707,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             '_missing_identity': missing_identity,
             '_missing_version': missing_version,
             '_leaf_missing': leaf_missing,
+            '_retrievable': retrievable,
             '_removal_candidate': node.get( 'removal_candidate' ),
             '_selector_hint': selector_hint,
         } )
         children = node.get( 'children' ) or []
         child_prefix = '' if is_root else prefix + ( gap if is_last else pipe )
-        # Do not cascade missing paint to siblings: only the identity, versions that
-        # contain a missing leaf, and the missing leaf itself are error-coloured.
+        # Do not cascade gap paint to siblings: only the identity, versions that
+        # contain a gap leaf, and the gap leaf itself are coloured (error or note).
         for index, child in enumerate( children ):
             walk(
                     child, child_prefix, index == len( children ) - 1,
@@ -1695,34 +1779,58 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         location_path_colour = None
 
         if row.get( '_missing_identity' ):
-            # Missing dependency name: emphasised error; registry URL detail/LOCATION muted
-            # so the gap (missing leaf) stays the visual focus.
+            # Gap identity: registry URL detail/LOCATION muted so the gap leaf stays
+            # the focus. Retrievable gaps use notice (note); hard gaps stay error.
+            name_colour = (
+                    ( lambda text: as_emphasised( as_notice( text ) ) )
+                    if row.get( '_retrievable' ) else _emphasised_error
+            )
+            field_colour = as_notice if row.get( '_retrievable' ) else as_error
             if label_name or compact_wc:
                 label = _colour_identity_label_or_wc(
-                        label_name, label_detail, _emphasised_error,
+                        label_name, label_detail, name_colour,
                         compact_wc=compact_wc, path_colour=as_subdued,
                         detail_accent=as_subdued,
                 )
             else:
-                label = _emphasised_error( label ) if label else label
+                label = name_colour( label ) if label else label
             if size.strip():
-                size = as_error( size )
+                size = field_colour( size )
             if last_used:
-                last_used = as_error( last_used )
+                last_used = field_colour( last_used )
             location_path_colour = as_subdued
         elif row.get( '_missing_version' ):
-            # Version that contains a missing toolchain leaf: error on the version row only;
+            # Version that contains a gap toolchain leaf: colour the version row only;
             # mute registry LOCATION; sibling toolchains paint normally.
-            label, size, last_used, remark, location = _error_row_fields(
+            painter = (
+                    _notice_row_fields if row.get( '_retrievable' )
+                    else _error_row_fields
+            )
+            label, size, last_used, remark, location = painter(
                     label, size, last_used, remark, location, mute_location=True
             )
             location_path_colour = as_subdued
-        elif row.get( '_leaf_missing' ) or remark == 'missing' or row.get( '_state' ) == 'missing':
-            # The missing leaf itself (and any other row that is itself missing).
-            label, size, last_used, remark, location = _error_row_fields(
+        elif (
+                row.get( '_leaf_missing' )
+                or _is_gap_remark( remark )
+                or row.get( '_state' ) == 'missing'
+        ):
+            # The gap leaf itself (and summary / other gap rows).
+            painter = (
+                    _notice_row_fields if (
+                            row.get( '_retrievable' )
+                            or remark == RETRIEVABLE_GAP_REMARK
+                    ) else _error_row_fields
+            )
+            label, size, last_used, remark, location = painter(
                     label, size, last_used, remark, location
             )
-            location_path_colour = as_error
+            location_path_colour = (
+                    as_notice if (
+                            row.get( '_retrievable' )
+                            or remark == RETRIEVABLE_GAP_REMARK
+                    ) else as_error
+            )
         elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
                 if label_name or compact_wc:

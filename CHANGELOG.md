@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.12.0] - unreleased
 
+### Changed
+
+- Cascade / tip-consume UX (soak): ``--list-dependencies`` gap remarks prefer
+  ``not extracted`` (note) when a registry URL or cached download can retrieve
+  the tip extract; bare ``missing`` stays for gaps with no retrieve story.
+  Cascade finish-line remedies no longer pitch ``--clone-publishers`` when
+  failing nodes lack a URL ``package_source``. ``--cascade`` + SCons ``-n``
+  nest companions refuse earlier with “Did you mean ``--cascade-plan``?”.
+  Antora: two-questions framing on cascade + list gap table. Plan:
+  ``design/plans/cascade-consume-ux-soak.md``.
+
 ### Added
 
 - GitLab package **version ranges** on consumer ``package_dependency`` and

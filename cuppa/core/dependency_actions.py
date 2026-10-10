@@ -1799,7 +1799,18 @@ def write_list_dependencies_report( out, data, cuppa_env, verbose=False ):
     missing = int( data.get( 'missing_count' ) or 0 )
     missing_note = ''
     if missing:
-        missing_note = ', {} missing'.format( missing )
+        # Prefer soak wording when every gap has a retrieve story (registry / [dl]).
+        retrievable = sum(
+                1 for row in rows
+                if row.get( 'state' ) == 'missing' and (
+                        row.get( 'remote_location' )
+                        or row.get( 'source_url' )
+                        or row.get( 'has_download' )
+                        or row.get( 'download_path' )
+                )
+        )
+        gap_word = 'not extracted' if retrievable == missing else 'missing'
+        missing_note = ', {} {}'.format( missing, gap_word )
     scope = data.get( 'scope' ) or 'all'
     if scope in ( 'referenced', 'compact' ):
         label = 'compact' if scope == 'compact' else 'referenced'

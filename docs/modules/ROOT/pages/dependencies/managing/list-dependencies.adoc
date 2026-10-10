@@ -36,8 +36,8 @@ Columns are **SIZE**, **LAST USED**, **REMARK**, and **DEPENDENCY**.
   cache). Pass `--exact-sizes` to force a full remeasure.
 * **LAST USED** — from inventory resolve stamps when present, otherwise the tree's
   modification time.
-* **REMARK** — `in use` / `N used` when more than one leaf is selected / `missing` /
-  `develop`, and similar roll-up notes.
+* **REMARK** — `in use` / `N used` when more than one leaf is selected /
+  `not extracted` / `missing` / `develop`, and similar roll-up notes.
 * **DEPENDENCY** — the hierarchy: section → type → identity → version or branch → leaf.
 
 === Sections and types
@@ -54,10 +54,49 @@ Type groups always appear in this order (empty groups are omitted):
 * **source archives** — extracted archives such as source Boost (versions → build products)
 * **toolchains** — fetched compiler installs under the toolchains area (when listed here)
 
-Default dependencies that are expected but absent appear as `missing`. The used section
-opens with roll-ups when useful: `dependencies in use`, then `missing dependencies`, then
+Default dependencies that are expected but absent on disk appear as a **gap** remark.
+When Cuppa can point at a registry URL and/or a cached download archive, the remark is
+`not extracted` (note paint) — the next **online tip build** retrieves them. Bare
+`missing` is reserved for gaps with no retrieve story. The used section opens with
+roll-ups when useful: `dependencies in use`, then
+`not extracted dependencies` / `missing dependencies`, then
 `potentially stale dependencies` for other non-selected bound leaves (for example
 develop-shadowed stems).
+
+[#list-dependencies-missing]
+=== Gap remarks: not extracted vs missing
+
+Listing is **inventory** (still exit 0). A gap row does **not** mean “absent from the
+registry” or “you must cascade.”
+
+[cols="2,3,3"]
+|===
+| Signal
+| Means
+| Does **not** mean
+
+| `not extracted` (used GitLab / package row with registry URL or `[dl]`)
+| No tip extract for that identity under the dependencies/downloads roots yet
+| Package absent from GitLab; cascade required
+
+| `missing` (no known registry URL / archive)
+| Tip expects a tree Cuppa cannot point a retrieve path at
+| Automatically solvable by `--cascade` / `--clone-publishers`
+
+| Unused sibling stem (e.g. `gcc15_…` present while tip wants `gcc16_…`)
+| Another toolchain extract exists; tip wants a different stem
+| Package never published
+|===
+
+**Consume first:** edit pins, run an online tip configure/build
+(`cuppa …` or SCons `-n` for configure-only — `-n` is not a cascade plan), then
+re-list. Only reach for
+xref:dependencies/publishing/cascade.adoc[cascade] when the goal is nest-publish /
+nest-build **publisher trees**, not tip consume cache.
+
+IMPORTANT: Do **not** treat `not extracted` as a cue to pass `--cascade` or
+`--clone-publishers`. Those place publisher working trees; tip retrieve downloads
+registry archives into the tip toolchain stem.
 
 On-disk paths are omitted by default. Pass `--list-format=verbose` for a LOCATION column, or
 `--list-format=json` for a machine-readable tree. With a non-`storage`
@@ -81,7 +120,8 @@ include::partial$samples/list-dependencies.html[]
 
 Blank rows that carry only a tree stem (`│`) keep hanging lines continuous between siblings.
 Referenced trees open with a `dependencies in use` roll-up when at least one leaf is
-selected; absent expected trees add a `missing dependencies` / `N missing` summary.
+selected; absent expected trees add a
+`not extracted dependencies` / `N not extracted` (or hard `missing`) summary.
 
 == Choosing a scope
 
@@ -97,7 +137,7 @@ which rows appear:
   (siblings included); referenced section only.
 * `unreferenced` — resolve-identity filter: identities with no resolve-bound leaf (orphan
   leftovers only — not unused siblings of tips).
-* `compact` — **used-only**: resolve-bound leaves (`in use` / `missing` / develop-shadowed);
+* `compact` — **used-only**: resolve-bound leaves (`in use` / gap remarks / develop-shadowed);
   used section only.
 
 `compact` is the short used-only view; it is not the same as `referenced`.
