@@ -8,6 +8,40 @@ plus plan / collect / clone / update companions. Conan graphs are out of scope.
 [#build-and-publish-dependencies]
 == How cascade works
 
+[#cascade-two-questions]
+=== Two questions (consume vs cascade)
+
+Before reaching for cascade, decide which question you are asking:
+
+[cols="2,3"]
+|===
+| Question
+| Tooling
+
+| **Can this tip build against the packages I declared?** (consume)
+| Edit `package_dependency` pins, run an **online tip** configure/build, then
+  xref:dependencies/managing/list-dependencies.adoc#list-dependencies-missing[`--list-dependencies`].
+  Gap remarks `not extracted` / `missing` are tip-local extract inventory — not
+  “absent from the registry.”
+
+| **Can cascade nest-publish / nest-build the package DAG?** (publish)
+| Needs resolvable **publisher trees** (`package_source` URL, `--publisher-root`
+  forest, or `--clone-publishers` when a URL is declared). Review with
+  `--cascade --cascade-plan` (not SCons `-n`).
+|===
+
+`--list-dependencies` saying `not extracted` does **not** mean you must cascade.
+An online tip resolve downloads registry archives into the tip toolchain stem.
+Cascade **skipped (current)** means registry + tip consume already match for that
+pin — nest would be a no-op. Cloning a publisher tree alone does not upload and
+does not by itself clear tip gap remarks.
+
+SCons `-n` / `--no-exec` with a nest companion (`--publish-package`,
+`--publish-cascade-dependencies`, `--build-cascade-dependencies`) is refused
+(nested configure cannot create `.sconf_temp` under dry-run). Prefer
+`--cascade --cascade-plan` to review the DAG. Cuppa asks
+“Did you mean `--cascade-plan`?” when that combination is hit.
+
 Deep GitLab package stacks are painful to publish by hand (leaves first, then
 parents, then the tip). Cascade lets one tip command nest-publish or nest-build
 packages from their **publisher working trees**, then continue with the tip.

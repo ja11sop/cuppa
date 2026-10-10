@@ -774,7 +774,7 @@ def test_tree_missing_identity_prefers_remote_location():
             child for child in identity['children']
             if child.get( 'kind' ) == 'leaf'
     )
-    assert leaf['remark'] == 'missing'
+    assert leaf['remark'] == 'not extracted'
     assert identity.get( 'missing' ) is True
     assert 'gizmo' in identity['label']
     assert 'git+ssh://git@gitlab.example/org/gizmo@' in identity['label']
@@ -808,12 +808,13 @@ def test_tree_missing_gitlab_version_and_dashes():
     import re
     plain = re.sub( r'\x1b\[[0-9;]*m', '', plain )
     assert 'google_cloud_cpp' in plain
-    # Referenced summary names missing trees; the toolchain leaf still carries REMARK missing.
-    assert 'missing dependencies' in plain
+    # Registry URL present → soak lean: inventory status roll-up + leaf remark.
+    assert 'not extracted dependency' in plain
     leaf_lines = [ line for line in plain.splitlines() if 'gcc153_rel' in line ]
-    assert leaf_lines and 'missing' in leaf_lines[0]
-    # Missing SIZE / LAST USED are dashes, not 0B.
+    assert leaf_lines and 'not extracted' in leaf_lines[0]
+    # Retrievable gap SIZE is ``??`` (unknown until extract), not 0B / bare dash.
     assert '0B' not in plain
+    assert '??' in plain
     identity = None
     for type_node in tree['sections'][0]['children']:
         if type_node.get( 'kind' ) != 'type':
@@ -830,7 +831,7 @@ def test_tree_missing_gitlab_version_and_dashes():
     assert version.get( 'remark' ) in ( '', None )
     assert version['label'] == '2.28.0'
     leaf = version['children'][0]
-    assert leaf['remark'] == 'missing'
+    assert leaf['remark'] == 'not extracted'
 
 
 def test_render_missing_dependency_emphasises_name_errors_children():

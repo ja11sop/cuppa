@@ -635,6 +635,7 @@ def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out )
     assert "Options Error" in visible
     assert "--cascade cannot run under -n/--no-exec" in visible
+    assert "Did you mean --cascade-plan?" in visible
     assert ".sconf_temp" in visible
     assert "--cascade-plan" in visible
     assert "--collect-cascade" in visible
@@ -712,6 +713,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "errors": 0,
                     "clones": 0,
                     "needs_clone_opt_in": 0,
+                    "needs_package_source": 0,
                     "unused_develop": 0,
                     "unused_develop_soft": 0,
                     "consume_tip": False,
@@ -3572,6 +3574,26 @@ def test_finish_collect_opt_in_advice_does_not_require_publish_package():
     assert "pass --clone-publishers to clone missing" in visible
     assert "along with --publish-package" not in visible
     assert "nothing was collected" in visible
+
+
+def test_finish_plan_no_package_source_does_not_lead_with_clone():
+    """Soak: clone cannot invent a URL — finish-line must say package_source / root."""
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "order_matcher", "tip", 2,
+            needs_package_source=2, needs_clone_opt_in=0, consume_tip=True,
+    )
+    out = io.StringIO()
+    status = cascade.finish_cascade_stop( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 1
+    assert "without a publisher tree" in visible
+    assert "Add package_source" in visible
+    assert "--publisher-root" in visible
+    assert "only fetches URL package_source" in visible
+    # Must not pitch clone as the primary unblock for no-URL gaps.
+    assert "pass --clone-publishers to fetch the ones with" not in visible
 
 
 def test_tip_forward_args_drops_tip_dependency_options():

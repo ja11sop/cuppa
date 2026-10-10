@@ -54,10 +54,24 @@ def test_referenced_summary_splits_missing_from_stale():
 
     assert 'dependencies in use' in summaries
     assert summaries['dependencies in use']['remark'] == '1 used'
-    assert 'missing dependencies' in summaries
-    assert summaries['missing dependencies']['remark'] == '2 missing'
-    assert summaries['missing dependencies'].get( 'state' ) == 'missing'
+    # Leaves carry remote_location → soak lean: inventory status, not hard "missing".
+    assert 'not extracted dependencies' in summaries
+    assert summaries['not extracted dependencies']['remark'] == '2 not extracted'
+    assert summaries['not extracted dependencies'].get( 'state' ) == 'missing'
+    assert summaries['not extracted dependencies'].get( 'retrievable' ) is True
     assert 'potentially stale dependencies' not in summaries
+
+
+def test_referenced_summary_singular_not_extracted_label():
+    leaves = [
+            _leaf( 'widget', 'referenced' ),
+            _leaf( 'absent', 'missing' ),
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
+    assert 'not extracted dependency' in summaries
+    assert summaries['not extracted dependency']['remark'] == '1 not extracted'
+    assert 'not extracted dependencies' not in summaries
 
 
 def test_referenced_summary_keeps_stale_for_non_missing_unused():
@@ -70,6 +84,7 @@ def test_referenced_summary_keeps_stale_for_non_missing_unused():
 
     assert summaries['dependencies in use']['remark'] == '1 used'
     assert 'missing dependencies' not in summaries
+    assert 'not extracted dependencies' not in summaries
     assert 'potentially stale dependencies' in summaries
     assert summaries['potentially stale dependencies']['remark'] == '1 unused'
 
@@ -537,7 +552,7 @@ def test_requires_unions_edges_across_version_variants( tmp_path ):
 
 def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     """When one toolchain leaf is missing, siblings and requires stay normal colour."""
-    from cuppa.colourise import as_emphasised, as_error, as_subdued, colouriser
+    from cuppa.colourise import as_emphasised, as_error, as_info, as_notice, colouriser
 
     leaves = [
             _gitlab_leaf(
@@ -556,9 +571,11 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
                     state='unreferenced',
             ),
     ]
-    # Missing leaf has no on-disk size.
+    # Missing leaf has no on-disk size; cached archive still present ([dl]).
     leaves[1]['size_bytes'] = None
     leaves[1]['last_used_epoch'] = None
+    leaves[1]['has_download'] = True
+    leaves[1]['download_path'] = '/downloads/cloud_gcc16_rel.tar.gz'
 
     tree = dependency_tree.build_tree( leaves )
     identity = None
@@ -604,17 +621,23 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     try:
         lines, _ = dependency_tree.render_tree_lines( tree, verbose=True )
         joined = '\n'.join( lines )
-        assert as_emphasised( as_error( 'cloud' ) ) in joined
-        # Registry detail on the identity is muted, not error-painted.
+        # Retrievable gap: same info paint as ``in use``; SIZE is plain ``??``.
+        # No notice colour — nothing for the operator to do on list.
+        assert as_emphasised( as_info( 'cloud' ) ) in joined
+        assert as_notice( 'cloud' ) not in joined
         registry = 'https://gitlab.example/api/v4/projects/1/cloud/3.9.0'
-        # remote may be from first leaf — 2.28.0 or 3.9.0 depending on group remote
-        assert as_error( 'gcc16_rel' ) in joined
+        assert as_info( 'gcc16_rel' ) in joined
+        assert as_info( 'not extracted' ) in joined
+        assert as_notice( 'not extracted' ) not in joined
+        assert as_info( 'cloud_gcc16_rel.tar.gz' ) in joined
+        assert as_notice( 'cloud_gcc16_rel.tar.gz' ) not in joined
+        assert '??' in joined
+        assert as_notice( '??' ) not in joined
         assert as_error( 'gcc15_rel' ) not in joined
         assert as_error( '2.28.0' ) not in joined
         assert as_error( 'requires' ) not in joined
         assert as_error( 'protobuf' ) not in joined
-        # Version with the gap is error-coloured.
-        assert as_error( '3.9.0' ) in joined
+        assert as_notice( '3.9.0' ) not in joined
         # Missing-only identity detail must match the selected version, not an
         # unused sibling (regression: group remote copied from 2.28.0).
         assert registry in joined

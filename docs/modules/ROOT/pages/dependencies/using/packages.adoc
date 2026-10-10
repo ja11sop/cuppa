@@ -49,6 +49,13 @@ generally under
 xref:dependencies/using/gitlab.adoc#version-ranges[Version ranges].
 A missing package or an unsatisfied bound fails during configure, before compile.
 
+After declaring packages, **first prove tip consume**: run an online tip
+configure/build so archives extract under the tip toolchain stem, then
+xref:dependencies/managing/list-dependencies.adoc#list-dependencies-missing[`--list-dependencies`]
+(gap remarks are tip-local inventory). Cascade is optional republish / nest-build
+of publisher trees — see
+xref:dependencies/publishing/cascade.adoc#cascade-two-questions[Two questions (consume vs cascade)].
+
 On the publish side, the same floating tokens may appear on
 ``GitlabPackagePublisher``: the publisher-tree seed can keep ``"latest"`` while
 the staged archive and registry upload always record a concrete pin — see
