@@ -216,7 +216,7 @@ def test_list_dependencies_second_pass_still_works(tmp_path):
 
 
 def test_list_dependencies_reports_missing_expected_location(tmp_path):
-    """A default location dependency with no tree on disk appears as STATE missing."""
+    """A default location dependency with no tree on disk appears as not extracted."""
     project = copy_dummy_project(tmp_path)
     storage = tmp_path / "storage"
     (storage / "dependencies").mkdir(parents=True)
@@ -249,8 +249,8 @@ cuppa.run(
     assert_success(listed)
     plain = strip_ansi(listed.stdout)
     assert "widget" in plain
-    assert "missing" in plain
-    assert "1 missing" in plain or ", 1 missing" in plain
+    assert "not extracted" in plain
+    assert "1 not extracted" in plain or ", 1 not extracted" in plain
     assert "example.com/org/widget.git" in plain or "git+https://example.com/org/widget.git" in plain
     err = listed.stderr or ""
     assert "AttributeError" not in err

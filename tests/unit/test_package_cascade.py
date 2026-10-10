@@ -713,6 +713,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "errors": 0,
                     "clones": 0,
                     "needs_clone_opt_in": 0,
+                    "needs_package_source": 0,
                     "unused_develop": 0,
                     "unused_develop_soft": 0,
                     "consume_tip": False,

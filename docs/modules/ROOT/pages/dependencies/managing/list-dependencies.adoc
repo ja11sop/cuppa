@@ -83,13 +83,13 @@ registry” or “you must cascade.”
 | Tip expects a tree Cuppa cannot point a retrieve path at
 | Automatically solvable by `--cascade` / `--clone-publishers`
 
-| Unused sibling stem (e.g. `gcc15_…` present while tip wants `gcc16_…`)
+| Unused sibling stem (e.g. `gcc15_...` present while tip wants `gcc16_...`)
 | Another toolchain extract exists; tip wants a different stem
 | Package never published
 |===
 
 **Consume first:** edit pins, run an online tip configure/build
-(`cuppa …` or SCons `-n` for configure-only — `-n` is not a cascade plan), then
+(`cuppa ...` or SCons `-n` for configure-only — `-n` is not a cascade plan), then
 re-list. Only reach for
 xref:dependencies/publishing/cascade.adoc[cascade] when the goal is nest-publish /
 nest-build **publisher trees**, not tip consume cache.
