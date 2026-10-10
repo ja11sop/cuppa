@@ -1247,10 +1247,15 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         for item in owned:
             if storage.real_path( item.path ) == real and item.remote_location:
                 remote_location = item.remote_location
+            # Tip bound stamps only the resolve-selected concrete version — not
+            # unused sibling extracts under the same package identity.
             if (
                     item.dependency == dependency_name
                     and getattr( item, 'version_bound', None )
                     and version_bound is None
+                    and str( item.qualifier or '' ) == str(
+                            entry.get( 'qualifier' ) or ''
+                    )
             ):
                 version_bound = item.version_bound
             if (

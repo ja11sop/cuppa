@@ -715,8 +715,13 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
         has_missing_leaf = bool( missing )
         remark = _remark_for_used( used ) if used else ''
         version_label = str( version )
+        # Tip ``version_bound`` only annotates resolve-selected leaves. Unused
+        # siblings must stay bare (else exact tip ``36.1`` paints ``36.1 → 33.1``
+        # on an old extract, or soft tip paints ``>=x →`` on every satisfying cache).
         declared_bound = None
         for leaf in variants:
+            if leaf.get( 'state' ) not in REFERENCED_STATES:
+                continue
             declared_bound = leaf.get( 'version_bound' )
             if declared_bound:
                 break

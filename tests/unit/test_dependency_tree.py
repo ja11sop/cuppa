@@ -671,3 +671,50 @@ def test_tip_version_bound_annotates_concrete_leaf():
             break
     assert version is not None
     assert version['label'] == '>=1.34.5 → 1.34.8'
+
+
+def test_tip_version_bound_skips_unused_sibling_versions():
+    """Identity grouping: unused siblings stay bare; only the tip pick is annotated."""
+    used = _gitlab_leaf(
+            'c_ares', '1.34.8', 'gcc16_rel',
+            '/deps/gcc16_rel/c-ares/1.34.8',
+            state='referenced',
+    )
+    used['version_bound'] = '>=1.34.5'
+    sibling = _gitlab_leaf(
+            'c_ares', '1.34.5', 'gcc16_rel',
+            '/deps/gcc16_rel/c-ares/1.34.5',
+            state='unreferenced',
+    )
+    # Even if a stale stamp leaked onto the sibling, do not annotate it.
+    sibling['version_bound'] = '>=1.34.5'
+    old_exact = _gitlab_leaf(
+            'protobuf', '33.1', 'gcc153_rel',
+            '/deps/gcc153_rel/protobuf/33.1',
+            state='unreferenced',
+    )
+    old_exact['version_bound'] = '36.1'
+    tip_exact = _gitlab_leaf(
+            'protobuf', '36.1', 'gcc16_rel',
+            '/deps/gcc16_rel/protobuf/36.1',
+            state='referenced',
+    )
+    tip_exact['version_bound'] = '36.1'
+
+    tree = dependency_tree.build_tree(
+            [ used, sibling, tip_exact, old_exact ],
+            grouping='identity',
+    )
+    labels = {}
+    for section in tree.get( 'sections' ) or []:
+        for type_node in section.get( 'children' ) or []:
+            for identity in type_node.get( 'children' ) or []:
+                if identity.get( 'kind' ) != 'identity':
+                    continue
+                for child in identity.get( 'children' ) or []:
+                    if child.get( 'kind' ) == 'version':
+                        labels.setdefault( identity.get( 'short_name' ), set() ).add(
+                                child['label']
+                        )
+    assert labels['c_ares'] == { '>=1.34.5 → 1.34.8', '1.34.5' }
+    assert labels['protobuf'] == { '36.1', '33.1' }
