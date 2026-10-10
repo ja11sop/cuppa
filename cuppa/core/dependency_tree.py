@@ -1591,7 +1591,7 @@ def _error_row_fields( label, size, last_used, remark, location, mute_location=F
 
 
 def _notice_row_fields( label, size, last_used, remark, location, mute_location=False ):
-    """Softer paint for retrievable gaps (``not extracted``) — note, not error."""
+    """Full-row notice paint (summary roll-ups / legacy callers)."""
     if label:
         label = as_notice( label )
     if size.strip():
@@ -1602,6 +1602,21 @@ def _notice_row_fields( label, size, last_used, remark, location, mute_location=
         remark = as_notice( remark )
     _ = mute_location
     return label, size, last_used, remark, location
+
+
+def _retrievable_gap_status_fields( size, last_used, remark ):
+    """Notice only on SIZE / LAST USED / REMARK for ``not extracted`` leaves.
+
+    Identity, version, toolchain stem, and ``[dl]`` LOCATION stay normal/info so the
+    tree does not read as a soft warning when retrieve-on-next-build is expected.
+    """
+    if size.strip():
+        size = as_notice( size )
+    if last_used:
+        last_used = as_notice( last_used )
+    if remark:
+        remark = as_notice( remark )
+    return size, last_used, remark
 
 
 def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
@@ -1777,36 +1792,31 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             continue
 
         location_path_colour = None
+        retrievable_gap = bool(
+                row.get( '_retrievable' ) or remark == RETRIEVABLE_GAP_REMARK
+        )
 
-        if row.get( '_missing_identity' ):
-            # Gap identity: registry URL detail/LOCATION muted so the gap leaf stays
-            # the focus. Retrievable gaps use notice (note); hard gaps stay error.
-            name_colour = (
-                    ( lambda text: as_emphasised( as_notice( text ) ) )
-                    if row.get( '_retrievable' ) else _emphasised_error
-            )
-            field_colour = as_notice if row.get( '_retrievable' ) else as_error
+        if row.get( '_missing_identity' ) and not retrievable_gap:
+            # Hard gap identity: error paint; mute registry URL detail/LOCATION so
+            # the gap leaf stays the focus. Retrievable gaps fall through to normal
+            # used/referenced identity paint (package + archive are fine).
             if label_name or compact_wc:
                 label = _colour_identity_label_or_wc(
-                        label_name, label_detail, name_colour,
+                        label_name, label_detail, _emphasised_error,
                         compact_wc=compact_wc, path_colour=as_subdued,
                         detail_accent=as_subdued,
                 )
             else:
-                label = name_colour( label ) if label else label
+                label = _emphasised_error( label ) if label else label
             if size.strip():
-                size = field_colour( size )
+                size = as_error( size )
             if last_used:
-                last_used = field_colour( last_used )
+                last_used = as_error( last_used )
             location_path_colour = as_subdued
-        elif row.get( '_missing_version' ):
-            # Version that contains a gap toolchain leaf: colour the version row only;
-            # mute registry LOCATION; sibling toolchains paint normally.
-            painter = (
-                    _notice_row_fields if row.get( '_retrievable' )
-                    else _error_row_fields
-            )
-            label, size, last_used, remark, location = painter(
+        elif row.get( '_missing_version' ) and not retrievable_gap:
+            # Hard gap version: error on the version row; mute registry LOCATION.
+            # Retrievable gaps fall through to normal version paint.
+            label, size, last_used, remark, location = _error_row_fields(
                     label, size, last_used, remark, location, mute_location=True
             )
             location_path_colour = as_subdued
@@ -1815,22 +1825,27 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 or _is_gap_remark( remark )
                 or row.get( '_state' ) == 'missing'
         ):
-            # The gap leaf itself (and summary / other gap rows).
-            painter = (
-                    _notice_row_fields if (
-                            row.get( '_retrievable' )
-                            or remark == RETRIEVABLE_GAP_REMARK
-                    ) else _error_row_fields
-            )
-            label, size, last_used, remark, location = painter(
-                    label, size, last_used, remark, location
-            )
-            location_path_colour = (
-                    as_notice if (
-                            row.get( '_retrievable' )
-                            or remark == RETRIEVABLE_GAP_REMARK
-                    ) else as_error
-            )
+            # Gap leaf / summary (identity/version with only retrievable gaps fall
+            # through — they lack leaf/state markers and paint as normal used rows).
+            # Retrievable: notice only on status columns; stem + [dl] LOCATION stay
+            # info so this reads as inventory, not a soft warning.
+            if retrievable_gap:
+                if kind == 'summary':
+                    label, size, last_used, remark, location = _notice_row_fields(
+                            label, size, last_used, remark, location
+                    )
+                else:
+                    if label:
+                        label = as_info( label )
+                    size, last_used, remark = _retrievable_gap_status_fields(
+                            size, last_used, remark
+                    )
+                    location_path_colour = as_info
+            else:
+                label, size, last_used, remark, location = _error_row_fields(
+                        label, size, last_used, remark, location
+                )
+                location_path_colour = as_error
         elif section in ( 'unreferenced', 'unused' ):
             if kind == 'identity':
                 if label_name or compact_wc:

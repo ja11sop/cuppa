@@ -540,7 +540,7 @@ def test_requires_unions_edges_across_version_variants( tmp_path ):
 
 def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     """When one toolchain leaf is missing, siblings and requires stay normal colour."""
-    from cuppa.colourise import as_emphasised, as_error, as_subdued, colouriser
+    from cuppa.colourise import as_emphasised, as_error, as_info, as_notice, colouriser
 
     leaves = [
             _gitlab_leaf(
@@ -559,9 +559,11 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
                     state='unreferenced',
             ),
     ]
-    # Missing leaf has no on-disk size.
+    # Missing leaf has no on-disk size; cached archive still present ([dl]).
     leaves[1]['size_bytes'] = None
     leaves[1]['last_used_epoch'] = None
+    leaves[1]['has_download'] = True
+    leaves[1]['download_path'] = '/downloads/cloud_gcc16_rel.tar.gz'
 
     tree = dependency_tree.build_tree( leaves )
     identity = None
@@ -602,22 +604,26 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     assert '2.28.0' in unused_versions
     assert '3.9.0' in unused_versions
 
-    from cuppa.colourise import as_notice
-
     was_colour = colouriser.use_colour
     colouriser.enable()
     try:
         lines, _ = dependency_tree.render_tree_lines( tree, verbose=True )
         joined = '\n'.join( lines )
-        # Registry URL on the leaf → soak lean: notice (note), not hard error.
-        assert as_emphasised( as_notice( 'cloud' ) ) in joined
+        # Retrievable gap: identity/version/stem/[dl] stay normal info; only the
+        # status columns (SIZE / LAST USED / REMARK) use notice — not soft-warn.
+        assert as_emphasised( as_info( 'cloud' ) ) in joined
+        assert as_emphasised( as_notice( 'cloud' ) ) not in joined
         registry = 'https://gitlab.example/api/v4/projects/1/cloud/3.9.0'
-        assert as_notice( 'gcc16_rel' ) in joined
+        assert as_info( 'gcc16_rel' ) in joined
+        assert as_notice( 'gcc16_rel' ) not in joined
+        assert as_notice( 'not extracted' ) in joined
+        assert as_info( 'cloud_gcc16_rel.tar.gz' ) in joined
+        assert as_notice( 'cloud_gcc16_rel.tar.gz' ) not in joined
         assert as_error( 'gcc15_rel' ) not in joined
         assert as_error( '2.28.0' ) not in joined
         assert as_error( 'requires' ) not in joined
         assert as_error( 'protobuf' ) not in joined
-        assert as_notice( '3.9.0' ) in joined
+        assert as_notice( '3.9.0' ) not in joined
         # Missing-only identity detail must match the selected version, not an
         # unused sibling (regression: group remote copied from 2.28.0).
         assert registry in joined
