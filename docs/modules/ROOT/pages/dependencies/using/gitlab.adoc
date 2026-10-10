@@ -317,15 +317,47 @@ publisher = GitlabPackagePublisher(
   If only ``name`` is given, Cuppa sets ``package`` to ``name`` with ``_`` replaced by ``-``
   (``opentelemetry_cpp`` → ``opentelemetry-cpp``). If only ``package`` is given, ``name``
   is derived the other way. Pass both when the slug is not that transform.
-* ``version`` — concrete pin (no ranges). Optional when the edge ``name`` is already applied
-  via ``BuildWith`` / auto-enable; Cuppa fills it from that package at publish time.
-  Explicit pins always win.
+* ``version`` — exact pin (``1.28.0`` / ``==1.28.0``), minimum (``>=1.28.0``), or
+  ``latest``. Optional when the edge ``name`` is already applied via ``BuildWith`` /
+  auto-enable; Cuppa fills it from that package at publish time. Explicit pins always
+  win. Publish-time ``latest`` on a dependency still becomes a **concrete** pin in the
+  traveling artefact (same as publisher seed latest); a declared ``>=`` minimum may be
+  written through as a soft bound. See xref:#version-ranges[Version ranges].
 * ``registry`` — omit or ``""`` means ``"same"`` (A's registry URL).
 * ``use_libs`` — optional; applied against B when A is linked.
 
 Consumers still only need to import / auto-enable **A**. Transitive names are not added to
-``auto_enable_dependencies``. Conflicting concrete versions of the same name raise ``StopError``.
-Cycles in the dependency graph also fail clearly.
+``auto_enable_dependencies``. Incompatible version bounds on the same name (exact mismatch,
+or an exact pin outside another parent's minimum) raise ``StopError``. Compatible minima
+are intersected (the tighter floor wins). Cycles in the dependency graph also fail clearly.
+
+[#version-ranges]
+=== Version ranges (exact / minimum)
+
+GitLab package edges accept a **small** bound grammar — not pip / PEP 440:
+
+[cols="3,7"]
+|===
+| Spelling | Meaning
+
+| ``1.28.0`` or ``==1.28.0``
+| Exact pin (unchanged)
+
+| ``>=1.28.0``
+| Minimum inclusive; resolve to one concrete version
+
+| ``latest``
+| Named float → concrete via registry list + remember
+|===
+
+Unsupported spellings (``~=``, ``^``, comma lists, exclusions, wildcards) fail clearly at
+publish normalise or consume apply. Diamond parents **intersect** bounds; empty
+intersection names both parents. Selection prefers a satisfying on-disk / remembered
+version; ``--refresh-downloads`` may move to a higher satisfying registry version.
+``--list-dependencies`` shows soft edges as ``bound → concrete`` when a resolved extract
+is known.
+
+Design: https://github.com/ja11sop/cuppa/blob/master/design/plans/gitlab-package-version-ranges.md[`gitlab-package-version-ranges`].
 
 ``--list-dependencies`` treats the traveling-manifest **closure** of tip-selected GitLab
 extracts as referenced: under each tip version a ``requires`` group nests on-disk package

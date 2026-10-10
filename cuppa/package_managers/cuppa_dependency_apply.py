@@ -20,6 +20,13 @@ from cuppa.package_managers.package_link_libs import (
         list_linkable_lib_stems,
         list_static_lib_stems,
 )
+from cuppa.package_managers.package_version_bound import (
+        VersionBoundConflict,
+        VersionBoundError,
+        intersect_version_bounds,
+        parse_version_bound,
+        version_satisfies,
+)
 
 
 _APPLY_STACK_KEY = "_cuppa_transitive_apply_stack"
@@ -31,6 +38,7 @@ __all__ = [
         "list_static_lib_stems",
 ]
 _VERSION_PINS_KEY = "_cuppa_package_version_pins"
+_VERSION_PIN_PARENTS_KEY = "_cuppa_package_version_pin_parents"
 _TRANSITIVE_LIBS_APPLIED_KEY = "_cuppa_transitive_use_libs_applied"
 
 
@@ -45,35 +53,125 @@ def _factory_version( factory ):
     return getattr( owner, "_version", None )
 
 
+def _set_factory_version( factory, version ):
+    owner = _factory_owner( factory )
+    if owner is not None:
+        owner._version = version
+
+
+def _bound_token_for_factory( bound ):
+    """Version string stored on the package_dependency class before resolve."""
+    if bound.is_exact:
+        return str( bound.version )
+    return bound.display()
+
+
 def _resolve_registry( entry_registry, parent_registry ):
     if entry_registry in ( None, "same", "" ):
         return parent_registry
     return entry_registry
 
 
-def _ensure_registered( env, entry, parent_registry ):
+def _parse_entry_bound( entry, parent_name ):
+    raw = entry.get( "version" )
+    try:
+        return parse_version_bound( raw )
+    except VersionBoundError as error:
+        raise SCons.Errors.StopError(
+                "Transitive package [{}] from [{}] has an invalid version: {}".format(
+                        entry.get( "name" ),
+                        parent_name or "?",
+                        error,
+                )
+        ) from error
+
+
+def _ensure_registered( env, entry, parent_registry, parent_name=None ):
     """Ensure ``entry['name']`` is in ``env['dependencies']``; return the name.
 
-    Synthesizes a ``package_dependency`` factory when the name is not already
-    registered. Concrete version pins must agree when the name is already present.
+    Version edges use the bound grammar (exact / ``>=`` / ``latest``). Declared
+    bounds are intersected in the env pin table; incompatible diamonds raise
+    ``StopError`` naming both parents.
     """
     name = entry["name"]
-    version = entry["version"]
+    new_bound = _parse_entry_bound( entry, parent_name )
     pins = env.setdefault( _VERSION_PINS_KEY, {} )
+    parents = env.setdefault( _VERSION_PIN_PARENTS_KEY, {} )
 
     if name in env.get( "dependencies", {} ):
         factory = env["dependencies"][name]
         existing = pins.get( name )
         if existing is None:
-            existing = _factory_version( factory )
-            if existing is not None:
+            factory_version = _factory_version( factory )
+            if factory_version is not None:
+                try:
+                    existing = parse_version_bound( factory_version )
+                except VersionBoundError as error:
+                    raise SCons.Errors.StopError(
+                            "Package [{}] is already registered with an invalid "
+                            "version [{}]: {}".format(
+                                    name, factory_version, error
+                            )
+                    ) from error
                 pins[name] = existing
-        if existing is not None and str( existing ) != str( version ):
-            raise SCons.Errors.StopError(
-                "Transitive package [{}] requires version [{}] but [{}] is already "
-                "registered or pinned as [{}].".format( name, version, name, existing )
-            )
-        pins[name] = str( version ) if existing is None else str( existing )
+                parents.setdefault( name, [] ).append( "(registered)" )
+
+        if existing is not None:
+            try:
+                merged = intersect_version_bounds( existing, new_bound )
+            except VersionBoundConflict as conflict:
+                prior = parents.get( name ) or []
+                raise SCons.Errors.StopError(
+                        "Transitive package [{}] version conflict: {} "
+                        "(requested by [{}] as [{}]; already pinned as [{}] "
+                        "from [{}]).".format(
+                                name,
+                                conflict,
+                                parent_name or "?",
+                                new_bound.display(),
+                                existing.display(),
+                                ", ".join( str( item ) for item in prior ) or "?",
+                        )
+                ) from conflict
+
+            factory_version = _factory_version( factory )
+            factory_bound = None
+            if factory_version is not None:
+                try:
+                    factory_bound = parse_version_bound( factory_version )
+                except VersionBoundError:
+                    factory_bound = None
+                if (
+                        factory_bound is not None
+                        and factory_bound.is_exact
+                        and not version_satisfies( merged, factory_bound.version )
+                ):
+                    prior = parents.get( name ) or []
+                    raise SCons.Errors.StopError(
+                            "Transitive package [{}] version conflict: already "
+                            "resolved as [{}] which does not satisfy [{}] "
+                            "(requested by [{}]; prior pins from [{}]).".format(
+                                    name,
+                                    factory_bound.display(),
+                                    merged.display(),
+                                    parent_name or "?",
+                                    ", ".join( str( item ) for item in prior ) or "?",
+                            )
+                    )
+
+            pins[name] = merged
+            if parent_name:
+                parents.setdefault( name, [] ).append( parent_name )
+
+            # Soft factory tokens track the intersected bound until default_version.
+            # Exact concrete factories that still satisfy the merge are left alone.
+            if factory_bound is None or factory_bound.is_soft:
+                _set_factory_version( factory, _bound_token_for_factory( merged ) )
+            return name
+
+        pins[name] = new_bound
+        if parent_name:
+            parents.setdefault( name, [] ).append( parent_name )
         return name
 
     registry = _resolve_registry( entry.get( "registry" ), parent_registry )
@@ -89,7 +187,7 @@ def _ensure_registered( env, entry, parent_registry ):
             name,
             registry=registry,
             package=entry.get( "package" ) or name,
-            version=version,
+            version=_bound_token_for_factory( new_bound ),
     )
     # Declared package_dependency types register CLI options at cuppa.run()
     # time. Synthesized transitive factories skip that path, so package_info's
@@ -100,13 +198,17 @@ def _ensure_registered( env, entry, parent_registry ):
     # variant envs clone ``dependencies`` and re-enter synthesis).
     Factory.add_options( SCons.Script.AddOption )
     env.setdefault( "dependencies", {} )[name] = Factory.create
-    pins[name] = str( version )
+    pins[name] = new_bound
+    if parent_name:
+        parents.setdefault( name, [] ).append( parent_name )
+    else:
+        parents.setdefault( name, [] ).append( "(manifest)" )
     logger.debug(
             "Registered transitive package dependency [{}] (package [{}], version [{}]) "
             "from the traveling package manifest".format(
                     as_info( name ),
                     as_notice( entry.get( "package" ) or name ),
-                    as_info( str( version ) ),
+                    as_info( new_bound.display() ),
             )
     )
     return name
@@ -117,9 +219,19 @@ def apply_stack( env ):
     return env.get( _APPLY_STACK_KEY ) or []
 
 
+def _read_traveling_or_stop( package_dir, parent_name ):
+    try:
+        return read_traveling_manifest( package_dir )
+    except ValueError as error:
+        raise SCons.Errors.StopError(
+                "Traveling package manifest under [{}] (package [{}]) is invalid: "
+                "{}".format( package_dir, parent_name or "?", error )
+        ) from error
+
+
 def apply_transitive_build_with( env, package_dir, parent_name, parent_registry ):
     """``BuildWith`` each manifest dependency (includes / modules); detect cycles."""
-    document = read_traveling_manifest( package_dir )
+    document = _read_traveling_or_stop( package_dir, parent_name )
     if not document:
         return
     dependencies = document.get( "dependencies" ) or []
@@ -136,7 +248,9 @@ def apply_transitive_build_with( env, package_dir, parent_name, parent_registry 
     stack.append( parent_name )
     try:
         for entry in dependencies:
-            name = _ensure_registered( env, entry, parent_registry )
+            name = _ensure_registered(
+                    env, entry, parent_registry, parent_name=parent_name
+            )
             if name in stack:
                 cycle = " -> ".join( stack + [ name ] )
                 raise SCons.Errors.StopError(
@@ -155,7 +269,7 @@ def apply_transitive_build_with( env, package_dir, parent_name, parent_registry 
 
 def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
     """Apply each manifest edge's ``use_libs`` against the dependency (once per parent)."""
-    document = read_traveling_manifest( package_dir )
+    document = _read_traveling_or_stop( package_dir, parent_name )
     if not document:
         return
 
@@ -168,7 +282,9 @@ def apply_transitive_use_libs( env, package_dir, parent_name, parent_registry ):
         use_libs = entry.get( "use_libs" ) or []
         if not use_libs:
             continue
-        name = _ensure_registered( env, entry, parent_registry )
+        name = _ensure_registered(
+                env, entry, parent_registry, parent_name=parent_name
+        )
         dependency = env.BuildWith( name )
         # BuildWith returns a single object or a list
         if isinstance( dependency, list ):

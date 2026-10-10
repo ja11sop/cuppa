@@ -1243,9 +1243,21 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
         age_epoch = _age_epoch_for_entry( entry, path )
         remote_location = None
         package_archive = None
+        version_bound = None
         for item in owned:
             if storage.real_path( item.path ) == real and item.remote_location:
                 remote_location = item.remote_location
+            # Tip bound stamps only the resolve-selected concrete version — not
+            # unused sibling extracts under the same package identity.
+            if (
+                    item.dependency == dependency_name
+                    and getattr( item, 'version_bound', None )
+                    and version_bound is None
+                    and str( item.qualifier or '' ) == str(
+                            entry.get( 'qualifier' ) or ''
+                    )
+            ):
+                version_bound = item.version_bound
             if (
                     item.dependency == dependency_name
                     and item.category == 'downloads'
@@ -1304,6 +1316,7 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             'has_download': bool( download_path ),
             'download_path': download_path,
             'requires': _requires_entries_for_path( path, storage_type ),
+            'version_bound': version_bound,
         } )
         row_paths.add( real )
 
@@ -1371,6 +1384,7 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
             'location': location,
             'has_download': bool( download_path ),
             'download_path': download_path,
+            'version_bound': getattr( item, 'version_bound', None ),
         } )
         missing_count += 1
 

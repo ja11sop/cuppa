@@ -412,6 +412,77 @@ def test_version_conflict_raises( tmp_path: Path ):
         apply_transitive_build_with( env, str( package_dir ), "a", _REGISTRY )
 
 
+def test_compatible_minima_intersect( tmp_path: Path, monkeypatch ):
+    dir_a = tmp_path / "a" / "1.0.0"
+    dir_c = tmp_path / "c" / "1.0.0"
+    _write_manifest( dir_a, [
+            {
+                    "name": "b",
+                    "package": "b",
+                    "version": ">=1.28.0",
+                    "registry": "same",
+            }
+    ] )
+    _write_manifest( dir_c, [
+            {
+                    "name": "b",
+                    "package": "b",
+                    "version": ">=1.30.0",
+                    "registry": "same",
+            }
+    ] )
+    created = _install_fake_package_dependency( monkeypatch )
+    env = _FakeEnv()
+    apply_transitive_build_with( env, str( dir_a ), "a", _REGISTRY )
+    apply_transitive_build_with( env, str( dir_c ), "c", _REGISTRY )
+    assert created["b"]["version"] == ">=1.28.0"
+    factory = created["_factories"]["b"]
+    assert factory._version == ">=1.30.0"
+    pin = env["_cuppa_package_version_pins"]["b"]
+    assert pin.display() == ">=1.30.0"
+
+
+def test_exact_satisfies_minimum( tmp_path: Path ):
+    package_dir = tmp_path / "a" / "1.0.0"
+    _write_manifest( package_dir, [
+            {
+                    "name": "b",
+                    "package": "b",
+                    "version": ">=1.28.0",
+                    "registry": "same",
+            }
+    ] )
+    env = _FakeEnv()
+
+    class Factory:
+        _name = "b"
+        _version = "1.30.0"
+
+        @classmethod
+        def create( cls, env ):
+            return _FakeDependency( "b" )
+
+    env["dependencies"]["b"] = Factory.create
+    apply_transitive_build_with( env, str( package_dir ), "a", _REGISTRY )
+    assert Factory._version == "1.30.0"
+
+
+def test_unsupported_range_spelling_raises( tmp_path: Path, monkeypatch ):
+    package_dir = tmp_path / "a" / "1.0.0"
+    _write_manifest( package_dir, [
+            {
+                    "name": "b",
+                    "package": "b",
+                    "version": ">=1.28.0,<2",
+                    "registry": "same",
+            }
+    ] )
+    _install_fake_package_dependency( monkeypatch )
+    env = _FakeEnv()
+    with pytest.raises( SCons.Errors.StopError, match="invalid" ):
+        apply_transitive_build_with( env, str( package_dir ), "a", _REGISTRY )
+
+
 def test_synthesize_requires_registry( tmp_path: Path, monkeypatch ):
     package_dir = tmp_path / "a" / "1.0.0"
     _write_manifest( package_dir, [

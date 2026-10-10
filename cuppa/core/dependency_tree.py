@@ -476,7 +476,9 @@ def _group_with_leaves( group, leaves ):
             'type': storage_type,
             'short_name': group_key,
             'registry_name': None,
-            'remote_location': group.get( 'remote_location' ),
+            # Recompute from ``leaves`` only. Copying the parent group's remote can
+            # keep a sibling version URL (e.g. unused 1.34.5) on a missing 1.34.8 row.
+            'remote_location': None,
             'leaves': list( leaves ),
             'family_key': group.get( 'family_key' ),
     }
@@ -712,9 +714,32 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
         missing_only = bool( missing ) and used == 0 and missing == len( variants )
         has_missing_leaf = bool( missing )
         remark = _remark_for_used( used ) if used else ''
+        version_label = str( version )
+        # Tip ``version_bound`` only annotates resolve-selected leaves. Unused
+        # siblings must stay bare (else exact tip ``36.1`` paints ``36.1 → 33.1``
+        # on an old extract, or soft tip paints ``>=x →`` on every satisfying cache).
+        declared_bound = None
+        for leaf in variants:
+            if leaf.get( 'state' ) not in REFERENCED_STATES:
+                continue
+            declared_bound = leaf.get( 'version_bound' )
+            if declared_bound:
+                break
+        if declared_bound:
+            try:
+                from cuppa.package_managers.package_version_bound import (
+                        VersionBoundError,
+                        format_bound_with_resolved,
+                        parse_version_bound,
+                )
+                version_label = format_bound_with_resolved(
+                        parse_version_bound( declared_bound ), version
+                )
+            except ( VersionBoundError, ValueError, TypeError ):
+                version_label = str( version )
         children.append( {
             'kind': 'version',
-            'label': str( version ),
+            'label': version_label,
             'size_bytes': None if missing_only else size_bytes,
             'last_used_epoch': None if missing_only else epoch,
             'remark': remark,
@@ -934,15 +959,58 @@ def _requires_closure_forest( entries, nest_index, section='referenced' ):
             closure_families, edges, prefer=tip_prefer,
     )
 
+    def _declared_bound_for_family( family_key ):
+        for entry in entries or []:
+            package = entry.get( 'package' ) or entry.get( 'name' )
+            key = normalise_package_key( package )
+            if not key:
+                continue
+            aliases = {
+                    key,
+                    key.replace( '-', '_' ),
+                    key.replace( '_', '-' ),
+            }
+            if any(
+                    normalise_package_key( alias ) == family_key
+                    for alias in aliases
+            ):
+                return entry.get( 'version' )
+        return None
+
+    def _annotate_identity_bounds( identity, declared_bound ):
+        """Show ``>=x → concrete`` on nested version rows when the tip declared a range."""
+        if not identity or not declared_bound:
+            return identity
+        try:
+            from cuppa.package_managers.package_version_bound import (
+                    VersionBoundError,
+                    format_bound_with_resolved,
+                    parse_version_bound,
+            )
+            bound = parse_version_bound( declared_bound )
+        except ( VersionBoundError, ValueError, TypeError ):
+            return identity
+        if bound.is_exact and not bound.is_soft:
+            return identity
+        for child in identity.get( 'children' ) or []:
+            if child.get( 'kind' ) != 'version':
+                continue
+            concrete = child.get( 'label' )
+            child['label'] = format_bound_with_resolved( bound, concrete )
+        return identity
+
     children = []
     for family in ordered_families:
         children.append( _spacer_node() )
         group = nest_index[family]
         # Nested packages keep label-style requires (no recursive sized forests).
-        children.append( _build_identity(
+        identity = _build_identity(
                 group, section,
                 nest_index=None,
                 expand_requires_closure=False,
+        )
+        children.append( _annotate_identity_bounds(
+                identity, _declared_bound_for_family( family )
         ) )
 
     # Manifest edges with no on-disk extract stay as labels after the forest.
@@ -988,19 +1056,31 @@ def _requires_closure_forest( entries, nest_index, section='referenced' ):
     }
 
 
-def _requires_edge_node( entry ):
+def _requires_edge_node( entry, resolved_version=None ):
     name = entry.get( 'name' ) or entry.get( 'package' ) or '-'
     version = entry.get( 'version' ) or '-'
     package = entry.get( 'package' ) or name
+    detail = str( version )
+    try:
+        from cuppa.package_managers.package_version_bound import (
+                VersionBoundError,
+                format_bound_with_resolved,
+                parse_version_bound,
+        )
+        bound = parse_version_bound( version )
+        detail = format_bound_with_resolved( bound, resolved_version )
+    except ( VersionBoundError, ValueError, TypeError ):
+        if resolved_version and str( resolved_version ) != str( version ):
+            detail = "{} → {}".format( version, resolved_version )
     use_libs = entry.get( 'use_libs' ) or []
     remark = ''
     if use_libs:
         remark = 'libs: {}'.format( ', '.join( str( item ) for item in use_libs ) )
     return {
         'kind': 'requires_edge',
-        'label': '{} {}'.format( name, version ),
+        'label': '{} {}'.format( name, detail ),
         'label_name': str( name ),
-        'label_detail': str( version ),
+        'label_detail': detail,
         'size_bytes': None,
         'last_used_epoch': None,
         'remark': remark,

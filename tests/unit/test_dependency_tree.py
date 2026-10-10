@@ -140,6 +140,21 @@ def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
     assert edge['remark'] == 'libs: beta_core'
 
 
+def test_requires_edge_shows_bound_arrow_when_resolved():
+    from cuppa.core.dependency_tree import _requires_edge_node
+
+    edge = _requires_edge_node(
+            {
+                    "name": "widget_core",
+                    "package": "widget-core",
+                    "version": ">=1.28.0",
+            },
+            resolved_version="1.29.1",
+    )
+    assert edge["label_detail"] == ">=1.28.0 → 1.29.1"
+    assert edge["requires_version"] == ">=1.28.0"
+
+
 def test_gitlab_tree_shows_requires_from_preloaded_entries():
     tree = dependency_tree.build_tree( [
             _gitlab_leaf(
@@ -600,5 +615,106 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
         assert as_error( 'protobuf' ) not in joined
         # Version with the gap is error-coloured.
         assert as_error( '3.9.0' ) in joined
+        # Missing-only identity detail must match the selected version, not an
+        # unused sibling (regression: group remote copied from 2.28.0).
+        assert registry in joined
     finally:
         colouriser.use_colour = was_colour
+
+
+def test_usage_split_missing_remote_matches_selected_version():
+    """Used/missing identity must not keep an unused sibling's registry URL."""
+    leaves = [
+            _gitlab_leaf(
+                    'c-ares', '1.34.5', 'gcc16_rel',
+                    '/deps/gcc16_rel/c-ares/1.34.5',
+                    state='unreferenced',
+            ),
+            _gitlab_leaf(
+                    'c-ares', '1.34.8', 'gcc16_rel',
+                    '/deps/gcc16_rel/c-ares/1.34.8',
+                    state='missing',
+            ),
+    ]
+    leaves[1]['size_bytes'] = None
+    leaves[1]['last_used_epoch'] = None
+
+    tree = dependency_tree.build_tree( leaves )
+    used_identity = None
+    for section in tree['sections']:
+        if section.get( 'label' ) != 'used':
+            continue
+        for type_node in section.get( 'children' ) or []:
+            for child in type_node.get( 'children' ) or []:
+                if child.get( 'kind' ) == 'identity':
+                    used_identity = child
+    assert used_identity is not None
+    assert used_identity.get( 'missing' ) is True
+    detail = used_identity.get( 'label_detail' ) or ''
+    assert detail.endswith( '/c-ares/1.34.8' )
+    assert '1.34.5' not in detail
+
+
+def test_tip_version_bound_annotates_concrete_leaf():
+    """Tip ``version_bound`` shows ``>=x → concrete`` on the version row."""
+    leaf = _gitlab_leaf(
+            'c_ares', '1.34.8', 'gcc16_rel',
+            '/deps/gcc16_rel/c-ares/1.34.8',
+            state='referenced',
+    )
+    leaf['version_bound'] = '>=1.34.5'
+    tree = dependency_tree.build_tree( [ leaf ] )
+    version = None
+    for section in tree.get( 'sections' ) or []:
+        version = _find_kind( section, 'version' )
+        if version is not None:
+            break
+    assert version is not None
+    assert version['label'] == '>=1.34.5 → 1.34.8'
+
+
+def test_tip_version_bound_skips_unused_sibling_versions():
+    """Identity grouping: unused siblings stay bare; only the tip pick is annotated."""
+    used = _gitlab_leaf(
+            'c_ares', '1.34.8', 'gcc16_rel',
+            '/deps/gcc16_rel/c-ares/1.34.8',
+            state='referenced',
+    )
+    used['version_bound'] = '>=1.34.5'
+    sibling = _gitlab_leaf(
+            'c_ares', '1.34.5', 'gcc16_rel',
+            '/deps/gcc16_rel/c-ares/1.34.5',
+            state='unreferenced',
+    )
+    # Even if a stale stamp leaked onto the sibling, do not annotate it.
+    sibling['version_bound'] = '>=1.34.5'
+    old_exact = _gitlab_leaf(
+            'protobuf', '33.1', 'gcc153_rel',
+            '/deps/gcc153_rel/protobuf/33.1',
+            state='unreferenced',
+    )
+    old_exact['version_bound'] = '36.1'
+    tip_exact = _gitlab_leaf(
+            'protobuf', '36.1', 'gcc16_rel',
+            '/deps/gcc16_rel/protobuf/36.1',
+            state='referenced',
+    )
+    tip_exact['version_bound'] = '36.1'
+
+    tree = dependency_tree.build_tree(
+            [ used, sibling, tip_exact, old_exact ],
+            grouping='identity',
+    )
+    labels = {}
+    for section in tree.get( 'sections' ) or []:
+        for type_node in section.get( 'children' ) or []:
+            for identity in type_node.get( 'children' ) or []:
+                if identity.get( 'kind' ) != 'identity':
+                    continue
+                for child in identity.get( 'children' ) or []:
+                    if child.get( 'kind' ) == 'version':
+                        labels.setdefault( identity.get( 'short_name' ), set() ).add(
+                                child['label']
+                        )
+    assert labels['c_ares'] == { '>=1.34.5 → 1.34.8', '1.34.5' }
+    assert labels['protobuf'] == { '36.1', '33.1' }

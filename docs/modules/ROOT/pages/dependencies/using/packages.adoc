@@ -38,11 +38,16 @@ cuppa.run(
 )
 ----
 
-Pin `version` to a concrete string, or use `version = 'latest'` (or omit / `None`) to resolve
-the newest version **published in that registry** for the package name at configure time.
-Offline reuse of that pin is documented under
-xref:dependencies/using/gitlab.adoc#version-latest[Registry latest].
-A missing package or an unresolved `latest` fails during configure, before compile.
+Pin `version` to a concrete string, a minimum bound (`version = '>=1.28.0'`), or
+`version = 'latest'` (or omit / `None`) to resolve the newest version **published in
+that registry** for the package name at configure time.
+Minimum bounds pick the highest satisfying on-disk / remembered version when that
+still works, otherwise the highest satisfying registry version (and may move upward
+under `--refresh-downloads`). Offline reuse of `latest` is documented under
+xref:dependencies/using/gitlab.adoc#version-latest[Registry latest]; soft pins more
+generally under
+xref:dependencies/using/gitlab.adoc#version-ranges[Version ranges].
+A missing package or an unsatisfied bound fails during configure, before compile.
 
 On the publish side, the same floating tokens may appear on
 ``GitlabPackagePublisher``: the publisher-tree seed can keep ``"latest"`` while

@@ -1,9 +1,10 @@
 # Plan: GitLab package dependency version ranges
 
-- **Status:** proposal
+- **Status:** done
 - **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP concrete pins; was `gl-dep-ranges`); [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md) (open question 10 — floating `latest` ≠ constraint solver); [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
 - **Updated:** 2026-10-10
 - **Impact:** minor — richer manifest / consume pins; existing exact-version edges stay valid
+- **PR:** (this branch — soak: c_ares ``>=1.34.5`` → 1.34.8; tip list bound→concrete)
 
 ## Problem
 
@@ -261,7 +262,12 @@ concrete string), `cuppa_dependency_apply._ensure_registered` (string equality),
 | Item | Status |
 |------|--------|
 | Split from transitive MVP | Done — this proposal |
-| Settled leans + non-pip boundary | Done — this revision |
-| Worked examples (validate need) | Done — this revision |
-| Schema + resolve implementation | Not started |
-| List / docs / CHANGELOG | Not started |
+| Settled leans + non-pip boundary | Done — examples revision |
+| Worked examples (validate need) | Done — examples revision |
+| A. Parse helper + unit tests | Done — `package_version_bound` |
+| B. Pin-table intersect + parent conflict messages | Done — `cuppa_dependency_apply` |
+| C. Select concrete (cache / remember / registry / refresh) | Done — `resolve_bound_to_concrete` + `default_version` |
+| D. Publish / manifest path allows ranges | Done — `normalise_dependency_entry` |
+| E. List ``bound → concrete`` | Done — tip defaults + requires edge + nest version rows |
+| F. Antora + CHANGELOG | Done on this PR |
+| Soak (c_ares publish 1.34.8 + grpc ``>=1.34.5``) | Done — soft keep of cache; ``--refresh-downloads=c_ares`` → 1.34.8; tip list ``>=1.34.5 → 1.34.8`` |

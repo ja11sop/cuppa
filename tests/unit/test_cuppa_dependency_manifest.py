@@ -78,6 +78,28 @@ def test_normalise_requires_version():
         normalise_dependency_entry( { "name": "fmt", "package": "fmt" } )
 
 
+def test_normalise_accepts_minimum_and_canonicalises_eq():
+    assert normalise_dependency_entry( {
+            "name": "widget_core",
+            "package": "widget-core",
+            "version": ">=1.28.0",
+    } )["version"] == ">=1.28.0"
+    assert normalise_dependency_entry( {
+            "name": "widget_core",
+            "package": "widget-core",
+            "version": "==1.28.0",
+    } )["version"] == "1.28.0"
+
+
+def test_normalise_rejects_pip_style_range():
+    with pytest.raises( ValueError, match="invalid version" ):
+        normalise_dependency_entry( {
+                "name": "widget_core",
+                "package": "widget-core",
+                "version": ">=1.28.0,<2",
+        } )
+
+
 def test_write_and_read_round_trip( tmp_path: Path ):
     deps = [
         {

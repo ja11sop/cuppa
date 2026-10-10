@@ -334,6 +334,32 @@ def test_package_dependency_default_version_none( monkeypatch ):
     assert Dep._version == '9.0'
 
 
+def test_package_dependency_default_version_minimum( monkeypatch ):
+    Dep = package_dependency(
+            'widget',
+            package_manager='gitlab',
+            registry='https://gitlab.example/api/v4/projects/1',
+            package='widget',
+            version='>=1.28.0',
+    )
+
+    def fake_resolve( env, bound, **kwargs ):
+        assert bound.display() == '>=1.28.0'
+        assert kwargs.get( 'package' ) == 'widget'
+        return '1.29.1'
+
+    monkeypatch.setattr(
+            'cuppa.package_managers.package_version_bound.resolve_bound_to_concrete',
+            fake_resolve,
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.refresh_downloads_applies',
+            lambda *a, **k: False,
+    )
+    Dep.default_version( Dep._version, FakeEnv( offline=False ) )
+    assert Dep._version == '1.29.1'
+
+
 def test_package_dependency_default_version_failure_is_stop_error( monkeypatch ):
     Dep = package_dependency(
             'widget',
