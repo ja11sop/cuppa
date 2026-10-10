@@ -1,8 +1,8 @@
 # Plan: Normalise StopError / options-error reporting
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`)
-- **Updated:** 2026-09-23
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean)
+- **Updated:** 2026-10-10
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
 
 ## Problem
