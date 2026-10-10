@@ -17,7 +17,6 @@ from cuppa.colourise import (
     as_emphasised,
     as_error,
     as_info,
-    as_notice,
     as_remove_notice,
     as_subdued,
 )
@@ -1363,12 +1362,19 @@ def _build_section( name, identities ):
         if missing_count:
             all_retrievable = retrievable_gap_count == missing_count
             gap_word = RETRIEVABLE_GAP_REMARK if all_retrievable else 'missing'
+            if all_retrievable:
+                gap_label = (
+                        'not extracted dependency' if missing_count == 1
+                        else 'not extracted dependencies'
+                )
+            else:
+                gap_label = (
+                        'missing dependency' if missing_count == 1
+                        else 'missing dependencies'
+                )
             children.append( {
                 'kind': 'summary',
-                'label': (
-                        'not extracted dependencies' if all_retrievable
-                        else 'missing dependencies'
-                ),
+                'label': gap_label,
                 'size_bytes': missing_bytes,
                 'last_used_epoch': missing_epoch,
                 'remark': _remark_count( missing_count, gap_word ),
@@ -1423,6 +1429,10 @@ def tree_to_json( tree ):
             'size': _size_text(
                     node.get( 'size_bytes' ), node.get( 'kind' ),
                     node.get( 'state' ), node.get( 'remark' ),
+                    retrievable=bool(
+                            node.get( 'retrievable' )
+                            or node.get( 'remark' ) == RETRIEVABLE_GAP_REMARK
+                    ),
             ).strip(),
             'last_used': (
                 '-' if (
@@ -1489,14 +1499,17 @@ def _epoch_to_iso( epoch ):
     return datetime.fromtimestamp( epoch, tz=timezone.utc ).strftime( '%Y-%m-%dT%H:%M:%SZ' )
 
 
-def _size_text( size_bytes, kind=None, state=None, remark=None ):
+def _size_text( size_bytes, kind=None, state=None, remark=None, retrievable=False ):
     if kind == 'spacer':
         return ''.rjust( SIZE_WIDTH )
     # Structure / label-only requires rows: blank SIZE, not a dash placeholder.
     if kind in ( 'requires', 'requires_edge' ) and size_bytes is None:
         return ''.rjust( SIZE_WIDTH )
     if state == 'missing' or _is_gap_remark( remark ):
-        text = '-'
+        # Retrievable gaps will have a size after extract; unknown for now (not "empty").
+        text = '??' if (
+                retrievable or remark == RETRIEVABLE_GAP_REMARK
+        ) else '-'
     elif size_bytes is None:
         text = '-'
     else:
@@ -1590,35 +1603,6 @@ def _error_row_fields( label, size, last_used, remark, location, mute_location=F
     return label, size, last_used, remark, location
 
 
-def _notice_row_fields( label, size, last_used, remark, location, mute_location=False ):
-    """Full-row notice paint (summary roll-ups / legacy callers)."""
-    if label:
-        label = as_notice( label )
-    if size.strip():
-        size = as_notice( size )
-    if last_used:
-        last_used = as_notice( last_used )
-    if remark:
-        remark = as_notice( remark )
-    _ = mute_location
-    return label, size, last_used, remark, location
-
-
-def _retrievable_gap_status_fields( size, last_used, remark ):
-    """Notice only on SIZE / LAST USED / REMARK for ``not extracted`` leaves.
-
-    Identity, version, toolchain stem, and ``[dl]`` LOCATION stay normal/info so the
-    tree does not read as a soft warning when retrieve-on-next-build is expected.
-    """
-    if size.strip():
-        size = as_notice( size )
-    if last_used:
-        last_used = as_notice( last_used )
-    if remark:
-        remark = as_notice( remark )
-    return size, last_used, remark
-
-
 def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
     """Return ``(lines, columns)`` for the dependency tree text view."""
     columns = [
@@ -1688,7 +1672,13 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
             )
             if selector_hint:
                 label = ( label + ' ' + selector_hint ).rstrip()
-        size = _size_text( node.get( 'size_bytes' ), kind, state, remark )
+        size = _size_text(
+                node.get( 'size_bytes' ), kind, state, remark,
+                retrievable=bool(
+                        node.get( 'retrievable' )
+                        or remark == RETRIEVABLE_GAP_REMARK
+                ),
+        )
         if (
                 state == 'missing'
                 or _is_gap_remark( remark )
@@ -1827,20 +1817,14 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
         ):
             # Gap leaf / summary (identity/version with only retrievable gaps fall
             # through — they lack leaf/state markers and paint as normal used rows).
-            # Retrievable: notice only on status columns; stem + [dl] LOCATION stay
-            # info so this reads as inventory, not a soft warning.
+            # Retrievable: same info paint as ``in use`` — inventory status, no
+            # action, so no notice/warn colour. SIZE stays plain ``??``.
             if retrievable_gap:
-                if kind == 'summary':
-                    label, size, last_used, remark, location = _notice_row_fields(
-                            label, size, last_used, remark, location
-                    )
-                else:
-                    if label:
-                        label = as_info( label )
-                    size, last_used, remark = _retrievable_gap_status_fields(
-                            size, last_used, remark
-                    )
-                    location_path_colour = as_info
+                if label:
+                    label = as_info( label )
+                if remark:
+                    remark = as_info( remark )
+                location_path_colour = as_info
             else:
                 label, size, last_used, remark, location = _error_row_fields(
                         label, size, last_used, remark, location

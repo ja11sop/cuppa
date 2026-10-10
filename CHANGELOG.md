@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Cascade / tip-consume UX (soak): ``--list-dependencies`` gap remarks prefer
-  ``not extracted`` (note) when a registry URL or cached download can retrieve
-  the tip extract; bare ``missing`` stays for gaps with no retrieve story.
+  ``not extracted`` (same info paint as ``in use``; SIZE ``??``) when a registry
+  URL or cached download can retrieve the tip extract; bare ``missing`` stays
+  for gaps with no retrieve story.
   Cascade finish-line remedies no longer pitch ``--clone-publishers`` when
   failing nodes lack a URL ``package_source``. ``--cascade`` + SCons ``-n``
   nest companions refuse earlier with “Did you mean ``--cascade-plan``?”.

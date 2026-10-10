@@ -808,12 +808,13 @@ def test_tree_missing_gitlab_version_and_dashes():
     import re
     plain = re.sub( r'\x1b\[[0-9;]*m', '', plain )
     assert 'google_cloud_cpp' in plain
-    # Registry URL present → soak lean: note roll-up + leaf remark.
-    assert 'not extracted dependencies' in plain
+    # Registry URL present → soak lean: inventory status roll-up + leaf remark.
+    assert 'not extracted dependency' in plain
     leaf_lines = [ line for line in plain.splitlines() if 'gcc153_rel' in line ]
     assert leaf_lines and 'not extracted' in leaf_lines[0]
-    # Missing SIZE / LAST USED are dashes, not 0B.
+    # Retrievable gap SIZE is ``??`` (unknown until extract), not 0B / bare dash.
     assert '0B' not in plain
+    assert '??' in plain
     identity = None
     for type_node in tree['sections'][0]['children']:
         if type_node.get( 'kind' ) != 'type':

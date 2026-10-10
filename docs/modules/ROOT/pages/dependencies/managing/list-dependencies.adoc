@@ -56,10 +56,11 @@ Type groups always appear in this order (empty groups are omitted):
 
 Default dependencies that are expected but absent on disk appear as a **gap** remark.
 When Cuppa can point at a registry URL and/or a cached download archive, the remark is
-`not extracted` (note paint) — the next **online tip build** retrieves them. Bare
-`missing` is reserved for gaps with no retrieve story. The used section opens with
-roll-ups when useful: `dependencies in use`, then
-`not extracted dependencies` / `missing dependencies`, then
+`not extracted` (same info paint as `in use`; SIZE shows `??` until extract size is
+known) — the next **online tip build** retrieves them. Bare `missing` is reserved for
+gaps with no retrieve story. The used section opens with roll-ups when useful:
+`dependencies in use`, then
+`not extracted dependency` / `not extracted dependencies` (or hard `missing`), then
 `potentially stale dependencies` for other non-selected bound leaves (for example
 develop-shadowed stems).
 
@@ -121,7 +122,7 @@ include::partial$samples/list-dependencies.html[]
 Blank rows that carry only a tree stem (`│`) keep hanging lines continuous between siblings.
 Referenced trees open with a `dependencies in use` roll-up when at least one leaf is
 selected; absent expected trees add a
-`not extracted dependencies` / `N not extracted` (or hard `missing`) summary.
+`not extracted dependency` / `N not extracted` (or hard `missing`) summary.
 
 == Choosing a scope
 

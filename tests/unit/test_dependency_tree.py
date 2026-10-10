@@ -54,12 +54,24 @@ def test_referenced_summary_splits_missing_from_stale():
 
     assert 'dependencies in use' in summaries
     assert summaries['dependencies in use']['remark'] == '1 used'
-    # Leaves carry remote_location → soak lean: note, not hard "missing".
+    # Leaves carry remote_location → soak lean: inventory status, not hard "missing".
     assert 'not extracted dependencies' in summaries
     assert summaries['not extracted dependencies']['remark'] == '2 not extracted'
     assert summaries['not extracted dependencies'].get( 'state' ) == 'missing'
     assert summaries['not extracted dependencies'].get( 'retrievable' ) is True
     assert 'potentially stale dependencies' not in summaries
+
+
+def test_referenced_summary_singular_not_extracted_label():
+    leaves = [
+            _leaf( 'widget', 'referenced' ),
+            _leaf( 'absent', 'missing' ),
+    ]
+    tree = dependency_tree.build_tree( leaves )
+    summaries = { row['label']: row for row in _primary_summaries( tree ) }
+    assert 'not extracted dependency' in summaries
+    assert summaries['not extracted dependency']['remark'] == '1 not extracted'
+    assert 'not extracted dependencies' not in summaries
 
 
 def test_referenced_summary_keeps_stale_for_non_missing_unused():
@@ -609,16 +621,18 @@ def test_render_gitlab_partial_missing_paints_only_gap_not_siblings():
     try:
         lines, _ = dependency_tree.render_tree_lines( tree, verbose=True )
         joined = '\n'.join( lines )
-        # Retrievable gap: identity/version/stem/[dl] stay normal info; only the
-        # status columns (SIZE / LAST USED / REMARK) use notice — not soft-warn.
+        # Retrievable gap: same info paint as ``in use``; SIZE is plain ``??``.
+        # No notice colour — nothing for the operator to do on list.
         assert as_emphasised( as_info( 'cloud' ) ) in joined
-        assert as_emphasised( as_notice( 'cloud' ) ) not in joined
+        assert as_notice( 'cloud' ) not in joined
         registry = 'https://gitlab.example/api/v4/projects/1/cloud/3.9.0'
         assert as_info( 'gcc16_rel' ) in joined
-        assert as_notice( 'gcc16_rel' ) not in joined
-        assert as_notice( 'not extracted' ) in joined
+        assert as_info( 'not extracted' ) in joined
+        assert as_notice( 'not extracted' ) not in joined
         assert as_info( 'cloud_gcc16_rel.tar.gz' ) in joined
         assert as_notice( 'cloud_gcc16_rel.tar.gz' ) not in joined
+        assert '??' in joined
+        assert as_notice( '??' ) not in joined
         assert as_error( 'gcc15_rel' ) not in joined
         assert as_error( '2.28.0' ) not in joined
         assert as_error( 'requires' ) not in joined
