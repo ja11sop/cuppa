@@ -62,38 +62,62 @@ class base(object):
 
     @classmethod
     def default_version( cls, version, env ):
-        """Resolve ``None`` / ``\"latest\"`` to the newest version in the GitLab registry."""
+        """Resolve ``None`` / ``latest`` / ``>=…`` to a concrete GitLab package version."""
         if getattr( cls, '_package_manager', None ) != 'gitlab':
-            return
-        if version is not None and version != 'latest':
             return
 
         import SCons.Errors
-        from cuppa.package_managers.gitlab_latest import (
-                GitlabLatestError,
-                resolve_latest_package_version,
+        from cuppa.package_managers.package_version_bound import (
+                VersionBoundError,
+                parse_version_bound,
+                resolve_bound_to_concrete,
         )
 
+        raw = version
+        if raw is None or ( isinstance( raw, str ) and raw.strip() == "" ):
+            raw = "latest"
+
         try:
-            cls._version = resolve_latest_package_version(
+            bound = parse_version_bound( raw )
+        except VersionBoundError as error:
+            raise SCons.Errors.StopError(
+                    "Package [{}] has an invalid version [{}]: {}".format(
+                            cls._name, raw, error
+                    )
+            ) from error
+
+        if bound.is_exact:
+            cls._version = bound.version
+            return
+
+        from cuppa.package_managers.gitlab import refresh_downloads_applies
+
+        force_refresh = refresh_downloads_applies( cls._name, cls._package )
+        try:
+            cls._version = resolve_bound_to_concrete(
                     env,
+                    bound,
                     registry=cls._registry,
                     package=cls._package,
                     custom_token=getattr( cls, '_custom_token', None ),
                     dependency_name=cls._name,
+                    force_refresh=force_refresh,
             )
-        except GitlabLatestError as error:
+        except SCons.Errors.StopError:
+            raise
+        except Exception as error:
             terse = False
             if hasattr( env, "get" ):
                 terse = bool( env.get( "terse_output" ) )
             if not terse:
                 logger.error( "[{}] {}".format( as_error( cls._name ), as_error( str( error ) ) ) )
             raise SCons.Errors.StopError(
-                    "Cannot resolve registry latest for package [{}]: {}".format(
+                    "Cannot resolve version [{}] for package [{}]: {}".format(
+                            bound.display(),
                             cls._name,
                             error,
                     )
-            )
+            ) from error
 
 
     @classmethod

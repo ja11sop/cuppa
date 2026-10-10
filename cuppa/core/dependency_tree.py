@@ -934,15 +934,58 @@ def _requires_closure_forest( entries, nest_index, section='referenced' ):
             closure_families, edges, prefer=tip_prefer,
     )
 
+    def _declared_bound_for_family( family_key ):
+        for entry in entries or []:
+            package = entry.get( 'package' ) or entry.get( 'name' )
+            key = normalise_package_key( package )
+            if not key:
+                continue
+            aliases = {
+                    key,
+                    key.replace( '-', '_' ),
+                    key.replace( '_', '-' ),
+            }
+            if any(
+                    normalise_package_key( alias ) == family_key
+                    for alias in aliases
+            ):
+                return entry.get( 'version' )
+        return None
+
+    def _annotate_identity_bounds( identity, declared_bound ):
+        """Show ``>=x → concrete`` on nested version rows when the tip declared a range."""
+        if not identity or not declared_bound:
+            return identity
+        try:
+            from cuppa.package_managers.package_version_bound import (
+                    VersionBoundError,
+                    format_bound_with_resolved,
+                    parse_version_bound,
+            )
+            bound = parse_version_bound( declared_bound )
+        except ( VersionBoundError, ValueError, TypeError ):
+            return identity
+        if bound.is_exact and not bound.is_soft:
+            return identity
+        for child in identity.get( 'children' ) or []:
+            if child.get( 'kind' ) != 'version':
+                continue
+            concrete = child.get( 'label' )
+            child['label'] = format_bound_with_resolved( bound, concrete )
+        return identity
+
     children = []
     for family in ordered_families:
         children.append( _spacer_node() )
         group = nest_index[family]
         # Nested packages keep label-style requires (no recursive sized forests).
-        children.append( _build_identity(
+        identity = _build_identity(
                 group, section,
                 nest_index=None,
                 expand_requires_closure=False,
+        )
+        children.append( _annotate_identity_bounds(
+                identity, _declared_bound_for_family( family )
         ) )
 
     # Manifest edges with no on-disk extract stay as labels after the forest.
@@ -988,19 +1031,31 @@ def _requires_closure_forest( entries, nest_index, section='referenced' ):
     }
 
 
-def _requires_edge_node( entry ):
+def _requires_edge_node( entry, resolved_version=None ):
     name = entry.get( 'name' ) or entry.get( 'package' ) or '-'
     version = entry.get( 'version' ) or '-'
     package = entry.get( 'package' ) or name
+    detail = str( version )
+    try:
+        from cuppa.package_managers.package_version_bound import (
+                VersionBoundError,
+                format_bound_with_resolved,
+                parse_version_bound,
+        )
+        bound = parse_version_bound( version )
+        detail = format_bound_with_resolved( bound, resolved_version )
+    except ( VersionBoundError, ValueError, TypeError ):
+        if resolved_version and str( resolved_version ) != str( version ):
+            detail = "{} → {}".format( version, resolved_version )
     use_libs = entry.get( 'use_libs' ) or []
     remark = ''
     if use_libs:
         remark = 'libs: {}'.format( ', '.join( str( item ) for item in use_libs ) )
     return {
         'kind': 'requires_edge',
-        'label': '{} {}'.format( name, version ),
+        'label': '{} {}'.format( name, detail ),
         'label_name': str( name ),
-        'label_detail': str( version ),
+        'label_detail': detail,
         'size_bytes': None,
         'last_used_epoch': None,
         'remark': remark,

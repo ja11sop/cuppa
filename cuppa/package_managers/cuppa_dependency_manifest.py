@@ -142,14 +142,21 @@ def fill_dependency_versions( env, dependencies: list | None ) -> list | None:
 
 
 def normalise_dependency_entry( entry: Any, include_package_source: bool = False ) -> dict:
-    """Accept a string, dict, or object; return a concrete manifest dict.
+    """Accept a string, dict, or object; return a manifest dependency dict.
 
-    Dict / string entries may omit ``version`` only when a caller has already
-    run :func:`fill_dependency_versions` (``write_manifest(..., env=…)`` does).
+    ``version`` may be exact (``1.28.0`` / ``==1.28.0``), minimum (``>=1.28.0``),
+    or ``latest``. Dict / string entries may omit ``version`` only when a caller
+    has already run :func:`fill_dependency_versions`
+    (``write_manifest(..., env=…)`` does).
 
     ``package_source`` is omitted unless ``include_package_source`` is true
     (publish manifest / cascade discovery). Consume manifests never carry it.
     """
+    from cuppa.package_managers.package_version_bound import (
+            VersionBoundError,
+            parse_version_bound,
+    )
+
     coerced = coerce_dependency_entry( entry )
     out = {
         "name": str( coerced["name"] ),
@@ -167,11 +174,21 @@ def normalise_dependency_entry( entry: Any, include_package_source: bool = False
         out["package_source"] = str( package_source )
     if out["version"] is None:
         raise ValueError(
-            "dependency [{}] requires a concrete 'version' "
-            "(set it explicitly or pass env= to write_manifest / "
-            "GitlabPackagePublisher so Cuppa can fill from BuildWith)"
+            "dependency [{}] requires a 'version' "
+            "(exact, >=minimum, or latest; set it explicitly or pass env= to "
+            "write_manifest / GitlabPackagePublisher so Cuppa can fill from BuildWith)"
             .format( out["name"] )
         )
+    try:
+        bound = parse_version_bound( out["version"] )
+    except VersionBoundError as error:
+        raise ValueError(
+                "dependency [{}] has an invalid version: {}".format(
+                        out["name"], error
+                )
+        ) from error
+    # Canonical spellings in traveling manifests (bare exact / >= / latest).
+    out["version"] = bound.display()
     return out
 
 

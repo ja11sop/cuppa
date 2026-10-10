@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab package **version ranges** on consumer ``package_dependency`` and
+  traveling-manifest edges: exact (``1.28.0`` / ``==1.28.0``), minimum
+  (``>=1.28.0``), and existing ``latest``. Diamonds **intersect** bounds;
+  incompatible pins ``StopError`` with both parents named. Soft bounds prefer a
+  satisfying cache / remembered pin; ``--refresh-downloads`` may select a higher
+  registry version. Pip-style spellings (``~=``, ``^``, comma lists) are refused.
+  ``--list-dependencies`` shows ``bound → concrete`` for soft edges. Plan:
+  ``design/plans/gitlab-package-version-ranges.md``.
 - ``--cascade`` as the master flag to enable package-dependency cascade (nest
   sessions / publisher trees). ``--build-and-publish-dependencies`` is a
   **deprecated** alias (removed in 2.0); companions still choose nest-build vs

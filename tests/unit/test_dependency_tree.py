@@ -140,6 +140,21 @@ def test_gitlab_tree_shows_requires_from_manifest( tmp_path ):
     assert edge['remark'] == 'libs: beta_core'
 
 
+def test_requires_edge_shows_bound_arrow_when_resolved():
+    from cuppa.core.dependency_tree import _requires_edge_node
+
+    edge = _requires_edge_node(
+            {
+                    "name": "widget_core",
+                    "package": "widget-core",
+                    "version": ">=1.28.0",
+            },
+            resolved_version="1.29.1",
+    )
+    assert edge["label_detail"] == ">=1.28.0 → 1.29.1"
+    assert edge["requires_version"] == ">=1.28.0"
+
+
 def test_gitlab_tree_shows_requires_from_preloaded_entries():
     tree = dependency_tree.build_tree( [
             _gitlab_leaf(
