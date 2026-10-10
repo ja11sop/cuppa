@@ -268,5 +268,6 @@ concrete string), `cuppa_dependency_apply._ensure_registered` (string equality),
 | B. Pin-table intersect + parent conflict messages | Done — `cuppa_dependency_apply` |
 | C. Select concrete (cache / remember / registry / refresh) | Done — `resolve_bound_to_concrete` + `default_version` |
 | D. Publish / manifest path allows ranges | Done — `normalise_dependency_entry` |
-| E. List ``bound → concrete`` | Done — requires edge + nest version rows |
+| E. List ``bound → concrete`` | Done — tip defaults + requires edge + nest version rows |
 | F. Antora + CHANGELOG | Done on this PR |
+| Soak (c_ares publish 1.34.8 + grpc ``>=1.34.5``) | Done — soft keep of cache; ``--refresh-downloads=c_ares`` → 1.34.8; tip list ``>=1.34.5 → 1.34.8`` |

@@ -86,6 +86,9 @@ class base(object):
                     )
             ) from error
 
+        # Keep the declared edge for list ``bound → concrete`` (tip defaults).
+        cls._version_bound = bound
+
         if bound.is_exact:
             cls._version = bound.version
             return
@@ -163,6 +166,9 @@ class base(object):
                 package = GitlabPackageDependency(
                         env, dependency_name=cls._name, **package_args
                 )
+                version_bound = getattr( cls, '_version_bound', None )
+                if version_bound is not None:
+                    package._version_bound = version_bound
 
             if package:
                 cls._cached_packages[package_id] = package

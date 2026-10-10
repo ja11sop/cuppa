@@ -476,7 +476,9 @@ def _group_with_leaves( group, leaves ):
             'type': storage_type,
             'short_name': group_key,
             'registry_name': None,
-            'remote_location': group.get( 'remote_location' ),
+            # Recompute from ``leaves`` only. Copying the parent group's remote can
+            # keep a sibling version URL (e.g. unused 1.34.5) on a missing 1.34.8 row.
+            'remote_location': None,
             'leaves': list( leaves ),
             'family_key': group.get( 'family_key' ),
     }
@@ -712,9 +714,27 @@ def _gitlab_children( leaves_in, nest_index=None, expand_requires_closure=False,
         missing_only = bool( missing ) and used == 0 and missing == len( variants )
         has_missing_leaf = bool( missing )
         remark = _remark_for_used( used ) if used else ''
+        version_label = str( version )
+        declared_bound = None
+        for leaf in variants:
+            declared_bound = leaf.get( 'version_bound' )
+            if declared_bound:
+                break
+        if declared_bound:
+            try:
+                from cuppa.package_managers.package_version_bound import (
+                        VersionBoundError,
+                        format_bound_with_resolved,
+                        parse_version_bound,
+                )
+                version_label = format_bound_with_resolved(
+                        parse_version_bound( declared_bound ), version
+                )
+            except ( VersionBoundError, ValueError, TypeError ):
+                version_label = str( version )
         children.append( {
             'kind': 'version',
-            'label': str( version ),
+            'label': version_label,
             'size_bytes': None if missing_only else size_bytes,
             'last_used_epoch': None if missing_only else epoch,
             'remark': remark,

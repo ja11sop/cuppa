@@ -58,8 +58,9 @@ OwnedPath = namedtuple(
         'tool_variant',     # toolchain_variant_arch_abi or None
         'develop',          # True when this path is a develop working copy
         'remote_location',  # configured URL / registry/package/version
+        'version_bound',    # tip-declared edge token (e.g. >=1.34.5), if any
     ],
-    defaults=( None, ),
+    defaults=( None, None ),
 )
 
 Skip = namedtuple( 'Skip', [ 'dependency', 'reason' ] )
@@ -323,6 +324,29 @@ def _remote_location_from_instance( instance ):
     return None
 
 
+def _version_bound_from_instance( instance ):
+    """Tip-declared version edge token (``>=…`` / ``latest``), if the factory kept one."""
+    candidates = [ instance ]
+    for attr in ( '_package', ):
+        inner = getattr( instance, attr, None )
+        if inner is not None:
+            candidates.append( inner )
+    # Factory class (build_with_package.base subclass) may hold ``_version_bound``.
+    cls = type( instance )
+    candidates.append( cls )
+    for obj in candidates:
+        bound = getattr( obj, '_version_bound', None )
+        if bound is None:
+            continue
+        display = getattr( bound, 'display', None )
+        if callable( display ):
+            return display()
+        text = str( bound ).strip()
+        if text:
+            return text
+    return None
+
+
 def _meta_from_instance( instance ):
     qualifier = None
     tool_variant = None
@@ -419,6 +443,7 @@ def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
             created_any = True
 
             remote_location = _remote_location_from_instance( instance )
+            version_bound = _version_bound_from_instance( instance )
 
             paths = _call_storage_paths( instance )
             if paths is None:
@@ -463,6 +488,7 @@ def resolve_named_dependencies( construct, cuppa_env, names, selections=None ):
                         tool_variant=item_tool_variant,
                         develop=( category == 'develop' ),
                         remote_location=remote_location,
+                        version_bound=version_bound,
                     ) )
 
         if not created_any:
