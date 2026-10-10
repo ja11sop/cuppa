@@ -636,7 +636,6 @@ def _build_identity( group, section, nest_index=None, expand_requires_closure=Fa
         'short_name': short,
         'family_key': group.get( 'family_key' ),
         'size_bytes': None if missing_only else size_bytes,
-        # Keep prior resolve last_used on missing-only identities (use-then-remove).
         'last_used_epoch': epoch,
         'remark': remark,
         'missing': missing_only,
@@ -1215,7 +1214,8 @@ def _leaf_node( leaf, label, location=None ):
     node = {
         'kind': 'leaf',
         'label': label,
-        # Extract size unknown until present; keep prior resolve last_used when known.
+        # Extract size unknown until present; pass through last_used when inventory
+        # still has a resolve stamp (remove/wipe delete the entry — no ghost age).
         'size_bytes': None if missing else int( leaf.get( 'size_bytes' ) or 0 ),
         'last_used_epoch': leaf.get( 'last_used_epoch' ),
         'remark': remark,
@@ -1681,8 +1681,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
                 ),
         )
         if node.get( 'last_used_epoch' ) is not None:
-            # Prefer prior resolve stamp even on not-extracted / missing leaves
-            # (use-then-remove still has inventory last_used).
+            # Prefer a resolve stamp when present (including gap leaves).
             last_used = dependency_inventory.format_age(
                     _epoch_to_iso( node.get( 'last_used_epoch' ) )
             )

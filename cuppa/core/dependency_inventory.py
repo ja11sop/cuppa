@@ -140,26 +140,6 @@ def delete_entry_for_path( dependencies_root, path ):
         pass
 
 
-def retain_usage_after_remove( dependencies_root, path ):
-    """Keep resolve ``last_used`` after the tree is deleted; clear stale size.
-
-    Listing synthesises ``missing`` / ``not extracted`` rows for expected paths
-    that are gone. Retaining the inventory entry lets LAST USED survive
-    use-then-remove; SIZE stays unknown (``?``) until the next extract.
-    """
-    key = entry_key_for_path( path )
-    entry = load_entry( dependencies_root, key )
-    if not entry:
-        return
-    entry['path'] = path
-    entry['size'] = {
-            'bytes': 0,
-            'measured': _utc_now(),
-            'method': 'exact',
-    }
-    write_entry( dependencies_root, entry, key=key )
-
-
 def _tree_mtime( path ):
     try:
         return os.path.getmtime( path )

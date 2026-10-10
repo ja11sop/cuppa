@@ -2725,8 +2725,7 @@ def remove_dependencies( construct, cuppa_env, out=None ):
                 storage.remove_path( path, dry_run=False )
                 storage.prune_empty_parents( os.path.dirname( path ), root )
                 try:
-                    # Keep last_used for later not-extracted / missing list rows.
-                    dependency_inventory.retain_usage_after_remove( root, path )
+                    dependency_inventory.delete_entry_for_path( root, path )
                 except Exception:
                     pass
             outcomes_by_path[real] = { 'result': 'removed' }
@@ -3466,10 +3465,7 @@ def _execute_force_wipe(
                 storage.remove_path( target.path, dry_run=False )
                 storage.prune_empty_parents( os.path.dirname( target.path ), root )
                 try:
-                    # Keep last_used for later not-extracted / missing list rows.
-                    dependency_inventory.retain_usage_after_remove(
-                            root, target.path
-                    )
+                    dependency_inventory.delete_entry_for_path( root, target.path )
                 except Exception:
                     pass
             outcomes_by_path[real] = { 'result': 'removed' }

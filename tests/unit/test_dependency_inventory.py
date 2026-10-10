@@ -162,34 +162,3 @@ def test_delete_entry_for_path( tmp_path ):
     assert dependency_inventory.load_all_entries( str( dependencies_root ) )
     dependency_inventory.delete_entry_for_path( str( dependencies_root ), str( tree ) )
     assert dependency_inventory.load_all_entries( str( dependencies_root ) ) == []
-
-
-def test_retain_usage_after_remove_keeps_last_used( tmp_path ):
-    dependencies_root = tmp_path / 'dependencies'
-    tree = dependencies_root / 'gadget'
-    tree.mkdir( parents=True )
-    entry = dependency_inventory.touch_entry(
-            str( dependencies_root ),
-            str( tree ),
-            storage_type='gitlab',
-            dependency='gadget',
-            exact_sizes=True,
-            refresh_size=True,
-            update_last_used=True,
-    )
-    stamped = entry.get( 'last_used' )
-    assert stamped
-    assert entry.get( 'last_used_source' ) == 'resolve'
-    # Simulate remove: tree gone, inventory retained.
-    tree.rmdir()
-    dependency_inventory.retain_usage_after_remove(
-            str( dependencies_root ), str( tree )
-    )
-    kept = dependency_inventory.load_entry(
-            str( dependencies_root ),
-            dependency_inventory.entry_key_for_path( str( tree ) ),
-    )
-    assert kept is not None
-    assert kept.get( 'last_used' ) == stamped
-    assert kept.get( 'last_used_source' ) == 'resolve'
-    assert int( ( kept.get( 'size' ) or {} ).get( 'bytes' ) or 0 ) == 0

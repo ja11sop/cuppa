@@ -1370,7 +1370,8 @@ def _collect_rows( construct, cuppa_env, names=None, out=None ):
                 tool_variant=item.tool_variant,
                 package_archive=package_archive,
         )
-        # Prefer a retained inventory resolve stamp (use-then-remove keeps the entry).
+        # If an inventory entry still exists (unusual after remove/wipe), surface its
+        # resolve stamp; otherwise LAST USED stays unset (no ghost age).
         entry = by_path.get( real ) or {}
         if not entry:
             for key, candidate in by_path.items():
