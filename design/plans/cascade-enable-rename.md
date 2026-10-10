@@ -1,9 +1,10 @@
 # Plan: Rename cascade master flag
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `cascade-enable-rename`; shipped cascade [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) ([#297](https://github.com/ja11sop/cuppa/issues/297)); companions `--build-cascade-dependencies` / `--publish-cascade-dependencies`
-- **Updated:** 2026-10-09
+- **Updated:** 2026-10-10
 - **Impact:** `minor` (CLI rename / alias; behaviour unchanged)
+- **PR:** [#361](https://github.com/ja11sop/cuppa/pull/361)
 
 ## Problem
 
@@ -70,5 +71,6 @@ in the same PR — one primary + one deprecated alias is enough.
 | Item | Status |
 |------|--------|
 | Problem / settle table | Done — this proposal |
-| Implementation | Done on this PR — ``--cascade`` dest + deprecated alias; nested drop both spellings |
+| Implementation | Done on [#361](https://github.com/ja11sop/cuppa/pull/361) — ``--cascade`` dest + deprecated alias; nested drop both spellings |
 | Product docs / samples / tests | Done — admonition-only deprecation; archive plans left historical |
+| Soak / close-out | Done — naming settled as ``--cascade`` (not ``--cascade-dependencies``) |

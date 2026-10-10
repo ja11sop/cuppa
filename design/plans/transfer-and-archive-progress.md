@@ -1,8 +1,8 @@
 # Plan: Uniform transfer and archive progress (terse-aware)
 
-- **Status:** in progress
-- **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
-- **Updated:** 2026-10-08
+- **Status:** done
+- **Related:** [`archive/download-progress.md`](../archive/download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](console-channels.md); [`console-write-ownership.md`](console-write-ownership.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
+- **Updated:** 2026-10-10
 - **Impact:** minor — UX / shared progress channel; no package format change
 - **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)
 
@@ -166,8 +166,8 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | Terse transfer mute body (keep green ECG) | Done — verb/label/metrics subdued; alive prefix stays hospital-green |
 | Package ``[collect]`` / ``[extract]`` with ``src → dest`` | Done — ``<registry>`` / ``<downloads>`` / stem tokens; package location RHS is ``name/ver`` (token carries version; no extra ``/3.9.0/`` segment) |
 | ``[ready]`` after all toolchains × sconscripts read | Done — no longer closes on the first tip ``BuildWith`` (gcc16 collect was after ready) |
-| Property-based resolve ensure phases | **Deferred** — see below; decide after current soak |
-| Docs / CHANGELOG / soak | In progress |
+| Property-based resolve ensure phases | **Deferred** — see below; not required for 1.12.0 transfer UX |
+| Docs / CHANGELOG / soak | Done — [#360](https://github.com/ja11sop/cuppa/pull/360) soaks (cascade plan / transfer / nest handoff) |
 | URL ``https://`` on publish/transfer (no ``normpath``) | Done on this PR (content OK in soak) |
 | Publish dest ``<registry>/name/ver/file`` + map | Done on this PR (content OK in soak) |
 | Clear progress bar before delegate/cmake ``→`` | Superseded by owned-stream ``write_line`` |
@@ -175,7 +175,7 @@ Actions: `download`, `extract`, `compress`, `upload`, `publish`.
 | CMake ``-- All targets Up-to-date`` summary | Done — preamble ignored for “other” |
 | Deduplicate mode banners (OFFLINE ×2) | Fixed via nested ``CUPPA_STDOUT_IS_TTY`` preserve (+ once-per-process guard) |
 | Cascade tip→nest transition marker | Done — tip ``begin``/``end`` + nest entering/exiting; prepare→``[ready]``→plan |
-| **One console write path** (TTY ownership) | Done on this PR — [`console-write-ownership.md`](console-write-ownership.md); soak next |
+| **One console write path** (TTY ownership) | Done on this PR — [`console-write-ownership.md`](console-write-ownership.md) |
 
 ## Deferred: property-based resolve ensure phases
 
@@ -194,5 +194,6 @@ Factories would advertise ``ensure_scope`` + idempotent ``ensure(identity)``.
 Orchestrator runs ``once`` then each active identity; ``[ready]`` closes after.
 Do **not** grow hard-coded product passes (``repos → gitlab → conan → …``).
 
-Decide after soaks of the honesty + collect/extract work whether this is worth
-a follow-on plan / PR.
+Left deferred after [#360](https://github.com/ja11sop/cuppa/pull/360) soaks: not required for the
+shipped transfer / ownership UX. Open a follow-on plan only if multi-stem prepare
+cost or identity-keyed ensure becomes a real pain.

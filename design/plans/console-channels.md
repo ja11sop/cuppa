@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](console-mode-banners.md); [`terse-build-output.md`](terse-build-output.md); [`terse-delegated-output.md`](terse-delegated-output.md); [`terse-dependency-locations.md`](terse-dependency-locations.md); [`native-toolchain-output.md`](native-toolchain-output.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`build-log-hygiene.md`](build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-10-04
+- **Updated:** 2026-10-10
 - **Impact:** none for this index; individual console slices keep their own impact labels
 
 This is the map for Cuppa's console work. Individual plans stay the spec for their slice. Do not re-decide which channel a line belongs to inside a later pull request.
@@ -61,7 +61,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
 | [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + throttle under quiet+TTY | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
-| [`console-write-ownership.md`](console-write-ownership.md) | **Which FD owns durable lines vs status** under quiet+TTY (and nested cascade). Proposal after #360 soak: one `write_line` on the heartbeat stream; stop pipe/TTY dual-write races | Blocks readable transfer/cmake UX until settled |
+| [`console-write-ownership.md`](console-write-ownership.md) | **Which FD owns durable lines vs status** under quiet+TTY (and nested cascade). One `write_line` on the heartbeat stream; stop pipe/TTY dual-write races | Done on [#360](https://github.com/ja11sop/cuppa/pull/360) |
 | [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
 | [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
 | [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)). Must not recolour console reports |
