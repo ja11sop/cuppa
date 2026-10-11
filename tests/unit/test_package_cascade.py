@@ -2909,17 +2909,18 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
 def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
     cascade.reset_plan_reports()
-    cascade.record_plan_report( "corosio", "0.2.0", 1 )
+    cascade.record_plan_report( "corosio", "0.2.0", 1, needs_clone_opt_in=1 )
     out = io.StringIO()
     status = cascade.finish_plan_only( out=out )
     report = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 1
-    assert "--clone-publishers" in report
-    assert (
-            "Then re-run with one of --build-cascade-dependencies, "
-            "--publish-cascade-dependencies, or --publish-package to execute"
-    ) in report
+    assert "--cascade-plan: 1 package planned, 1 dependency without a publisher tree;" in report
+    assert "pass --clone-publishers to fetch the ones with a URL package_source" in report
+    assert "then re-run with one of --build-cascade-dependencies" in report
+    assert "--publish-cascade-dependencies" in report
+    assert "--publish-package" in report
+    assert "to execute" in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -3591,14 +3592,16 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
 
     assert status == 1
     assert (
-            "1 project planned, 5 nested dependencies, "
-            "2 dependencies without a publisher tree"
+            "--cascade-plan: 1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree;"
     ) in visible
-    assert "Add package_source" in visible
+    assert "add package_source on those edges" in visible
     assert "--publisher-root" in visible
-    assert "only fetches URL package_source" in visible
+    assert "only fetches URL package_source edges" in visible
+    assert "then re-run with either --build-cascade-dependencies" in visible
     # Must not pitch clone as the primary unblock for no-URL gaps.
     assert "pass --clone-publishers to fetch the ones with" not in visible
+    assert "pass --clone-publishers for URL package_source trees" not in visible
 
 
 def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
@@ -3615,11 +3618,18 @@ def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
 
     assert status == 1
     assert (
-            "1 project planned, 5 nested dependencies, "
-            "2 dependencies without a publisher tree"
+            "--cascade-plan: 1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree;"
     ) in visible
-    assert visible.index( "Add package_source" ) < visible.index( "--clone-publishers" )
-    assert "for URL package_source trees" in visible
+    assert visible.index( "add package_source where missing" ) < visible.index(
+            "--clone-publishers"
+    )
+    assert "pass --clone-publishers for URL package_source trees" in visible
+    assert "then re-run with either --build-cascade-dependencies" in visible
+    # Tree shape (not one monster prose line).
+    assert "\n│\n├── add package_source where missing\n" in visible or (
+            "├── add package_source where missing" in visible
+    )
 
 
 def test_resolve_no_package_source_under_publisher_root_marks_needs_source( tmp_path ):

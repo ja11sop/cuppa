@@ -2609,15 +2609,41 @@ def record_plan_report(
     } )
 
 
-def _publisher_tree_gap_remediation(
+def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
+    """Subdued tee/elbow tree under a ``--cascade-*: …;`` summary chip."""
+    tee, elbow, pipe, _gap = storage.glyphs( encoding )
+    stub = pipe.rstrip()
+    lines = [ as_subdued( stub ) ]
+    wrap_width = max( storage.WIDEST_PROSE - len( tee ), storage.NARROWEST_PROSE )
+
+    def append_branch( glyph, text ):
+        pieces = list( storage.wrapped( text, wrap_width ) ) or [ text ]
+        lines.append( as_subdued( glyph ) + pieces[0] )
+        for piece in pieces[1:]:
+            lines.append( as_subdued( pipe ) + piece )
+
+    for index, item in enumerate( items ):
+        last_item = index == len( items ) - 1 and not closing
+        append_branch( elbow if last_item else tee, item )
+        if index < len( items ) - 1:
+            lines.append( as_subdued( stub ) )
+    if closing:
+        if items:
+            lines.append( as_subdued( stub ) )
+        append_branch( elbow, closing )
+    return lines
+
+
+def _publisher_tree_gap_remedy_lines(
         *,
         needs_package_source: int,
         needs_clone: int,
         consume_tip: bool,
         collect: bool,
         update: bool,
-) -> str:
-    """Finish-line copy when plan/collect/update lacks publisher trees.
+        encoding=None,
+) -> list[str]:
+    """Finish-line tree when plan/collect/update lacks publisher trees.
 
     Soak lean: do not pitch ``--clone-publishers`` when the failing nodes have
     no URL ``package_source`` — clone cannot invent one. Prefer
@@ -2626,66 +2652,85 @@ def _publisher_tree_gap_remediation(
     """
     root_flag = _footer_flag( PUBLISHER_ROOT_OPTION )
     clone_flag = _footer_flag( CLONE_OPTION )
+    items = []
+    closing = None
     if update:
         collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
         if needs_package_source and not needs_clone:
-            return (
-                    "Add package_source on those edges, plant the trees under "
-                    "{}, or set {}. Clone cannot invent a URL."
-                    .format( root_flag, root_flag )
-            )
-        if needs_clone and not needs_package_source:
-            return (
-                    "Plant the missing trees, pass {} with {} to clone URL "
-                    "package_source trees, or set {}."
-                    .format( collect_flag, clone_flag, root_flag )
-            )
-        return (
-                "Add package_source where missing, plant trees under {}, "
-                "pass {} with {} for URL package_source trees, or set {}."
-                .format( root_flag, collect_flag, clone_flag, root_flag )
-        )
-    if collect:
+            items = [
+                    "add package_source on those edges",
+                    "plant the trees under {}".format( root_flag ),
+                    "or set {} to a forest that already holds them "
+                    "(clone cannot invent a URL)".format( root_flag ),
+            ]
+        elif needs_clone and not needs_package_source:
+            items = [
+                    "plant the missing trees",
+                    "pass {} with {} to clone URL package_source trees".format(
+                            collect_flag, clone_flag
+                    ),
+                    "or set {}".format( root_flag ),
+            ]
+        else:
+            items = [
+                    "add package_source where missing",
+                    "plant trees under {}".format( root_flag ),
+                    "pass {} with {} for URL package_source trees".format(
+                            collect_flag, clone_flag
+                    ),
+                    "or set {}".format( root_flag ),
+            ]
+    elif collect:
         if needs_package_source and not needs_clone:
-            return (
-                    "Add package_source on those edges, or set {} to a forest "
-                    "that already holds the trees. {} only fetches URL "
-                    "package_source edges."
-                    .format( root_flag, clone_flag )
-            )
-        if needs_clone and not needs_package_source:
-            return (
-                    "Plant the missing trees, pass {} to fetch the ones with "
-                    "a URL package_source, or set {}."
-                    .format( clone_flag, root_flag )
-            )
-        return (
-                "Add package_source where missing, plant trees under {}, "
-                "pass {} for URL package_source trees, or set {}."
-                .format( root_flag, clone_flag, root_flag )
-        )
-    # plan
-    action = _publish_action_phrase( consume_tip )
-    if needs_package_source and not needs_clone:
-        return (
-                "Add package_source on those edges, or set {} to a forest that "
-                "already holds the trees. {} only fetches URL package_source "
-                "edges. Then re-run with {} to execute."
-                .format( root_flag, clone_flag, action )
-        )
-    if needs_clone and not needs_package_source:
-        return (
-                "Plant the missing trees, pass {} to fetch the ones with "
-                "a URL package_source, or set {}. Then re-run with {} "
-                "to execute."
-                .format( clone_flag, root_flag, action )
-        )
-    return (
-            "Add package_source where missing, plant trees under {}, "
-            "pass {} for URL package_source trees, or set {}. Then re-run "
-            "with {} to execute."
-            .format( root_flag, clone_flag, root_flag, action )
-    )
+            items = [
+                    "add package_source on those edges",
+                    "or set {} to a forest that already holds the trees".format(
+                            root_flag
+                    ),
+                    "{} only fetches URL package_source edges".format( clone_flag ),
+            ]
+        elif needs_clone and not needs_package_source:
+            items = [
+                    "plant the missing trees",
+                    "pass {} to fetch the ones with a URL package_source".format(
+                            clone_flag
+                    ),
+                    "or set {}".format( root_flag ),
+            ]
+        else:
+            items = [
+                    "add package_source where missing",
+                    "plant trees under {}".format( root_flag ),
+                    "pass {} for URL package_source trees".format( clone_flag ),
+                    "or set {}".format( root_flag ),
+            ]
+    else:
+        action = _publish_action_phrase( consume_tip )
+        closing = "then re-run with {} to execute".format( action )
+        if needs_package_source and not needs_clone:
+            items = [
+                    "add package_source on those edges",
+                    "or set {} to a forest that already holds the trees".format(
+                            root_flag
+                    ),
+                    "{} only fetches URL package_source edges".format( clone_flag ),
+            ]
+        elif needs_clone and not needs_package_source:
+            items = [
+                    "plant the missing trees",
+                    "pass {} to fetch the ones with a URL package_source".format(
+                            clone_flag
+                    ),
+                    "or set {}".format( root_flag ),
+            ]
+        else:
+            items = [
+                    "add package_source where missing",
+                    "plant trees under {}".format( root_flag ),
+                    "pass {} for URL package_source trees".format( clone_flag ),
+                    "or set {} to a forest that already holds them".format( root_flag ),
+            ]
+    return _finish_advice_tree( items, closing=closing, encoding=encoding )
 
 
 def finish_plan_only( env=None, out=None ) -> int:
@@ -2800,7 +2845,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     ) + " collected",
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = _publisher_tree_gap_remediation(
+            remedy = _publisher_tree_gap_remedy_lines(
                     needs_package_source=needs_package_source,
                     needs_clone=needs_clone,
                     consume_tip=consume_tip,
@@ -2814,7 +2859,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     ) + " updated",
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = _publisher_tree_gap_remediation(
+            remedy = _publisher_tree_gap_remedy_lines(
                     needs_package_source=needs_package_source,
                     needs_clone=needs_clone,
                     consume_tip=consume_tip,
@@ -2831,7 +2876,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     ),
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = _publisher_tree_gap_remediation(
+            remedy = _publisher_tree_gap_remedy_lines(
                     needs_package_source=needs_package_source,
                     needs_clone=needs_clone,
                     consume_tip=consume_tip,
@@ -2840,8 +2885,9 @@ def finish_cascade_stop( env=None, out=None ) -> int:
             )
         write_lines( [
                 "",
-                "{}. {}".format( _cascade_stop_summary( option, summary ), remediation ),
+                "{};".format( _cascade_stop_summary( option, summary ) ),
         ], out=stream )
+        write_lines( remedy, out=stream )
         return 1
 
     if collect:
