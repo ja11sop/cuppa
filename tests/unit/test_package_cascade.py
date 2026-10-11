@@ -2918,12 +2918,11 @@ def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
     assert "--cascade-plan: 1 package planned, 1 dependency without a publisher tree;" in report
     assert "resolve each gap with one of:" in report
     assert "pass --clone-publishers for dependencies that already have a URL package_source" in report
-    assert "then re-run with one of --build-cascade-dependencies" in report
-    assert "--publish-cascade-dependencies" in report
-    assert "--publish-package" in report
-    assert "to execute" in report
-    # Elbow wrap uses gap, not a hanging stem.
+    assert "then re-run with one of --build-cascade-dependencies, --publish-cascade-dependencies" in report
+    assert "or --publish-package to execute" in report
+    # Elbow continuations use gap, not a hanging stem; guide ``or`` stays left.
     assert "│   --publish-cascade-dependencies" not in report
+    assert "│   or --publish-package" not in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -3609,8 +3608,10 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
     assert "resolve each gap with one of:" in visible
     assert "add package_source on dependencies that have none" in visible
     assert "--publisher-root" in visible
+    assert "folder that already holds the trees" in visible
     assert "only fetches URL package_source dependencies" in visible
     assert "then re-run with either --build-cascade-dependencies" in visible
+    assert "or --publish-cascade-dependencies to execute" in visible
     assert as_info( "package_source" ) in text
     assert as_emphasised_plain( "one of" ) in text
     assert as_emphasised_plain( "or" ) in text
@@ -3640,9 +3641,13 @@ def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
     assert visible.index( "add package_source on dependencies that have none" ) < visible.index(
             "--clone-publishers"
     )
+    assert "manually place publisher trees under --publisher-root" in visible
+    assert "folder that already holds the trees" in visible
     assert "pass --clone-publishers for dependencies that already have a URL package_source" in visible
     assert "then re-run with either --build-cascade-dependencies" in visible
+    assert "or --publish-cascade-dependencies to execute" in visible
     assert "│   --publish-cascade-dependencies" not in visible
+    assert "│   or --publish-cascade-dependencies" not in visible
 
 
 def test_resolve_no_package_source_under_publisher_root_marks_needs_source( tmp_path ):

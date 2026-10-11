@@ -2626,6 +2626,9 @@ def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
     ``items`` are plain strings, or ``{"label": str, "children": [str, …]}`` for
     a nested ``one of:`` choice group. Wrap continuations under an elbow use
     gap (no spurious stem), matching Options Error trees.
+
+    ``closing`` may be a string (width-wrapped) or a sequence of pre-broken lines
+    so guide words like ``or`` stay at the left of a continuation.
     """
     tee, elbow, pipe, gap = storage.glyphs( encoding )
     stub = pipe.rstrip()
@@ -2666,8 +2669,34 @@ def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
     if closing:
         if items:
             lines.append( as_subdued( stub ) )
-        emit( elbow, gap, closing )
+        if isinstance( closing, ( list, tuple ) ):
+            pieces = [ piece for piece in closing if piece ]
+            if pieces:
+                emit( elbow, gap, pieces[0] )
+                for piece in pieces[1:]:
+                    lines.append( as_subdued( gap ) + piece )
+        else:
+            emit( elbow, gap, closing )
     return lines
+
+
+def _execute_closing_lines( consume_tip: bool ) -> list[str]:
+    """Finish elbow: keep ``or`` at the left of the continuation (LTR scan)."""
+    then_word = _guide_word( "then" )
+    or_word = _guide_word( "or" )
+    build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
+    nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+    if consume_tip:
+        return [
+                "{} re-run with either {}".format( then_word, build ),
+                "{} {} to execute".format( or_word, nest ),
+        ]
+    one_of = _guide_word( "one of" )
+    publish = _footer_flag( "publish-package" )
+    return [
+            "{} re-run with {} {}, {}".format( then_word, one_of, build, nest ),
+            "{} {} to execute".format( or_word, publish ),
+    ]
 
 
 def _publisher_tree_gap_remedy_lines(
@@ -2690,7 +2719,6 @@ def _publisher_tree_gap_remedy_lines(
     clone_flag = _footer_flag( CLONE_OPTION )
     package_source = _field_name( "package_source" )
     or_word = _guide_word( "or" )
-    then_word = _guide_word( "then" )
     one_of = _guide_word( "one of" )
 
     def choice_group( children ):
@@ -2702,7 +2730,7 @@ def _publisher_tree_gap_remedy_lines(
     def no_url_choices():
         return [
                 "add {} on dependencies that have none".format( package_source ),
-                "{} set {} to a forest that already holds the trees "
+                "{} set {} to a folder that already holds the trees "
                 "({} only fetches URL {} dependencies)".format(
                         or_word, root_flag, clone_flag, package_source
                 ),
@@ -2719,7 +2747,7 @@ def _publisher_tree_gap_remedy_lines(
                     clone_flag, package_source
             )
         return [
-                "plant the missing trees",
+                "manually place the missing trees",
                 clone_line,
                 "{} set {}".format( or_word, root_flag ),
         ]
@@ -2736,9 +2764,9 @@ def _publisher_tree_gap_remedy_lines(
             )
         return [
                 "add {} on dependencies that have none".format( package_source ),
-                "plant publisher trees under {}".format( root_flag ),
+                "manually place publisher trees under {}".format( root_flag ),
                 clone_line,
-                "{} set {} to a forest that already holds the trees".format(
+                "{} set {} to a folder that already holds the trees".format(
                         or_word, root_flag
                 ),
         ]
@@ -2753,8 +2781,7 @@ def _publisher_tree_gap_remedy_lines(
     items = [ choice_group( children ) ]
     closing = None
     if not collect and not update:
-        action = _publish_action_phrase( consume_tip )
-        closing = "{} re-run with {} to execute".format( then_word, action )
+        closing = _execute_closing_lines( consume_tip )
     return _finish_advice_tree( items, closing=closing, encoding=encoding )
 
 
