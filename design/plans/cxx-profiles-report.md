@@ -490,7 +490,7 @@ No legacy alias. Implementation env key: `cxx_profiles_report` (parallel to `cxx
 
 The user's `profile_output_2.txt` confirms the design constraint: **classification runs on a
 tree shaped by `NotifyProgress`,** matching how cuppa already orders work (see
-[`terse-build-output.md`](terse-build-output.md) Phase 2 for the same hierarchy).
+[`terse-build-output.md`](../archive/terse-build-output.md) Phase 2 for the same hierarchy).
 
 ```text
   NotifyProgress callbacks                ToolchainProcessor / spawn
@@ -587,7 +587,7 @@ recorded under that spawn scope are still flushed; HTML/manifest mark the scope 
 ships; retain an honest note if spawn scope derivation fails for a builder path (log + bucket under
 `_unscoped` rather than silent wrong variant).
 
-Optional cross-link: [`terse-build-output.md`](terse-build-output.md) Phase 2 may reuse the same
+Optional cross-link: [`terse-build-output.md`](../archive/terse-build-output.md) Phase 2 may reuse the same
 spawn exit hooks later — Profiles report should not block on terse landing first.
 
 ### End-of-build collation

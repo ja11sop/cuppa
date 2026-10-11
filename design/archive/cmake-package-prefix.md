@@ -1,7 +1,7 @@
 # CMake package prefixes and publisher API ergonomics
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); [`package-runtime-paths.md`](package-runtime-paths.md); [`download-extract.md`](download-extract.md); transitive manifests [`../plans/gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md); run object lists [`run-default-dependency-objects.md`](run-default-dependency-objects.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0; [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); [`package-runtime-paths.md`](package-runtime-paths.md); [`download-extract.md`](download-extract.md); transitive manifests [`gitlab-package-transitive.md`](gitlab-package-transitive.md); run object lists [`run-default-dependency-objects.md`](run-default-dependency-objects.md)
 - **Updated:** 2026-09-14
 - **Impact:** `minor`
 

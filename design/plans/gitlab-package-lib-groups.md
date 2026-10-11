@@ -1,7 +1,7 @@
 # Plan: GitLab package named library groups
 
 - **Status:** proposal
-- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
+- **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
 - **Updated:** 2026-10-05
 - **Impact:** minor — package author/consumer API for large multi-lib archives; leaf `use_libs` stays valid
 
@@ -35,7 +35,7 @@ discovery helpers.
 
 - Changing transitive apply timing (`BuildWith` = includes; link on
   `use_libs` / `use_all_libs`).
-- Version ranges (see [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)).
+- Version ranges (see [`gitlab-package-version-ranges.md`](../archive/gitlab-package-version-ranges.md)).
 - Requiring every existing package to sprout groups.
 
 ## Direction (from parent settled API)

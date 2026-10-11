@@ -5,7 +5,7 @@
 
 """GitLab package version bounds (exact / minimum / latest).
 
-See ``design/plans/gitlab-package-version-ranges.md``. Not pip / PEP 440 —
+See ``design/archive/gitlab-package-version-ranges.md``. Not pip / PEP 440 —
 one token per edge: ``1.28.0``, ``==1.28.0``, ``>=1.28.0``, or ``latest``.
 """
 

@@ -1,7 +1,7 @@
 # Plan: Cascade build-and-publish of package dependencies
 
 - **Status:** shipped
-- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
+- **Related:** [#297](https://github.com/ja11sop/cuppa/issues/297); [`ROADMAP.md`](../../ROADMAP.md) — `package-build-publish-deps`; [`package-download-refresh.md`](package-download-refresh.md); [`gitlab-package-transitive.md`](gitlab-package-transitive.md); [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (`package-publish-cli`); project **D** soak (google-cloud-cpp stack)
 - **Updated:** 2026-09-28
 - **Impact:** `minor` (new opt-in CLI / orchestration; default single-package publish unchanged)
 
@@ -29,7 +29,7 @@ consume-only tips, tip ``payload_sha256`` overlay, collect reused/cloned finish,
 | Soft Phase 4 follow-ons: extract-seed (**1b**), package ``develop=`` polish (**2b**) | Parked; not blockers |
 | Package ``develop=`` prefix → source-tree migration | [`package-develop-local.md`](package-develop-local.md) **Slice E declined** — dual inference kept |
 | Opt-in same-version archive re-fetch | [`package-download-refresh.md`](package-download-refresh.md) / [#296](https://github.com/ja11sop/cuppa/issues/296) |
-| Master flag rename (``--cascade``; long form synonym) | [`cascade-enable-rename.md`](../plans/cascade-enable-rename.md) |
+| Master flag rename (``--cascade``; long form synonym) | [`cascade-enable-rename.md`](cascade-enable-rename.md) |
 
 Landing PRs (associate with [#297](https://github.com/ja11sop/cuppa/issues/297)):
 [#302](https://github.com/ja11sop/cuppa/pull/302)–[#305](https://github.com/ja11sop/cuppa/pull/305),
@@ -174,7 +174,7 @@ field, root derivation, or CLI/config map).
 
 #### Relation to `cuppa-dependency.json`
 
-[`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) already ships
+[`gitlab-package-transitive.md`](gitlab-package-transitive.md) already ships
 `cuppa-dependency.json` for **consume** / `BuildWith` closure. Rebuild metadata
 must not fork a second incompatible dependency list.
 
@@ -322,7 +322,7 @@ design.
 | File layout | **Phase 1 bridge (superseded by 2d):** dual file. **Phase 2d:** single traveling ``cuppa-publish.json``. |
 | Develop during cascade | After each nested publish, **invalidate and re-fetch** that package’s download + extract under the tip’s storage roots (cascade-internal refresh; full `--refresh-downloads` is [#296](https://github.com/ja11sop/cuppa/issues/296)) |
 | Flag without `--publish-package` | **Refuse** bare cascade for real nest-publish (Phase 1). Stop modes may omit it. **Phase 4:** nest-deps-only is a **separate companion action** (name TBD) — not tip-type inference |
-| Flag name | **`--build-and-publish-dependencies`** (historical master enable). Rename / primary alias **`--cascade`**: [`cascade-enable-rename.md`](../plans/cascade-enable-rename.md) |
+| Flag name | **`--build-and-publish-dependencies`** (historical master enable). Rename / primary alias **`--cascade`**: [`cascade-enable-rename.md`](cascade-enable-rename.md) |
 | `--publisher-root` | Optional; resolve missing/`package_source` URL by trying `{root}/{name}`, `{root}/{package}`, then one-level `{root}/*/{name\|package}` |
 | Nested recurse | Children run **without** the cascade flag (`CUPPA_CASCADE_NESTED=1`); fail-stop |
 | When cascade runs | During tip `GitlabPackagePublisher` construction (SConscript time), **before** CMake Actions, so refreshed extracts are visible to the tip build |
@@ -701,9 +701,9 @@ cuppa -D --rel --build-and-publish-dependencies --publish-package \
     **Related (do not conflate):** floating / non-exact package pins more
     generally — e.g. consume or traveling-manifest language for a **minimum**
     (`>=1.28.0`) versus an **exact** pin (`1.28.0` / `==1.28.0`). That sits with
-    [`gitlab-package-version-ranges.md`](../plans/gitlab-package-version-ranges.md)
+    [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
     (follow-on to the transitive MVP in
-    [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md)).
+    [`gitlab-package-transitive.md`](gitlab-package-transitive.md)).
     Boost publish-seed ``latest`` is a **named floating token** that resolves
     once to a concrete archive identity; it is a stepping stone toward richer
     constraint spelling, not a constraint solver. Same-version **consume**
@@ -769,7 +769,7 @@ canonical forest.
 
 ### Explicit non-goals (for this future feature)
 
-- Constraint solving / version ranges ([`gitlab-package-version-ranges.md`](../plans/gitlab-package-version-ranges.md); was deferred from [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md))
+- Constraint solving / version ranges ([`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md); was deferred from [`gitlab-package-transitive.md`](gitlab-package-transitive.md))
 - Same-version consume re-fetch ([#296](https://github.com/ja11sop/cuppa/issues/296))
 - Changing nest companion flags or tip end states
 

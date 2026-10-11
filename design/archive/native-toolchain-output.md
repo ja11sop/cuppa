@@ -1,8 +1,8 @@
 # Plan: native coloured toolchain output (`--native-output`)
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](console-channels.md); companion [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md) (done on master [#353](https://github.com/ja11sop/cuppa/pull/353)); follow-on [`terse-dependency-locations.md`](terse-dependency-locations.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md). Landed on [#354](https://github.com/ja11sop/cuppa/pull/354); promote to **shipped** and archive at the 1.12.0 release.
-- **Updated:** 2026-10-04
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-native-output`); channel map [`console-channels.md`](../plans/console-channels.md); companion [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md) (done on master [#353](https://github.com/ja11sop/cuppa/pull/353)); follow-on [`terse-dependency-locations.md`](terse-dependency-locations.md); [`console-report-patterns.md`](console-report-patterns.md). Landed on [#354](https://github.com/ja11sop/cuppa/pull/354); promote to **shipped** and archive at the 1.12.0 release.
+- **Updated:** 2026-10-11
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
 ## Why
@@ -35,7 +35,7 @@ not `--raw-output`, which also disables cuppa's progress wiring and other proces
 
 - Removing `ToolchainProcessor` or regex interpretors (default path stays cuppa-coloured).
 - Native colour for **cuppa-owned reports** (`--list-builds`, wipe trees, coverage summaries).
-- ANSI→HTML doc samples ([`colourised-doc-samples.md`](../archive/colourised-doc-samples.md) stays separate).
+- ANSI→HTML doc samples ([`colourised-doc-samples.md`](colourised-doc-samples.md) stays separate).
 - Guaranteeing native colour on every platform (TTY detection remains the toolchain's job).
 
 ## Settled vocabulary (decide before first PR)

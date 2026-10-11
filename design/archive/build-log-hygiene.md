@@ -1,8 +1,8 @@
 # Plan: configure-time build log hygiene
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-log-hygiene`); shipped [`archive/list-toolchains.md`](../archive/list-toolchains.md); companion [`terse-build-output.md`](terse-build-output.md) (action-time output — **not** this plan); [`cuppa-info.md`](cuppa-info.md)
-- **Updated:** 2026-09-29
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-log-hygiene`); shipped [`list-toolchains.md`](list-toolchains.md); companion [`terse-build-output.md`](terse-build-output.md) (action-time output — **not** this plan); [`cuppa-info.md`](cuppa-info.md)
+- **Updated:** 2026-10-11
 - **Impact:** patch — log levels and message text only; default behaviour unchanged at `--verbosity=info` for most lines **except** the demoted messages (quieter normal builds)
 
 ## Why

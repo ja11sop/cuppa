@@ -1,8 +1,8 @@
 # Plan: Rename cascade master flag
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `cascade-enable-rename`; shipped cascade [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) ([#297](https://github.com/ja11sop/cuppa/issues/297)); companions `--build-cascade-dependencies` / `--publish-cascade-dependencies`
-- **Updated:** 2026-10-10
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `cascade-enable-rename`; shipped cascade [`package-build-publish-deps.md`](package-build-publish-deps.md) ([#297](https://github.com/ja11sop/cuppa/issues/297)); companions `--build-cascade-dependencies` / `--publish-cascade-dependencies`
+- **Updated:** 2026-10-11
 - **Impact:** `minor` (CLI rename / alias; behaviour unchanged)
 - **PR:** [#361](https://github.com/ja11sop/cuppa/pull/361)
 

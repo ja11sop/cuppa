@@ -1,8 +1,8 @@
 # Plan: TTY liveness when info logs are quiet
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
-- **Updated:** 2026-10-08
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); channel map [`console-channels.md`](../plans/console-channels.md); [`console-mode-banners.md`](console-mode-banners.md); [`develop.remote_check_progress`](../../cuppa/develop.py); [`Git._run_with_progress`](../../cuppa/scms/git.py); large consume-tip `-Q --cascade-plan` soak
+- **Updated:** 2026-10-11
 - **Impact:** `minor`
 - **PR:** [#356](https://github.com/ja11sop/cuppa/pull/356); caption/spin decoupling follow-on on transfer/archive branch
 
@@ -167,7 +167,7 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 | When liveness is on | **TTY + quiet** — quiet means `-Q` / `-s` (or equivalent) forced the effective verbosity to warn/error **and** the user did not override with `--verbosity=`. Off when stdout/stderr is not a TTY (CI/pipes). |
 | Mode banners / warn / error | Clear status line, then emit. Banners already use the console-report channel ([`console-mode-banners.md`](console-mode-banners.md)). |
 | Clear before stdout reports | Yes — cascade plan, develop tables, Options Error trees, mode banners, and any other console report. |
-| Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](console-channels.md). |
+| Non-TTY / CI | Silent. Colour off when `NO_COLOR` or `--raw-output`. Not a console report — see [`console-channels.md`](../plans/console-channels.md). |
 | Progress bars under `-Q` | Stay **off**. Re-gate the three `isEnabledFor(INFO)` sites on an explicit quiet/heartbeat flag (or “multi-line progress allowed”), not on logger level alone once diversion keeps INFO enabled. |
 | Terse overlap | **Reveal before each terse stdout line** (`progress._write_terse_stdout`) and clear before spawn transcript lines (`output_processor._emit_transcript`). Heartbeat stays on with `--terse-output` so waits between actions remain alive. |
 | Status shape | Pulse: **`|<widget>|  <message>`** (no `working` — ECG is the anchor). Spinner: **`working <spinner>  <message>`**. Terse: same heads with ``→`` padded to `terse_arrow_column()`. **`--quiet-heartbeat=pulse\|spinner\|off`**. Full-cycle min dwell; transcript lock under `-j`. Idle-gate after transcript (coalesce INFO, latest wins) so busy `terse–info–terse` does not stall. |

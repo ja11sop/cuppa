@@ -1,9 +1,9 @@
 # Plan: Drive CMake from Cuppa + GitLab package staging (#209)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`; archive/create/upload progress → [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); cascade publish → [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — 1.11.0 / [#209](https://github.com/ja11sop/cuppa/issues/209); [`cmake-to-cuppa-migration.md`](cmake-to-cuppa-migration.md) (migrate *onto* Cuppa — orthogonal); packages / custom-commands Antora; [`gitlab.py`](../../cuppa/package_managers/gitlab.py) `GitlabPackagePublisher`; preferred `Toolchain()`/`Variant()`, `Has*` inspection, deprecate `Using` / keyed `Toolchain`; archive/create/upload progress → [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md); cascade publish → [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md)
 - **Updated:** 2026-10-05
-- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods **done**; `RemoveEmptyDirs` / `remove_empty_dirs` done; prove-out soak `cmake-pkg-cloud-soak` **done**; remaining on this plan: Option E inplace staging, publish-side CLI pins, variant-match docs/strict switch; package archive progress moved to [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md)
+- **Impact:** staging refresh `patch` (`cmake-pkg-stage-min` done); accessors done (#293); Option B helper `minor` (#294); Option C methods **done**; `RemoveEmptyDirs` / `remove_empty_dirs` done; prove-out soak `cmake-pkg-cloud-soak` **done**; remaining on this plan: Option E inplace staging, publish-side CLI pins, variant-match docs/strict switch; package archive progress moved to [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md)
 
 ## Intent
 
@@ -59,7 +59,7 @@ Third specimen for the Option B → C thought experiment (anonymised). Contrasts
 | Configure | Hardcoded `CMAKE_BUILD_TYPE=Debug`, `CMAKE_CXX_STANDARD=17`, install prefix, feature `-D`s; no `CMAKE_CXX_COMPILER` | **Yes** — `install_prefix=`, variant→build type, toolchain→compiler, `cxx_standard`, `extra_defines` | Mapping only; still `env.Command` + `run` |
 | `-B` isolation | Fixed `cmake-out` under extract tree | Caller can pass `build_dir=…/publisher.package_variant()` | Method could default that |
 | Build / install | `cmake --build` + `--target install`; `-j` from `os.cpu_count()-2` (was `psutil`) | **No** (configure-only helper) | Strongest C signal: `CMakeBuild` / `CMakeInstall` nodes + parallelism policy vs Cuppa `--parallel` |
-| Publish | `source_include/lib` = large install prefix; silent multi-minute `tar` | N/A | Option E / #209; progress → [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) |
+| Publish | `source_include/lib` = large install prefix; silent multi-minute `tar` | N/A | Option E / #209; progress → [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) |
 | Env side effects | `os.environ['PREFIX']=…` | No | Leave to caller unless proven required |
 
 **Takeaway:** Option B deletes the classic Cuppa↔CMake lies (Debug under `--rel`,
@@ -74,7 +74,7 @@ and **many minutes** to create the GitLab package archive. Today
 a healthy package step looks hung. Rebuilds must **not** redo download, CMake, install,
 staging copy, or tar when inputs are unchanged — `.packaged` / mtime skip and staging
 refresh help, but silent multi-minute tar and any unnecessary re-stage remain product
-gaps (progress → [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); Option E inplace / skip double-copy).
+gaps (progress → [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md); Option E inplace / skip double-copy).
 
 **Deep clean:** SCons `-c` only removes graph nodes. A CMake `-B` tree under a
 location-dependency checkout is outside Cuppa `_build/` unless registered with
@@ -83,7 +83,7 @@ location-dependency checkout is outside Cuppa `_build/` unless registered with
 
 | Gap | Why it hurts here | Candidate |
 |-----|-------------------|-----------|
-| Silent package `tar`/`zip` | Minutes with no console feedback | [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) (uniform + terse/quiet) |
+| Silent package `tar`/`zip` | Minutes with no console feedback | [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (uniform + terse/quiet) |
 | Re-run of long steps | Hours wasted on noop rebuilds | Keep/strengthen `.packaged` + staging skip; avoid re-configure/build when stamps valid |
 | Double-copy of install prefix | Disk + time before tar | Option E `stage='inplace'` when source *is* the package tree |
 
@@ -354,7 +354,7 @@ Publisher CMake builds are usually **one** long SCons action. Cuppa `--parallel`
 | Copy `.a` into `abs_build_dir` + `Install` | Small-lib packaging shape; not universal |
 | `PublishPackage` / publisher construction | Packaging, not CMake |
 | System package deps | Host/CI concern |
-| Silent multi-minute package `tar` | [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) — orthogonal to C |
+| Silent multi-minute package `tar` | [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) — orthogonal to C |
 | Double-copy of large install prefix | **Option E** — orthogonal to C |
 
 #### Hypothetical after lean C (large-install sketch)
@@ -396,7 +396,7 @@ libs would fight the two packaging shapes.
 
 **Verdict:** enough information to design and sequence lean C. Do **not** wait for more
 publisher shapes for the configure/build/install core. Archive progress lives in
-[`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); consider **E**
+[`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md); consider **E**
 from the large-install pain — those are not C.
 
 ### Option D — Publisher-integrated CMake mode
@@ -415,13 +415,13 @@ from the large-install pain — those are not C.
 
 | Topic | Decision |
 |-------|----------|
-| Sequence | Accessors → Option B → lean C (**done**); archive progress → [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); E / publish-cli still friction-driven |
+| Sequence | Accessors → Option B → lean C (**done**); archive progress → [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md); E / publish-cli still friction-driven |
 | Accessors | Preferred: zero-arg `Toolchain()` / `Variant()`; inspection: `HasToolchain` / `HasDependency`; **deprecate** `Using` and keyed `Toolchain(name)` (warn + strip from docs) |
 | Helper | Option **B** in ``cuppa.buildsys.cmake``; feeds C |
 | **C** | Lean `CMakeConfigure` / `CMakeBuild` / `CMakeInstall` graph nodes — **shipped**; does not absorb acquire / copy-Install / Publish / tar progress |
 | Package include←lib | ``Requires(installed_include, installed_lib)`` (order-only); not ``Depends`` |
 | **E** | Still open — opt-in power-user staging (`stage='inplace'`); large install-prefix; no publisher API yet |
-| Archive progress | **Moved** — uniform download/upload/compress/extract + terse/quiet: [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) |
+| Archive progress | **Moved** — uniform download/upload/compress/extract + terse/quiet: [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) |
 | `--cov` | Default map to `RelWithDebInfo`; say Cuppa coverage does not auto-instrument CMake |
 
 Refuse: pretend `--cov` covers pure CMake builds; silent `Release` under `--dbg`; private project names in Antora; accessors returning `env`; soft names for inspection (`GetToolchain`, bare `Dependency`) that compete with preferred APIs; Option D; a C that also owns packaging.
@@ -518,7 +518,7 @@ a higher-level Option C (`env.CMake*`) — and what that method would need to ab
 | `cmake-pkg-empty-subdirs` | `remove_empty_dirs` + `env.RemoveEmptyDirs`; `gitmodules=True` / all-empty / `names=` override | **Done** |
 | `package-runtime-paths` | GitLab `BuildWith` runtime lib ENV (Conan parity); publisher `$ORIGIN` / build-tree RPATH helpers | **Done** — [`package-runtime-paths.md`](../archive/package-runtime-paths.md) |
 | `download-extract` | `env.DownloadExtract`; move `RemoveEmptyDirs` to `buildsys.acquire` | **Done** — [`download-extract.md`](../archive/download-extract.md) |
-| `package-archive-progress` | Was: progress while creating large `.tar.gz` / `.zip` | **Moved** → [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) (uniform + terse/quiet; not CMake-specific) |
+| `package-archive-progress` | Was: progress while creating large `.tar.gz` / `.zip` | **Moved** → [`transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (uniform + terse/quiet; not CMake-specific) |
 | `package-variant-match` | Document dbg→rel default; opt-in strict/exact | **Open** (`minor`) — default “omit → rel” still in code; no strict switch yet |
 | `package-publish-cli` | Namespace-scoped **publish** CLI pin (e.g. `--publish-version=`) — see below | **Open** (`minor`) — consume `--<name>-gitlab-version=` exists; publisher has no AddOption family; `publish_version.py` only resolves floating `latest`→concrete |
 | `package-build-publish-deps` | Cascade build+publish of package deps from a tip | **Done** — [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) |

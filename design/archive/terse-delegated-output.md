@@ -1,12 +1,12 @@
 # Plan: terse file fields and delegated builders
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** [`terse-build-output.md`](terse-build-output.md) (Phase 1, done for 1.12.0);
-  [`native-toolchain-output.md`](native-toolchain-output.md); [`console-channels.md`](console-channels.md);
-  [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md); Boost `b2` via
+  [`native-toolchain-output.md`](native-toolchain-output.md); [`console-channels.md`](../plans/console-channels.md);
+  [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); Boost `b2` via
   `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-delegated`;
-  Boost `-c` follow-up [`deep-clean.md`](deep-clean.md)
-- **Updated:** 2026-10-03
+  Boost `-c` follow-up [`deep-clean.md`](../plans/deep-clean.md)
+- **Updated:** 2026-10-11
 - **Impact:** minor — presentation and delegated-builder wiring under `--terse-output`; default
   transcript unchanged
 
@@ -38,7 +38,7 @@ presentation so CMake/`b2` stay under Cuppa's transcript instead of drowning it.
 - Hiding configure-time package download progress (that is the log/report channel, not this plan).
 - `--deep-clean` / Boost extract `b2` vs ordinary `-c` (see follow-up below).
   Ordinary `-c` already removes `_build` and the Boost **stage**; `bin.*` and
-  extract `b2` stay today. That is [`deep-clean.md`](deep-clean.md), not this plan.
+  extract `b2` stay today. That is [`deep-clean.md`](../plans/deep-clean.md), not this plan.
 
 ## Observations from the corosio soak
 
@@ -394,7 +394,7 @@ instead of a raw `cp` and a false `archive`.
 | H | Docs: output page patterns + delegated section | Done (Antora + changelog; not shipped until 1.12.0) |
 | I | Soak tweak: launch mirrors close fields; clean close `[done]`; whole-build `[completed]` | Done |
 | J | `shared_across_variants` author override for build-wide tools | Done |
-| K | Location maps + extract `b2` as `paths=product` + uncounted copy | Done; Boost `-c`/`b2` is [`deep-clean.md`](deep-clean.md) |
+| K | Location maps + extract `b2` as `paths=product` + uncounted copy | Done; Boost `-c`/`b2` is [`deep-clean.md`](../plans/deep-clean.md) |
 
 ## Refusal rules
 
@@ -411,7 +411,7 @@ instead of a raw `cp` and a false `archive`.
 | Infer “shared across variants” from Depends | Refuse; author sets `label_terse_action(..., shared=True)` |
 | Infer `<boost>` (or other tokens) by sniffing `_download` folder names | Refuse; structured registration only — see [`terse-dependency-locations.md`](terse-dependency-locations.md) |
 | Register Boost `bin.*` as a terse location | Refuse; ordinary `-c` does not wipe it |
-| Change `env.NoClean(b2)` / cooperative library clean in this plan | Refuse; follow-up on [`deep-clean.md`](deep-clean.md) |
+| Change `env.NoClean(b2)` / cooperative library clean in this plan | Refuse; follow-up on [`deep-clean.md`](../plans/deep-clean.md) |
 
 ## Success criteria
 
@@ -437,7 +437,7 @@ structured registration from dependency `_name`) are tracked on
 [`terse-dependency-locations.md`](terse-dependency-locations.md).
 
 Boost `-c` vs extract `b2` vs library `bin.*` is tracked on
-[`deep-clean.md`](deep-clean.md). Today `env.NoClean(b2)` leaves the bootstrap
+[`deep-clean.md`](../plans/deep-clean.md). Today `env.NoClean(b2)` leaves the bootstrap
 binary, so the next build does not rebuild `b2` if it exists. That is the right
 **build** default and the wrong **clean** default: Cuppa built that file, so
 ordinary `-c` should remove it (CMake `-B` parity), and a cooperative
@@ -448,8 +448,8 @@ folders make the latter risky. Leave `NoClean(b2)` until that follow-up.
 ## Related
 
 - Phase 1 terse grammar and checkpoints: [`terse-build-output.md`](terse-build-output.md)
-- Channel map: [`console-channels.md`](console-channels.md)
+- Channel map: [`console-channels.md`](../plans/console-channels.md)
 - Native diagnostic modifier: [`native-toolchain-output.md`](native-toolchain-output.md)
 - Dependency location maps: [`terse-dependency-locations.md`](terse-dependency-locations.md)
-- CMake drive / package staging: [`cmake-drive-and-package-staging.md`](cmake-drive-and-package-staging.md)
-- Boost `-c` / extract `b2` / `bin.*`: [`deep-clean.md`](deep-clean.md)
+- CMake drive / package staging: [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md)
+- Boost `-c` / extract `b2` / `bin.*`: [`deep-clean.md`](../plans/deep-clean.md)

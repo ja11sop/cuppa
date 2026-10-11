@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--rel`` so tip ``--dbg`` / ``--cov`` no longer change nest package stems.
   Pass ``--cascade-variants`` to forward tip build variants into those nests.
   Location ``--stage-develop`` project nests keep tip variants. Plan:
-  ``design/plans/cascade-consume-ux-soak.md`` (``cascade-nest-rel``).
+  ``design/archive/cascade-consume-ux-soak.md`` (``cascade-nest-rel``).
 - ``--cascade-plan`` finish when publisher trees are still **to clone first**:
   suggests ``--collect-cascade`` with ``--clone-publishers`` **to clone only**,
   or drop ``--cascade-plan`` and pass ``--clone-publishers`` with a nest companion
@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``N nested dependencies``. ``--cascade`` + SCons ``-n`` nest companions refuse
   earlier with “Did you mean ``--cascade-plan``?”.
   Antora: two-questions framing on cascade + list gap table. Plan:
-  ``design/plans/cascade-consume-ux-soak.md``.
+  ``design/archive/cascade-consume-ux-soak.md``.
 
 ### Added
 
@@ -41,12 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   satisfying cache / remembered pin; ``--refresh-downloads`` may select a higher
   registry version. Pip-style spellings (``~=``, ``^``, comma lists) are refused.
   ``--list-dependencies`` shows ``bound → concrete`` for soft edges. Plan:
-  ``design/plans/gitlab-package-version-ranges.md``.
+  ``design/archive/gitlab-package-version-ranges.md``.
 - ``--cascade`` as the master flag to enable package-dependency cascade (nest
   sessions / publisher trees). ``--build-and-publish-dependencies`` is a
   **deprecated** alias (removed in 2.0); companions still choose nest-build vs
   nest-publish (``--build-cascade-dependencies`` is the no-upload “as-if
-  published” path). Plan: ``design/plans/cascade-enable-rename.md``.
+  published” path). Plan: ``design/archive/cascade-enable-rename.md``.
 - Transfer and archive progress: shared engine for download, extract, and package
   ``compress``. **Normal TTY** shows the progress bar only (no alive widget);
   under ``-Q``/``-s`` that bar is muted, idle-gate delayed, and overwritten on
@@ -71,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``upload_file`` (HTTP PUT + ``ProgressReporter``) instead of silent
   ``curl --upload-file``, so large registry puts get the same mode-tuned bar
   as download/compress; durable ``[publish]`` identity lines unchanged. Plan:
-  ``design/plans/transfer-and-archive-progress.md``.
+  ``design/archive/transfer-and-archive-progress.md``.
 - Terse resolve honesty and package retrieve identity: ``[ready]`` closes after
   every toolchain × variant × sconscript has been read (no longer on the first
   tip ``BuildWith``), so multi-toolchain package collects stay under
@@ -99,7 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   shear and nested OFFLINE ×2). Nested ``cuppa`` preserves outermost
   ``CUPPA_STDOUT_IS_TTY``. CMake install preamble no longer blocks
   ``-- All targets Up-to-date``. Plan:
-  ``design/plans/console-write-ownership.md``. Cascade nested ``cuppa`` sessions
+  ``design/archive/console-write-ownership.md``. Cascade nested ``cuppa`` sessions
   are remembered like build children and torn down as a **process tree** on
   tip Ctrl-C (first interrupt stops a long nest; no orphaned ninja/cmake
   writing to ``/dev/tty`` after the shell returns). Between nests the tip
@@ -115,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``name [==version] (package)``); nest end says
   ``uploaded [archive.tar.gz]`` (brackets plain, leaf notice) when the
   marker carries a path. Property-based resolve ensure phases remain
-  deferred — see ``design/plans/transfer-and-archive-progress.md``.
+  deferred — see ``design/archive/transfer-and-archive-progress.md``.
 - Quiet+TTY / terse heartbeat: one shared status-row writer for retrieve
   ``operation_status`` (quiet diverting *and* compact ``--terse-output``
   without ``-Q``). Dropped the second paint loop that truncated captions at
@@ -165,7 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and CI stay silent (no heartbeat without a TTY). Transfer/archive progress
   under quiet uses the same muted alive+metrics line (not the old multi-line
   download bar). ``--verbosity=`` still wins. Plan:
-  ``design/plans/quiet-tty-heartbeat.md``.
+  ``design/archive/quiet-tty-heartbeat.md``.
 - ``cuppa --native-output``: pass spawned toolchain diagnostic lines through with
   the tool's own colour (GCC ``-fdiagnostics-color=always``, Clang
   ``-fcolor-diagnostics``, MSVC ``/diagnostics:caret``). A modifier on the normal
@@ -328,7 +328,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   operator mitigation. Match behaviour is unchanged (still excluded until
   on disk as a file); the breadcrumb is ``debug``. Existing directories stay
   excluded, also at ``debug`` instead of ``warn``. Plan:
-  ``design/plans/filter-directory-warn.md``.
+  ``design/archive/filter-directory-warn.md``.
 - GitLab ``version="latest"`` consume: if the Packages API is unreachable
   (DNS or connection) and a remembered ``gitlab_package_latest_*`` pin
   exists, warn and reuse it instead of ``StopError``. ``--offline`` still
