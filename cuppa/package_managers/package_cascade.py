@@ -1743,9 +1743,15 @@ def _publish_action_phrase( consume_tip: bool ) -> str:
     build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
-        return "either {} or {}".format( build, nest )
-    return "one of {}, {}, or {}".format(
-            build, nest, _footer_flag( "publish-package" ),
+        return "{} {} {} {}".format(
+                _guide_word( "either" ), build, _guide_word( "or" ), nest
+        )
+    return "{} {}, {}, {} {}".format(
+            _guide_word( "one of" ),
+            build,
+            nest,
+            _guide_word( "or" ),
+            _footer_flag( "publish-package" ),
     )
 
 
@@ -1813,7 +1819,9 @@ def _plan_finish_remedy_lines(
                     as_subdued( tee ) + "pass {}".format( options[0] )
             )
         else:
-            lines.append( as_subdued( tee ) + "pass either:" )
+            lines.append(
+                    as_subdued( tee ) + "pass {}:".format( _guide_word( "either" ) )
+            )
             under = pipe
             for index, option in enumerate( options ):
                 last = index == len( options ) - 1
@@ -2611,7 +2619,7 @@ def record_plan_report(
 
 
 def _guide_word( word: str ) -> str:
-    """Bold plain guide word (``or`` / ``then`` / ``one of``) — not info/blue."""
+    """Bold plain guide word (``either`` / ``or`` / ``then`` / ``one of``) — not info/blue."""
     return as_emphasised_plain( word )
 
 
@@ -2683,12 +2691,13 @@ def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
 def _execute_closing_lines( consume_tip: bool ) -> list[str]:
     """Finish elbow: keep ``or`` at the left of the continuation (LTR scan)."""
     then_word = _guide_word( "then" )
+    either_word = _guide_word( "either" )
     or_word = _guide_word( "or" )
     build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
         return [
-                "{} re-run with either {}".format( then_word, build ),
+                "{} re-run with {} {}".format( then_word, either_word, build ),
                 "{} {} to execute".format( or_word, nest ),
         ]
     one_of = _guide_word( "one of" )

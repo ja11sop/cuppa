@@ -3614,6 +3614,7 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
     assert "or --publish-cascade-dependencies to execute" in visible
     assert as_info( "package_source" ) in text
     assert as_emphasised_plain( "one of" ) in text
+    assert as_emphasised_plain( "either" ) in text
     assert as_emphasised_plain( "or" ) in text
     assert as_emphasised_plain( "then" ) in text
     # Must not pitch clone as a peer choice for no-URL gaps.
