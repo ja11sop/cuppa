@@ -14,8 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL or cached download can retrieve the tip extract; bare ``missing`` stays
   for gaps with no retrieve story.
   Cascade finish-line remedies no longer pitch ``--clone-publishers`` when
-  failing nodes lack a URL ``package_source``. ``--cascade`` + SCons ``-n``
-  nest companions refuse earlier with “Did you mean ``--cascade-plan``?”.
+  failing nodes lack a URL ``package_source`` (including under an explicit
+  ``--publisher-root``). Plan finish copy uses ``project`` / ``package`` and
+  ``N nested dependencies``. ``--cascade`` + SCons ``-n`` nest companions refuse
+  earlier with “Did you mean ``--cascade-plan``?”.
   Antora: two-questions framing on cascade + list gap table. Plan:
   ``design/plans/cascade-consume-ux-soak.md``.
 

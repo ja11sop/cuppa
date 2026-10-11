@@ -231,7 +231,8 @@ as the primary fix. Those are for publisher trees, not tip consume cache.
 | Settled lean: list missing → note + tip build retrieves | Done — this revision |
 | List remark ``not extracted`` + note paint when retrievable | Done — this PR |
 | Antora two-questions + gap table (list / cascade / packages) | Done — this PR |
-| Cascade finish-line remedy split (no-URL vs clone) | Done — this PR |
+| Cascade finish-line remedy split (no-URL vs clone) | Done — this PR (incl. explicit ``--publisher-root``) |
+| Plan finish tip naming (``project`` / ``package`` + nested deps) | Done — this PR |
 | ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — this PR |
 | `cascade-nest-rel` / `skip-resolve` / full `opt-compat-early` | Later slices |
 | Design-index / ROADMAP row | Done with #365 capture; update status on merge |

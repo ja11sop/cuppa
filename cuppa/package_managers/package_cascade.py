@@ -1143,9 +1143,11 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                         PUBLISHER_ROOT_OPTION,
                 )
         )
+    # Soft-grade for plan finish-line: clone cannot invent a URL. Set even when
+    # --publisher-root is explicit so mixed plans do not pitch --clone-publishers
+    # for no-URL gaps (cascade-consume UX soak).
+    entry["_needs_package_source"] = True
     if not publisher_root_option( env ):
-        # Soft-grade for plan finish-line: clone cannot invent a URL.
-        entry["_needs_package_source"] = True
         raise SCons.Errors.StopError(
                 "dependency [{}] has no package_source and no publisher tree was "
                 "found under [{}]; set --{} or give the dependency a "
@@ -1702,6 +1704,26 @@ def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
     """``N noun`` without colour — safe to nest inside an info-label chip."""
     word = noun if count == 1 else ( plural_noun or noun + "s" )
     return "{} {}".format( count, word )
+
+
+def _planned_tip_phrase( tip_count, *, consume_tip: bool ) -> str:
+    """``1 project planned`` (consume tip) or ``1 package planned`` (publisher tip)."""
+    noun = "project" if consume_tip else "package"
+    return "{} planned".format( _plain_count_phrase( tip_count, noun ) )
+
+
+def _with_nested_dependencies( summary: str, dependency_count: int ) -> str:
+    """Append ``, N nested dependencies`` when the tip reported a nest DAG."""
+    if dependency_count <= 0:
+        return summary
+    return "{}, {}".format(
+            summary,
+            _plain_count_phrase(
+                    dependency_count,
+                    "nested dependency",
+                    "nested dependencies",
+            ),
+    )
 
 
 def _cascade_stop_summary( option: str, summary ) -> str:
@@ -2769,7 +2791,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     trees_updated = sum(
             report.get( "trees_updated", 0 ) for report in _plan_reports
     )
-    packages = _plain_count_phrase( len( _plan_reports ), "package" )
+    tip_count = len( _plan_reports )
     if errors:
         if collect:
             summary = "{}, {} without a publisher tree".format(
@@ -2800,8 +2822,13 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     update=True,
             )
         else:
-            summary = "{} planned, {} without a publisher tree".format(
-                    packages,
+            summary = "{}, {} without a publisher tree".format(
+                    _with_nested_dependencies(
+                            _planned_tip_phrase(
+                                    tip_count, consume_tip=consume_tip
+                            ),
+                            dependency_count,
+                    ),
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
             remediation = _publisher_tree_gap_remediation(
@@ -2847,7 +2874,10 @@ def finish_cascade_stop( env=None, out=None ) -> int:
         )
         detail = no_side_effects
     else:
-        summary = "{} planned".format( packages )
+        summary = _with_nested_dependencies(
+                _planned_tip_phrase( tip_count, consume_tip=consume_tip ),
+                dependency_count,
+        )
         if clones:
             summary = "{}, {} to clone first".format(
                     summary,

@@ -3508,7 +3508,7 @@ def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 0
-    assert "1 package planned" in visible
+    assert "1 project planned, 9 nested dependencies" in visible
     assert (
             "pass either --build-cascade-dependencies or "
             "--publish-cascade-dependencies"
@@ -3535,6 +3535,7 @@ def test_finish_plan_only_full_develop_coverage_omits_partial_clause():
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 0
+    assert "1 project planned, 3 nested dependencies" in visible
     assert "optionally also pass --develop to prefer configured develop trees" in visible
     assert "where set" not in visible
     assert "listed publisher paths" not in visible
@@ -3582,18 +3583,56 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
     cascade.record_plan_report(
             "order_matcher", "tip", 2,
             needs_package_source=2, needs_clone_opt_in=0, consume_tip=True,
+            dependency_count=5,
     )
     out = io.StringIO()
     status = cascade.finish_cascade_stop( out=out )
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 1
-    assert "without a publisher tree" in visible
+    assert (
+            "1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree"
+    ) in visible
     assert "Add package_source" in visible
     assert "--publisher-root" in visible
     assert "only fetches URL package_source" in visible
     # Must not pitch clone as the primary unblock for no-URL gaps.
     assert "pass --clone-publishers to fetch the ones with" not in visible
+
+
+def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
+    """No-URL + URL-missing-tree: finish-line still leads with package_source."""
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "order_matcher", "consume", 2,
+            needs_package_source=2, needs_clone_opt_in=1, consume_tip=True,
+            dependency_count=5,
+    )
+    out = io.StringIO()
+    status = cascade.finish_cascade_stop( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 1
+    assert (
+            "1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree"
+    ) in visible
+    assert visible.index( "Add package_source" ) < visible.index( "--clone-publishers" )
+    assert "for URL package_source trees" in visible
+
+
+def test_resolve_no_package_source_under_publisher_root_marks_needs_source( tmp_path ):
+    """Explicit --publisher-root empty forest: still soft-grade as needs_package_source."""
+    env = _PlanEnv( { "publisher-root": str( tmp_path / "empty-pubs" ) } )
+    entry = { "name": "date", "package": "date", "version": "3.0.5" }
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"could not resolve publisher for \[date\] under --publisher-root",
+    ):
+        cascade.resolve_publisher_dir( env, entry )
+    assert entry.get( "_needs_package_source" ) is True
+    assert not entry.get( "_needs_clone_opt_in" )
 
 
 def test_tip_forward_args_drops_tip_dependency_options():
