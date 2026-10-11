@@ -2646,8 +2646,10 @@ def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
         if isinstance( item, dict ):
             emit( branch, carried, item.get( "label" ) or "" )
             children = item.get( "children" ) or []
+            # Hang nested choices under the parent stem (``│   │`` / ``    │``),
+            # not a bare root stub — otherwise the nest looks stemless.
             under = gap if last else pipe
-            under_stub = under.rstrip()
+            under_stub = under + stub
             if children:
                 lines.append( as_subdued( under_stub ) )
             for child_index, child in enumerate( children ):
