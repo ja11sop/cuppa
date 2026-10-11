@@ -1154,6 +1154,9 @@ class Construct(object):
                 )
 
             from cuppa.package_managers import package_cascade
+            # Soak: refuse --cascade + -n before the tip resolve walk when the
+            # companion would nest (plan/collect/update-stop still allow -n).
+            package_cascade.refuse_cascade_nest_under_no_exec( cuppa_env )
             # Nest location --stage-develop before tip BuildWith so N of M is
             # known and nests are not interleaved with construction.
             package_cascade.run_location_stage_develop( cuppa_env )

@@ -1,7 +1,6 @@
 """Unit tests for the dependency inventory."""
 
 import json
-import os
 
 import pytest
 

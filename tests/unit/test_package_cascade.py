@@ -635,6 +635,7 @@ def test_maybe_run_cascade_refuses_scons_dry_run( capsys ):
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out )
     assert "Options Error" in visible
     assert "--cascade cannot run under -n/--no-exec" in visible
+    assert "Did you mean --cascade-plan?" in visible
     assert ".sconf_temp" in visible
     assert "--cascade-plan" in visible
     assert "--collect-cascade" in visible
@@ -712,6 +713,7 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
                     "errors": 0,
                     "clones": 0,
                     "needs_clone_opt_in": 0,
+                    "needs_package_source": 0,
                     "unused_develop": 0,
                     "unused_develop_soft": 0,
                     "consume_tip": False,
@@ -2907,17 +2909,20 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
 def test_finish_plan_only_names_the_clone_flag_when_a_tree_is_missing():
     cascade.reset_plan_reports()
-    cascade.record_plan_report( "corosio", "0.2.0", 1 )
+    cascade.record_plan_report( "corosio", "0.2.0", 1, needs_clone_opt_in=1 )
     out = io.StringIO()
     status = cascade.finish_plan_only( out=out )
     report = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 1
-    assert "--clone-publishers" in report
-    assert (
-            "Then re-run with one of --build-cascade-dependencies, "
-            "--publish-cascade-dependencies, or --publish-package to execute"
-    ) in report
+    assert "--cascade-plan: 1 package planned, 1 dependency without a publisher tree;" in report
+    assert "resolve each gap with one of:" in report
+    assert "pass --clone-publishers for dependencies that already have a URL package_source" in report
+    assert "then re-run with one of --build-cascade-dependencies, --publish-cascade-dependencies" in report
+    assert "or --publish-package to execute" in report
+    # Elbow continuations use gap, not a hanging stem; guide ``or`` stays left.
+    assert "│   --publish-cascade-dependencies" not in report
+    assert "│   or --publish-package" not in report
 
 def test_tip_forward_args_drops_clone_publishers():
     """Only the tip cascades, so a nested session has nothing to clone."""
@@ -3506,7 +3511,7 @@ def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 0
-    assert "1 package planned" in visible
+    assert "1 project planned, 9 nested dependencies" in visible
     assert (
             "pass either --build-cascade-dependencies or "
             "--publish-cascade-dependencies"
@@ -3533,6 +3538,7 @@ def test_finish_plan_only_full_develop_coverage_omits_partial_clause():
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 0
+    assert "1 project planned, 3 nested dependencies" in visible
     assert "optionally also pass --develop to prefer configured develop trees" in visible
     assert "where set" not in visible
     assert "listed publisher paths" not in visible
@@ -3572,6 +3578,90 @@ def test_finish_collect_opt_in_advice_does_not_require_publish_package():
     assert "pass --clone-publishers to clone missing" in visible
     assert "along with --publish-package" not in visible
     assert "nothing was collected" in visible
+
+
+def test_finish_plan_no_package_source_does_not_lead_with_clone():
+    """Soak: clone cannot invent a URL — finish-line must say package_source / root."""
+    from cuppa.colourise import as_emphasised_plain, as_info, colouriser
+
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "order_matcher", "tip", 2,
+            needs_package_source=2, needs_clone_opt_in=0, consume_tip=True,
+            dependency_count=5,
+    )
+    out = io.StringIO()
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        status = cascade.finish_cascade_stop( out=out )
+        text = out.getvalue()
+        visible = re.sub( r"\x1b\[[0-9;]*m", "", text )
+    finally:
+        colouriser.use_colour = was
+
+    assert status == 1
+    assert (
+            "--cascade-plan: 1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree;"
+    ) in visible
+    assert "resolve each gap with one of:" in visible
+    assert "add package_source on dependencies that have none" in visible
+    assert "--publisher-root" in visible
+    assert "folder that already holds the trees" in visible
+    assert "only fetches URL package_source dependencies" in visible
+    assert "then re-run with either --build-cascade-dependencies" in visible
+    assert "or --publish-cascade-dependencies to execute" in visible
+    assert as_info( "package_source" ) in text
+    assert as_emphasised_plain( "one of" ) in text
+    assert as_emphasised_plain( "either" ) in text
+    assert as_emphasised_plain( "or" ) in text
+    assert as_emphasised_plain( "then" ) in text
+    # Must not pitch clone as a peer choice for no-URL gaps.
+    assert "pass --clone-publishers for dependencies that already have" not in visible
+
+
+def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
+    """No-URL + URL-missing-tree: finish-line still leads with package_source."""
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "order_matcher", "consume", 2,
+            needs_package_source=2, needs_clone_opt_in=1, consume_tip=True,
+            dependency_count=5,
+    )
+    out = io.StringIO()
+    status = cascade.finish_cascade_stop( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 1
+    assert (
+            "--cascade-plan: 1 project planned, 5 nested dependencies, "
+            "2 dependencies without a publisher tree;"
+    ) in visible
+    assert "resolve each gap with one of:" in visible
+    assert visible.index( "add package_source on dependencies that have none" ) < visible.index(
+            "--clone-publishers"
+    )
+    assert "manually place publisher trees under --publisher-root" in visible
+    assert "folder that already holds the trees" in visible
+    assert "pass --clone-publishers for dependencies that already have a URL package_source" in visible
+    assert "then re-run with either --build-cascade-dependencies" in visible
+    assert "or --publish-cascade-dependencies to execute" in visible
+    assert "│   --publish-cascade-dependencies" not in visible
+    assert "│   or --publish-cascade-dependencies" not in visible
+
+
+def test_resolve_no_package_source_under_publisher_root_marks_needs_source( tmp_path ):
+    """Explicit --publisher-root empty forest: still soft-grade as needs_package_source."""
+    env = _PlanEnv( { "publisher-root": str( tmp_path / "empty-pubs" ) } )
+    entry = { "name": "date", "package": "date", "version": "3.0.5" }
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"could not resolve publisher for \[date\] under --publisher-root",
+    ):
+        cascade.resolve_publisher_dir( env, entry )
+    assert entry.get( "_needs_package_source" ) is True
+    assert not entry.get( "_needs_clone_opt_in" )
 
 
 def test_tip_forward_args_drops_tip_dependency_options():

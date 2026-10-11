@@ -30,6 +30,7 @@ import SCons.Errors
 from cuppa import timer
 from cuppa.colourise import (
         as_emphasised,
+        as_emphasised_plain,
         as_error,
         as_error_label,
         as_info,
@@ -325,6 +326,63 @@ def _no_exec_enabled( env ) -> bool:
         return bool( SCons.Script.GetOption( "no_exec" ) )
     except Exception:
         return False
+
+
+def refuse_cascade_nest_under_no_exec( env, stop_only=None ) -> None:
+    """Refuse nest cascade under SCons ``-n`` (early or at cascade entry).
+
+    ``--cascade-plan`` / collect / update-without-nest still allow ``-n``.
+    Soak: lead with did-you-mean ``--cascade-plan`` so operators do not wait
+    through tip resolve for a combination that cannot nest.
+    """
+    if not cascade_enabled( env ):
+        return
+    if stop_only is None:
+        plan_only = cascade_plan_enabled( env )
+        collect_only = cascade_collect_enabled( env )
+        update_publishers = cascade_update_enabled( env )
+        publish = bool( env.get_option( "publish-package" ) )
+        nest_action = (
+                publish
+                or publish_cascade_dependencies_enabled( env )
+                or build_cascade_dependencies_enabled( env )
+        )
+        stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
+    if stop_only or not _no_exec_enabled( env ):
+        return
+
+    def remedy_colour( text ):
+        return as_emphasised( as_info( text ) )
+
+    _raise_options_error(
+            "--{} cannot run under -n/--no-exec".format( CASCADE_OPTION ),
+            [
+                    (
+                            "Did you mean --{}? (-n is SCons dry-run, not a "
+                            "cascade plan)".format( CASCADE_PLAN_OPTION ),
+                            remedy_colour,
+                    ),
+                    (
+                            "This is because nest cascade creates nested publisher "
+                            "sessions and those sessions configure, however SCons "
+                            "forbids creating [.sconf_temp] in a dry-run",
+                            as_error,
+                    ),
+                    (
+                            "Use --{} to review the order, --{} to place publisher "
+                            "trees, or --{} -n to preview fast-forwards, then re-run "
+                            "without -n to publish".format(
+                                    CASCADE_PLAN_OPTION,
+                                    COLLECT_CASCADE_OPTION,
+                                    UPDATE_PUBLISHERS_OPTION,
+                            ),
+                            remedy_colour,
+                    ),
+            ],
+            "Invalid option combination (--{} and -n/--no-exec)".format(
+                    CASCADE_OPTION
+            ),
+    )
 
 
 def _clean_enabled( env ) -> bool:
@@ -1086,6 +1144,10 @@ def resolve_publisher_dir( env, entry: dict, allow_clone=True, claims=None ) -> 
                         PUBLISHER_ROOT_OPTION,
                 )
         )
+    # Soft-grade for plan finish-line: clone cannot invent a URL. Set even when
+    # --publisher-root is explicit so mixed plans do not pitch --clone-publishers
+    # for no-URL gaps (cascade-consume UX soak).
+    entry["_needs_package_source"] = True
     if not publisher_root_option( env ):
         raise SCons.Errors.StopError(
                 "dependency [{}] has no package_source and no publisher tree was "
@@ -1645,6 +1707,26 @@ def _plain_count_phrase( count, noun, plural_noun=None ) -> str:
     return "{} {}".format( count, word )
 
 
+def _planned_tip_phrase( tip_count, *, consume_tip: bool ) -> str:
+    """``1 project planned`` (consume tip) or ``1 package planned`` (publisher tip)."""
+    noun = "project" if consume_tip else "package"
+    return "{} planned".format( _plain_count_phrase( tip_count, noun ) )
+
+
+def _with_nested_dependencies( summary: str, dependency_count: int ) -> str:
+    """Append ``, N nested dependencies`` when the tip reported a nest DAG."""
+    if dependency_count <= 0:
+        return summary
+    return "{}, {}".format(
+            summary,
+            _plain_count_phrase(
+                    dependency_count,
+                    "nested dependency",
+                    "nested dependencies",
+            ),
+    )
+
+
 def _cascade_stop_summary( option: str, summary ) -> str:
     """Info-label chip for plan/collect finish lines (through the semicolon)."""
     return as_info_label( "--{}: {}".format( option, summary ) )
@@ -1661,9 +1743,15 @@ def _publish_action_phrase( consume_tip: bool ) -> str:
     build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
-        return "either {} or {}".format( build, nest )
-    return "one of {}, {}, or {}".format(
-            build, nest, _footer_flag( "publish-package" ),
+        return "{} {} {} {}".format(
+                _guide_word( "either" ), build, _guide_word( "or" ), nest
+        )
+    return "{} {}, {}, {} {}".format(
+            _guide_word( "one of" ),
+            build,
+            nest,
+            _guide_word( "or" ),
+            _footer_flag( "publish-package" ),
     )
 
 
@@ -1731,7 +1819,9 @@ def _plan_finish_remedy_lines(
                     as_subdued( tee ) + "pass {}".format( options[0] )
             )
         else:
-            lines.append( as_subdued( tee ) + "pass either:" )
+            lines.append(
+                    as_subdued( tee ) + "pass {}:".format( _guide_word( "either" ) )
+            )
             under = pipe
             for index, option in enumerate( options ):
                 last = index == len( options ) - 1
@@ -2502,6 +2592,7 @@ def record_plan_report(
         error_count,
         clone_count=0,
         needs_clone_opt_in=0,
+        needs_package_source=0,
         unused_develop=0,
         unused_develop_soft=0,
         consume_tip=False,
@@ -2516,6 +2607,7 @@ def record_plan_report(
             "errors": int( error_count ),
             "clones": int( clone_count ),
             "needs_clone_opt_in": int( needs_clone_opt_in ),
+            "needs_package_source": int( needs_package_source ),
             "unused_develop": int( unused_develop ),
             "unused_develop_soft": int( unused_develop_soft ),
             "consume_tip": bool( consume_tip ),
@@ -2524,6 +2616,182 @@ def record_plan_report(
             "trees_updated": int( trees_updated ),
             "dependency_count": int( dependency_count ),
     } )
+
+
+def _guide_word( word: str ) -> str:
+    """Bold plain guide word (``either`` / ``or`` / ``then`` / ``one of``) — not info/blue."""
+    return as_emphasised_plain( word )
+
+
+def _field_name( name: str ) -> str:
+    """Info-coloured field / variable name in finish-line advice."""
+    return as_info( name )
+
+
+def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
+    """Subdued tee/elbow tree under a ``--cascade-*: …;`` summary chip.
+
+    ``items`` are plain strings, or ``{"label": str, "children": [str, …]}`` for
+    a nested ``one of:`` choice group. Wrap continuations under an elbow use
+    gap (no spurious stem), matching Options Error trees.
+
+    ``closing`` may be a string (width-wrapped) or a sequence of pre-broken lines
+    so guide words like ``or`` stay at the left of a continuation.
+    """
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
+    stub = pipe.rstrip()
+    lines = [ as_subdued( stub ) ]
+
+    def emit( glyph, carried, text ):
+        wrap_width = max( storage.WIDEST_PROSE - len( glyph ), storage.NARROWEST_PROSE )
+        pieces = list( storage.wrapped( text, wrap_width ) ) or [ text ]
+        lines.append( as_subdued( glyph ) + pieces[0] )
+        for piece in pieces[1:]:
+            lines.append( as_subdued( carried ) + piece )
+
+    count = len( items )
+    for index, item in enumerate( items ):
+        last = index == count - 1 and not closing
+        branch = elbow if last else tee
+        carried = gap if last else pipe
+        if isinstance( item, dict ):
+            emit( branch, carried, item.get( "label" ) or "" )
+            children = item.get( "children" ) or []
+            # Hang nested choices under the parent stem (``│   │`` / ``    │``),
+            # not a bare root stub — otherwise the nest looks stemless.
+            under = gap if last else pipe
+            under_stub = under + stub
+            if children:
+                lines.append( as_subdued( under_stub ) )
+            for child_index, child in enumerate( children ):
+                child_last = child_index == len( children ) - 1
+                child_branch = under + ( elbow if child_last else tee )
+                child_carried = under + ( gap if child_last else pipe )
+                emit( child_branch, child_carried, child )
+                if not child_last:
+                    lines.append( as_subdued( under_stub ) )
+        else:
+            emit( branch, carried, item )
+        if index < count - 1:
+            lines.append( as_subdued( stub ) )
+    if closing:
+        if items:
+            lines.append( as_subdued( stub ) )
+        if isinstance( closing, ( list, tuple ) ):
+            pieces = [ piece for piece in closing if piece ]
+            if pieces:
+                emit( elbow, gap, pieces[0] )
+                for piece in pieces[1:]:
+                    lines.append( as_subdued( gap ) + piece )
+        else:
+            emit( elbow, gap, closing )
+    return lines
+
+
+def _execute_closing_lines( consume_tip: bool ) -> list[str]:
+    """Finish elbow: keep ``or`` at the left of the continuation (LTR scan)."""
+    then_word = _guide_word( "then" )
+    either_word = _guide_word( "either" )
+    or_word = _guide_word( "or" )
+    build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
+    nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+    if consume_tip:
+        return [
+                "{} re-run with {} {}".format( then_word, either_word, build ),
+                "{} {} to execute".format( or_word, nest ),
+        ]
+    one_of = _guide_word( "one of" )
+    publish = _footer_flag( "publish-package" )
+    return [
+            "{} re-run with {} {}, {}".format( then_word, one_of, build, nest ),
+            "{} {} to execute".format( or_word, publish ),
+    ]
+
+
+def _publisher_tree_gap_remedy_lines(
+        *,
+        needs_package_source: int,
+        needs_clone: int,
+        consume_tip: bool,
+        collect: bool,
+        update: bool,
+        encoding=None,
+) -> list[str]:
+    """Finish-line tree when plan/collect/update lacks publisher trees.
+
+    Soak lean: do not pitch ``--clone-publishers`` when the failing nodes have
+    no URL ``package_source`` — clone cannot invent one. Prefer
+    ``package_source`` / ``--publisher-root`` for that case; reserve clone for
+    URL-backed gaps. Choices hang under ``one of:`` so OR vs follow-on is clear.
+    """
+    root_flag = _footer_flag( PUBLISHER_ROOT_OPTION )
+    clone_flag = _footer_flag( CLONE_OPTION )
+    package_source = _field_name( "package_source" )
+    or_word = _guide_word( "or" )
+    one_of = _guide_word( "one of" )
+
+    def choice_group( children ):
+        return {
+                "label": "resolve each gap with {}:".format( one_of ),
+                "children": children,
+        }
+
+    def no_url_choices():
+        return [
+                "add {} on dependencies that have none".format( package_source ),
+                "{} set {} to a folder that already holds the trees "
+                "({} only fetches URL {} dependencies)".format(
+                        or_word, root_flag, clone_flag, package_source
+                ),
+        ]
+
+    def clone_choices( *, with_collect=False ):
+        if with_collect:
+            collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
+            clone_line = "pass {} with {} for dependencies that already have a URL {}".format(
+                    collect_flag, clone_flag, package_source
+            )
+        else:
+            clone_line = "pass {} for dependencies that already have a URL {}".format(
+                    clone_flag, package_source
+            )
+        return [
+                "manually place the missing trees",
+                clone_line,
+                "{} set {}".format( or_word, root_flag ),
+        ]
+
+    def mixed_choices( *, with_collect=False ):
+        if with_collect:
+            collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
+            clone_line = "pass {} with {} for dependencies that already have a URL {}".format(
+                    collect_flag, clone_flag, package_source
+            )
+        else:
+            clone_line = "pass {} for dependencies that already have a URL {}".format(
+                    clone_flag, package_source
+            )
+        return [
+                "add {} on dependencies that have none".format( package_source ),
+                "manually place publisher trees under {}".format( root_flag ),
+                clone_line,
+                "{} set {} to a folder that already holds the trees".format(
+                        or_word, root_flag
+                ),
+        ]
+
+    if needs_package_source and not needs_clone:
+        children = no_url_choices()
+    elif needs_clone and not needs_package_source:
+        children = clone_choices( with_collect=bool( collect or update ) )
+    else:
+        children = mixed_choices( with_collect=bool( collect or update ) )
+
+    items = [ choice_group( children ) ]
+    closing = None
+    if not collect and not update:
+        closing = _execute_closing_lines( consume_tip )
+    return _finish_advice_tree( items, closing=closing, encoding=encoding )
 
 
 def finish_plan_only( env=None, out=None ) -> int:
@@ -2608,6 +2876,9 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     needs_clone = sum(
             report.get( "needs_clone_opt_in", 0 ) for report in _plan_reports
     )
+    needs_package_source = sum(
+            report.get( "needs_package_source", 0 ) for report in _plan_reports
+    )
     unused_develop = sum(
             report.get( "unused_develop", 0 ) for report in _plan_reports
     )
@@ -2626,7 +2897,7 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     trees_updated = sum(
             report.get( "trees_updated", 0 ) for report in _plan_reports
     )
-    packages = _plain_count_phrase( len( _plan_reports ), "package" )
+    tip_count = len( _plan_reports )
     if errors:
         if collect:
             summary = "{}, {} without a publisher tree".format(
@@ -2635,12 +2906,12 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     ) + " collected",
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = (
-                    "Plant the missing trees, pass {} to fetch the ones with "
-                    "a URL package_source, or set {}.".format(
-                            _footer_flag( CLONE_OPTION ),
-                            _footer_flag( PUBLISHER_ROOT_OPTION ),
-                    )
+            remedy = _publisher_tree_gap_remedy_lines(
+                    needs_package_source=needs_package_source,
+                    needs_clone=needs_clone,
+                    consume_tip=consume_tip,
+                    collect=True,
+                    update=False,
             )
         elif update:
             summary = "{}, {} without a publisher tree".format(
@@ -2649,32 +2920,35 @@ def finish_cascade_stop( env=None, out=None ) -> int:
                     ) + " updated",
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = (
-                    "Plant the missing trees, pass {} with {} to clone them, "
-                    "or set {}.".format(
-                            _footer_flag( COLLECT_CASCADE_OPTION ),
-                            _footer_flag( CLONE_OPTION ),
-                            _footer_flag( PUBLISHER_ROOT_OPTION ),
-                    )
+            remedy = _publisher_tree_gap_remedy_lines(
+                    needs_package_source=needs_package_source,
+                    needs_clone=needs_clone,
+                    consume_tip=consume_tip,
+                    collect=False,
+                    update=True,
             )
         else:
-            summary = "{} planned, {} without a publisher tree".format(
-                    packages,
+            summary = "{}, {} without a publisher tree".format(
+                    _with_nested_dependencies(
+                            _planned_tip_phrase(
+                                    tip_count, consume_tip=consume_tip
+                            ),
+                            dependency_count,
+                    ),
                     _plain_count_phrase( errors, "dependency", "dependencies" ),
             )
-            remediation = (
-                    "Plant the missing trees, pass {} to fetch the ones with "
-                    "a URL package_source, or set {}. Then re-run with {} "
-                    "to execute.".format(
-                            _footer_flag( CLONE_OPTION ),
-                            _footer_flag( PUBLISHER_ROOT_OPTION ),
-                            _publish_action_phrase( consume_tip ),
-                    )
+            remedy = _publisher_tree_gap_remedy_lines(
+                    needs_package_source=needs_package_source,
+                    needs_clone=needs_clone,
+                    consume_tip=consume_tip,
+                    collect=False,
+                    update=False,
             )
         write_lines( [
                 "",
-                "{}. {}".format( _cascade_stop_summary( option, summary ), remediation ),
+                "{};".format( _cascade_stop_summary( option, summary ) ),
         ], out=stream )
+        write_lines( remedy, out=stream )
         return 1
 
     if collect:
@@ -2707,7 +2981,10 @@ def finish_cascade_stop( env=None, out=None ) -> int:
         )
         detail = no_side_effects
     else:
-        summary = "{} planned".format( packages )
+        summary = _with_nested_dependencies(
+                _planned_tip_phrase( tip_count, consume_tip=consume_tip ),
+                dependency_count,
+        )
         if clones:
             summary = "{}, {} to clone first".format(
                     summary,
@@ -4898,34 +5175,7 @@ def maybe_run_cascade( env, publisher ) -> None:
     # SCons -n still runs configure in nested sessions; Configure refuses to
     # create .sconf_temp under dry-run, so the nested publish dies before any
     # builder is skipped. Update-only / collect allow -n (like --update-develop).
-    if not stop_only and _no_exec_enabled( env ):
-        def remedy_colour( text ):
-            return as_emphasised( as_info( text ) )
-
-        _raise_options_error(
-                "--{} cannot run under -n/--no-exec".format( CASCADE_OPTION ),
-                [
-                        (
-                                "This is because it creates nested publisher sessions and "
-                                "those sessions configure, however SCons forbids creating "
-                                "[.sconf_temp] in a dry-run",
-                                as_error,
-                        ),
-                        (
-                                "Use --{} to review the order, --{} to place publisher "
-                                "trees, or --{} -n to preview fast-forwards, then re-run "
-                                "without -n to publish".format(
-                                        CASCADE_PLAN_OPTION,
-                                        COLLECT_CASCADE_OPTION,
-                                        UPDATE_PUBLISHERS_OPTION,
-                                ),
-                                remedy_colour,
-                        ),
-                ],
-                "Invalid option combination (--{} and -n/--no-exec)".format(
-                        CASCADE_OPTION
-                ),
-        )
+    refuse_cascade_nest_under_no_exec( env, stop_only=stop_only )
 
     # Plan: tolerant, no clone. Collect/update-stop: tolerant, clone when allowed.
     # Full run: fail-fast, clone when allowed.
@@ -5021,6 +5271,9 @@ def maybe_run_cascade( env, publisher ) -> None:
                 clone_count=clone_count,
                 needs_clone_opt_in=sum(
                         1 for key in order if nodes[key].get( "_needs_clone_opt_in" )
+                ),
+                needs_package_source=sum(
+                        1 for key in order if nodes[key].get( "_needs_package_source" )
                 ),
                 unused_develop=sum(
                         1 for key in order if nodes[key].get( "_develop_unused" )
