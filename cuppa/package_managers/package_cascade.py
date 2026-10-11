@@ -30,6 +30,7 @@ import SCons.Errors
 from cuppa import timer
 from cuppa.colourise import (
         as_emphasised,
+        as_emphasised_plain,
         as_error,
         as_error_label,
         as_info,
@@ -2609,28 +2610,61 @@ def record_plan_report(
     } )
 
 
+def _guide_word( word: str ) -> str:
+    """Bold plain guide word (``or`` / ``then`` / ``one of``) — not info/blue."""
+    return as_emphasised_plain( word )
+
+
+def _field_name( name: str ) -> str:
+    """Info-coloured field / variable name in finish-line advice."""
+    return as_info( name )
+
+
 def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
-    """Subdued tee/elbow tree under a ``--cascade-*: …;`` summary chip."""
-    tee, elbow, pipe, _gap = storage.glyphs( encoding )
+    """Subdued tee/elbow tree under a ``--cascade-*: …;`` summary chip.
+
+    ``items`` are plain strings, or ``{"label": str, "children": [str, …]}`` for
+    a nested ``one of:`` choice group. Wrap continuations under an elbow use
+    gap (no spurious stem), matching Options Error trees.
+    """
+    tee, elbow, pipe, gap = storage.glyphs( encoding )
     stub = pipe.rstrip()
     lines = [ as_subdued( stub ) ]
-    wrap_width = max( storage.WIDEST_PROSE - len( tee ), storage.NARROWEST_PROSE )
 
-    def append_branch( glyph, text ):
+    def emit( glyph, carried, text ):
+        wrap_width = max( storage.WIDEST_PROSE - len( glyph ), storage.NARROWEST_PROSE )
         pieces = list( storage.wrapped( text, wrap_width ) ) or [ text ]
         lines.append( as_subdued( glyph ) + pieces[0] )
         for piece in pieces[1:]:
-            lines.append( as_subdued( pipe ) + piece )
+            lines.append( as_subdued( carried ) + piece )
 
+    count = len( items )
     for index, item in enumerate( items ):
-        last_item = index == len( items ) - 1 and not closing
-        append_branch( elbow if last_item else tee, item )
-        if index < len( items ) - 1:
+        last = index == count - 1 and not closing
+        branch = elbow if last else tee
+        carried = gap if last else pipe
+        if isinstance( item, dict ):
+            emit( branch, carried, item.get( "label" ) or "" )
+            children = item.get( "children" ) or []
+            under = gap if last else pipe
+            under_stub = under.rstrip()
+            if children:
+                lines.append( as_subdued( under_stub ) )
+            for child_index, child in enumerate( children ):
+                child_last = child_index == len( children ) - 1
+                child_branch = under + ( elbow if child_last else tee )
+                child_carried = under + ( gap if child_last else pipe )
+                emit( child_branch, child_carried, child )
+                if not child_last:
+                    lines.append( as_subdued( under_stub ) )
+        else:
+            emit( branch, carried, item )
+        if index < count - 1:
             lines.append( as_subdued( stub ) )
     if closing:
         if items:
             lines.append( as_subdued( stub ) )
-        append_branch( elbow, closing )
+        emit( elbow, gap, closing )
     return lines
 
 
@@ -2648,88 +2682,77 @@ def _publisher_tree_gap_remedy_lines(
     Soak lean: do not pitch ``--clone-publishers`` when the failing nodes have
     no URL ``package_source`` — clone cannot invent one. Prefer
     ``package_source`` / ``--publisher-root`` for that case; reserve clone for
-    URL-backed gaps.
+    URL-backed gaps. Choices hang under ``one of:`` so OR vs follow-on is clear.
     """
     root_flag = _footer_flag( PUBLISHER_ROOT_OPTION )
     clone_flag = _footer_flag( CLONE_OPTION )
-    items = []
-    closing = None
-    if update:
-        collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
-        if needs_package_source and not needs_clone:
-            items = [
-                    "add package_source on those edges",
-                    "plant the trees under {}".format( root_flag ),
-                    "or set {} to a forest that already holds them "
-                    "(clone cannot invent a URL)".format( root_flag ),
-            ]
-        elif needs_clone and not needs_package_source:
-            items = [
-                    "plant the missing trees",
-                    "pass {} with {} to clone URL package_source trees".format(
-                            collect_flag, clone_flag
-                    ),
-                    "or set {}".format( root_flag ),
-            ]
+    package_source = _field_name( "package_source" )
+    or_word = _guide_word( "or" )
+    then_word = _guide_word( "then" )
+    one_of = _guide_word( "one of" )
+
+    def choice_group( children ):
+        return {
+                "label": "resolve each gap with {}:".format( one_of ),
+                "children": children,
+        }
+
+    def no_url_choices():
+        return [
+                "add {} on dependencies that have none".format( package_source ),
+                "{} set {} to a forest that already holds the trees "
+                "({} only fetches URL {} dependencies)".format(
+                        or_word, root_flag, clone_flag, package_source
+                ),
+        ]
+
+    def clone_choices( *, with_collect=False ):
+        if with_collect:
+            collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
+            clone_line = "pass {} with {} for dependencies that already have a URL {}".format(
+                    collect_flag, clone_flag, package_source
+            )
         else:
-            items = [
-                    "add package_source where missing",
-                    "plant trees under {}".format( root_flag ),
-                    "pass {} with {} for URL package_source trees".format(
-                            collect_flag, clone_flag
-                    ),
-                    "or set {}".format( root_flag ),
-            ]
-    elif collect:
-        if needs_package_source and not needs_clone:
-            items = [
-                    "add package_source on those edges",
-                    "or set {} to a forest that already holds the trees".format(
-                            root_flag
-                    ),
-                    "{} only fetches URL package_source edges".format( clone_flag ),
-            ]
-        elif needs_clone and not needs_package_source:
-            items = [
-                    "plant the missing trees",
-                    "pass {} to fetch the ones with a URL package_source".format(
-                            clone_flag
-                    ),
-                    "or set {}".format( root_flag ),
-            ]
+            clone_line = "pass {} for dependencies that already have a URL {}".format(
+                    clone_flag, package_source
+            )
+        return [
+                "plant the missing trees",
+                clone_line,
+                "{} set {}".format( or_word, root_flag ),
+        ]
+
+    def mixed_choices( *, with_collect=False ):
+        if with_collect:
+            collect_flag = _footer_flag( COLLECT_CASCADE_OPTION )
+            clone_line = "pass {} with {} for dependencies that already have a URL {}".format(
+                    collect_flag, clone_flag, package_source
+            )
         else:
-            items = [
-                    "add package_source where missing",
-                    "plant trees under {}".format( root_flag ),
-                    "pass {} for URL package_source trees".format( clone_flag ),
-                    "or set {}".format( root_flag ),
-            ]
+            clone_line = "pass {} for dependencies that already have a URL {}".format(
+                    clone_flag, package_source
+            )
+        return [
+                "add {} on dependencies that have none".format( package_source ),
+                "plant publisher trees under {}".format( root_flag ),
+                clone_line,
+                "{} set {} to a forest that already holds the trees".format(
+                        or_word, root_flag
+                ),
+        ]
+
+    if needs_package_source and not needs_clone:
+        children = no_url_choices()
+    elif needs_clone and not needs_package_source:
+        children = clone_choices( with_collect=bool( collect or update ) )
     else:
+        children = mixed_choices( with_collect=bool( collect or update ) )
+
+    items = [ choice_group( children ) ]
+    closing = None
+    if not collect and not update:
         action = _publish_action_phrase( consume_tip )
-        closing = "then re-run with {} to execute".format( action )
-        if needs_package_source and not needs_clone:
-            items = [
-                    "add package_source on those edges",
-                    "or set {} to a forest that already holds the trees".format(
-                            root_flag
-                    ),
-                    "{} only fetches URL package_source edges".format( clone_flag ),
-            ]
-        elif needs_clone and not needs_package_source:
-            items = [
-                    "plant the missing trees",
-                    "pass {} to fetch the ones with a URL package_source".format(
-                            clone_flag
-                    ),
-                    "or set {}".format( root_flag ),
-            ]
-        else:
-            items = [
-                    "add package_source where missing",
-                    "plant trees under {}".format( root_flag ),
-                    "pass {} for URL package_source trees".format( clone_flag ),
-                    "or set {} to a forest that already holds them".format( root_flag ),
-            ]
+        closing = "{} re-run with {} to execute".format( then_word, action )
     return _finish_advice_tree( items, closing=closing, encoding=encoding )
 
 
