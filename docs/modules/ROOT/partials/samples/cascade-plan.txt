@@ -13,7 +13,7 @@ Cascade plan: widget [==0.2.0] (this package) with 2 package dependencies: [0 er
 │
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned;
+--cascade-plan: 1 package planned, 2 nested dependencies;
 │
 ├── pass one of --build-cascade-dependencies, --publish-cascade-dependencies, or --publish-package
 │
