@@ -3,7 +3,7 @@
 - **Status:** done
 - **Related:** [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-enable-rename.md`](cascade-enable-rename.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc), [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc), [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc); version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
 - **Updated:** 2026-10-11
-- **Impact:** `patch` — list gap wording + cascade remedies / `-n` guidance; nest-rel / skip-resolve later
+- **Impact:** `patch` — list gap wording + cascade remedies / `-n` guidance; nest default `--rel` + `--cascade-variants`; skip-resolve later
 
 ## Problem
 
@@ -141,15 +141,12 @@ not a cheap plan mode.
 
 ### 6. Nest variant vs tip `--dbg`
 
-Today nested argv **forwards tip flags**, including `--dbg`. Tip dbg builds
-already consume **rel** package extracts. Product lean from soak:
+Tip dbg builds already consume **rel** package extracts. Settled product lean:
 
-- Default nested publish/build-deps to **`--rel`** (published package identity)
-- Tip `--dbg` / `--cov` / … do not change nest stems unless opted in
-- Opt-in name TBD: `--cascade-dbg` / `--dbg-cascade`
-
-Document the current forward behaviour until that lands so operators are not
-surprised on the first non-skip nest.
+- Default nested package publish / stage / build-deps to **`--rel`**
+- Tip `--dbg` / `--cov` do not change nest stems unless opted in
+- Opt-in: **`--cascade-variants`** (forward tip `--rel` / `--dbg` / `--cov`)
+- Location `--stage-develop` project nests keep tip variants either way
 
 ### 7. Version ranges (incidental)
 
@@ -172,9 +169,9 @@ a concrete `12.2.0`. No new ranges bug found here — keep tracking on
 | ID | Work | Priority |
 |----|------|----------|
 | `opt-compat-early` | Register incompatible option sets; fail before resolve when safe; guided tree | Medium — ties to console-stop-error |
-| `cascade-n-did-you-mean` | `--cascade` + `-n` → did you mean `--cascade-plan`? | Low / quick once early compat exists |
-| `cascade-remedy-split` | Finish-line / node errors distinguish no-URL vs URL-needs-clone | Medium |
-| `cascade-nest-rel` | Default nest `--rel`; opt-in dbg nest flag | Medium |
+| `cascade-n-did-you-mean` | `--cascade` + `-n` → did you mean `--cascade-plan`? | Done — #366 |
+| `cascade-remedy-split` | Finish-line / node errors distinguish no-URL vs URL-needs-clone | Done — #366 |
+| `cascade-nest-rel` | Default nest `--rel`; opt-in `--cascade-variants` | Done — this PR |
 | `skip-resolve` | Explore cheap plan/collect without full location update | Low — design first |
 
 ## Settled lean: what `--list-dependencies` should say for “missing” packages
@@ -234,6 +231,7 @@ as the primary fix. Those are for publisher trees, not tip consume cache.
 | Cascade finish-line remedy split (no-URL vs clone) | Done — this PR (incl. explicit ``--publisher-root``) |
 | Plan finish tip naming (``project`` / ``package`` + nested deps) | Done — this PR |
 | Gap finish as one-of advice tree (stems, place/folder, LTR ``or`` / ``either``) | Done — this PR |
-| ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — this PR |
-| `cascade-nest-rel` / `skip-resolve` / full `opt-compat-early` | Later slices |
-| Design-index / ROADMAP row | Done — index ``done`` on #366; archive/shipped on merge |
+| ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — #366 |
+| `cascade-nest-rel` (default nest ``--rel`` + ``--cascade-variants``) | Done — this PR |
+| `skip-resolve` / full `opt-compat-early` | Later slices |
+| Design-index / ROADMAP row | Done — index ``done``; ``shipped`` / archive at named release |

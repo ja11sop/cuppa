@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Cascade nested package publish / stage / build-deps sessions default to
+  ``--rel`` so tip ``--dbg`` / ``--cov`` no longer change nest package stems.
+  Pass ``--cascade-variants`` to forward tip build variants into those nests.
+  Location ``--stage-develop`` project nests keep tip variants. Plan:
+  ``design/plans/cascade-consume-ux-soak.md`` (``cascade-nest-rel``).
 - Cascade / tip-consume UX (soak): ``--list-dependencies`` gap remarks prefer
   ``not extracted`` (same info paint as ``in use``; SIZE ``?``) when a registry
   URL or cached download can retrieve the tip extract; bare ``missing`` stays
