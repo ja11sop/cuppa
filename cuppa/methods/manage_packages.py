@@ -309,6 +309,20 @@ class PublishPackageMethod(object):
                         'available with --offline.'
                 ),
         )
+        add_option(
+                '--cascade-variants',
+                dest='cascade-variants',
+                action='store_true',
+                help=(
+                        'With --cascade, nested package publish/build/stage '
+                        'sessions forward the tip\'s build variants (--rel, '
+                        '--dbg, --cov) instead of defaulting nest sessions to '
+                        '--rel. Tip --dbg already consumes rel package extracts; '
+                        'this flag is only needed when nest package stems should '
+                        'match the tip variants. Location --stage-develop project '
+                        'nests always keep tip variants.'
+                ),
+        )
 
 
 class InstallPackageMethod(object):

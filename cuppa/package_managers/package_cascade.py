@@ -66,6 +66,7 @@ FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
 MODIFIED_PUBLISH_OPTION = "publish-modified"
+CASCADE_VARIANTS_OPTION = "cascade-variants"
 NESTED_ENV = "CUPPA_CASCADE_NESTED"
 UPLOAD_MARKER_ENV = "CUPPA_CASCADE_UPLOAD_MARKER"
 STAGE_PACKAGE_OPTION = "stage-package"
@@ -94,6 +95,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + MODIFIED_PUBLISH_OPTION,
+        "--" + CASCADE_VARIANTS_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
@@ -227,6 +229,18 @@ def cascade_force_enabled( env ) -> bool:
     if not callable( getter ):
         return False
     return bool( getter( FORCE_OPTION ) )
+
+
+def cascade_variants_enabled( env=None, argv=None ) -> bool:
+    """``--cascade-variants``: nest package sessions forward tip build variants."""
+    if argv is not None:
+        if "--" + CASCADE_VARIANTS_OPTION in argv:
+            return True
+    if env is not None:
+        getter = getattr( env, "get_option", None )
+        if callable( getter ):
+            return bool( getter( CASCADE_VARIANTS_OPTION ) )
+    return False
 
 
 def reset_cascade_nested_done() -> None:
@@ -3047,6 +3061,9 @@ def finish_cascade_stop( env=None, out=None ) -> int:
 
 
 # Flags that must not re-enter on nested publishes (exact match).
+# Build variants that change published package stems (not actions like --test).
+_NEST_NON_REL_VARIANT_FLAGS = frozenset( { "--dbg", "--cov" } )
+
 _NESTED_DROP_EXACT = frozenset( {
         "--" + CASCADE_OPTION,
         "--" + CASCADE_OPTION_LEGACY,
@@ -3058,6 +3075,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_PUBLISH_OPTION,
+        "--" + CASCADE_VARIANTS_OPTION,
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
@@ -3133,6 +3151,7 @@ def tip_forward_args(
         env=None,
         stage_only: bool = False,
         project_only: bool = False,
+        nest_package_identity: bool | None = None,
 ) -> list[str]:
     """Tip SCons/cuppa option args suitable for a nested publish, stage, or project session.
 
@@ -3148,13 +3167,27 @@ def tip_forward_args(
 
     With ``project_only=True``, the child runs a normal project build/clean (no
     ``--publish-package`` / ``--stage-package``). Used for location develop trees
-    under ``--stage-develop``. ``--stage-develop`` itself is always dropped so
-    nesting stays single-level.
+    under ``--stage-develop`` and for ``--build-cascade-dependencies``.
+    ``--stage-develop`` itself is always dropped so nesting stays single-level.
+
+    Package nest identity (publish / stage / build-deps) defaults to ``--rel`` so
+    tip ``--dbg`` / ``--cov`` do not change nest package stems. Pass
+    ``--cascade-variants`` on the tip to forward tip build variants instead.
+    Location develop nests pass ``nest_package_identity=False`` (the default when
+    ``project_only``) and keep tip variants either way.
     """
     if stage_only and project_only:
         raise ValueError( "stage_only and project_only cannot both be True" )
     if argv is None:
         argv = sys.argv
+    if nest_package_identity is None:
+        # Build-deps sets project_only but is still a package nest — callers pass
+        # nest_package_identity=True. Bare project_only means location develop.
+        nest_package_identity = not project_only
+    keep_tip_variants = (
+            ( not nest_package_identity )
+            or cascade_variants_enabled( env=env, argv=argv )
+    )
     drop_exact = set( _NESTED_DROP_EXACT )
     drop_prefixes = list( _NESTED_DROP_PREFIXES )
     drop_takes_value = set( _NESTED_DROP_TAKES_VALUE )
@@ -3176,10 +3209,17 @@ def tip_forward_args(
             continue
         if any( arg.startswith( prefix ) for prefix in drop_prefixes ):
             continue
+        if not keep_tip_variants and arg in _NEST_NON_REL_VARIANT_FLAGS:
+            continue
         forwarded.append( arg )
 
     if "-D" not in forwarded:
         forwarded.insert( 0, "-D" )
+
+    if not keep_tip_variants and "--rel" not in forwarded:
+        # After -D so variant flags stay grouped with the tip's toolchain args.
+        insert_at = 1 if forwarded and forwarded[0] == "-D" else 0
+        forwarded.insert( insert_at, "--rel" )
 
     def _without( flags: list[str], *names: str ) -> list[str]:
         drop = set( names )
@@ -3217,12 +3257,18 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
     """Full subprocess argv for a nested project build/clean (location develop)."""
     return [
             sys.executable, "-m", "cuppa"
-    ] + tip_forward_args( argv, env=env, project_only=True )
+    ] + tip_forward_args(
+            argv, env=env, project_only=True, nest_package_identity=False,
+    )
 
 
 def argv_for_nested_build( argv=None, env=None ) -> list[str]:
     """Full subprocess argv for cascade build-deps-only (no nested upload)."""
-    return argv_for_nested_project( argv=argv, env=env )
+    return [
+            sys.executable, "-m", "cuppa"
+    ] + tip_forward_args(
+            argv, env=env, project_only=True, nest_package_identity=True,
+    )
 
 
 def invalidate_package_consume_cache( env, package: str, version: str ) -> list[str]:

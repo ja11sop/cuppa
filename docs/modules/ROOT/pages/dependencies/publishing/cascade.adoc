@@ -595,6 +595,13 @@ refresh still works after an upload on this machine). With multiple tip
 toolchains (``--toolchains=gcc15,gcc16``), the nested publish graph runs **once**
 per tip command (forwarding the full toolchain list), not once per tip variant.
 
+Nested **package** publish / stage / build-deps sessions default to ``--rel``
+(published package identity). Tip ``--dbg`` / ``--cov`` still build the tip in
+those variants and tip dbg already **consumes** ``rel`` package extracts; they
+do not change nest package stems unless you pass ``--cascade-variants`` (forward
+tip ``--rel`` / ``--dbg`` / ``--cov`` into nest package sessions). Location
+``--stage-develop`` project nests keep tip variants either way.
+
 [mermaid]
 ....
 flowchart TD

@@ -917,7 +917,8 @@ def test_tip_forward_args_drops_collect_cascade():
             "scons", "--dbg", "--collect-cascade", "--publish-package",
     ] )
     assert "--collect-cascade" not in argv
-    assert "--dbg" in argv
+    assert "--rel" in argv
+    assert "--dbg" not in argv
 
 
 def test_build_cascade_graph_tolerant_records_unresolved_tree( tmp_path ):
@@ -1955,7 +1956,7 @@ def test_tip_forward_args_drops_publisher_root_separate_value():
     ]
     assert cascade.tip_forward_args( tip ) == [
             "-D",
-            "--dbg",
+            "--rel",
             "--publish-package",
     ]
 
@@ -2931,7 +2932,8 @@ def test_tip_forward_args_drops_clone_publishers():
             "--publisher-root=/forest", "--publish-package",
     ] )
     assert "--clone-publishers" not in argv
-    assert "--dbg" in argv
+    assert "--rel" in argv
+    assert "--dbg" not in argv
 
 
 @pytest.mark.skipif( shutil.which( "git" ) is None, reason="needs a git binary" )
@@ -3693,7 +3695,72 @@ def test_tip_forward_args_drops_publish_modified():
             "scons", "--dbg", "--publish-modified", "--publish-package",
     ] )
     assert "--publish-modified" not in argv
-    assert "--dbg" in argv
+    assert "--rel" in argv
+    assert "--dbg" not in argv
+
+
+def test_tip_forward_args_defaults_package_nest_to_rel():
+    """Soak: tip --dbg/--cov must not change nest package stems."""
+    dbg = cascade.tip_forward_args( [
+            "scons", "-D", "--dbg", "--toolchains=gcc16", "--publish-package",
+            "--cascade",
+    ] )
+    assert "--rel" in dbg
+    assert "--dbg" not in dbg
+    assert "--cascade-variants" not in dbg
+
+    cov = cascade.tip_forward_args( [
+            "scons", "--cov", "--publish-package", "--cascade",
+    ] )
+    assert "--rel" in cov
+    assert "--cov" not in cov
+
+    build = cascade.argv_for_nested_build( [
+            "scons", "--dbg", "--cascade", "--build-cascade-dependencies",
+    ] )
+    assert "--rel" in build
+    assert "--dbg" not in build
+    assert "--publish-package" not in build
+
+    stage = cascade.tip_forward_args(
+            [ "scons", "--dbg", "--publish-package" ], stage_only=True,
+    )
+    assert "--rel" in stage
+    assert "--dbg" not in stage
+    assert "--stage-package" in stage
+
+
+def test_tip_forward_args_cascade_variants_forwards_tip_build_variants():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--dbg", "--cascade-variants",
+            "--publish-package", "--cascade",
+    ] )
+    assert "--dbg" in forwarded
+    assert "--cascade-variants" not in forwarded
+    # Tip asked for dbg only; do not invent --rel when opting into tip variants.
+    assert "--rel" not in forwarded
+
+    build = cascade.argv_for_nested_build( [
+            "scons", "--cov", "--cascade-variants", "--cascade",
+            "--build-cascade-dependencies",
+    ] )
+    assert "--cov" in build
+    assert "--rel" not in build
+
+
+def test_tip_forward_args_project_only_keeps_dbg_without_cascade_variants():
+    forwarded = cascade.tip_forward_args(
+            [ "cuppa", "-D", "--dbg", "--develop", "--stage-develop" ],
+            project_only=True,
+    )
+    assert "--dbg" in forwarded
+    assert "--rel" not in forwarded
+    # Location develop helper matches bare project_only defaults.
+    nested = cascade.argv_for_nested_project( [
+            "cuppa", "-D", "--dbg", "--develop", "--stage-develop",
+    ] )
+    assert "--dbg" in nested
+    assert "--rel" not in nested
 
 
 def test_a_staged_publish_manifest_does_not_make_a_prefix_a_publisher_tree( tmp_path ):
