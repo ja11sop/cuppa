@@ -2900,11 +2900,16 @@ def test_finish_plan_only_counts_the_trees_it_would_clone():
 
     assert status == 0
     assert "2 publisher trees to clone first" in report
-    assert "pass --clone-publishers along with one of" in report
+    assert "clone missing trees with either:" in report
+    assert "pass --collect-cascade with --clone-publishers to clone only" in report
+    assert "drop --cascade-plan and pass --clone-publishers with one of" in report
     assert "--build-cascade-dependencies" in report
     assert "--publish-cascade-dependencies" in report
     assert "--publish-package" in report
-    assert "to make this plan executable" in report
+    assert "to clone on the way" in report
+    assert "to fetch the publisher trees this plan still needs" in report
+    assert "to make this plan executable" not in report
+    assert "--develop along with" not in report
     assert "nothing was built, published, uploaded, or cloned" in report
 
 
@@ -3493,11 +3498,34 @@ def test_finish_plan_only_names_publish_package_when_trees_would_clone_first():
 
     assert status == 0
     assert "1 publisher tree to clone first" in visible
-    assert "pass --clone-publishers along with one of" in visible
+    assert "clone missing trees with either:" in visible
+    assert "pass --collect-cascade with --clone-publishers to clone only" in visible
+    assert "drop --cascade-plan and pass --clone-publishers with one of" in visible
     assert "--build-cascade-dependencies" in visible
     assert "--publish-cascade-dependencies" in visible
     assert "--publish-package" in visible
-    assert "to make this plan executable" in visible
+    assert "to clone on the way" in visible
+    assert "to fetch the publisher trees this plan still needs" in visible
+    assert "to make this plan executable" not in visible
+
+
+def test_finish_plan_clone_first_omits_publish_package_for_consume_tip():
+    cascade.reset_plan_reports()
+    cascade.record_plan_report(
+            "widget", "consume", 0, clone_count=1, consume_tip=True,
+    )
+    out = io.StringIO()
+    status = cascade.finish_plan_only( out=out )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
+
+    assert status == 0
+    assert "pass --collect-cascade with --clone-publishers to clone only" in visible
+    assert "drop --cascade-plan and pass --clone-publishers with either" in visible
+    assert "--build-cascade-dependencies" in visible
+    assert "--publish-cascade-dependencies" in visible
+    assert "to clone on the way" in visible
+    assert "--publish-package" not in visible
+    assert "--develop along with" not in visible
 
 
 def test_finish_plan_only_runnable_forest_advises_publish_action_not_develop():

@@ -489,6 +489,14 @@ not reframe the plan as blocked. When
 same shape ends with **to make this plan executable** instead. A consume-only tip
 omits ``--publish-package``.
 
+When the plan itself counts publisher trees **to clone first**, ``--cascade-plan``
+never clones — even if ``--clone-publishers`` is already on the command. The finish
+tree offers either path: ``--collect-cascade`` with ``--clone-publishers`` **to clone
+only**, or drop ``--cascade-plan`` and pass ``--clone-publishers`` with a nest
+companion **to clone on the way**. That closing line is **to fetch the publisher
+trees this plan still needs** (not the blocked **to make this plan executable**
+wording).
+
 With ``--clone-publishers``, a tree cascade would fetch is a note group rather than
 an error, naming the URL, the pin, and where it would land. The plan stops at such a
 node, because a dependency's own edges live in the ``cuppa-publish.json`` inside a

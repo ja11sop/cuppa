@@ -1790,6 +1790,34 @@ def _plan_executable_remedy_lines(
     )
 
 
+def _plan_clone_first_remedy_lines( *, consume_tip: bool = False, encoding=None ) -> list[str]:
+    """Finish tree when ``--cascade-plan`` reports publisher trees still to clone.
+
+    Plan mode never clones. Offer ``--collect-cascade`` (clone only) or drop
+    ``--cascade-plan`` and run a nest companion so clone happens on the way.
+    Do not pitch ``--develop`` here — unused-develop notes elsewhere are not
+    what unblocks a missing clone.
+    """
+    collect = _footer_flag( COLLECT_CASCADE_OPTION )
+    clone = _footer_flag( CLONE_OPTION )
+    plan = _footer_flag( CASCADE_PLAN_OPTION )
+    action = _publish_action_phrase( consume_tip )
+    either = _guide_word( "either" )
+    or_word = _guide_word( "or" )
+    return _finish_advice_tree(
+            [ {
+                    "label": "clone missing trees with {}:".format( either ),
+                    "children": [
+                            "pass {} with {} to clone only".format( collect, clone ),
+                            "{} drop {} and pass {} with {} to clone on the way"
+                            .format( or_word, plan, clone, action ),
+                    ],
+            } ],
+            closing="to fetch the publisher trees this plan still needs",
+            encoding=encoding,
+    )
+
+
 def _plan_finish_remedy_lines(
         *,
         blocked: bool = False,
@@ -1808,6 +1836,9 @@ def _plan_finish_remedy_lines(
     ``consume_tip`` drops ``--publish-package`` (tip build only).
     ``optional_develop_partial`` means only some dependencies have develop paths
     configured — the rest keep the listed publisher paths.
+
+    Planned clones under ``--cascade-plan`` use
+    :func:`_plan_clone_first_remedy_lines` instead.
     """
     action = _publish_action_phrase( consume_tip )
     tee, elbow, pipe, gap = storage.glyphs( encoding )
@@ -3009,31 +3040,39 @@ def finish_cascade_stop( env=None, out=None ) -> int:
     # Plan finish: how to run an already-resolved plan, or opt-ins that unblock it.
     # Unused develop with a forest hit is a preference note, not a blocker.
     # Soft unused develop (no resolved tree) or clone opt-in / planned clones block.
+    # Planned clones get a dedicated collect-vs-clone-on-the-way tree (plan never
+    # clones, even when --clone-publishers is already on the command).
     if not collect and not update:
-        blocked = bool( needs_clone or unused_develop_soft or clones )
-        require_develop = bool( unused_develop ) if blocked else False
-        require_clone = bool( needs_clone or unused_develop_soft or clones )
-        optional_develop = bool( unused_develop and not blocked )
-        optional_develop_partial = bool(
-                optional_develop
-                and dependency_count > 0
-                and unused_develop < dependency_count
-        )
         write_lines( [
                 "",
                 "{};".format( _cascade_stop_summary( option, summary ) ),
         ], out=stream )
-        write_lines(
-                _plan_finish_remedy_lines(
-                        blocked=blocked,
-                        require_develop=require_develop,
-                        require_clone=require_clone,
-                        optional_develop=optional_develop,
-                        optional_develop_partial=optional_develop_partial,
-                        consume_tip=consume_tip,
-                ),
-                out=stream,
-        )
+        if clones:
+            write_lines(
+                    _plan_clone_first_remedy_lines( consume_tip=consume_tip ),
+                    out=stream,
+            )
+        else:
+            blocked = bool( needs_clone or unused_develop_soft )
+            require_develop = bool( unused_develop ) if blocked else False
+            require_clone = bool( needs_clone or unused_develop_soft )
+            optional_develop = bool( unused_develop and not blocked )
+            optional_develop_partial = bool(
+                    optional_develop
+                    and dependency_count > 0
+                    and unused_develop < dependency_count
+            )
+            write_lines(
+                    _plan_finish_remedy_lines(
+                            blocked=blocked,
+                            require_develop=require_develop,
+                            require_clone=require_clone,
+                            optional_develop=optional_develop,
+                            optional_develop_partial=optional_develop_partial,
+                            consume_tip=consume_tip,
+                    ),
+                    out=stream,
+            )
         write_lines( [ "", detail ], out=stream )
         return 0
 

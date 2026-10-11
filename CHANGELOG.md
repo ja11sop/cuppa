@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Pass ``--cascade-variants`` to forward tip build variants into those nests.
   Location ``--stage-develop`` project nests keep tip variants. Plan:
   ``design/plans/cascade-consume-ux-soak.md`` (``cascade-nest-rel``).
+- ``--cascade-plan`` finish when publisher trees are still **to clone first**:
+  suggests ``--collect-cascade`` with ``--clone-publishers`` **to clone only**,
+  or drop ``--cascade-plan`` and pass ``--clone-publishers`` with a nest companion
+  **to clone on the way** (closing **to fetch the publisher trees this plan still
+  needs**). Plan mode never clones, so the old “pass ``--clone-publishers`` …
+  to make this plan executable” pitch is wrong when clones are already planned.
 - Cascade / tip-consume UX (soak): ``--list-dependencies`` gap remarks prefer
   ``not extracted`` (same info paint as ``in use``; SIZE ``?``) when a registry
   URL or cached download can retrieve the tip extract; bare ``missing`` stays

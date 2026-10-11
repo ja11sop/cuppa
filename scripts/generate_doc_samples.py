@@ -2273,7 +2273,7 @@ def sample_cascade_plan_consume_html():
 
 
 def sample_cascade_plan_clone():
-    """``--cascade-plan`` with ``--clone-publishers`` (notes + blocked finish)."""
+    """``--cascade-plan`` with ``--clone-publishers`` (notes + clone-first finish)."""
     nodes, order, tip, version, argv = _cascade_plan_clone_fixture()
     text = _cascade_plan_sample_text(
             nodes, order, tip, version, argv, clone_count=1,
