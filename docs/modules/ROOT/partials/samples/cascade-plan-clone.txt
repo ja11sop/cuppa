@@ -15,10 +15,15 @@ Cascade plan: widget [==0.2.0] (this package) with 1 package dependency: [0 erro
 │
 └── then widget [==0.2.0] from this tree
 
---cascade-plan: 1 package planned, 1 publisher tree to clone first;
+--cascade-plan: 1 package planned, 1 nested dependency, 1 publisher tree to clone first;
 │
-├── pass --clone-publishers along with one of --build-cascade-dependencies, --publish-cascade-dependencies, or --publish-package
+├── clone missing trees with either:
+│   │
+│   ├── pass --collect-cascade with --clone-publishers to clone only
+│   │
+│   └── or drop --cascade-plan and pass --clone-publishers with one of --build-cascade-dependencies,
+│       --publish-cascade-dependencies, or --publish-package to clone on the way
 │
-└── to make this plan executable
+└── to fetch the publisher trees this plan still needs
 
 nothing was built, published, uploaded, or cloned.

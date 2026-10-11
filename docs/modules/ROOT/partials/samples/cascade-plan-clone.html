@@ -18,9 +18,21 @@ Cascade plan: <span class="cuppa-emphasised"><span class="cuppa-info">widget</sp
 
 <span class="cuppa-info cuppa-label">--cascade-plan: 1 package planned, 1 nested dependency, 1 publisher tree to clone first</span>;
 <span class="cuppa-subdued">│</span>
-<span class="cuppa-subdued">├── </span>pass <span class="cuppa-emphasised"><span class="cuppa-info">--clone-publishers</span></span> along with <span class="cuppa-emphasised">one of</span> <span class="cuppa-emphasised"><span class="cuppa-info">--build-cascade-dependencies</span></span>, <span class="cuppa-emphasised"><span class="cuppa-info">--publish-cascade-dependencies</span></span>, <span class="cuppa-emphasised">or</span> <span class="cuppa-emphasised"><span class="cuppa-info">--publish-package</span></span>
+<span class="cuppa-subdued">├── </span>clone missing trees with <span class="cuppa-emphasised">either</span>:
+<span class="cuppa-subdued">│   │</span>
+<span class="cuppa-subdued">│   ├── </span>pass <span class="cuppa-emphasised"><span class="cuppa-info">--collect-cascade</span></span> with
+<span class="cuppa-subdued">│   │   </span><span class="cuppa-emphasised"><span class="cuppa-info">--clone-publishers</span></span> to clone only
+<span class="cuppa-subdued">│   │</span>
+<span class="cuppa-subdued">│   └── </span><span class="cuppa-emphasised">or</span> drop
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised"><span class="cuppa-info">--cascade-plan</span></span> and pass
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised"><span class="cuppa-info">--clone-publishers</span></span> with <span class="cuppa-emphasised">one
+<span class="cuppa-subdued">│       </span></span>of
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised"><span class="cuppa-info">--build-cascade-dependencies</span></span>,
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised"><span class="cuppa-info">--publish-cascade-dependencies</span></span>,
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised">or</span>
+<span class="cuppa-subdued">│       </span><span class="cuppa-emphasised"><span class="cuppa-info">--publish-package</span></span> to clone on the way
 <span class="cuppa-subdued">│</span>
-<span class="cuppa-subdued">└── </span>to make this plan executable
+<span class="cuppa-subdued">└── </span>to fetch the publisher trees this plan still needs
 
 nothing was built, published, uploaded, or cloned.
 </code></pre>

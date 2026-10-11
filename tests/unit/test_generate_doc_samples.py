@@ -247,7 +247,13 @@ def test_cascade_plan_html_samples_cover_publisher_consume_and_clone():
     assert 'this project' in consume
     assert 'tip build only' in consume
     assert 'would clone' in clone
-    assert 'to make this plan executable' in clone
+    assert 'clone missing trees with' in clone
+    assert 'either' in clone
+    assert 'to clone only' in clone
+    assert 'to clone on the way' in clone
+    assert '--collect-cascade' in clone
+    assert 'to fetch the publisher trees this plan still needs' in clone
+    assert 'to make this plan executable' not in clone
 
 
 def test_cascade_plan_text_sample_keeps_blank_line_before_finish():
