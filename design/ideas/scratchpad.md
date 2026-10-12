@@ -16,13 +16,13 @@ Do not put private project names here; use anonymised labels and
 
 ### Graduated (removed from this file)
 
-- Dependent GitLab packages → [`plans/gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md)
+- Dependent GitLab packages → [`archive/gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md)
 - Boost `latest` persistence → [`archive/boost-latest-persistence.md`](../archive/boost-latest-persistence.md)
 - `--list-toolchains` → [`archive/list-toolchains.md`](../archive/list-toolchains.md)
-- Native coloured toolchain output → [`plans/native-toolchain-output.md`](../plans/native-toolchain-output.md)
-- Terse / minimal progress output → [`plans/terse-build-output.md`](../plans/terse-build-output.md)
-- Configure-time log hygiene (toolchain spam, variant log fix) → [`plans/build-log-hygiene.md`](../plans/build-log-hygiene.md)
-- `cuppa --info` (version without build) → [`plans/cuppa-info.md`](../plans/cuppa-info.md)
+- Native coloured toolchain output → [`archive/native-toolchain-output.md`](../archive/native-toolchain-output.md)
+- Terse / minimal progress output → [`archive/terse-build-output.md`](../archive/terse-build-output.md)
+- Configure-time log hygiene (toolchain spam, variant log fix) → [`archive/build-log-hygiene.md`](../archive/build-log-hygiene.md)
+- `cuppa --info` (version without build) → [`archive/cuppa-info.md`](../archive/cuppa-info.md)
 - C++ Profiles violation report → [`plans/cxx-profiles-report.md`](../plans/cxx-profiles-report.md)
 - Split methods into own pages → [`plans/methods-pages-split.md`](../plans/methods-pages-split.md)
 - Better Antora UI bundle → [`plans/antora-ui-bundle.md`](../plans/antora-ui-bundle.md)

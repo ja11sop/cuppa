@@ -1,7 +1,7 @@
 # Plan: console channels (log, report, transcript, heartbeat)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](console-mode-banners.md); [`terse-build-output.md`](terse-build-output.md); [`terse-delegated-output.md`](terse-delegated-output.md); [`terse-dependency-locations.md`](terse-dependency-locations.md); [`native-toolchain-output.md`](native-toolchain-output.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`build-log-hygiene.md`](build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](../archive/console-mode-banners.md); [`terse-build-output.md`](../archive/terse-build-output.md); [`terse-delegated-output.md`](../archive/terse-delegated-output.md); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md); [`native-toolchain-output.md`](../archive/native-toolchain-output.md); [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`build-log-hygiene.md`](../archive/build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-10
 - **Impact:** none for this index; individual console slices keep their own impact labels
 
@@ -55,17 +55,17 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 
 | Plan | Channel | Status |
 |------|---------|--------|
-| [`build-log-hygiene.md`](build-log-hygiene.md) | Log (which info lines exist) | Done on master |
-| [`cuppa-info.md`](cuppa-info.md) | A one-line console report that exits before SCons | Done on master ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
-| [`console-mode-banners.md`](console-mode-banners.md) | Mode chips move from log to console report | Done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
+| [`build-log-hygiene.md`](../archive/build-log-hygiene.md) | Log (which info lines exist) | Done on master |
+| [`cuppa-info.md`](../archive/cuppa-info.md) | A one-line console report that exits before SCons | Done on master ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
+| [`console-mode-banners.md`](../archive/console-mode-banners.md) | Mode chips move from log to console report | Done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
 | [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
-| [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md) | Heartbeat. Done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + throttle under quiet+TTY | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
-| [`console-write-ownership.md`](console-write-ownership.md) | **Which FD owns durable lines vs status** under quiet+TTY (and nested cascade). One `write_line` on the heartbeat stream; stop pipe/TTY dual-write races | Done on [#360](https://github.com/ja11sop/cuppa/pull/360) |
-| [`terse-build-output.md`](terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
-| [`terse-delegated-output.md`](terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
-| [`native-toolchain-output.md`](native-toolchain-output.md) | Build transcript (child output only) | Done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)). Must not recolour console reports |
-| [`terse-dependency-locations.md`](terse-dependency-locations.md) | Build transcript (terse file cells / `[location]` maps) | Done on [#355](https://github.com/ja11sop/cuppa/pull/355). Nested `<dependencies>/<name>/…` + `[prepare]`/`[ready]` · `resolve` |
+| [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md) | Heartbeat. Done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + throttle under quiet+TTY | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
+| [`console-write-ownership.md`](../archive/console-write-ownership.md) | **Which FD owns durable lines vs status** under quiet+TTY (and nested cascade). One `write_line` on the heartbeat stream; stop pipe/TTY dual-write races | Done on [#360](https://github.com/ja11sop/cuppa/pull/360) |
+| [`terse-build-output.md`](../archive/terse-build-output.md) | Build transcript | Phase 1 done for 1.12.0. Must not restyle lists, trees, or mode banners |
+| [`terse-delegated-output.md`](../archive/terse-delegated-output.md) | Build transcript (file fields + CMake/`b2`) | Done for 1.12.0. Transform `source → product`; `delegate … [launch]` + status fields; `[done]` close; muted `→` children; `[location]` maps |
+| [`native-toolchain-output.md`](../archive/native-toolchain-output.md) | Build transcript (child output only) | Done on master ([#354](https://github.com/ja11sop/cuppa/pull/354)). Must not recolour console reports |
+| [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md) | Build transcript (terse file cells / `[location]` maps) | Done on [#355](https://github.com/ja11sop/cuppa/pull/355). Nested `<dependencies>/<name>/…` + `[prepare]`/`[ready]` · `resolve` |
 | `--scons-output` | Build transcript | Done on master ([#352](https://github.com/ja11sop/cuppa/pull/352)). No separate plan; the matrix above is the spec |
 | `console-stream-split` (ROADMAP) | Which file descriptor | Orthogonal. Do not decide it inside terse or native |
 

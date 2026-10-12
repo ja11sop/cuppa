@@ -1,7 +1,7 @@
 # Plan: Sconscript exports and shared build products
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](../plans/gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `sconscript-exports`; blocks multi-file Cuppa layouts like CMake `add_subdirectory`; pairs with [#213](https://github.com/ja11sop/cuppa/issues/213); graph/cycle vocabulary may later share helpers with [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (different graph; do not force one NetworkX model)
 - **Updated:** 2026-09-10
 - **Impact:** minor — opt-in Export/Import ordering and `ExportShared` / `ImportShared`; flat discovery unchanged when unused; nested `SConscript` no longer double-runs under discovery
 

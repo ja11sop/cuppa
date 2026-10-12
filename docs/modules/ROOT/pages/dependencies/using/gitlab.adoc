@@ -357,7 +357,7 @@ version; ``--refresh-downloads`` may move to a higher satisfying registry versio
 ``--list-dependencies`` shows soft edges as ``bound → concrete`` when a resolved extract
 is known.
 
-Design: https://github.com/ja11sop/cuppa/blob/master/design/plans/gitlab-package-version-ranges.md[`gitlab-package-version-ranges`].
+Design: https://github.com/ja11sop/cuppa/blob/master/design/archive/gitlab-package-version-ranges.md[`gitlab-package-version-ranges`].
 
 ``--list-dependencies`` treats the traveling-manifest **closure** of tip-selected GitLab
 extracts as referenced: under each tip version a ``requires`` group nests on-disk package

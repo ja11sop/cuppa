@@ -1,8 +1,8 @@
 # Plan: Transitive GitLab package dependencies
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); [`archive/dependency-resolve.md`](../archive/dependency-resolve.md); [`archive/conan-consumer-plan.md`](../archive/conan-consumer-plan.md) (transitive `requires` as contrast); [`archive/run-default-dependency-objects.md`](../archive/run-default-dependency-objects.md) (import vs auto-enable); [`archive/sconscript-exports.md`](../archive/sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); follow-ons [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md), [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md)
-- **Updated:** 2026-10-05
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Dependencies / packages; [`gitlab-package-latest.md`](gitlab-package-latest.md); [`dependency-resolve.md`](dependency-resolve.md); [`conan-consumer-plan.md`](conan-consumer-plan.md) (transitive `requires` as contrast); [`run-default-dependency-objects.md`](run-default-dependency-objects.md) (import vs auto-enable); [`sconscript-exports.md`](sconscript-exports.md) (separate graph; shared cycle/conflict vocabulary later); follow-ons [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md), [`gitlab-package-lib-groups.md`](../plans/gitlab-package-lib-groups.md)
+- **Updated:** 2026-10-11
 - **Impact:** minor — new publish/consume behaviour for GitLab packages; existing flat declarations stay valid
 - **Issue:** [#279](https://github.com/ja11sop/cuppa/issues/279)
 
@@ -19,7 +19,7 @@ release cut (keep as `done` in `plans/` until then).
 | Plan | Was | Scope |
 |------|-----|--------|
 | [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md) | `gl-dep-ranges` | Soft pins such as `>=1.28.0`; diamond / conflict policy |
-| [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md) | remainder of `gl-dep-lib-api` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` |
+| [`gitlab-package-lib-groups.md`](../plans/gitlab-package-lib-groups.md) | remainder of `gl-dep-lib-api` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` |
 
 `use_all_libs()` already shipped with the MVP.
 
@@ -71,11 +71,11 @@ Key code: `cuppa/build_with_package.py`, `cuppa/package_managers/gitlab.py`
 - Cross-registry deps in the first cut (same registry / `registry: "same"` only).
 - Replacing Conan for multi-package graphs from ConanCenter.
 - Changing BuildWith type-selector / `dependency_resolve` precedence
-  ([`dependency-resolve.md`](../archive/dependency-resolve.md)).
+  ([`dependency-resolve.md`](dependency-resolve.md)).
 
 ## Semantics (settled for exploration)
 
-Align with import vs auto-enable ([`run-default-dependency-objects.md`](../archive/run-default-dependency-objects.md)):
+Align with import vs auto-enable ([`run-default-dependency-objects.md`](run-default-dependency-objects.md)):
 
 | Layer | Role for transitive B |
 |-------|------------------------|
@@ -123,7 +123,7 @@ Illustrative schema (not final):
   allowed so offline consumers do not re-resolve B. A richer spelling for **minimum vs
   exact** pins (`>=1.28.0` vs `1.28.0` / `==1.28.0`) is explicitly out of MVP; related
   follow-on to Boost publish-seed `latest` under
-  [`package-build-publish-deps.md`](../archive/package-build-publish-deps.md) open question 10
+  [`package-build-publish-deps.md`](package-build-publish-deps.md) open question 10
   (named floating token ≠ constraint solver).
 - `registry: "same"` means A's registry URL (or an explicit URL later).
 - **`use_libs`** — libraries to request from B when A is applied (see link closure below).
@@ -307,8 +307,8 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 | `gl-dep-consume` | Done — `BuildWith` + transitive `use_libs`; cycles / version conflict; **2026-09-14:** synthesized factories also `add_options` (fixes missing `<name>-package-manager` GetOption) |
 | `gl-dep-tests` | Done for MVP — unit/publish + offline A→B→C list/develop consume |
 | `gl-dep-docs` | Done — `gitlab.adoc` / `packages.adoc` / managing list notes |
-| `gl-dep-list` | Done — tip ``requires`` nests on-disk closure as sized trees (pass A); see [`list-deps-requires-closure.md`](../archive/list-deps-requires-closure.md) |
-| `gl-dep-lib-api` | Partial — `use_all_libs()` shipped with MVP; named groups / `show_*` → [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md) |
+| `gl-dep-list` | Done — tip ``requires`` nests on-disk closure as sized trees (pass A); see [`list-deps-requires-closure.md`](list-deps-requires-closure.md) |
+| `gl-dep-lib-api` | Partial — `use_all_libs()` shipped with MVP; named groups / `show_*` → [`gitlab-package-lib-groups.md`](../plans/gitlab-package-lib-groups.md) |
 | `gl-dep-ranges` | Deferred → [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md) |
 | `gl-dep-issue` | Done — [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | MVP close-out | Done 2026-10-05 — status `done`; archive at 1.12.0 release |
@@ -317,6 +317,6 @@ they ride along with `A.use_libs(...)`, not with bare `BuildWith(A)`.
 
 Package requires and sconscript export/load order are **different graphs**. `gl-dep-list` reads
 manifests into the existing inventory tree (no NetworkX). When
-[`sconscript-exports.md`](../archive/sconscript-exports.md) needs cycle/collision checks, prefer a small
+[`sconscript-exports.md`](sconscript-exports.md) needs cycle/collision checks, prefer a small
 shared helper (hand-rolled DFS first); introduce NetworkX only if a second real consumer makes
 adjacency code painful — not for listing alone.

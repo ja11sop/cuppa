@@ -9,7 +9,7 @@
 
 """TTY liveness while ``-Q`` / ``-s`` suppress multi-line info logs.
 
-See ``design/plans/quiet-tty-heartbeat.md``. Not a console report: clear this
+See ``design/archive/quiet-tty-heartbeat.md``. Not a console report: clear this
 line before reports, warnings, errors, and build transcript lines. Silent
 without a controlling TTY.
 

@@ -1,8 +1,8 @@
 # Plan: `cuppa --info` (version without a build)
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — CLI (`cli-info`); [`build-log-hygiene.md`](build-log-hygiene.md); `cuppa/version.py`; companion list modes (`--list-toolchains`, …)
-- **Updated:** 2026-09-29
+- **Updated:** 2026-10-11
 - **Impact:** minor — new opt-in CLI flag; no change to default builds
 
 ## Why

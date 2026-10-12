@@ -1,8 +1,8 @@
 # Plan: GitLab package dependency version ranges
 
-- **Status:** done
-- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP concrete pins; was `gl-dep-ranges`); [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md) (open question 10 — floating `latest` ≠ constraint solver); [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
-- **Updated:** 2026-10-10
+- **Status:** shipped
+- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP concrete pins; was `gl-dep-ranges`); [`package-build-publish-deps.md`](package-build-publish-deps.md) (open question 10 — floating `latest` ≠ constraint solver); [`gitlab-package-latest.md`](gitlab-package-latest.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
+- **Updated:** 2026-10-11
 - **Impact:** minor — richer manifest / consume pins; existing exact-version edges stay valid
 - **PR:** (this branch — soak: c_ares ``>=1.34.5`` → 1.34.8; tip list bound→concrete)
 

@@ -7,7 +7,7 @@
 
 Downloads (location / toolchain / GitLab collect) and uploads (GitLab publish)
 share ``ProgressReporter``. See ``design/archive/download-progress.md`` and
-``design/plans/transfer-and-archive-progress.md``.
+``design/archive/transfer-and-archive-progress.md``.
 
 Progress prefers the controlling terminal (``/dev/tty`` / ``CONOUT$``) so a
 rewriting line still works when the ``cuppa`` launcher pipes scons stdout/stderr

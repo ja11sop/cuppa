@@ -1,16 +1,16 @@
 # Plan: terse dependency location maps
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-dep-locations`);
   companions [`terse-build-output.md`](terse-build-output.md) /
   [`terse-delegated-output.md`](terse-delegated-output.md) (done on master
   [#353](https://github.com/ja11sop/cuppa/pull/353)); channel map
-  [`console-channels.md`](console-channels.md); native modifier
+  [`console-channels.md`](../plans/console-channels.md); native modifier
   [`native-toolchain-output.md`](native-toolchain-output.md) (done on master
   [#354](https://github.com/ja11sop/cuppa/pull/354)); landed on
   [#355](https://github.com/ja11sop/cuppa/pull/355). Promote to **shipped**
   and archive at the 1.12.0 release.
-- **Updated:** 2026-10-04
+- **Updated:** 2026-10-11
 - **Impact:** minor — terse file cells, resolve bookends, and `[location]` maps;
   default transcript unchanged; on-disk layout unchanged
 
@@ -355,5 +355,5 @@ dependency's resolved tree.
 
 - Location map grammar: [`terse-delegated-output.md`](terse-delegated-output.md)
 - Terse status lines: [`terse-build-output.md`](terse-build-output.md)
-- Channel map: [`console-channels.md`](console-channels.md)
-- Boost `-c` / extract `b2`: [`deep-clean.md`](deep-clean.md)
+- Channel map: [`console-channels.md`](../plans/console-channels.md)
+- Boost `-c` / extract `b2`: [`deep-clean.md`](../plans/deep-clean.md)

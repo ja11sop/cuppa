@@ -5,7 +5,7 @@
 
 """Read/write ``cuppa-dependency.json`` for transitive Cuppa package edges.
 
-See ``design/plans/gitlab-package-transitive.md``.
+See ``design/archive/gitlab-package-transitive.md``.
 """
 
 from __future__ import annotations

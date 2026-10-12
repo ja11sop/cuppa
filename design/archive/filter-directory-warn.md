@@ -1,8 +1,8 @@
 # Plan: Filter “probably a directory” warn hygiene
 
-- **Status:** done
-- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`archive/recursive-glob-parity.md`](../archive/recursive-glob-parity.md) (Filter path forms); consume-tip soak under `--cascade-plan -Q` (reconfirmed 2026-10-05 while soaking [#356](https://github.com/ja11sop/cuppa/pull/356))
-- **Updated:** 2026-10-05
+- **Status:** shipped
+- **Related:** [`cuppa/utility/filter.py`](../../cuppa/utility/filter.py) (`_node_exists_as_file`); [`recursive-glob-parity.md`](recursive-glob-parity.md) (Filter path forms); consume-tip soak under `--cascade-plan -Q` (reconfirmed 2026-10-05 while soaking [#356](https://github.com/ja11sop/cuppa/pull/356))
+- **Updated:** 2026-10-11
 - **Impact:** `patch` (log severity / heuristic; Filter match behaviour stays the same)
 - **PR:** [#358](https://github.com/ja11sop/cuppa/pull/358)
 

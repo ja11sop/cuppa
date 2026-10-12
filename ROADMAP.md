@@ -11,30 +11,32 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-09-30
+**As of:** 2026-10-11
 
 ---
 
-## 1.12.0 cycle focus (open)
+## 1.12.0 cycle focus (ready to cut)
 
-Minor cycle after **1.11.0**. Primary opener is the **console bundle** (configure log
-hygiene, `cuppa --info`, `--terse-output`). Carry-forward package/CMake work
-continues in parallel where it does not block the console slices.
+Minor cycle after **1.11.0**. Console bundle, transfer progress, cascade rename /
+consume UX, transitive packages + version ranges are on master and promoted to
+`design/archive/` (`shipped`) in this housekeeping pass. Next: Actions
+**release → prepare** (`finish_release`), then **publish**.
 
 | Area | Status in 1.12.0 |
 |------|------------------|
-| Console: configure log hygiene | **Done on master** — [`build-log-hygiene.md`](design/plans/build-log-hygiene.md) |
-| Console: `cuppa --info` | **Done on master** — [`cuppa-info.md`](design/plans/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
-| Console: channel map + mode banners | **Done on master** — [`console-channels.md`](design/plans/console-channels.md), [`console-mode-banners.md`](design/plans/console-mode-banners.md) ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
-| Console: `--scons-output` | **Done on master** — spawn-only half of `--raw-output`; colour stays ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
-| Console: `--terse-output` | **Done on master** — status lines, tally, test badges, graceful Ctrl-C, `[progress]` checkpoints, `--normal-output`, file fields, and delegated CMake/`b2`: [`terse-build-output.md`](design/plans/terse-build-output.md), [`terse-delegated-output.md`](design/plans/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
-| Console: optional `--native-output` | **Done on master** — [`native-toolchain-output.md`](design/plans/native-toolchain-output.md) ([#354](https://github.com/ja11sop/cuppa/pull/354)) |
-| Console: terse dependency location maps | **Done on master** — nested maps + `[prepare]`/`[ready]` · `resolve`: [`terse-dependency-locations.md`](design/plans/terse-dependency-locations.md) ([#355](https://github.com/ja11sop/cuppa/pull/355)) |
-| Console: quiet+TTY heartbeat | **Done on [#356](https://github.com/ja11sop/cuppa/pull/356)** — logger INFO diversion + throttle under quiet+TTY: [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) |
-| Transfer / archive progress | **Done on [#360](https://github.com/ja11sop/cuppa/pull/360)** — shared alive + progress bar for download/upload/compress/extract; owned TTY write path: [`transfer-and-archive-progress.md`](design/plans/transfer-and-archive-progress.md), [`console-write-ownership.md`](design/plans/console-write-ownership.md) |
-| Cascade enable rename | **Done on [#361](https://github.com/ja11sop/cuppa/pull/361)** — master flag `--cascade`; old long name deprecated alias to 2.0: [`cascade-enable-rename.md`](design/plans/cascade-enable-rename.md) |
-| Transitive GitLab packages (MVP) | **Done on master** — concrete pins + `cuppa-dependency.json` + list closure: [`gitlab-package-transitive.md`](design/plans/gitlab-package-transitive.md) ([#279](https://github.com/ja11sop/cuppa/issues/279)); archive at 1.12.0 cut. Follow-ons: [`gitlab-package-version-ranges.md`](design/plans/gitlab-package-version-ranges.md), [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md) |
-| GitLab CMake staging / drive CMake | **Carry-forward** — Option C done; remaining E inplace + publish-cli; archive progress → [`transfer-and-archive-progress.md`](design/plans/transfer-and-archive-progress.md): [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Console: configure log hygiene | **Shipped** — [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
+| Console: `cuppa --info` | **Shipped** — [`cuppa-info.md`](design/archive/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
+| Console: channel map + mode banners | **Shipped** — [`console-mode-banners.md`](design/archive/console-mode-banners.md) ([#351](https://github.com/ja11sop/cuppa/pull/351)); living map [`console-channels.md`](design/plans/console-channels.md) |
+| Console: `--scons-output` | **Shipped** — spawn-only half of `--raw-output`; colour stays ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
+| Console: `--terse-output` | **Shipped** — [`terse-build-output.md`](design/archive/terse-build-output.md), [`terse-delegated-output.md`](design/archive/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
+| Console: optional `--native-output` | **Shipped** — [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) ([#354](https://github.com/ja11sop/cuppa/pull/354)) |
+| Console: terse dependency location maps | **Shipped** — [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) ([#355](https://github.com/ja11sop/cuppa/pull/355)) |
+| Console: quiet+TTY heartbeat | **Shipped** — [#356](https://github.com/ja11sop/cuppa/pull/356); [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
+| Transfer / archive progress | **Shipped** — [#360](https://github.com/ja11sop/cuppa/pull/360); [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md), [`console-write-ownership.md`](design/archive/console-write-ownership.md) |
+| Cascade enable rename | **Shipped** — [#361](https://github.com/ja11sop/cuppa/pull/361); [`cascade-enable-rename.md`](design/archive/cascade-enable-rename.md) |
+| Cascade / tip-consume UX | **Shipped** — [#366](https://github.com/ja11sop/cuppa/pull/366)–[#368](https://github.com/ja11sop/cuppa/pull/368); [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
+| Transitive GitLab packages + version ranges | **Shipped** — [`gitlab-package-transitive.md`](design/archive/gitlab-package-transitive.md) / [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md) ([#279](https://github.com/ja11sop/cuppa/issues/279)); lib-groups follow-on remains |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option C done; remaining E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
@@ -57,12 +59,12 @@ deferred rows moved to **1.12.0**.
 | `cuppa.run` import/auto_enable objects + preferred names | **Shipped** — [#276](https://github.com/ja11sop/cuppa/issues/276); [`run-default-dependency-objects.md`](design/archive/run-default-dependency-objects.md) |
 | List-deps requires closure + Option A scopes + docs hubs | **Shipped** — [`list-deps-requires-closure.md`](design/archive/list-deps-requires-closure.md) / [`dependencies-docs-four-hubs.md`](design/archive/dependencies-docs-four-hubs.md) |
 | `scripts.local_gate` + modest xdist | **Shipped** — [#343](https://github.com/ja11sop/cuppa/pull/343) / [#344](https://github.com/ja11sop/cuppa/pull/344) |
-| Transitive GitLab packages (deeper graph) | **MVP done on master** — umbrella follow-ons are version ranges + lib groups; see 1.12.0 cycle focus |
-| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers done; E inplace + publish-cli later; archive progress spun out |
-| Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Deferred to 1.12.0** |
-| Boost package identity (`-patched` / `-clean`) | **Deferred to 1.12.0** |
-| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred to 1.12.0** |
-| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred to 1.12.0** |
+| Transitive GitLab packages (deeper graph) | **MVP shipped in 1.11.0**; version ranges shipped in **1.12.0**; lib-groups remain |
+| GitLab CMake staging / drive CMake | **Partial** — accessors, Option B, lean Option C, prefix helpers done; E inplace + publish-cli later; archive progress spun out (shipped in 1.12.0) |
+| Console bundle (`--terse-output`, log hygiene, `cuppa --info`) | **Shipped in 1.12.0** |
+| Boost package identity (`-patched` / `-clean`) | **Still deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Still deferred** |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Still deferred** |
 
 ---
 
@@ -486,24 +488,24 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*`, `--wipe-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closed by [#144](https://github.com/ja11sop/cuppa/pull/144). Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Phase 3 polish [#145](https://github.com/ja11sop/cuppa/issues/145). Wipe [#146](https://github.com/ja11sop/cuppa/issues/146) closed by [#150](https://github.com/ja11sop/cuppa/pull/150). Remaining from this family: [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). |
 | `package-download-refresh` | Opt-in re-fetch of GitLab package archives (and re-extract) after same-version registry overwrite | Medium | **Shipped in 1.11.0** [#342](https://github.com/ja11sop/cuppa/pull/342). Design: [`package-download-refresh.md`](design/archive/package-download-refresh.md). [#296](https://github.com/ja11sop/cuppa/issues/296). |
 | `package-build-publish-deps` | Opt-in cascade: tip publisher **or consume-only tip**; nest-publish or nest-build GitLab package DAG then tip upload / tip build only | Medium | **Shipped in 1.11.0** ([#302](https://github.com/ja11sop/cuppa/pull/302)–[#339](https://github.com/ja11sop/cuppa/pull/339)). Forest stem keying deferred. Design: [`package-build-publish-deps.md`](design/archive/package-build-publish-deps.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
-| `cascade-enable-rename` | Master flag **`--cascade`**; deprecate `--build-and-publish-dependencies` (alias until 2.0) | Low | **Done on [#361](https://github.com/ja11sop/cuppa/pull/361).** [`cascade-enable-rename.md`](design/plans/cascade-enable-rename.md). Follow-on to shipped `package-build-publish-deps`. |
-| `cascade-consume-ux` | Docs + small UX: tip consume vs cascade; list missing ≠ registry; early `-n` did-you-mean plan; nest default `--rel`; remedy split | Medium | **In progress** — list ``not extracted``, remedy split, early `-n` did-you-mean (#366); nest default ``--rel`` + ``--cascade-variants`` (#367); `skip-resolve` / full `opt-compat-early` later. [`cascade-consume-ux-soak.md`](design/plans/cascade-consume-ux-soak.md). |
+| `cascade-enable-rename` | Master flag **`--cascade`**; deprecate `--build-and-publish-dependencies` (alias until 2.0) | Low | **Shipped in 1.12.0** [#361](https://github.com/ja11sop/cuppa/pull/361). [`cascade-enable-rename.md`](design/archive/cascade-enable-rename.md). Follow-on to shipped `package-build-publish-deps`. |
+| `cascade-consume-ux` | Docs + small UX: tip consume vs cascade; list missing ≠ registry; early `-n` did-you-mean plan; nest default `--rel`; remedy split; clone-first finish | Medium | **Shipped in 1.12.0** (#366–#368). Later: `skip-resolve` / full `opt-compat-early`. [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md). |
 | `package-develop-local` | `--develop` on a package dependency means its **source tree**: discover (or opt-in stage) a local package and consume it, with cascade and `--clone-develop` honouring the same path | Medium | **Shipped in 1.11.0** (A–D [#311](https://github.com/ja11sop/cuppa/pull/311); Slice F [#316](https://github.com/ja11sop/cuppa/pull/316); Slice E declined). Design: [`package-develop-local.md`](design/archive/package-develop-local.md) / [`cascade-defer-404.md`](design/archive/cascade-defer-404.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
 | `publish-package-parallel` | Declare package archive as SCons `SideEffect` of `.packaged` so `--publish-package --parallel` cannot race `.published` | Medium | **Shipped in 1.11.0** [#319](https://github.com/ja11sop/cuppa/pull/319). Design: [`publish-package-parallel-side-effect.md`](design/archive/publish-package-parallel-side-effect.md). |
 | `stage-develop-locations` | Extend `--stage-develop` to **location** develop trees that are Cuppa projects (nest build/clean); L3 tip consumes package-shaped stage when present | Medium | **Shipped in 1.11.0** — L1/L2 [#313](https://github.com/ja11sop/cuppa/pull/313); L3/L4 [#315](https://github.com/ja11sop/cuppa/pull/315). Design: [`stage-develop-locations.md`](design/archive/stage-develop-locations.md). |
 | `package-use-libs-defaults` | Shared-aware `use_libs` + manifest `default_use_libs` so auto-enable can link small packages; explicit `use_libs` overrides (no link-the-world for fat packages) | Medium | **Shipped in 1.11.0** [#294](https://github.com/ja11sop/cuppa/pull/294). Design: [`package-use-libs-defaults.md`](design/archive/package-use-libs-defaults.md). |
 | `package-metadata-amend` | Amend `cuppa-publish.json` (and retar/publish) without rebuilding package binaries | Medium | **Shipped in 1.11.0** [#300](https://github.com/ja11sop/cuppa/pull/300). Design: [`package-metadata-amend.md`](design/archive/package-metadata-amend.md). [#299](https://github.com/ja11sop/cuppa/issues/299). |
 | `artefact-removal` | Decide how to remove artefacts written outside the build root | Low | Design pass first; `--remove-builds` deliberately stops at `_build`. GitHub [#135](https://github.com/ja11sop/cuppa/issues/135). Prefer implementing via `deep-clean` rather than a parallel story. |
-| `deep-clean` | `--deep-clean` modifier on `-c` / `--clean` (path Clean and/or native tool clean; Boost `b2 --clean` first). Follow-up: ordinary `-c` should also remove extract `b2` and cooperatively clean **this selection**; not a whole-`bin.*` wipe | Medium | Does not delete extracts. Distinct from `--remove-dependencies`. Design: [`deep-clean.md`](design/plans/deep-clean.md) (naming, gap assessment, Boost use case, extract-`b2` follow-up). Related [#135](https://github.com/ja11sop/cuppa/issues/135); stage Clean on [#326](https://github.com/ja11sop/cuppa/pull/326). Soak note: [`terse-delegated-output.md`](design/plans/terse-delegated-output.md). |
+| `deep-clean` | `--deep-clean` modifier on `-c` / `--clean` (path Clean and/or native tool clean; Boost `b2 --clean` first). Follow-up: ordinary `-c` should also remove extract `b2` and cooperatively clean **this selection**; not a whole-`bin.*` wipe | Medium | Does not delete extracts. Distinct from `--remove-dependencies`. Design: [`deep-clean.md`](design/plans/deep-clean.md) (naming, gap assessment, Boost use case, extract-`b2` follow-up). Related [#135](https://github.com/ja11sop/cuppa/issues/135); stage Clean on [#326](https://github.com/ja11sop/cuppa/pull/326). Soak note: [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). |
 | `console-report-patterns` | Document and keep judgement-tree / severity-timing rules for contributors and agents | Low | Issue [#161](https://github.com/ja11sop/cuppa/issues/161) closed by B/D/E follow-on; Antora [`contributing/report-patterns.adoc`](docs/modules/ROOT/pages/contributing/report-patterns.adoc); design [`console-report-patterns.md`](design/archive/console-report-patterns.md) |
 | `console-stop-error-reporting` | Normalise Options Error tree + short StopError for surprising refusals | Low | [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md); cascade `-n` first instance |
 | `console-channels` | Map log / console report / build transcript / heartbeat, and the spawn-mode matrix | Low | [`console-channels.md`](design/plans/console-channels.md); `--scons-output` done [#352](https://github.com/ja11sop/cuppa/pull/352) |
-| `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as console reports so `-Q` / `-s` do not hide them | Low | Done on master [#351](https://github.com/ja11sop/cuppa/pull/351). [`console-mode-banners.md`](design/plans/console-mode-banners.md) |
-| `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | Done on [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/plans/quiet-tty-heartbeat.md) |
-| `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | Done on [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/plans/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
-| `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | **Done on feature branch** — soak c_ares ``>=1.34.5`` → 1.34.8; tip list ``bound → concrete``. [`gitlab-package-version-ranges.md`](design/plans/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| `console-mode-banners` | Mode banners (OFFLINE, CASCADE PLAN, …) as console reports so `-Q` / `-s` do not hide them | Low | **Shipped in 1.12.0** [#351](https://github.com/ja11sop/cuppa/pull/351). [`console-mode-banners.md`](design/archive/console-mode-banners.md) |
+| `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | **Shipped in 1.12.0** [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
+| `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | **Shipped in 1.12.0** [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/archive/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
+| `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | **Shipped in 1.12.0** — tip list ``bound → concrete``. [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | Follow-on to transitive MVP. [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
-| `transfer-and-archive-progress` | Shared alive + progress-bar capabilities for download/upload/compress/extract; mode-tuned presentation (normal / terse / quiet); TTY vs CI | Medium | **Done on [#360](https://github.com/ja11sop/cuppa/pull/360)** with [`console-write-ownership.md`](design/plans/console-write-ownership.md). Extends shipped [`download-progress.md`](design/archive/download-progress.md); package `tar` create was the forcing function. Property-based resolve ensure phases deferred. [`transfer-and-archive-progress.md`](design/plans/transfer-and-archive-progress.md) |
+| `transfer-and-archive-progress` | Shared alive + progress-bar capabilities for download/upload/compress/extract; mode-tuned presentation (normal / terse / quiet); TTY vs CI | Medium | **Shipped in 1.12.0** [#360](https://github.com/ja11sop/cuppa/pull/360) with [`console-write-ownership.md`](design/archive/console-write-ownership.md). Extends [`download-progress.md`](design/archive/download-progress.md); ensure phases deferred. [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md) |
 
 ### Out of scope (storage)
 
@@ -580,8 +582,8 @@ Cuppa wraps SCons spawn to colour and classify toolchain diagnostics (`Toolchain
 `cuppa/output_processor.py`). Progress ordering uses `cuppa.progress.NotifyProgress`. Related docs: [`methods.adoc`](docs/modules/ROOT/pages/methods.adoc) (custom commands section).
 
 Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
-[`native-toolchain-output.md`](design/plans/native-toolchain-output.md),
-[`terse-build-output.md`](design/plans/terse-build-output.md).
+[`native-toolchain-output.md`](design/archive/native-toolchain-output.md),
+[`terse-build-output.md`](design/archive/terse-build-output.md).
 
 ### Today
 
@@ -601,13 +603,13 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
-| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | [`terse-build-output.md`](design/plans/terse-build-output.md); **done on master** for **1.12.0** ([#353](https://github.com/ja11sop/cuppa/pull/353)). Not shipped until the release |
-| `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | [`terse-delegated-output.md`](design/plans/terse-delegated-output.md); **done on master** for **1.12.0** ([#353](https://github.com/ja11sop/cuppa/pull/353)). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
-| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | [`build-log-hygiene.md`](design/plans/build-log-hygiene.md); **1.12.0** (first console slice) |
-| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | [`cuppa-info.md`](design/plans/cuppa-info.md); **1.12.0** |
+| `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-build-output.md`](design/archive/terse-build-output.md) |
+| `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
+| `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
+| `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | CMake/Ninja job-count fix (serial default + explicit affinity-sized `--parallel N`) on [#319](https://github.com/ja11sop/cuppa/pull/319) / [#318](https://github.com/ja11sop/cuppa/issues/318) — **live soak done** 2026-09-21. `--parallel=N` CLI remains [#298](https://github.com/ja11sop/cuppa/issues/298). Design: [`parallel-job-count.md`](design/plans/parallel-job-count.md). |
-| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | [`native-toolchain-output.md`](design/plans/native-toolchain-output.md); **done on master** for **1.12.0** ([#354](https://github.com/ja11sop/cuppa/pull/354)). Not shipped until the release |
-| `console-terse-dep-locations` | Terse nested location maps for dependency/package trees (`<dependencies>/<fmt>/…`, shared `<variant>`) | Medium | [`terse-dependency-locations.md`](design/plans/terse-dependency-locations.md); **done on master** for **1.12.0** ([#355](https://github.com/ja11sop/cuppa/pull/355)). Not shipped until the release |
+| `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | **Shipped in 1.12.0** [#354](https://github.com/ja11sop/cuppa/pull/354). [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) |
+| `console-terse-dep-locations` | Terse nested location maps for dependency/package trees (`<dependencies>/<fmt>/…`, shared `<variant>`) | Medium | **Shipped in 1.12.0** [#355](https://github.com/ja11sop/cuppa/pull/355). [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) |
 | `console-stream-split` | Logging → stderr vs tool primary → stdout | Low | Validate current behaviour first (scratchpad note) |
 
 ### Out of scope (console output)

@@ -1,9 +1,9 @@
 # Plan: Cascade / consume UX soak notes (order_matcher)
 
-- **Status:** done
-- **Related:** [`archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-enable-rename.md`](cascade-enable-rename.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc), [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc), [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc); version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
+- **Status:** shipped
+- **Related:** [`package-build-publish-deps.md`](package-build-publish-deps.md); [`cascade-enable-rename.md`](cascade-enable-rename.md); [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md); Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc), [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc), [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc); version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
 - **Updated:** 2026-10-11
-- **Impact:** `patch` — list gap wording + cascade remedies / `-n` guidance; nest default `--rel` + `--cascade-variants`; skip-resolve later
+- **Impact:** `patch` / `minor` (nest ``--rel``) — list gap wording + cascade remedies / `-n` guidance; nest default `--rel` + `--cascade-variants`; clone-first finish; skip-resolve later
 
 ## Problem
 
@@ -122,7 +122,7 @@ and stop”). Refuse stays. Follow-on:
 
 - Detect the combination **before** the long tip resolve walk when possible
 - Remedy: explicit **did you mean `--cascade-plan`?**
-- Fits [`console-stop-error-reporting.md`](console-stop-error-reporting.md)
+- Fits [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md)
   (option-compat registry + guided trees)
 
 ### 5. Long tip resolve on every plan/collect attempt
@@ -232,6 +232,7 @@ as the primary fix. Those are for publisher trees, not tip consume cache.
 | Plan finish tip naming (``project`` / ``package`` + nested deps) | Done — this PR |
 | Gap finish as one-of advice tree (stems, place/folder, LTR ``or`` / ``either``) | Done — this PR |
 | ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — #366 |
-| `cascade-nest-rel` (default nest ``--rel`` + ``--cascade-variants``) | Done — this PR |
+| `cascade-nest-rel` (default nest ``--rel`` + ``--cascade-variants``) | Done — #367 |
+| Plan finish clone-first (collect only vs clone on the way) | Done — #368 |
 | `skip-resolve` / full `opt-compat-early` | Later slices |
-| Design-index / ROADMAP row | Done — index ``done``; ``shipped`` / archive at named release |
+| Design-index / ROADMAP row | Done — ``shipped`` / archive at 1.12.0 cut |
