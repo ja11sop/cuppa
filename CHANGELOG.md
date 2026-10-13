@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.12.0] - unreleased
+## [1.12.0] - 2026-10-13
 
 ### Changed
 
@@ -316,10 +316,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   for inventory. Default variant/action messages now list sorted names instead
   of stringified objects.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - Filter no longer warns that a missing extensionless path is "probably a
@@ -342,8 +338,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   name the on-disk tree.
 - Windows MAX_PATH location hashes stay URL-derived. Terse ``name_hint``
   must not change on-disk folder names (list/remove identity).
-
-### Security
 
 ## [1.11.0] - 2026-09-28
 
@@ -2352,7 +2346,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...HEAD
+[1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...v1.10.0
 [1.9.1]: https://github.com/ja11sop/cuppa/compare/v1.9.0...v1.9.1
