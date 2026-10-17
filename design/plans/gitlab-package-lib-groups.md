@@ -169,35 +169,65 @@ via `MergeFlags` / `AppendUnique` to `CPPDEFINES`) before free-form flag soup.
 Boost should still lean on **A/C** so patched Test and arity defines stay
 aligned with handler identity ([`boost-updates.md`](boost-updates.md)).
 
-### AppendUnique / dedupe / order stability (general caution)
+### Delegate static-lib append **policy** to the toolchain (2026-10-17)
 
-Boost taught that **link-line multiset and order** are ABI/link correctness,
-not just tidy lists:
+Not “the toolchain adds libraries” as a package feature — call sites still
+resolve which archives to link; they **stop choosing** `Append` vs
+`AppendUnique`. That choice is linker behaviour and belongs on the toolchain.
 
-1. **Missing repeats** — `AppendUnique` / contribution replace can drop a
-   dependent that must appear **again** after a later library on GNU ld.
-2. **Wrong order** — first-seen dedupe after token-order expansion is not a
-   global topological / master order.
-3. **Spurious rebuilds** — unstable ordered outputs (e.g. `set` iteration /
-   `PYTHONHASHSEED`) change SCons signatures (#267). Any expand → link path
-   must emit **deterministic** sequences (sorted unknown tails, fixed master
-   lists, insertion-stable JSON).
+Boost is one **example** of needing order + repeats on GNU ld, not an
+exceptional one-off. Wrong Unique often fails only at **link time**.
 
-**Assessment for generic GitLab `use_libs` today:**
+**`use_libs` API (settled):** call once per package with the required set; a
+later call **clears** that package’s prior contribution and re-applies.
+Clearing stays. Stacking additive `use_libs` calls is not the API.
 
-| Behaviour | Risk | Guidance |
-|-----------|------|----------|
-| Expand groups with first-seen dedupe | Fine for **convenience** groups and most shared/DT_NEEDED stacks; **unsafe** as the sole rule for Boost-like static opaque graphs | Keep; document that opaque static graphs may need a package order policy or a dedicated handler |
-| `clear` + re-apply contribution | Good for “replace defaults with this `use_libs`”; **bad** if callers rely on stacking multiple `use_libs` with intentional repeats | Stacking / repeats remain Boost-handler territory unless we add an explicit `Append` mode |
-| `AppendUnique` on `STATICLIBS` / `SHAREDLIBS` | Hides duplicate **identical** nodes; also hides **needed** re-lists | Acceptable default for generic packages; do **not** silently migrate Boost onto it |
-| Hash-unstable ordering | Signature churn / flaky CI | Already fixed for Boost expander; any new manifest-driven expand/sort must stay deterministic |
+**Today vs desired:**
 
-**Do not** treat AppendUnique/dedupe as universally correct. Default generic
-path can keep them for typical packages; **special handlers** (Boost) and any
-future “opaque static graph” policy must opt into Append + ordered expand.
-Revisit if real non-Boost packages hit the same GNU ld repeat/order class of
-bug — that would argue for an optional manifest `link_policy: append_ordered`
-(or similar), not for weakening Boost.
+| Layer | Today | Desired |
+|-------|-------|---------|
+| `LIBPATH` / `SHAREDLIBS` | `AppendUnique` | Keep `AppendUnique` at the package layer |
+| `STATICLIBS` (`apply_resolved_libs`, legacy installer `build_with`, …) | Hard-coded `AppendUnique` | Delegate via toolchain hook |
+| Clear + re-apply on `use_libs` | Clear this package’s contrib | Keep |
+| Boost / source Boost | Direct `Append(STATICLIBS=…)` | Same toolchain hook when convenient |
+| Group expand first-seen dedupe | Within one expansion | Keep for convenience groups; opaque **order** may still need a handler (separate from append policy) |
+
+**Why Unique on `STATICLIBS` is wrong even with clear-once:** clear only removes
+*this* package’s nodes. `AppendUnique` still drops archives already on the line
+from **another** package. Re-listing after a later archive is a general static
+need on GNU ld, not Boost-only.
+
+**Sketch — call site (e.g. `use_libs` / `apply_resolved_libs`):**
+
+```python
+# Instead of:
+#   env.AppendUnique( STATICLIBS = self.static_libs( env, libs ) )
+# Delegate append policy:
+env.Toolchain().append_static_libs( libs )
+# (or env['toolchain'].append_static_libs( env, libs ) — capture vs pass env)
+```
+
+**Sketch — gcc (order + repeats matter):**
+
+```python
+def append_static_libs( self, libs ):
+    # env captured by toolchain, or passed in
+    self.env.Append( STATICLIBS = libs )
+```
+
+Other toolchains may `AppendUnique` (or otherwise) if their linker warns or
+errors on duplicate static entries — **owned by the toolchain**, not by package
+managers.
+
+**Audit:** review other `env.AppendUnique(… libraries …)` / `STATICLIBS` sites
+and route static-archive appends through the same policy hook. Leave
+`LIBPATH` / `SHAREDLIBS` Unique unless a toolchain later needs a say there.
+
+**Determinism** of expand/sort outputs (#267) stays a separate requirement.
+
+**Follow-on (not blocking lib-groups merge):** implement the hook on gcc/clang
+(and decide cl); switch generic package link apply + legacy installer; optionally
+route Boost through it; keep group dedupe / opaque order as separate concerns.
 
 ## Progress
 
@@ -210,4 +240,4 @@ bug — that would argue for an optional manifest `link_policy: append_ordered`
 | Boost opaque via `lib_groups` alone | **Rejected as replacement** — gaps above; keep `boost_package` expander |
 | Manifest-directed consume handler | Open follow-on |
 | Manifest `cppdefines` / flags | Open follow-on (narrow MVP plausible; Boost hybrid) |
-| Generic AppendUnique vs Boost Append | Documented caution; no change this PR |
+| Toolchain owns static-lib **append policy** (`append_static_libs`) | Open follow-on — call sites delegate; gcc Append; audit other Unique sites |
