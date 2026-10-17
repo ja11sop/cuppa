@@ -4,6 +4,7 @@
 - **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages — **1.13.0** opener; [#279](https://github.com/ja11sop/cuppa/issues/279)
 - **Updated:** 2026-10-17
 - **Impact:** minor — package author/consumer API for large multi-lib archives; leaf `use_libs` stays valid
+- **Status note:** behaviour on master pending merge; promote to `done` on the feature PR
 
 ## Problem
 
@@ -62,12 +63,16 @@ env.BuildWith( 'mega_package' ).show_all_libs()
 Manifest edges use the **same** token vocabulary so A can declare
 `use_libs: ["kms"]` against B and get the group expansion.
 
-## Open questions
+## Settled (this slice)
 
-1. Where group tables live first: only mega-package wrappers (Python), or also
-   in `cuppa-dependency.json` / publish metadata for generic packages.
-2. `show_*` return vs print (configure console report vs Python API).
-3. Whether Boost remains silent expansion only, or grows named groups later.
+1. **Where groups live:** both — `GitlabPackagePublisher(..., lib_groups={...})`
+   seeds traveling `cuppa-publish.json`; consumers expand from the traveling
+   manifest (legacy `cuppa-dependency.json` also accepted).
+2. **`show_*`:** return the Python value **and** log a configure-time summary.
+3. **Boost:** remains silent dependent expansion only (no named groups yet).
+
+Nested group members recurse with cycle detection. If a token names a group, the
+group wins even when a same-named leaf stem exists.
 
 ## Progress
 
@@ -75,5 +80,5 @@ Manifest edges use the **same** token vocabulary so A can declare
 |------|--------|
 | Split from transitive MVP | Done — this proposal |
 | `use_all_libs()` | Done on parent MVP |
-| Named groups + `show_*` | In progress — **1.13.0** opener |
-| Implementation | Starting |
+| Named groups + `show_*` | Done — this PR (**1.13.0**) |
+| Implementation | Done — expand in `use_libs`; manifest `lib_groups`; `show_libs_for` / `show_all_libs` |

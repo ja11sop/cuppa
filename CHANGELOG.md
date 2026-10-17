@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab package **named library groups**: publishers may declare ``lib_groups``
+  on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
+  ``use_libs`` and traveling-edge ``use_libs`` accept group names and/or leaf
+  stems; groups expand (nested groups recurse, cycles rejected). Group names
+  win over same-named leaf stems. ``show_libs_for`` / ``show_all_libs`` report
+  expansions at configure time. Plan: ``design/plans/gitlab-package-lib-groups.md``.
+
 ### Changed
 
 ### Deprecated

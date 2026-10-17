@@ -267,25 +267,48 @@ clears the package's link contribution):
 env.BuildWith('widget').use_all_libs()
 ----
 
+Large multi-lib packages may publish **named library groups** in ``cuppa-publish.json``
+(via ``GitlabPackagePublisher(..., lib_groups={...})``). Tokens in consumer
+``use_libs([...])`` and in traveling-manifest edge ``use_libs`` may be **leaf stems
+and/or group names**; groups expand (nested groups recurse) before linking. Group
+names take precedence when a token matches both a group and a leaf stem.
+
+[source,python]
+----
+env.BuildWith('mega_package').use_libs([
+    'kms',              # group → several concrete libs
+    'cloud storage',    # named feature group
+    'standalone_leaf',  # ordinary stem
+])
+
+env.BuildWith('mega_package').show_libs_for('cloud storage')
+env.BuildWith('mega_package').show_all_libs()
+----
+
+``show_libs_for(token)`` returns the concrete stems that token expands to (and logs
+them at configure time). ``show_all_libs()`` returns a catalogue of each group →
+expanded leaves plus any ungrouped linkable stems under ``lib/``.
+
 [#transitive-package-dependencies]
 === Transitive package dependencies
 
 A published GitLab archive includes ``cuppa-publish.json`` next to ``include/`` and
 ``lib/`` (identity, dependency edges including ``package_source``, optional
-``default_use_libs`` / ``link``). When you ``BuildWith`` package **A**, Cuppa reads that
+``default_use_libs`` / ``link`` / ``lib_groups``). When you ``BuildWith`` package **A**, Cuppa reads that
 file (if present) and ``BuildWith``s each listed dependency **B** so B's headers (and
 packaged modules) are on the include path. Legacy extracts that only ship
 ``cuppa-dependency.json`` are still read as a fallback. **B**'s ``default_use_libs`` are
 **not** applied for a transitive include-only ``BuildWith`` — only for a primary /
 auto-enabled dependency. When you later link A with
 ``A.use_libs(...)`` or ``A.use_all_libs()``, Cuppa also applies each edge's ``use_libs``
-against B.
+against B (expanding B's groups when declared).
 
 Publish the edges with ``GitlabPackagePublisher(..., dependencies=[...])``. Optional
 package-level fields on the same publisher / manifest:
 
-* ``default_use_libs`` — stems linked on primary BuildWith / auto-enable
+* ``default_use_libs`` — stems (or group tokens) linked on primary BuildWith / auto-enable
 * ``link`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``
+* ``lib_groups`` — mapping of group name → concrete library stems (see above)
 
 Publishers always stage ``cuppa-publish.json`` (at least ``package`` / ``version``).
 Omit ``dependencies`` / ``default_use_libs`` / ``link`` when the package is standalone
