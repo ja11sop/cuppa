@@ -254,9 +254,31 @@ When ``default_use_libs`` is omitted, Cuppa may apply a narrow heuristic: a sing
 linkable stem, or one stem matching the package slug / BuildWith name; otherwise it links
 nothing. Prefer publishing explicit metadata.
 
+==== Pkg-config (defines and cflags)
+
+GitLab packages do **not** carry compile defines in ``cuppa-publish.json``.
+When a package needs extra ``-D`` defines or other cflags alongside linking,
+ship ``.pc`` files in the archive and point the dependency at them:
+
+[source,python]
+----
+widget = cuppa.package_dependency(
+    'widget',
+    registry       = 'https://gitlab.example.com/api/v4/projects/123',
+    package        = 'widget',
+    version        = '1.2.3',
+    pkg_config_dir = 'lib/pkgconfig',   # relative to the extracted package root
+)
+----
+
+With ``pkg_config_dir`` set, ``use_libs`` / defaults run
+``pkg-config --libs --cflags`` through SCons ``ParseConfig`` for the requested
+stems (including any ``-D`` entries in the ``.pc``). Without it, Cuppa links
+resolved static/shared artefacts under ``lib/`` and adds includes only.
+
 Installed ``.pc`` files that embed an absolute install prefix are an upstream packaging
-issue; Cuppa does not rewrite them. Prefer ``use_libs`` / ``default_use_libs`` over
-relying on non-relocatable pkg-config data after extract.
+issue; Cuppa does not rewrite them. Prefer relocatable ``.pc`` data, or
+``use_libs`` / ``default_use_libs`` when you only need stems and headers.
 
 To link every static or shared library present under a GitLab package's ``lib/`` directory,
 call ``use_all_libs()`` (do not pass an empty ``use_libs([])`` when you mean “all” — empty

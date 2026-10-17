@@ -149,25 +149,33 @@ it wants to be consumed. Related: resolve / Quince selector gaps in
 handler implementation; it **binds** archive → handler instead of relying on
 tip-side parallel knowledge.
 
-### Traveling manifest compile defines / flags
+### Compile defines / flags (GitLab packages)
 
-`boost_package.__call__` imbues the env with Boost-specific `MergeFlags`
-defines. The traveling manifest today carries identity, dependency edges,
+The traveling manifest today carries identity, dependency edges,
 `default_use_libs`, `link`, and `lib_groups` only — **no** compile-flag /
 define payload.
 
+**Current general escape hatch:** ship `.pc` files and pass
+`pkg_config_dir=` on `package_dependency` / the GitLab package. On
+`use_libs`, Cuppa runs `pkg-config --libs --cflags` via `ParseConfig`, so
+extra `-D` defines and related cflags/libs come from pkg-config — not from
+`cuppa-publish.json`. (Do not confuse with CMake’s `extra_defines`, which only
+feeds `CMakeConfigure`.)
+
+**Boost** still uses handler-owned `MergeFlags` in `boost_package.__call__`
+(and source Boost defines) — parallel to the pkg-config path, not a traveling
+field.
+
 | Option | Notes |
 |--------|-------|
-| **A. Handler-owned** (status quo for Boost) | Defines stay in `boost_package` (or future handler). Manifest only selects the handler. Safest for Boost-specific / patched semantics. |
-| **B. Declarative flags in manifest** | e.g. `cppdefines: ["BOOST_…"]`, optional `ccflags` / `cxxflags`. Generic apply on `BuildWith` / initialise. Good for “this archive always needs these macros”; weaker for patched-vs-clean, toolchain conditionals, or secrets. |
-| **C. Hybrid** | Manifest may list **additive** defines; handler may still MergeFlags for behaviour tied to identity (`patched`). |
+| **pkg-config (current)** | Preferred for ordinary packages that need defines/cflags beyond includes + `use_libs` stems |
+| **A. Handler-owned** | e.g. Boost — defines stay in the consume wrapper / future manifest-selected handler |
+| **B. Declarative flags in manifest** | Possible later (`cppdefines` / …); lower priority while `.pc` covers the general case |
+| **C. Hybrid** | Manifest additive defines + handler for identity-tied behaviour (`patched`) |
 
-**Assessment:** supporting **B** (or hybrid **C**) is reasonable for ordinary
-packages and would close part of the Boost gap for tips that only
-`package_dependency('boost')`. Prefer a narrow MVP (`cppdefines` list applied
-via `MergeFlags` / `AppendUnique` to `CPPDEFINES`) before free-form flag soup.
-Boost should still lean on **A/C** so patched Test and arity defines stay
-aligned with handler identity ([`boost-updates.md`](boost-updates.md)).
+**Assessment:** do **not** treat traveling `cppdefines` as required for this
+slice. Document pkg-config as the supported escape hatch; keep **B/C** as
+optional follow-ons if a package cannot ship usable `.pc` files.
 
 ### Delegate link-line append **policy** to the toolchain (2026-10-17)
 
@@ -254,5 +262,5 @@ Boost through the static helper.
 | Implementation | Done — expand in `use_libs`; manifest `lib_groups`; `show_libs_for` / `show_all_libs` |
 | Boost opaque via `lib_groups` alone | **Rejected as replacement** — gaps above; keep `boost_package` expander |
 | Manifest-directed consume handler | Open follow-on |
-| Manifest `cppdefines` / flags | Open follow-on (narrow MVP plausible; Boost hybrid) |
+| Traveling `cppdefines` / flags | Optional follow-on — **pkg-config / `.pc` is the supported escape hatch today** |
 | Toolchain owns link append **policy** (static / shared / libpath), opt-in via getattr | Done this PR — ``link_append`` helpers; gcc/clang ``append_static_libs`` → Append; call sites routed |
