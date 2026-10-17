@@ -169,45 +169,62 @@ via `MergeFlags` / `AppendUnique` to `CPPDEFINES`) before free-form flag soup.
 Boost should still lean on **A/C** so patched Test and arity defines stay
 aligned with handler identity ([`boost-updates.md`](boost-updates.md)).
 
-### Delegate static-lib append **policy** to the toolchain (2026-10-17)
+### Delegate link-line append **policy** to the toolchain (2026-10-17)
 
 Not “the toolchain adds libraries” as a package feature — call sites still
-resolve which archives to link; they **stop choosing** `Append` vs
-`AppendUnique`. That choice is linker behaviour and belongs on the toolchain.
+resolve what to put on the line; they **stop hard-coding** `Append` vs
+`AppendUnique`. That choice is linker / toolchain behaviour.
 
-Boost is one **example** of needing order + repeats on GNU ld, not an
-exceptional one-off. Wrong Unique often fails only at **link time**.
+Boost is one **example** of needing order + repeats for **static** archives on
+GNU ld, not an exceptional one-off. Wrong Unique often fails only at **link
+time**.
 
 **`use_libs` API (settled):** call once per package with the required set; a
 later call **clears** that package’s prior contribution and re-applies.
 Clearing stays. Stacking additive `use_libs` calls is not the API.
 
-**Today vs desired:**
-
-| Layer | Today | Desired |
-|-------|-------|---------|
-| `LIBPATH` / `SHAREDLIBS` | `AppendUnique` | Keep `AppendUnique` at the package layer |
-| `STATICLIBS` (`apply_resolved_libs`, legacy installer `build_with`, …) | Hard-coded `AppendUnique` | Delegate via toolchain hook |
-| Clear + re-apply on `use_libs` | Clear this package’s contrib | Keep |
-| Boost / source Boost | Direct `Append(STATICLIBS=…)` | Same toolchain hook when convenient |
-| Group expand first-seen dedupe | Within one expansion | Keep for convenience groups; opaque **order** may still need a handler (separate from append policy) |
-
-**Why Unique on `STATICLIBS` is wrong even with clear-once:** clear only removes
-*this* package’s nodes. `AppendUnique` still drops archives already on the line
-from **another** package. Re-listing after a later archive is a general static
-need on GNU ld, not Boost-only.
-
-**Sketch — call site (e.g. `use_libs` / `apply_resolved_libs`):**
+**Same idea for `STATICLIBS`, `LIBPATH`, and `SHAREDLIBS`** — three optional
+toolchain hooks, not a hard base-class API. Prefer **opt-in via attribute
+check** with today’s behaviour as the default when the hook is absent:
 
 ```python
-# Instead of:
-#   env.AppendUnique( STATICLIBS = self.static_libs( env, libs ) )
-# Delegate append policy:
-env.Toolchain().append_static_libs( libs )
-# (or env['toolchain'].append_static_libs( env, libs ) — capture vs pass env)
+# Shared helper sketch (one place; all call sites use it)
+toolchain = env['toolchain']  # or env.Toolchain()
+append = getattr( toolchain, 'append_static_libs', None )
+if append:
+    append( libs )            # or append( env, libs )
+else:
+    env.AppendUnique( STATICLIBS = libs )   # current default
+
+append = getattr( toolchain, 'append_shared_libs', None )
+if append:
+    append( stems )
+else:
+    env.AppendUnique( SHAREDLIBS = stems )
+
+append = getattr( toolchain, 'append_libpath', None )
+if append:
+    append( paths )
+else:
+    env.AppendUnique( LIBPATH = paths )
 ```
 
-**Sketch — gcc (order + repeats matter):**
+| Hook | Default if absent | gcc / clang likely opt-in |
+|------|-------------------|---------------------------|
+| `append_static_libs` | `AppendUnique(STATICLIBS=…)` (today) | `Append` — order + repeats |
+| `append_shared_libs` | `AppendUnique(SHAREDLIBS=…)` | Usually keep Unique (or omit hook) |
+| `append_libpath` | `AppendUnique(LIBPATH=…)` | Usually keep Unique (or omit hook) |
+
+**Why opt-in, not abstract-required:** toolchains without an opinion stay
+unchanged; gcc/clang (and later others) opt in where policy differs; no forced
+stub on every toolchain; easier incremental rollout and tests.
+
+**Why Unique on `STATICLIBS` is wrong even with clear-once (when gcc opts into
+Append):** clear only removes *this* package’s nodes. `AppendUnique` still drops
+archives already on the line from **another** package. Re-listing after a later
+archive is a general static need on GNU ld.
+
+**Sketch — gcc static policy:**
 
 ```python
 def append_static_libs( self, libs ):
@@ -215,19 +232,17 @@ def append_static_libs( self, libs ):
     self.env.Append( STATICLIBS = libs )
 ```
 
-Other toolchains may `AppendUnique` (or otherwise) if their linker warns or
-errors on duplicate static entries — **owned by the toolchain**, not by package
-managers.
-
-**Audit:** review other `env.AppendUnique(… libraries …)` / `STATICLIBS` sites
-and route static-archive appends through the same policy hook. Leave
-`LIBPATH` / `SHAREDLIBS` Unique unless a toolchain later needs a say there.
+**Audit:** route package link apply, legacy installer `build_with`, Boost, and
+other library-append sites through the shared helpers so policy stays in one
+place. Group expand first-seen dedupe stays separate (within one expansion);
+opaque **order** may still need a handler.
 
 **Determinism** of expand/sort outputs (#267) stays a separate requirement.
 
-**Follow-on (not blocking lib-groups merge):** implement the hook on gcc/clang
-(and decide cl); switch generic package link apply + legacy installer; optionally
-route Boost through it; keep group dedupe / opaque order as separate concerns.
+**Follow-on (not blocking lib-groups merge):** add shared getattr helpers;
+implement gcc/clang `append_static_libs` (Append); leave shared/libpath hooks
+unimplemented until a toolchain needs them; switch call sites; optionally route
+Boost through the static helper.
 
 ## Progress
 
@@ -240,4 +255,4 @@ route Boost through it; keep group dedupe / opaque order as separate concerns.
 | Boost opaque via `lib_groups` alone | **Rejected as replacement** — gaps above; keep `boost_package` expander |
 | Manifest-directed consume handler | Open follow-on |
 | Manifest `cppdefines` / flags | Open follow-on (narrow MVP plausible; Boost hybrid) |
-| Toolchain owns static-lib **append policy** (`append_static_libs`) | Open follow-on — call sites delegate; gcc Append; audit other Unique sites |
+| Toolchain owns link append **policy** (static / shared / libpath), opt-in via getattr | Open follow-on — defaults = today’s Unique; gcc opts into static Append |
