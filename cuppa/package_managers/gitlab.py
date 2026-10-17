@@ -801,6 +801,7 @@ class GitlabPackagePublisher:
         dependencies=None,
         default_use_libs=None,
         link=None,
+        lib_groups=None,
     ):
         from SCons.Script import Flatten
         from cuppa.package_managers.publish_version import (
@@ -829,6 +830,7 @@ class GitlabPackagePublisher:
         self._dependencies = list( dependencies ) if dependencies else []
         self._default_use_libs = default_use_libs
         self._link = link
+        self._lib_groups = lib_groups
         self._registry = registry
         self._package = package
         self._custom_token = custom_token
@@ -934,6 +936,7 @@ class GitlabPackagePublisher:
                 env=env,
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
+                lib_groups=getattr( self, '_lib_groups', None ),
         )
         logger.info( "Wrote [{}] for package [{}]".format(
                 as_info( publish_path_written ),
@@ -958,6 +961,7 @@ class GitlabPackagePublisher:
                     env=env,
                     default_use_libs=getattr( self, '_default_use_libs', None ),
                     link=getattr( self, '_link', None ),
+                    lib_groups=getattr( self, '_lib_groups', None ),
             )
             logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
@@ -1109,6 +1113,7 @@ class GitlabPackagePublisher:
                 env=env,
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
+                lib_groups=getattr( self, '_lib_groups', None ),
         )
         logger.info( "Amended [{}] for package [{}]".format(
                 as_info( publish_path_written ),
@@ -2209,9 +2214,17 @@ class GitlabPackageDependency:
         env.ParseConfig( command )
 
 
+    def _resolve_lib_groups( self ):
+        """Return author ``lib_groups`` from the traveling manifest, if any."""
+        from cuppa.package_managers.cuppa_dependency_manifest import package_lib_groups
+
+        return package_lib_groups( self._package_dir )
+
+
     def use_libs( self, libs, depends_on=[], dependency_name=None ):
 
         from SCons.Script import Flatten
+        from cuppa.package_managers.package_lib_groups import expand_use_lib_tokens
         from cuppa.package_managers.package_link_libs import (
                 apply_resolved_libs,
                 clear_package_link_contribution,
@@ -2219,7 +2232,9 @@ class GitlabPackageDependency:
         )
 
         env = self._env
-        libs = Flatten( [ libs ] )
+        tokens = Flatten( [ libs ] )
+        groups = self._resolve_lib_groups()
+        libs = expand_use_lib_tokens( tokens, groups )
 
         includes = env.AppendUnique( SYSINCPATH = self.include_dir() )
         if depends_on:
@@ -2283,6 +2298,44 @@ class GitlabPackageDependency:
                 as_notice( ", ".join( names ) if names else "(none)" ),
         ) )
         self.use_libs( names, depends_on=depends_on, dependency_name=dependency_name )
+
+
+    def show_libs_for( self, token ):
+        """Return (and log) the concrete stems one ``use_libs`` token expands to."""
+        from cuppa.package_managers.package_lib_groups import (
+                report_show_libs_for,
+                show_libs_for_token,
+        )
+
+        leaves = show_libs_for_token( token, self._resolve_lib_groups() )
+        report_show_libs_for( self._package_id, str( token ), leaves )
+        return leaves
+
+
+    def show_all_libs( self ):
+        """Return (and log) the full group → leaf catalogue for this package."""
+        from cuppa.package_managers.package_lib_groups import (
+                catalogue_lib_groups,
+                report_show_all_libs,
+        )
+        from cuppa.package_managers.package_link_libs import (
+                env_lib_naming,
+                list_linkable_lib_stems,
+        )
+
+        env = self._env
+        lib_prefix, lib_suffix, shlib_prefix, shlib_suffix = env_lib_naming( env )
+        stems = list_linkable_lib_stems(
+                self._lib_dir,
+                lib_prefix,
+                lib_suffix,
+                shlib_prefix,
+                shlib_suffix,
+                library_prefix=self._library_prefix,
+        )
+        catalogue = catalogue_lib_groups( self._resolve_lib_groups(), stems )
+        report_show_all_libs( self._package_id, catalogue )
+        return catalogue
 
 
     def use_static_libs( self, libs ):

@@ -11,9 +11,9 @@
 
 See ``design/archive/package-build-publish-deps.md``. This is the single traveling
 package SoT (identity, dependency edges including ``package_source``,
-optional ``default_use_libs`` / ``link``, and optional ``payload_sha256`` for
-tip consume refresh). Legacy ``cuppa-dependency.json`` is read only as a
-fallback for extracts published before Phase 2d.
+optional ``default_use_libs`` / ``link`` / ``lib_groups``, and optional
+``payload_sha256`` for tip consume refresh). Legacy ``cuppa-dependency.json``
+is read only as a fallback for extracts published before Phase 2d.
 """
 
 from __future__ import annotations
@@ -29,6 +29,7 @@ from cuppa.package_managers.cuppa_dependency_manifest import (
         normalise_dependency_entry,
         read_manifest as read_legacy_dependency_manifest,
         _normalise_default_use_libs,
+        _normalise_lib_groups_field,
         _normalise_link,
 )
 
@@ -92,6 +93,7 @@ def build_publish_document(
         dependencies: list | None = None,
         default_use_libs: Any = None,
         link: Any = None,
+        lib_groups: Any = None,
         payload_sha256: str | None = None,
 ) -> dict:
     """Return a publish document (always includes package identity)."""
@@ -109,10 +111,13 @@ def build_publish_document(
     }
     defaults = _normalise_default_use_libs( default_use_libs )
     link_mode = _normalise_link( link )
+    groups = _normalise_lib_groups_field( lib_groups )
     if defaults is not None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    if groups is not None:
+        document["lib_groups"] = groups
     if payload_sha256:
         document[PAYLOAD_SHA256_KEY] = str( payload_sha256 )
     return document
@@ -136,6 +141,7 @@ def write_publish_manifest(
         env=None,
         default_use_libs: Any = None,
         link: Any = None,
+        lib_groups: Any = None,
         payload_sha256: str | None = None,
 ) -> str:
     """Write ``cuppa-publish.json`` under ``package_dir``. Returns the path.
@@ -158,6 +164,7 @@ def write_publish_manifest(
             dependencies=dependencies,
             default_use_libs=default_use_libs,
             link=link,
+            lib_groups=lib_groups,
             payload_sha256=payload_sha256,
     )
     path = publish_manifest_path( package_dir )
@@ -206,10 +213,15 @@ def read_publish_manifest( package_dir: str ) -> dict | None:
     document["version"] = str( document["version"] )
     defaults = _normalise_default_use_libs( document.get( "default_use_libs" ) )
     link_mode = _normalise_link( document.get( "link" ) )
+    groups = _normalise_lib_groups_field( document.get( "lib_groups" ) )
     if defaults is not None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    if groups is not None:
+        document["lib_groups"] = groups
+    elif "lib_groups" in document:
+        del document["lib_groups"]
     payload_hash = document.get( PAYLOAD_SHA256_KEY )
     if payload_hash:
         document[PAYLOAD_SHA256_KEY] = str( payload_hash )
@@ -260,3 +272,15 @@ def package_link_mode( package_dir: str ) -> str | None:
     if not document:
         return None
     return document.get( "link" )
+
+
+def package_lib_groups( package_dir: str ) -> dict[str, list[str]] | None:
+    """Return ``lib_groups`` from the traveling manifest, or ``None`` if omitted."""
+    document = read_traveling_manifest( package_dir )
+    if not document:
+        return None
+    if "lib_groups" not in document:
+        return None
+    from cuppa.package_managers.package_lib_groups import normalise_lib_groups
+
+    return normalise_lib_groups( document.get( "lib_groups" ) )

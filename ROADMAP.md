@@ -23,7 +23,7 @@ polish and long carry-forwards continue where they do not block that opener.
 
 | Area | Status in 1.13.0 |
 |------|------------------|
-| GitLab package named lib groups | **In progress** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| GitLab package named lib groups | **PR** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
@@ -509,7 +509,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | **Shipped in 1.12.0** [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | **Shipped in 1.12.0** [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/archive/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 | `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | **Shipped in 1.12.0** — tip list ``bound → concrete``. [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
-| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | **1.13.0 opener.** [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | **1.13.0 opener** — PR on `feature/gitlab-package-lib-groups`. [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | `transfer-and-archive-progress` | Shared alive + progress-bar capabilities for download/upload/compress/extract; mode-tuned presentation (normal / terse / quiet); TTY vs CI | Medium | **Shipped in 1.12.0** [#360](https://github.com/ja11sop/cuppa/pull/360) with [`console-write-ownership.md`](design/archive/console-write-ownership.md). Extends [`download-progress.md`](design/archive/download-progress.md); ensure phases deferred. [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md) |
 
 ### Out of scope (storage)
