@@ -72,7 +72,8 @@ Manifest edges use the **same** token vocabulary so A can declare
 3. **Boost:** remains silent dependent expansion only (no named groups yet).
 
 Nested group members recurse with cycle detection. If a token names a group, the
-group wins even when a same-named leaf stem exists.
+group wins even when a same-named leaf stem exists. A group may still list that
+same-named stem as a member (self-reference is treated as the leaf, not a cycle).
 
 ## Progress
 

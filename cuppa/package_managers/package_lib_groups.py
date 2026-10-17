@@ -75,7 +75,16 @@ def expand_one_token(
     expanded: list[str] = []
     seen: set[str] = set()
     for member in table[text]:
-        for leaf in expand_one_token( member, table, _stack=nested ):
+        member_text = str( member )
+        # Group names shadow leaves at the token level, but a group may still
+        # list its same-named primary stem as a member (e.g. ``kms`` →
+        # ``[kms, kms_protos, …]``). Treat that self-reference as a leaf.
+        if member_text == text:
+            if member_text not in seen:
+                seen.add( member_text )
+                expanded.append( member_text )
+            continue
+        for leaf in expand_one_token( member_text, table, _stack=nested ):
             if leaf not in seen:
                 seen.add( leaf )
                 expanded.append( leaf )

@@ -68,6 +68,20 @@ def test_expand_nested_groups_and_detects_cycles():
         expand_use_lib_tokens( [ "a" ], cyclic )
 
 
+def test_expand_group_may_include_same_named_leaf():
+    """Group token shadows the leaf, but the group body may list that leaf."""
+    groups = {
+            "kms": [ "kms", "kms_protos", "grpc utils" ],
+            "grpc utils": [ "grpc_utils", "common" ],
+    }
+    assert expand_use_lib_tokens( [ "kms" ], groups ) == [
+            "kms",
+            "kms_protos",
+            "grpc_utils",
+            "common",
+    ]
+
+
 def test_show_libs_for_token_leaf_or_group():
     groups = { "kms": [ "kms_client", "kms_protos" ] }
     assert show_libs_for_token( "kms", groups ) == [ "kms_client", "kms_protos" ]

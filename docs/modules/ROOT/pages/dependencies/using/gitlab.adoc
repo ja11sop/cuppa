@@ -271,7 +271,8 @@ Large multi-lib packages may publish **named library groups** in ``cuppa-publish
 (via ``GitlabPackagePublisher(..., lib_groups={...})``). Tokens in consumer
 ``use_libs([...])`` and in traveling-manifest edge ``use_libs`` may be **leaf stems
 and/or group names**; groups expand (nested groups recurse) before linking. Group
-names take precedence when a token matches both a group and a leaf stem.
+names take precedence when a token matches both a group and a leaf stem; the group
+body may still include that same-named stem as a concrete member.
 
 [source,python]
 ----
