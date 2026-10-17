@@ -1,8 +1,8 @@
 # Plan: GitLab package named library groups
 
-- **Status:** proposal
-- **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages; [#279](https://github.com/ja11sop/cuppa/issues/279)
-- **Updated:** 2026-10-05
+- **Status:** in progress
+- **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages — **1.13.0** opener; [#279](https://github.com/ja11sop/cuppa/issues/279)
+- **Updated:** 2026-10-17
 - **Impact:** minor — package author/consumer API for large multi-lib archives; leaf `use_libs` stays valid
 
 ## Problem
@@ -75,5 +75,5 @@ Manifest edges use the **same** token vocabulary so A can declare
 |------|--------|
 | Split from transitive MVP | Done — this proposal |
 | `use_all_libs()` | Done on parent MVP |
-| Named groups + `show_*` | Proposal |
-| Implementation | Not started |
+| Named groups + `show_*` | In progress — **1.13.0** opener |
+| Implementation | Starting |

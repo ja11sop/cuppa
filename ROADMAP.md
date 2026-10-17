@@ -11,38 +11,43 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-11
+**As of:** 2026-10-17
 
 ---
 
-## 1.12.0 cycle focus (ready to cut)
+## 1.13.0 cycle focus (open)
+
+Minor cycle after **1.12.0**. Primary opener is **GitLab package named library
+groups** (author-defined groups + `show_*` discovery). Related package/cascade
+polish and long carry-forwards continue where they do not block that opener.
+
+| Area | Status in 1.13.0 |
+|------|------------------|
+| GitLab package named lib groups | **In progress** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
+| Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| `--parallel=N` CLI | **Candidate** — [`parallel-job-count.md`](design/plans/parallel-job-count.md); [#298](https://github.com/ja11sop/cuppa/issues/298) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+---
+
+## 1.12.0 cycle focus (shipped 2026-10-13)
 
 Minor cycle after **1.11.0**. Console bundle, transfer progress, cascade rename /
-consume UX, transitive packages + version ranges are on master and promoted to
-`design/archive/` (`shipped`) in this housekeeping pass. Next: Actions
-**release → prepare** (`finish_release`), then **publish**.
+consume UX, transitive packages + version ranges shipped; design plans under
+`design/archive/`.
 
 | Area | Status in 1.12.0 |
 |------|------------------|
-| Console: configure log hygiene | **Shipped** — [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
-| Console: `cuppa --info` | **Shipped** — [`cuppa-info.md`](design/archive/cuppa-info.md) ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
-| Console: channel map + mode banners | **Shipped** — [`console-mode-banners.md`](design/archive/console-mode-banners.md) ([#351](https://github.com/ja11sop/cuppa/pull/351)); living map [`console-channels.md`](design/plans/console-channels.md) |
-| Console: `--scons-output` | **Shipped** — spawn-only half of `--raw-output`; colour stays ([#352](https://github.com/ja11sop/cuppa/pull/352)) |
-| Console: `--terse-output` | **Shipped** — [`terse-build-output.md`](design/archive/terse-build-output.md), [`terse-delegated-output.md`](design/archive/terse-delegated-output.md) ([#353](https://github.com/ja11sop/cuppa/pull/353)) |
-| Console: optional `--native-output` | **Shipped** — [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) ([#354](https://github.com/ja11sop/cuppa/pull/354)) |
-| Console: terse dependency location maps | **Shipped** — [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) ([#355](https://github.com/ja11sop/cuppa/pull/355)) |
-| Console: quiet+TTY heartbeat | **Shipped** — [#356](https://github.com/ja11sop/cuppa/pull/356); [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
-| Transfer / archive progress | **Shipped** — [#360](https://github.com/ja11sop/cuppa/pull/360); [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md), [`console-write-ownership.md`](design/archive/console-write-ownership.md) |
-| Cascade enable rename | **Shipped** — [#361](https://github.com/ja11sop/cuppa/pull/361); [`cascade-enable-rename.md`](design/archive/cascade-enable-rename.md) |
-| Cascade / tip-consume UX | **Shipped** — [#366](https://github.com/ja11sop/cuppa/pull/366)–[#368](https://github.com/ja11sop/cuppa/pull/368); [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
-| Transitive GitLab packages + version ranges | **Shipped** — [`gitlab-package-transitive.md`](design/archive/gitlab-package-transitive.md) / [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md) ([#279](https://github.com/ja11sop/cuppa/issues/279)); lib-groups follow-on remains |
-| GitLab CMake staging / drive CMake | **Carry-forward** — Option C done; remaining E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
-| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
-| Artefact removal design [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
-| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
-
-Parallel coverage collection (`GCOV_PREFIX`) remains a later coverage follow-on
-([`coverage-parallel.md`](design/plans/coverage-parallel.md)); it is not a 1.12.0 gate.
+| Console bundle (log hygiene, `--info`, terse / native / locations, heartbeat) | **Shipped** — plans under [`design/archive/`](design/archive/) |
+| Transfer / archive progress + write ownership | **Shipped** — [#360](https://github.com/ja11sop/cuppa/pull/360) |
+| Cascade enable rename + consume UX | **Shipped** — [#361](https://github.com/ja11sop/cuppa/pull/361), [#366](https://github.com/ja11sop/cuppa/pull/366)–[#368](https://github.com/ja11sop/cuppa/pull/368) |
+| Transitive GitLab packages + version ranges | **Shipped** — [#279](https://github.com/ja11sop/cuppa/issues/279); lib-groups follow-on → **1.13.0** |
+| GitLab CMake staging / drive CMake | **Partial** — carry-forward to 1.13.0 (E inplace + publish-cli) |
+| Boost package identity / artefacts [#135](https://github.com/ja11sop/cuppa/issues/135) / `Import`/`/Fd` | **Deferred** (still) |
 
 ---
 
@@ -504,7 +509,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | **Shipped in 1.12.0** [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | **Shipped in 1.12.0** [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/archive/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 | `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | **Shipped in 1.12.0** — tip list ``bound → concrete``. [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
-| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | Follow-on to transitive MVP. [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | **1.13.0 opener.** [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | `transfer-and-archive-progress` | Shared alive + progress-bar capabilities for download/upload/compress/extract; mode-tuned presentation (normal / terse / quiet); TTY vs CI | Medium | **Shipped in 1.12.0** [#360](https://github.com/ja11sop/cuppa/pull/360) with [`console-write-ownership.md`](design/archive/console-write-ownership.md). Extends [`download-progress.md`](design/archive/download-progress.md); ensure phases deferred. [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md) |
 
 ### Out of scope (storage)
