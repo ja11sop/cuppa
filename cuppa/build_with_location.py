@@ -301,7 +301,8 @@ class base(object):
         include_dir = os.path.join( stage, "include" )
         lib_dir = os.path.join( stage, "lib" )
         env.AppendUnique( INCPATH = [ include_dir ] )
-        env.AppendUnique( LIBPATH = [ lib_dir ] )
+        from cuppa.toolchains.link_append import append_libpath
+        append_libpath( env, [ lib_dir ] )
 
         from cuppa.package_managers.package_link_libs import (
                 env_lib_naming,

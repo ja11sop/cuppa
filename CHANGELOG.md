@@ -17,6 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stem as a member (e.g. ``kms`` → ``[kms, kms_protos, …]``).
   ``show_libs_for`` / ``show_all_libs`` report expansions at configure time.
   Plan: ``design/plans/gitlab-package-lib-groups.md``.
+- Toolchain **opt-in link append policy**: ``cuppa.toolchains.link_append``
+  helpers (``append_static_libs`` / ``append_shared_libs`` / ``append_libpath``)
+  call through a toolchain method when present, otherwise keep today's
+  ``AppendUnique``. gcc and clang implement ``append_static_libs`` with
+  ``Append`` so static-archive order and repeats survive across packages
+  (GNU ld). Package link apply, Boost, Quince, and related call sites use the
+  helpers. Plan: ``design/plans/gitlab-package-lib-groups.md``.
 
 ### Changed
 

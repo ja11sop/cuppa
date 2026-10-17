@@ -101,8 +101,12 @@ def test_boost_package_use_libs_passes_package_version( monkeypatch ):
                 if item not in self.staticlibs:
                     self.staticlibs.append( item )
 
+    class _GccLike( object ):
+        def append_static_libs( self, env, libs ):
+            env.Append( STATICLIBS = libs )
+
     package = FakePackage()
-    package._env = FakeEnv( toolchain='gcc153' )
+    package._env = FakeEnv( toolchain=_GccLike() )
 
     boost_package_module.use_libs( package, [ 'system', 'thread' ] )
 
@@ -149,8 +153,12 @@ def test_boost_package_use_libs_appends_repeated_dependents( monkeypatch ):
         def AppendUnique( self, **kwargs ):
             raise AssertionError( 'use_libs must Append, not AppendUnique' )
 
+    class _GccLike( object ):
+        def append_static_libs( self, env, libs ):
+            env.Append( STATICLIBS = libs )
+
     package = FakePackage()
-    package._env = FakeEnv( toolchain='gcc153' )
+    package._env = FakeEnv( toolchain=_GccLike() )
 
     boost_package_module.use_libs( package, [ 'filesystem', 'thread' ] )
     boost_package_module.use_libs(

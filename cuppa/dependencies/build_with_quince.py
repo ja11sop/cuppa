@@ -48,9 +48,8 @@ class build_with_quince( location_dependency( 'quince', sys_include="include", s
     def __call__( self, env, toolchain, variant ):
         super(build_with_quince,self).__call__( env, toolchain, variant )
 
-        env.AppendUnique( STATICLIBS = [
-                env.QuinceLibrary(),
-        ] )
+        from cuppa.toolchains.link_append import append_static_libs
+        append_static_libs( env, [ env.QuinceLibrary() ] )
         env.BuildWith( 'boost' ).use_libs( [
                 'filesystem',
                 'thread',
@@ -63,8 +62,9 @@ class quince_date_lib( location_dependency( 'quince_date_lib', sys_include='incl
         super( quince_date_lib, self ).__call__( env, toolchain, variant )
         sources = env.Glob( self.local_sub_path( 'src/tz.cpp' ) )
         library = self.build_library_from_source( env, sources, "tz" )
-        env.Append( STATICLIBS = [ library ] )
-        env.AppendUnique( SHAREDLIBS = [ 'curl' ] )
+        from cuppa.toolchains.link_append import append_shared_libs, append_static_libs
+        append_static_libs( env, [ library ] )
+        append_shared_libs( env, [ 'curl' ] )
 
 
 class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="include", source_path="src", linktype="static" ) ):
@@ -84,14 +84,15 @@ class quince_postgresql( location_dependency( 'quince-postgresql', sys_include="
     def __call__( self, env, toolchain, variant ):
         super(quince_postgresql,self).__call__( env, toolchain, variant )
 
+        from cuppa.toolchains.link_append import append_libpath, append_static_libs
         env.AppendUnique( INCPATH     = self._flags['INCPATH'] )
-        env.AppendUnique( LIBPATH     = self._flags['LIBPATH'] )
+        append_libpath( env, self._flags['LIBPATH'] )
         env.AppendUnique( DYNAMICLIBS = self._flags['DYNAMICLIBS'] )
 
         quince_postgresql_lib = env.QuincePostgresqlLibrary()
         quince_lib = env.QuinceLibrary()
 
-        env.Append( STATICLIBS = [
+        append_static_libs( env, [
                 quince_postgresql_lib,
                 quince_lib,
         ] )
@@ -159,10 +160,11 @@ class quince_sqlite( location_dependency( 'quince-sqlite', sys_include="include"
             if flags:
                 env.AppendUnique( **{ name: flags } )
 
+        from cuppa.toolchains.link_append import append_static_libs
         quince_sqlite_lib = env.QuinceSqliteLibrary()
         quince_lib = env.QuinceLibrary()
 
-        env.Append( STATICLIBS  = [
+        append_static_libs( env, [
                 quince_sqlite_lib,
                 quince_lib,
         ] )

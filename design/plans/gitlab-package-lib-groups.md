@@ -255,4 +255,4 @@ Boost through the static helper.
 | Boost opaque via `lib_groups` alone | **Rejected as replacement** — gaps above; keep `boost_package` expander |
 | Manifest-directed consume handler | Open follow-on |
 | Manifest `cppdefines` / flags | Open follow-on (narrow MVP plausible; Boost hybrid) |
-| Toolchain owns link append **policy** (static / shared / libpath), opt-in via getattr | Open follow-on — defaults = today’s Unique; gcc opts into static Append |
+| Toolchain owns link append **policy** (static / shared / libpath), opt-in via getattr | Done this PR — ``link_append`` helpers; gcc/clang ``append_static_libs`` → Append; call sites routed |

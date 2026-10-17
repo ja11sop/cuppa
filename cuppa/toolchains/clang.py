@@ -535,6 +535,11 @@ class Clang(object):
         pass
 
 
+    def append_static_libs( self, env, libs ):
+        """GNU ld / compatible: order and repeats matter — ``Append``, not Unique."""
+        env.Append( STATICLIBS = libs )
+
+
     def supports_coverage( self ):
         return 'coverage_cxx_flags' in self.values
 

@@ -1380,7 +1380,8 @@ class GitlabPackageInstaller:
 
             env.ParseConfig( command )
         else:
-            env.AppendUnique( STATICLIBS = self.static_libs( env, libs ) )
+            from cuppa.toolchains.link_append import append_static_libs
+            append_static_libs( env, self.static_libs( env, libs ) )
 
 
     def static_libs( self, env, libs ):

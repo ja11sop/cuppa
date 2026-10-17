@@ -36,6 +36,13 @@ class _FakeEnv( dict ):
                     current.append( item )
             self[key] = current
 
+    def Append( self, **kwargs ):
+        for key, value in kwargs.items():
+            current = list( self.get( key ) or [] )
+            items = value if isinstance( value, ( list, tuple ) ) else [ value ]
+            current.extend( items )
+            self[key] = current
+
     def File( self, path ):
         return path
 
@@ -117,6 +124,28 @@ def test_apply_shared_sets_libpath_and_sharedlibs( tmp_path: Path ):
     assert env["SHAREDLIBS"] == ["fmt"]
     assert env["LIBPATH"] == [str( lib_dir )]
     assert env.get( "STATICLIBS", [] ) == []
+
+
+def test_apply_static_with_gcc_like_toolchain_allows_cross_package_repeats( tmp_path: Path ):
+    class _GccLike( object ):
+        def append_static_libs( self, env, libs ):
+            env.Append( STATICLIBS = libs )
+
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    ( lib_dir / "libfmt.a" ).write_text( "a", encoding="utf-8" )
+    env = _FakeEnv(
+            LIBPREFIX="lib",
+            LIBSUFFIX=".a",
+            SHLIBPREFIX="lib",
+            SHLIBSUFFIX=".so",
+            STATICLIBS=[ "earlier" ],
+            toolchain=_GccLike(),
+    )
+    # Simulate another package already listing the same archive path style.
+    env["STATICLIBS"].append( str( lib_dir / "libfmt.a" ) )
+    apply_resolved_libs( env, str( lib_dir ), ["fmt"] )
+    assert env["STATICLIBS"].count( str( lib_dir / "libfmt.a" ) ) == 2
 
 
 def test_replace_contribution_clears_prior_shared( tmp_path: Path ):
