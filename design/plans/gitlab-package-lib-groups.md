@@ -43,8 +43,9 @@ discovery helpers.
 
 ```python
 env.BuildWith( 'mega_package' ).use_libs( [
-    'kms',             # may expand to several libraries
+    'kms libs',        # convenience group → several libraries
     'cloud storage',   # named group for a feature area
+    # or cherry-pick leaf 'kms' when groups do not shadow stems
 ] )
 
 env.BuildWith( 'mega_package' ).use_all_libs()
@@ -74,6 +75,16 @@ Manifest edges use the **same** token vocabulary so A can declare
 Nested group members recurse with cycle detection. If a token names a group, the
 group wins even when a same-named leaf stem exists. A group may still list that
 same-named stem as a member (self-reference is treated as the leaf, not a cycle).
+
+### Two authoring styles
+
+| Style | Intent | Naming |
+|-------|--------|--------|
+| **Opaque / Boost-like** | Hide concrete stems; the group *is* the API. Consumer always gets the right set (and order). | Group name may match (and shadow) a primary leaf — e.g. `kms` → `[kms, kms_protos, …]`. Cherry-picking that leaf alone is intentionally unavailable. |
+| **Convenience** | Feature shortcuts beside an open leaf catalogue. | Group names **avoid** leaf stems — e.g. `kms libs`, `cloud storage` — so `use_libs(['kms'])` still links only the client. |
+
+`google_cloud_cpp` uses **convenience** groups. Prefer opaque naming only when
+the package author wants consumers never to link a partial set.
 
 ## Progress
 

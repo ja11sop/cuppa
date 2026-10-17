@@ -274,11 +274,18 @@ and/or group names**; groups expand (nested groups recurse) before linking. Grou
 names take precedence when a token matches both a group and a leaf stem; the group
 body may still include that same-named stem as a concrete member.
 
+Two authoring styles:
+
+* **Opaque / Boost-like** — the group *is* the API (may shadow a leaf name) so
+  consumers always get the full, ordered set.
+* **Convenience** — group names avoid leaf stems (e.g. ``kms libs``,
+  ``cloud storage``) so cherry-picked leaves stay available.
+
 [source,python]
 ----
 env.BuildWith('mega_package').use_libs([
-    'kms',              # group → several concrete libs
-    'cloud storage',    # named feature group
+    'kms libs',         # convenience group → several concrete libs
+    'cloud storage',    # named feature group (leaf ``storage`` still usable)
     'standalone_leaf',  # ordinary stem
 ])
 
