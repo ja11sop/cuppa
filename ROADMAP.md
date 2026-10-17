@@ -24,6 +24,7 @@ polish and long carry-forwards continue where they do not block that opener.
 | Area | Status in 1.13.0 |
 |------|------------------|
 | GitLab package named lib groups | **In progress** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| Terse in-progress compile + heartbeat | **Related** — long silent tool actions under `--terse-output`; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
@@ -609,6 +610,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-build-output.md`](design/archive/terse-build-output.md) |
+| `console-terse-action-heartbeat` | Muted in-progress caption + pulse during long terse toolchain actions (compile/link); clear before durable `[ok]` | Medium | **Proposed** — soak gap under `--terse-output` (± `-Q`). [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md); builds on [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) `operation_status` |
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
