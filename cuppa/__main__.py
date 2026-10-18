@@ -164,6 +164,19 @@ def run_scons( args_list ):
                 environ=propagated_env,
                 stdout_is_tty=outer_tty,
         )
+        # Cascade nests lose /dev/tty (start_new_session). Publish the real
+        # progress device so nested compress/upload keep TTY progress (normal
+        # rewrite; terse muted bar) instead of non-TTY newline / silence.
+        try:
+            from cuppa.utility.download import (
+                    PROGRESS_TTY_ENV,
+                    resolve_progress_tty_path,
+            )
+            progress_tty = resolve_progress_tty_path()
+            if progress_tty:
+                propagated_env[PROGRESS_TTY_ENV] = progress_tty
+        except Exception:
+            pass
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,

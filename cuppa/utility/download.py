@@ -253,13 +253,35 @@ def _muted_progress_bar( percent, width=_BAR_WIDTH, started=True ):
     return '[' + fill + ']'
 
 
-def open_progress_stream():
-    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+PROGRESS_TTY_ENV = "CUPPA_PROGRESS_TTY"
 
-    Prefer the controlling terminal so rewriting works under the ``cuppa``
-    launcher (piped scons stdio). Fall back to ``sys.stderr`` with newline mode
-    when there is no tty (CI).
+
+def _remember_progress_tty_path( stream ):
+    """Publish ``CUPPA_PROGRESS_TTY`` so nested cuppa (no CTTY) keeps TTY progress."""
+    try:
+        path = os.ttyname( stream.fileno() )
+    except Exception:
+        return
+    if path:
+        try:
+            os.environ[PROGRESS_TTY_ENV] = path
+        except Exception:
+            pass
+
+
+def resolve_progress_tty_path():
+    """Absolute tty device path for rewriting progress, or ``None``.
+
+    Cascade nests use ``start_new_session`` and lose a controlling terminal, so
+    ``/dev/tty`` fails inside the nest. Without a real tty device,
+    ``ProgressReporter`` treats the session as non-TTY: **normal** dumps
+    newline percent lines, and **terse** stays silent (no muted bar). Tip
+    resolves this path while it still has a CTTY and forwards it via
+    :data:`PROGRESS_TTY_ENV` so nests keep normal rewrite / terse muted bar.
     """
+    existing = os.environ.get( PROGRESS_TTY_ENV )
+    if existing and os.path.exists( existing ):
+        return existing
     candidates = ( 'CONOUT$', ) if sys.platform == 'win32' else ( '/dev/tty', )
     for path in candidates:
         try:
@@ -268,6 +290,53 @@ def open_progress_stream():
             continue
         try:
             if stream.isatty():
+                try:
+                    resolved = os.ttyname( stream.fileno() )
+                except Exception:
+                    resolved = path if path != '/dev/tty' else None
+                if resolved:
+                    try:
+                        os.environ[PROGRESS_TTY_ENV] = resolved
+                    except Exception:
+                        pass
+                    return resolved
+        except Exception:
+            pass
+        finally:
+            try:
+                stream.close()
+            except Exception:
+                pass
+    return None
+
+
+def open_progress_stream():
+    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+
+    Prefer the controlling terminal so rewriting works under the ``cuppa``
+    launcher (piped scons stdio). When ``/dev/tty`` is unavailable (cascade
+    nested ``start_new_session``), reopen the tip-published
+    :data:`PROGRESS_TTY_ENV` path so interactive cascade keeps TTY progress
+    (normal rewrite; terse muted bar). Fall back to ``sys.stderr`` with
+    newline / silent-terse mode when there is no tty (CI).
+    """
+    candidates = []
+    if sys.platform == 'win32':
+        candidates.append( 'CONOUT$' )
+    else:
+        candidates.append( '/dev/tty' )
+    env_tty = os.environ.get( PROGRESS_TTY_ENV )
+    if env_tty and env_tty not in candidates:
+        candidates.append( env_tty )
+
+    for path in candidates:
+        try:
+            stream = open( path, 'w' )
+        except ( OSError, IOError ):
+            continue
+        try:
+            if stream.isatty():
+                _remember_progress_tty_path( stream )
                 return stream, True, True
         except Exception:
             pass

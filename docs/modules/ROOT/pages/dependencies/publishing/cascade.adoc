@@ -588,7 +588,9 @@ the command it ran, and how long it took. Cascade deliberately does not capture 
 re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
 boundaries instead, and a closing banner says this package (or project) is
-resuming.
+resuming. Interactive tip sessions forward the progress TTY into nests so
+compress/upload keep normal ``\\r`` rewrite and terse muted progress (see
+xref:cli/output-and-environment.adoc[]).
 
 When a dependency's tip consume archive already matches the registry (local file
 size equals a successful ``HEAD`` ``Content-Length``, and the extract has

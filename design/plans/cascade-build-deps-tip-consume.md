@@ -159,7 +159,9 @@ alone.
 | Antora + unit tests | **Done** |
 | Soak: boost missing from early graph (floating `_version`) | **Fixed** — `_edges_from_consume_tip` runs `default_version` so `boost_package` / `latest` enter the early DAG (9 packages again) |
 | Soak: tip linked wrong-toolchain stage (`gcc16` into `gcc15`) | **Fixed** — `resolve_develop_package_stage(..., match_toolchain=True)`; dbg→rel same toolchain OK; different toolchain refused |
-| Live soak (e.g. google_cloud_cpp / `kms_libs`) | Pending re-soak after toolchain + floating-version fixes |
+| Live soak (`kms_libs` / data_aggregator) | **Succeeded** (9 nests, forest bind, `kms` group expand, link OK) — follow-ups below |
+| Soak: tip preferred stale `dbg` abseil over nest-amended `rel` | **Fixed** — when tip variant ≠ `rel`, prefer nest-default `rel` first |
+| Nested progress lost TTY (normal newline spam; terse mute missing) | **Fixed** — tip forwards `CUPPA_PROGRESS_TTY` so nests keep normal rewrite + terse muted bar |
 
 ### Soak corrections (2026-10-18)
 
@@ -172,6 +174,13 @@ alone.
 2. **Wrong toolchain×variant bind is a bug**, not flexibility. Nest-default
    `--rel` under tip `--dbg` for the **same** toolchain is expected. Silently
    accepting another toolchain (e.g. `gcc16/rel` into `gcc15/dbg`) is not.
+3. **Successful `kms_libs` soak** proved forest tip consume + group expand.
+   Residual: tip bound `abseil` from `_build/gcc15/dbg/…` (stale) while nest
+   amended `rel` — prefer nest-default `rel` when both exist.
+4. **Nested progress must stay TTY when the tip is interactive.** Losing
+   `/dev/tty` under nest `start_new_session` is a bug: normal mode fell into
+   CI newline percent lines; terse mode stayed silent (no muted bar). Product:
+   cascade nests keep tip TTY progress via `CUPPA_PROGRESS_TTY`.
 
 ## Implementation sketch (non-binding)
 

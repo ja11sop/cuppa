@@ -4162,6 +4162,46 @@ def test_resolve_develop_package_stage_dbg_tip_accepts_rel_same_toolchain( tmp_p
     assert found == str( rel_stage )
 
 
+def test_resolve_develop_package_stage_dbg_tip_prefers_rel_over_stale_dbg( tmp_path ):
+    """When both exist, nest-default rel wins over tip dbg (fresh amend path)."""
+    root = tmp_path / "abseil_cpp"
+    dbg_stage = (
+            root / "_build" / "gcc15" / "dbg" / "x86_64" / "cxx2c"
+            / "final" / "abseil-cpp" / "20250814.2"
+    )
+    rel_stage = (
+            root / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "abseil-cpp" / "20250814.2"
+    )
+    for stage in ( dbg_stage, rel_stage ):
+        ( stage / "include" ).mkdir( parents=True )
+        ( stage / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "abseil-cpp", "20250814.2",
+            env=env, match_toolchain=True,
+    )
+    assert found == str( rel_stage )
+
+
 def test_tip_forward_args_stage_only_adds_stage_package_not_publish():
     tip = [ "cuppa", "-D", "--rel", "--publish-package", "--develop" ]
     forwarded = cascade.tip_forward_args( tip, stage_only=True )

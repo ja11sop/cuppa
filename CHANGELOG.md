@@ -67,6 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (ABI/link mismatch). Nest-default ``rel`` for a ``dbg`` tip of the
   **same** toolchain remains expected and preferred. Plan:
   ``design/plans/cascade-build-deps-tip-consume.md``.
+- Tip ``--dbg`` forest-stage bind now **prefers nest-default ``rel``** over
+  a same-toolchain stale ``dbg`` stage when both exist (soak bound Oct-old
+  abseil ``dbg`` while nest amended ``rel``).
+- Cascade nested compress/upload progress: tip publishes
+  ``CUPPA_PROGRESS_TTY`` so nested ``start_new_session`` sessions (no
+  controlling tty) still see interactive TTY progress — normal ``\\r``
+  rewrite, and terse muted alive+bar — instead of non-TTY newline spam
+  (normal) or silence (terse).
 
 ### Security
 

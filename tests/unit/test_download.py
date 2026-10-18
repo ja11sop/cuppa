@@ -111,11 +111,55 @@ def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
             raise OSError( 'no tty' )
         return real_open( path, *args, **kwargs )
 
+    monkeypatch.delenv( dl.PROGRESS_TTY_ENV, raising=False )
     monkeypatch.setattr( builtins, 'open', fake_open )
     stream, is_tty, owns = dl.open_progress_stream()
     assert stream is __import__( 'sys' ).stderr
     assert owns is False
     assert is_tty in ( True, False )
+
+
+def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path ):
+    """Nested start_new_session loses /dev/tty; tip-published pts path wins."""
+    import builtins
+    import io
+
+    real_open = builtins.open
+    pts = tmp_path / "fake-pts"
+    pts.write_text( "", encoding="utf-8" )
+    opened = []
+
+    class _TtyStream( io.StringIO ):
+        def isatty( self ):
+            return True
+
+        def fileno( self ):
+            return 99
+
+    def fake_open( path, *args, **kwargs ):
+        opened.append( str( path ) )
+        if path in ( '/dev/tty', 'CONOUT$' ):
+            raise OSError( 'no controlling tty' )
+        if str( path ) == str( pts ):
+            return _TtyStream()
+        return real_open( path, *args, **kwargs )
+
+    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
+    monkeypatch.setattr( builtins, 'open', fake_open )
+    monkeypatch.setattr( os, 'ttyname', lambda fd: str( pts ), raising=False )
+
+    stream, is_tty, owns = dl.open_progress_stream()
+    assert is_tty is True
+    assert owns is True
+    assert str( pts ) in opened
+    stream.close()
+
+
+def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):
+    pts = tmp_path / "pts0"
+    pts.write_text( "", encoding="utf-8" )
+    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
+    assert dl.resolve_progress_tty_path() == str( pts )
 
 
 def test_reporter_tty_rewrites_same_line():

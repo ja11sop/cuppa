@@ -880,7 +880,9 @@ def resolve_develop_package_stage(
         stage of that toolchain; nest-default ``--rel``).
       * ``str`` — require that toolchain name.
     Wrong-toolchain stages must not silently win (tip ``gcc15`` must not bind
-    ``gcc16/…``).
+    ``gcc16/…``). When tip variant is not ``rel``, nest-default ``rel`` is
+    preferred over a same-toolchain tip-variant stage so stale dbg trees do
+    not beat a freshly nested rel amend.
     """
     develop_root = os.path.abspath( develop_root )
     version = str( version )
@@ -904,24 +906,28 @@ def resolve_develop_package_stage(
                 variant_name = name_fn() if callable( name_fn ) else str( variant )
             if toolchain_name and variant_name and arch and abi is not None:
                 abi_s = sanitise_abi( str( abi ) )
-                tvd = tool_variant_dir(
-                        toolchain_name, variant_name, arch, abi_s
-                )
-                preferred = os.path.join(
-                        develop_root, "_build", tvd, "final", package, version
-                )
-                candidates.append( preferred )
-                # Nest package sessions default to --rel; tip may be --dbg.
+                # Nest package sessions default to --rel. Prefer that stage over
+                # a stale tip-variant (dbg) tree when both exist — tip --dbg
+                # consuming nest --rel is expected; preferring dbg first left
+                # soak tips on Oct-old abseil dbg while nest amended rel.
+                variant_order = []
                 if variant_name != "rel":
-                    rel_tvd = tool_variant_dir(
-                            toolchain_name, "rel", arch, abi_s
+                    variant_order.append( "rel" )
+                variant_order.append( variant_name )
+                seen_variants = set()
+                for vn in variant_order:
+                    if vn in seen_variants:
+                        continue
+                    seen_variants.add( vn )
+                    tvd = tool_variant_dir(
+                            toolchain_name, vn, arch, abi_s
                     )
-                    rel_stage = os.path.join(
-                            develop_root, "_build", rel_tvd, "final",
+                    preferred = os.path.join(
+                            develop_root, "_build", tvd, "final",
                             package, version,
                     )
-                    if rel_stage not in candidates:
-                        candidates.append( rel_stage )
+                    if preferred not in candidates:
+                        candidates.append( preferred )
         except Exception:
             pass
 
@@ -4383,6 +4389,19 @@ def _nested_session_env( env ) -> dict:
     # Nested cuppa's stdout is a pipe (tip cuppa masks secrets), so CPython
     # block-buffers without this — the tip looks hung until the child exits.
     nested_env["PYTHONUNBUFFERED"] = "1"
+    # Nested sessions use start_new_session and lose /dev/tty. Publish the tip
+    # progress device so nests keep interactive TTY progress: normal \\r
+    # rewrite, and terse muted alive+bar (non-TTY terse would stay silent).
+    try:
+        from cuppa.utility.download import (
+                PROGRESS_TTY_ENV,
+                resolve_progress_tty_path,
+        )
+        tty_path = resolve_progress_tty_path()
+        if tty_path:
+            nested_env[PROGRESS_TTY_ENV] = tty_path
+    except Exception:
+        pass
     root = str( env.get( "sconstruct_dir" ) or "" )
     pythonpath_parts = []
     if root:
