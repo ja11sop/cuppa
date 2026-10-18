@@ -183,6 +183,7 @@ after soak; tip consume refresh after leaf amend (`payload_sha256` / develop).
 | Options A–E | Captured; lean revised → **C tip signal + B nest argv** |
 | Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
 | AlwaysBuild amend so nests actually retar | **Done** (this PR — soak no-op fix) |
+| Amend also seeds publisher-root `cuppa-publish.json` (cascade DAG walk) | **Done** (this PR — soak: 9→2 packages when root seed missing) |
 | Session / plan banners say amend | **Done** |
 | Unit tests (forward / build / publish argv) | **Done** |
 | Antora cascade + amend-and-external | **Done** (composition); update when C lands |

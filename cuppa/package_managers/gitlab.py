@@ -1119,6 +1119,35 @@ class GitlabPackagePublisher:
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
+        # Same publisher-tree seed as build_package: cascade walks
+        # cuppa-publish.json next to sconstruct (_edges_from_publish_file),
+        # not the staged final/<pkg>/<ver>/ copy. Without this, amend leaves
+        # the DAG walk stuck at the tip roots when the root seed is missing
+        # or stale (soak: 9 → 2 packages after root seed deleted).
+        sconstruct_dir = None
+        try:
+            sconstruct_dir = env[ 'sconstruct_dir' ]
+        except Exception:
+            getter = getattr( env, 'get', None )
+            if callable( getter ):
+                sconstruct_dir = getter( 'sconstruct_dir' )
+        if sconstruct_dir:
+            seed_version = getattr( self, '_version', None )
+            if getattr( self, '_preserves_floating_seed', False ):
+                seed_version = getattr( self, '_seed_version', seed_version )
+            seed_path = write_publish_manifest(
+                    str( sconstruct_dir ),
+                    getattr( self, '_package', None ),
+                    seed_version,
+                    dependencies=getattr( self, '_dependencies', None ),
+                    env=env,
+                    default_use_libs=getattr( self, '_default_use_libs', None ),
+                    link=getattr( self, '_link', None ),
+                    lib_groups=getattr( self, '_lib_groups', None ),
+            )
+            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+                    as_info( seed_path ),
+            ) )
 
         logger.info( "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )

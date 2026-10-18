@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (``AlwaysBuild``): empty-source amend no longer no-ops when a prior
   ``.packaged`` stamp exists (cascade soak: nests finished ``up to date``
   without retarring).
+- Amend also **seeds** ``cuppa-publish.json`` next to the publisher
+  ``sconstruct`` (same as a full ``build_package``). Cascade walks that root
+  seed for DAG children; stage-only amend left the walk stuck at tip roots
+  when the seed was missing or stale.
 
 ### Changed
 

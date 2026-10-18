@@ -368,7 +368,9 @@ def test_amend_package_writes_manifest_on_existing_stage( tmp_path, monkeypatch 
     )
 
     touched = []
-    env = _publisher_env( tmp_path, touched )
+    publisher_root = tmp_path / "publisher_tree"
+    publisher_root.mkdir()
+    env = _publisher_env( tmp_path, touched, sconstruct_dir=publisher_root )
     assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
     assert create_calls == [ ( str( archive ), str( tmp_path ), "widget" ) ]
     assert touched
@@ -379,6 +381,10 @@ def test_amend_package_writes_manifest_on_existing_stage( tmp_path, monkeypatch 
     assert document["dependencies"][0]["name"] == "fmt"
     assert ( include_dir / "widget.hpp" ).read_text( encoding="utf-8" ) == "header\n"
     assert not legacy.exists()
+    # Cascade discovers children from the publisher-tree seed, not only the stage.
+    seed = read_publish_manifest( str( publisher_root ) )
+    assert seed["dependencies"][0]["name"] == "fmt"
+    assert seed["default_use_libs"] == []
 
 
 def test_amend_package_extracts_local_archive_when_stage_missing( tmp_path, monkeypatch ):
