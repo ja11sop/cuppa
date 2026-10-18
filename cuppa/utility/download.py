@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import zipfile
 
@@ -450,6 +451,7 @@ class ProgressReporter( object ):
             compact=None,
             muted=None,
             alive_style=None,
+            alive_timer_factory=None,
     ):
         if stream is None:
             stream, detected_tty, owns_stream = open_progress_stream()
@@ -480,6 +482,15 @@ class ProgressReporter( object ):
         self._muted_override = muted
         self._ever_painted = False
         self._visible_since = None
+        self._last_paint_at = None
+        self._last_bytes = 0
+        self._paint_lock = threading.Lock()
+        self._alive_timer = None
+        # Default ``threading.Timer``; tests may pass a no-op factory.
+        self._alive_timer_factory = (
+                alive_timer_factory if alive_timer_factory is not None
+                else threading.Timer
+        )
         self._resolve_presentation()
 
     def _resolve_presentation( self ):
@@ -549,6 +560,7 @@ class ProgressReporter( object ):
             hb.clear()
         except Exception:
             pass
+        self._cancel_alive_timer()
         register_active_progress( self )
         self._resolve_presentation()
         self._label = label or 'transfer'
@@ -563,6 +575,8 @@ class ProgressReporter( object ):
         self._spin = 0
         self._ever_painted = False
         self._visible_since = None
+        self._last_paint_at = None
+        self._last_bytes = 0
         self._bar_started = True
         if not self._use_reveal_gate:
             # Immediate arm: empty tip then started tip (classic download look).
@@ -576,6 +590,7 @@ class ProgressReporter( object ):
             return
         if not self._is_tty and not self._emit_non_tty:
             return
+        self._last_bytes = bytes_so_far
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         if self._use_reveal_gate:
@@ -585,6 +600,8 @@ class ProgressReporter( object ):
         if not force and self._last_emit is not None:
             if self._is_tty:
                 if ( now - self._last_emit ) < self._tty_interval_s:
+                    # Still remember bytes; alive timer keeps the ECG moving.
+                    self._arm_alive_timer()
                     return
             else:
                 percent_due = False
@@ -601,15 +618,72 @@ class ProgressReporter( object ):
                     ):
                         self._next_line_percent += self._line_percent_step
 
-        if self._show_alive:
-            self._spin += 1
-        line = self._compose_line( bytes_so_far, elapsed, started=self._bar_started )
-        self._emit( line, newline=not self._is_tty )
-        self._last_emit = now
-        self._last_line = line
-        if not self._ever_painted:
-            self._ever_painted = True
-            self._visible_since = now
+        self._paint( bytes_so_far, advance_alive=False )
+        self._arm_alive_timer()
+
+    def _paint( self, bytes_so_far, advance_alive=False ):
+        """Rewrite the status row (progress metrics and/or next alive frame)."""
+        if self._finished:
+            return
+        with self._paint_lock:
+            if self._finished:
+                return
+            now = self._clock()
+            elapsed = max( 0.0, now - ( self._started or now ) )
+            if advance_alive and self._show_alive:
+                self._spin += 1
+            line = self._compose_line(
+                    bytes_so_far, elapsed, started=self._bar_started,
+            )
+            self._emit( line, newline=not self._is_tty )
+            self._last_emit = now
+            self._last_paint_at = now
+            self._last_line = line
+            if not self._ever_painted:
+                self._ever_painted = True
+                self._visible_since = now
+
+    def _alive_interval_s( self ):
+        from cuppa.utility.heartbeat import next_alive_interval_s
+        return next_alive_interval_s( self._spin, style=self._alive_style )
+
+    def _cancel_alive_timer( self ):
+        timer = self._alive_timer
+        self._alive_timer = None
+        if timer is None:
+            return
+        try:
+            timer.cancel()
+        except Exception:
+            pass
+
+    def _arm_alive_timer( self ):
+        """Keep the alive widget on its animation cadence between byte updates."""
+        if not self._show_alive or self._finished or not self._ever_painted:
+            return
+        self._cancel_alive_timer()
+        try:
+            timer = self._alive_timer_factory(
+                    self._alive_interval_s(), self._on_alive_tick,
+            )
+        except Exception:
+            return
+        self._alive_timer = timer
+        try:
+            timer.daemon = True
+        except Exception:
+            pass
+        try:
+            timer.start()
+        except Exception:
+            self._alive_timer = None
+
+    def _on_alive_tick( self ):
+        self._alive_timer = None
+        if self._finished or not self._show_alive:
+            return
+        self._paint( self._last_bytes, advance_alive=True )
+        self._arm_alive_timer()
 
     def _emit( self, line, newline ):
         if self._is_tty:
@@ -638,6 +712,7 @@ class ProgressReporter( object ):
 
     def interrupt_clear( self ):
         """Wipe the rewriting row so a transcript line can own the TTY."""
+        self._cancel_alive_timer()
         self._clear_line()
 
     def done( self, bytes_so_far=None ):
@@ -645,31 +720,34 @@ class ProgressReporter( object ):
         if self._finished:
             return
         self._finished = True
+        self._cancel_alive_timer()
         if _active_progress is self:
             _active_progress = None
         if bytes_so_far is None:
-            bytes_so_far = 0
+            bytes_so_far = self._last_bytes
+        self._last_bytes = bytes_so_far
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         if self._ever_painted:
-            if self._show_alive and self._visible_since is not None:
-                from cuppa.utility.heartbeat import cycle_duration_s
-                remaining = max(
-                        0.0,
-                        cycle_duration_s() - ( now - self._visible_since ),
-                )
-                if remaining > 0:
-                    self._sleep( remaining )
-                    now = self._clock()
-                    elapsed = max( 0.0, now - ( self._started or now ) )
+            # Final metrics frame, then dwell one animation cycle before
+            # overwrite so terse alive / quiet bars do not vanish unreadably.
+            if self._show_alive:
+                self._spin += 1
+            line = self._compose_line( bytes_so_far, elapsed, started=True )
+            self._emit( line, newline=not self._overwrite_on_done )
+            self._last_line = line
+            self._last_paint_at = self._clock()
             if self._overwrite_on_done:
-                self._clear_line()
-            else:
+                from cuppa.utility.heartbeat import (
+                        cycle_duration_s,
+                        ensure_min_dwell,
+                )
                 if self._show_alive:
-                    self._spin += 1
-                line = self._compose_line( bytes_so_far, elapsed, started=True )
-                self._emit( line, newline=True )
-                self._last_line = line
+                    # Always one full cycle after the final alive frame.
+                    self._sleep( cycle_duration_s() )
+                else:
+                    ensure_min_dwell( self._last_paint_at )
+                self._clear_line()
         try:
             from cuppa.utility import heartbeat as hb
             hb.clear()

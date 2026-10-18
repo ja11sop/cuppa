@@ -76,6 +76,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loses the controlling terminal). Nests keep interactive TTY progress —
   normal ``\\r`` rewrite and terse muted alive+bar — instead of non-TTY
   newline spam (normal) or silence (terse).
+- Terse transfer alive widget advances on its **animation cadence** (pulse /
+  spinner timer), not only when byte-progress throttles fire — long compress
+  gaps no longer freeze the ECG. Overwrite completion **dwells one full
+  animation cycle** after the final frame before clearing (plan:
+  ``transfer-and-archive-progress``).
 
 ### Security
 

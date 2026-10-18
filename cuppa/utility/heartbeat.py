@@ -264,6 +264,23 @@ def _next_pulse_interval():
     return _PULSE_INTERVAL_S
 
 
+def next_alive_interval_s( spin, style=None ):
+    """Seconds until the next alive frame for ``spin`` (transfer progress timer).
+
+    Matches the quiet-heartbeat pulse cadence so terse compress/upload alive
+    does not advance only when byte progress throttles fire.
+    """
+    use = style if style is not None else _style
+    if use == _STYLE_OFF:
+        return _PULSE_INTERVAL_S
+    if use == _STYLE_SPINNER:
+        return _PULSE_INTERVAL_S
+    # Pulse: rest frames hold longer (same rule as ``_next_pulse_interval``).
+    if _pulse_frame( int( spin ) ) == _PULSE_REST:
+        return _PULSE_REST_INTERVAL_S
+    return _PULSE_INTERVAL_S
+
+
 def _cycle_duration_s():
     """Wall time for one full pulse or spinner cycle."""
     if _style == _STYLE_SPINNER:

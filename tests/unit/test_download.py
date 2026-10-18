@@ -616,6 +616,19 @@ def test_reporter_normal_tty_has_no_alive_widget():
     hb.reset()
 
 
+class _NoAliveTimer( object ):
+    """Disable background alive ticks in FakeClock unit tests."""
+
+    def __init__( self, *args, **kwargs ):
+        pass
+
+    def start( self ):
+        pass
+
+    def cancel( self ):
+        pass
+
+
 def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
@@ -623,8 +636,10 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     hb.reset()
     stream = io.StringIO()
     clock = FakeClock()
+    slept = []
 
     def sleep( seconds ):
+        slept.append( seconds )
         clock.advance( seconds )
 
     reporter = dl.ProgressReporter(
@@ -635,6 +650,7 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
             tty_interval_s=0.1,
             compact=True,
             alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
     # Below idle gate — no paint yet.
@@ -652,6 +668,57 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     reporter.done( 200 )
     # Overwrite clears the ephemeral status (no durable 100% newline).
     assert not strip_ansi( stream.getvalue() ).rstrip().endswith( '100%' )
+    # Terse alive dwells one full animation cycle before clear.
+    assert slept and slept[0] == hb.cycle_duration_s()
+    hb.reset()
+
+
+def test_reporter_alive_ticks_between_byte_updates():
+    """Alive advances on its animation timer, not only on progress throttle."""
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    pending = []
+
+    class _CaptureTimer( object ):
+        def __init__( self, interval, func ):
+            self.interval = interval
+            self.func = func
+            pending.append( self )
+
+        def start( self ):
+            pass
+
+        def cancel( self ):
+            if self in pending:
+                pending.remove( self )
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=10.0,  # byte metrics rarely refresh
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_CaptureTimer,
+    )
+    reporter.begin( 'big.tar.gz', total_size=1000, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 100 )
+    assert pending, 'alive timer should arm after first paint'
+    spin_before = reporter._spin
+    frame_before = strip_ansi( stream.getvalue() )
+    # Simulate animation ticks with no new byte progress.
+    pending[-1].func()
+    pending[-1].func()
+    assert reporter._spin == spin_before + 2
+    frame_after = strip_ansi( stream.getvalue() )
+    assert 'Compressing big.tar.gz' in frame_after
+    assert frame_after != frame_before or reporter._spin > spin_before
+    reporter.done( 100 )
     hb.reset()
 
 
@@ -664,6 +731,7 @@ def test_reporter_terse_non_tty_stays_silent():
             clock=clock,
             line_interval_s=0,
             compact=True,
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'pkg.tar.gz', total_size=100 )
     clock.advance( 1.0 )
@@ -682,6 +750,7 @@ def test_reporter_fast_terse_never_reveals():
             clock=clock,
             compact=True,
             alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'tiny.bin', total_size=10 )
     clock.advance( 0.05 )  # still under idle gate
