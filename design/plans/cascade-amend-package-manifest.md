@@ -1,6 +1,7 @@
 # Plan: Cascade — metadata-only amend across the nest DAG
 
-- **Status:** done (soak 2026-10-19)
+- **Status:** done
+- **Status note:** soak 2026-10-19 (`data_aggregator` + `--amend-cascade-manifests`)
 - **Related:** [`../archive/package-metadata-amend.md`](../archive/package-metadata-amend.md) (tip amend shipped); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-tip-local-options.md`](cascade-tip-local-options.md) (tip-local AddOption drops — this PR); `tip_forward_args` / `_NESTED_DROP_*` / `run_nested_build` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-19
 - **Impact:** minor — new cascade companion behaviour; tip-only amend unchanged

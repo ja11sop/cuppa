@@ -1,10 +1,10 @@
 # Plan: GitLab package named library groups
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages — **1.13.0** opener; [#279](https://github.com/ja11sop/cuppa/issues/279)
-- **Updated:** 2026-10-17
+- **Updated:** 2026-10-19
 - **Impact:** minor — package author/consumer API for large multi-lib archives; leaf `use_libs` stays valid
-- **Status note:** behaviour on master pending merge; promote to `done` on the feature PR. Boost / manifest-handler / flags follow-ons recorded below (not blocking this slice).
+- **Status note:** done on [#373](https://github.com/ja11sop/cuppa/pull/373); Boost / manifest-handler / flags follow-ons below (not blocking). Archive after merge to master.
 
 ## Problem
 

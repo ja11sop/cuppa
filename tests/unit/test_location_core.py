@@ -4,6 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 import io
+import logging
 import os
 import tarfile
 import zipfile
@@ -357,7 +358,7 @@ def test_select_repository_directory_both_notices_on_list_dependencies(tmp_path,
     location, stem = _select_location(tmp_path, list_dependencies=True)
     os.mkdir(stem)
     os.mkdir(stem + "@master")
-    with caplog.at_level("DEBUG"):
+    with caplog.at_level( logging.DEBUG, logger="cuppa" ):
         chosen = location._select_repository_directory(stem)
     assert chosen == stem + "@master"
     assert "removal candidate" in caplog.text
@@ -368,7 +369,7 @@ def test_select_repository_directory_both_notices_on_list_dependencies(tmp_path,
     )
     # Second call does not notice again.
     caplog.clear()
-    with caplog.at_level("DEBUG"):
+    with caplog.at_level( logging.DEBUG, logger="cuppa" ):
         assert location._select_repository_directory(stem) == stem + "@master"
     assert "removal candidate" not in caplog.text
 
@@ -468,7 +469,7 @@ def test_select_repository_directory_url_already_qualified_is_not_double_suffixe
     qualified = stem + "@master"
     os.mkdir(stem)
     os.mkdir(qualified)
-    with caplog.at_level("DEBUG"):
+    with caplog.at_level( logging.DEBUG, logger="cuppa" ):
         chosen = location._select_repository_directory(qualified)
     assert chosen == qualified
     assert "removal candidate" in caplog.text

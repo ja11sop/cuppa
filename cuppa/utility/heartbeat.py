@@ -852,6 +852,13 @@ def reset():
             _stream.close()
         except Exception:
             pass
+    # ``configure_quiet_console`` may have pinned cuppa/root to INFO/WARN; put
+    # level back so later tests can raise DEBUG via caplog on the cuppa logger.
+    try:
+        from cuppa.log import set_logging_level
+        set_logging_level( 'info' )
+    except Exception:
+        pass
     _quiet_console = False
     _suppress_below = logging.WARN
     _heartbeat_active = False

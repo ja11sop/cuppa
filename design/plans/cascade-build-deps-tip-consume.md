@@ -1,6 +1,7 @@
 # Plan: Build-cascade tip consume from publisher-root stages
 
-- **Status:** done (soak 2026-10-18 / reconfirmed 2026-10-19 with `--amend-cascade-manifests`)
+- **Status:** done
+- **Status note:** soak 2026-10-18; reconfirmed 2026-10-19 with `--amend-cascade-manifests`
 - **Related:** [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md) (Q3 nest-only; tip refresh gap); [`../archive/package-develop-local.md`](../archive/package-develop-local.md) (tip → stage via `consume_develop_package_stage`); [`../archive/stage-develop-locations.md`](../archive/stage-develop-locations.md) (**working example**: nest before tip `BuildWith`); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (amend composition; tip-extract overlay is the wrong lean for this); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-19
 - **Impact:** minor — behaviour under existing `--build-cascade-dependencies`; no new required flag

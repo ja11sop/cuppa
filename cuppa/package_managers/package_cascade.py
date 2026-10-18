@@ -843,8 +843,16 @@ def _toolchain_name_from_env( env ) -> str | None:
         toolchain = env.get( "toolchain" )
         if toolchain is None:
             return None
-        name_fn = getattr( toolchain, "name", None )
-        return name_fn() if callable( name_fn ) else str( toolchain )
+        for attr in ( "name", "package_name" ):
+            getter = getattr( toolchain, attr, None )
+            if callable( getter ):
+                try:
+                    value = getter()
+                except Exception:
+                    continue
+                if value:
+                    return str( value )
+        return None
     except Exception:
         return None
 
