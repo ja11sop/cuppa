@@ -107,9 +107,13 @@ implies DAG behaviour.
 | No overload; tip amend stays single-tree | Extra flag; operators already tried composing existing flags |
 | Clear Antora story | Two knobs that must stay consistent with publishers |
 
-Lean: optional if B’s composition is ambiguous in docs; prefer **composition
-first** (`--cascade` + companion + `--amend-package-manifest`) if we can make
-nest behaviour obvious in the plan banner.
+**Revised lean (soak 2026-10-18):** operator preference after composing B and
+seeing nests banner as “amend” but finish as `build up to date` with no retar
+— a dedicated companion makes “I want DAG metadata rewrite” unmistakable and
+avoids overloading tip-only amend. Keep B’s nest argv mechanics (stage+amend /
+publish+amend); promote **C as the tip signal** (`--amend-cascade-manifests` or
+similar) so tip-only `--amend-package-manifest` stays single-tree and cascade
+DAG amend is explicit.
 
 ### D. Per-node fallback: amend if archive/stage exists, else full build
 
@@ -134,25 +138,25 @@ kwargs, retars, optionally uploads — no child `sconstruct`.
 
 Lean: **refuse** for v1.
 
-## Settled lean (provisional)
+## Settled lean (revised after soak)
 
-1. **Compose**, do not invent a third cascade verb if we can help it:
-   `--cascade` + (`--build-cascade-dependencies` \| publish companion) +
-   `--amend-package-manifest`.
-2. Implement via an **amend-aware nest argv** (option **B**), with **A** as the
-   drop-table prerequisite (stop unconditionally dropping amend when this mode
-   is active).
-3. **Refuse** silent per-node rebuild fallback (**D**) and tip-orchestrated
+1. **Tip signal = option C** — dedicated `--amend-cascade-manifests` (name TBD)
+   paired with `--cascade` + nest companion. Tip-only
+   `--amend-package-manifest` stays single-publisher.
+2. **Nest mechanics = option B** — that companion drives nest argv:
+   build-deps → `--stage-package` + `--amend-package-manifest`; publish
+   companions → `--publish-package` + amend. (Composition of the *existing*
+   amend flag into nests remains the implementation; C is the tip enable.)
+3. **AlwaysBuild on amend** — amend `Command` has empty sources; without
+   `AlwaysBuild`, an existing `.packaged` stamp makes nests no-op (`build up
+   to date` in ~2s). Fixed on this PR for tip-only and nested amend alike.
+4. **Refuse** silent per-node rebuild fallback (**D**) and tip-orchestrated
    rewrite (**E**) for v1.
-4. Nest **always nests** under amend+build-deps (like build-deps today) — no
-   “pin current → skip” — because metadata rewrite is the point even when the
-   registry pin exists.
-5. Plan / nest banners should say **amend** (not “build”) so operators are not
-   surprised.
+5. Nest **always nests** under cascade-amend — no “pin current → skip”.
+6. Plan / nest banners say **amend**.
 
-Open: whether build-deps+amend uses `--stage-package` or a thinner “retar
-only” path; whether tip consume after leaf amend still relies on existing
-`payload_sha256` no-op behaviour.
+Open: land C as a follow-on commit on this PR vs keep composition-only until
+after soak; tip consume refresh after leaf amend (`payload_sha256` / develop).
 
 ## Non-goals
 
@@ -176,9 +180,11 @@ only” path; whether tip consume after leaf amend still relies on existing
 | Item | Status |
 |------|--------|
 | Soak surprise captured | Done — this proposal |
-| Options A–E | Captured; provisional lean B (+ A) **chosen** |
-| Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (this PR) |
+| Options A–E | Captured; lean revised → **C tip signal + B nest argv** |
+| Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
+| AlwaysBuild amend so nests actually retar | **Done** (this PR — soak no-op fix) |
 | Session / plan banners say amend | **Done** |
 | Unit tests (forward / build / publish argv) | **Done** |
-| Antora cascade + amend-and-external | **Done** |
+| Antora cascade + amend-and-external | **Done** (composition); update when C lands |
+| Dedicated `--amend-cascade-manifests` (C) | Not started — soak lean |
 | Live soak (google_cloud_cpp DAG / lib_groups) | In play |

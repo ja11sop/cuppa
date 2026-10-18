@@ -83,6 +83,12 @@ class PublishPackageMethod(object):
                 )
             # Do not depend on library / CMake install sources — metadata only.
             built_package = env.Command( package, [], amend_fn )
+            # Empty sources would leave an existing .packaged stamp "up to date"
+            # and skip amend entirely (cascade soak: nests finish in ~2s with
+            # no retar). Always rebuild when amend is requested.
+            always = getattr( env, 'AlwaysBuild', None )
+            if callable( always ):
+                always( built_package )
         else:
             built_package = env.Command(
                     package,

@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--stage-package`` + amend (retar, no upload); publish companions keep
   ``--publish-package`` + amend. Location ``--stage-develop`` project nests
   still drop amend. Plan: ``design/plans/cascade-amend-package-manifest.md``.
+- ``--amend-package-manifest`` always rebuilds the package stamp
+  (``AlwaysBuild``): empty-source amend no longer no-ops when a prior
+  ``.packaged`` stamp exists (cascade soak: nests finished ``up to date``
+  without retarring).
 
 ### Changed
 
