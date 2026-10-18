@@ -1,10 +1,10 @@
 # Plan: Terse in-progress build action + heartbeat
 
 - **Status:** proposal
-- **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
+- **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
 - **Updated:** 2026-10-18
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
-- **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md)
+- **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
 ## Problem
 
@@ -181,6 +181,37 @@ not summarise the **command** the way compile summarises the tool.
 Non-goal: making docker / postgres helpers Cuppa builtins — only the console
 shape when tips use `env.Run`.
 
+### 3. Package compress / tar — no visible heartbeat (regression vs #360?)
+
+Soak (2026-10-18), including cascade **amend** nests that retar large staged
+trees: **no** transfer/alive progress is visible while `create_package_archive`
+runs (`tarfile` / zip walk). The console sits on the previous durable line for
+the whole compress — same “is it hung?” feel the transfer plan was meant to
+kill.
+
+That work was explicitly scoped and marked **done** in
+[`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md)
+([#360](https://github.com/ja11sop/cuppa/pull/360)): enrol
+`create_package_archive` on the shared `ProgressReporter` + heartbeat engine
+(muted bar under `--terse-output` ± `-Q`, overwrite on completion, then durable
+terse `compress` identity via `write_terse_transfer_action`). Unit coverage
+exists (`test_create_package_archive_reports_progress` with an injected
+reporter).
+
+**Investigate (do not re-litigate the product shape):**
+
+| Suspect | Why |
+|---------|-----|
+| `transfer_progress_allowed()` false in nest / `-Q` | Quiet gate needs `_heartbeat_active` + alive style; nested `python -m cuppa` may not enrol the same way as tip |
+| `ProgressReporter` begins but never paints | Throttle / non-TTY / ownership clear swallowing `\r` frames; nest `CUPPA_STDOUT_IS_TTY` inheritance |
+| Only durable `compress` line after done | Alive+bar missing mid-flight; completion identity alone is not enough for multi-minute tar |
+| Amend vs `build_package` path | Both call `create_package_archive` without forcing `show_progress=True` (rely on `_maybe_reporter`) — confirm both hit the reporter under soak flags |
+| Heartbeat vs transfer confusion | Operator expects green ECG / `[executing...]`; shipped shape is muted **Compressing** transfer status — if that is absent entirely, it is a **regression / gap**, not “wrong caption” |
+
+Cross-link: any fix may live in transfer/heartbeat enrolment rather than the
+compile `[executing...]` hook — but the soak symptom is the same class of
+“long action, no liveness,” so track it here until triage says otherwise.
+
 ## Progress
 
 | Item | Status |
@@ -188,6 +219,7 @@ shape when tips use `env.Run`.
 | Soak gap captured | Done — this proposal |
 | Parallel outstanding-set + cycle | Settled direction (above) |
 | Process `Monitor` clear + terse shape | Soak noted (above) |
+| Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
 | Hook design / cycle cadence | Starting |
 | Implementation | Not started |
 | Antora note (terse + long actions) | With implementation |
