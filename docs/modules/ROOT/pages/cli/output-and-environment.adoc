@@ -54,8 +54,8 @@ one engine:
   durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
 * **Non-TTY / CI** — periodic whole lines in **normal** mode only (not under `--terse-output`).
 * **Cascade nests** — when the tip is interactive, nested sessions keep the same TTY progress
-  (normal rewrite; terse muted bar) via a tip-published progress device. Losing that TTY would
-  wrongly fall into non-TTY behaviour (normal newline spam; terse silence).
+  (normal rewrite; terse muted bar) via an inherited progress tty fd (`CUPPA_PROGRESS_FD`).
+  Losing that TTY would wrongly fall into non-TTY behaviour (normal newline spam; terse silence).
 
 `--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables the heartbeat
 diversion. `--minimal-output` filters Cuppa's processed build messages and needs that processor,

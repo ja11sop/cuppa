@@ -2650,11 +2650,18 @@ def _run_nested_cuppa( argv, cwd, env ) -> int:
             terminate_process_tree,
     )
 
+    popen_kwargs = dict( child_popen_kwargs() )
+    try:
+        from cuppa.utility.download import progress_tty_popen_kwargs
+        tty_kwargs, env = progress_tty_popen_kwargs( env )
+        popen_kwargs.update( tty_kwargs )
+    except Exception:
+        pass
     process = subprocess.Popen(
             argv,
             cwd=cwd,
             env=env,
-            **child_popen_kwargs(),
+            **popen_kwargs,
     )
     remember_child( process )
     returncode = None
@@ -4389,17 +4396,12 @@ def _nested_session_env( env ) -> dict:
     # Nested cuppa's stdout is a pipe (tip cuppa masks secrets), so CPython
     # block-buffers without this — the tip looks hung until the child exits.
     nested_env["PYTHONUNBUFFERED"] = "1"
-    # Nested sessions use start_new_session and lose /dev/tty. Publish the tip
-    # progress device so nests keep interactive TTY progress: normal \\r
-    # rewrite, and terse muted alive+bar (non-TTY terse would stay silent).
+    # Nested sessions use start_new_session and lose /dev/tty. Stamp path +
+    # fd in the env; ``_run_nested_cuppa`` also ``pass_fds`` the open tip
+    # progress descriptor (path reopen alone is unreliable without a CTTY).
     try:
-        from cuppa.utility.download import (
-                PROGRESS_TTY_ENV,
-                resolve_progress_tty_path,
-        )
-        tty_path = resolve_progress_tty_path()
-        if tty_path:
-            nested_env[PROGRESS_TTY_ENV] = tty_path
+        from cuppa.utility.download import progress_tty_popen_kwargs
+        _kwargs, nested_env = progress_tty_popen_kwargs( nested_env )
     except Exception:
         pass
     root = str( env.get( "sconstruct_dir" ) or "" )

@@ -70,11 +70,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tip ``--dbg`` forest-stage bind now **prefers nest-default ``rel``** over
   a same-toolchain stale ``dbg`` stage when both exist (soak bound Oct-old
   abseil ``dbg`` while nest amended ``rel``).
-- Cascade nested compress/upload progress: tip publishes
-  ``CUPPA_PROGRESS_TTY`` so nested ``start_new_session`` sessions (no
-  controlling tty) still see interactive TTY progress — normal ``\\r``
-  rewrite, and terse muted alive+bar — instead of non-TTY newline spam
-  (normal) or silence (terse).
+- Cascade nested compress/upload progress: tip keeps an open progress tty
+  and forwards it with ``CUPPA_PROGRESS_FD`` + ``pass_fds`` (path-only
+  ``CUPPA_PROGRESS_TTY`` reopen fails after nest ``start_new_session``
+  loses the controlling terminal). Nests keep interactive TTY progress —
+  normal ``\\r`` rewrite and terse muted alive+bar — instead of non-TTY
+  newline spam (normal) or silence (terse).
 
 ### Security
 

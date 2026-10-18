@@ -164,17 +164,19 @@ def run_scons( args_list ):
                 environ=propagated_env,
                 stdout_is_tty=outer_tty,
         )
-        # Cascade nests lose /dev/tty (start_new_session). Publish the real
-        # progress device so nested compress/upload keep TTY progress (normal
-        # rewrite; terse muted bar) instead of non-TTY newline / silence.
+        # Keep an open progress tty fd into the SCons child (and onward into
+        # cascade nests via pass_fds). Path-only CUPPA_PROGRESS_TTY is not
+        # enough after start_new_session loses the controlling terminal.
         try:
-            from cuppa.utility.download import (
-                    PROGRESS_TTY_ENV,
-                    resolve_progress_tty_path,
+            from cuppa.utility.download import progress_tty_popen_kwargs
+            tty_kwargs, propagated_env = progress_tty_popen_kwargs(
+                    propagated_env
             )
-            progress_tty = resolve_progress_tty_path()
-            if progress_tty:
-                propagated_env[PROGRESS_TTY_ENV] = progress_tty
+            if tty_kwargs:
+                kwargs.update( tty_kwargs )
+                # pass_fds forces close_fds=True; drop the explicit flag so
+                # Popen does not see conflicting kwargs on older Pythons.
+                kwargs.pop( 'close_fds', None )
         except Exception:
             pass
 

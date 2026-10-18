@@ -101,6 +101,13 @@ def test_format_progress_line_unknown_size():
     assert 'ETA' not in line
 
 
+def _reset_progress_tty_state( monkeypatch ):
+    monkeypatch.delenv( dl.PROGRESS_TTY_ENV, raising=False )
+    monkeypatch.delenv( dl.PROGRESS_FD_ENV, raising=False )
+    dl._progress_tty_stream = None
+    dl._progress_tty_fd = None
+
+
 def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
     import builtins
 
@@ -111,7 +118,7 @@ def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
             raise OSError( 'no tty' )
         return real_open( path, *args, **kwargs )
 
-    monkeypatch.delenv( dl.PROGRESS_TTY_ENV, raising=False )
+    _reset_progress_tty_state( monkeypatch )
     monkeypatch.setattr( builtins, 'open', fake_open )
     stream, is_tty, owns = dl.open_progress_stream()
     assert stream is __import__( 'sys' ).stderr
@@ -120,7 +127,7 @@ def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
 
 
 def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path ):
-    """Nested start_new_session loses /dev/tty; tip-published pts path wins."""
+    """Path fallback when /dev/tty is gone but CUPPA_PROGRESS_TTY is set."""
     import builtins
     import io
 
@@ -144,20 +151,68 @@ def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path
             return _TtyStream()
         return real_open( path, *args, **kwargs )
 
+    _reset_progress_tty_state( monkeypatch )
     monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
     monkeypatch.setattr( builtins, 'open', fake_open )
     monkeypatch.setattr( os, 'ttyname', lambda fd: str( pts ), raising=False )
+    monkeypatch.setattr( os, 'isatty', lambda fd: fd == 99 )
 
     stream, is_tty, owns = dl.open_progress_stream()
     assert is_tty is True
-    assert owns is True
+    assert owns is False
     assert str( pts ) in opened
-    stream.close()
+
+
+def test_open_progress_stream_uses_inherited_progress_fd( monkeypatch ):
+    """pass_fds + CUPPA_PROGRESS_FD is the nest-safe path (no CTTY reopen)."""
+    import pty
+
+    _reset_progress_tty_state( monkeypatch )
+    master, slave = pty.openpty()
+    try:
+        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
+        stream, is_tty, owns = dl.open_progress_stream()
+        assert is_tty is True
+        assert owns is False
+        assert stream.fileno() == slave
+    finally:
+        try:
+            os.close( master )
+        except Exception:
+            pass
+        try:
+            os.close( slave )
+        except Exception:
+            pass
+        _reset_progress_tty_state( monkeypatch )
+
+
+def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
+    import pty
+
+    _reset_progress_tty_state( monkeypatch )
+    master, slave = pty.openpty()
+    try:
+        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
+        kwargs, env = dl.progress_tty_popen_kwargs( {} )
+        assert kwargs.get( "pass_fds" ) == ( slave, )
+        assert env[dl.PROGRESS_FD_ENV] == str( slave )
+    finally:
+        try:
+            os.close( master )
+        except Exception:
+            pass
+        try:
+            os.close( slave )
+        except Exception:
+            pass
+        _reset_progress_tty_state( monkeypatch )
 
 
 def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):
     pts = tmp_path / "pts0"
     pts.write_text( "", encoding="utf-8" )
+    _reset_progress_tty_state( monkeypatch )
     monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
     assert dl.resolve_progress_tty_path() == str( pts )
 

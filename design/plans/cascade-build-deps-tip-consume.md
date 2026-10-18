@@ -161,7 +161,7 @@ alone.
 | Soak: tip linked wrong-toolchain stage (`gcc16` into `gcc15`) | **Fixed** — `resolve_develop_package_stage(..., match_toolchain=True)`; dbg→rel same toolchain OK; different toolchain refused |
 | Live soak (`kms_libs` / data_aggregator) | **Succeeded** (9 nests, forest bind, `kms` group expand, link OK) — follow-ups below |
 | Soak: tip preferred stale `dbg` abseil over nest-amended `rel` | **Fixed** — when tip variant ≠ `rel`, prefer nest-default `rel` first |
-| Nested progress lost TTY (normal newline spam; terse mute missing) | **Fixed** — tip forwards `CUPPA_PROGRESS_TTY` so nests keep normal rewrite + terse muted bar |
+| Nested progress lost TTY (normal newline spam; terse mute missing) | **Fixed** — tip `pass_fds` + `CUPPA_PROGRESS_FD` (path reopen alone was insufficient) |
 
 ### Soak corrections (2026-10-18)
 
@@ -180,7 +180,9 @@ alone.
 4. **Nested progress must stay TTY when the tip is interactive.** Losing
    `/dev/tty` under nest `start_new_session` is a bug: normal mode fell into
    CI newline percent lines; terse mode stayed silent (no muted bar). Product:
-   cascade nests keep tip TTY progress via `CUPPA_PROGRESS_TTY`.
+   cascade nests keep tip TTY progress via an inherited open fd
+   (`CUPPA_PROGRESS_FD` + `pass_fds`). Path-only `CUPPA_PROGRESS_TTY` reopen
+   was tried first and still produced newline spam under soak.
 
 ## Implementation sketch (non-binding)
 

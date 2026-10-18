@@ -254,14 +254,30 @@ def _muted_progress_bar( percent, width=_BAR_WIDTH, started=True ):
 
 
 PROGRESS_TTY_ENV = "CUPPA_PROGRESS_TTY"
+PROGRESS_FD_ENV = "CUPPA_PROGRESS_FD"
+
+# Keep the tip's progress tty file open so nested ``pass_fds`` stays valid.
+_progress_tty_stream = None
+_progress_tty_fd = None
 
 
-def _remember_progress_tty_path( stream ):
-    """Publish ``CUPPA_PROGRESS_TTY`` so nested cuppa (no CTTY) keeps TTY progress."""
+def _publish_progress_tty_env( stream ):
+    """Record path + fd env for cascade nests / launcher children."""
+    global _progress_tty_stream, _progress_tty_fd
     try:
-        path = os.ttyname( stream.fileno() )
+        fd = stream.fileno()
     except Exception:
         return
+    _progress_tty_stream = stream
+    _progress_tty_fd = fd
+    try:
+        os.environ[PROGRESS_FD_ENV] = str( fd )
+    except Exception:
+        pass
+    try:
+        path = os.ttyname( fd )
+    except Exception:
+        path = None
     if path:
         try:
             os.environ[PROGRESS_TTY_ENV] = path
@@ -270,56 +286,47 @@ def _remember_progress_tty_path( stream ):
 
 
 def resolve_progress_tty_path():
-    """Absolute tty device path for rewriting progress, or ``None``.
-
-    Cascade nests use ``start_new_session`` and lose a controlling terminal, so
-    ``/dev/tty`` fails inside the nest. Without a real tty device,
-    ``ProgressReporter`` treats the session as non-TTY: **normal** dumps
-    newline percent lines, and **terse** stays silent (no muted bar). Tip
-    resolves this path while it still has a CTTY and forwards it via
-    :data:`PROGRESS_TTY_ENV` so nests keep normal rewrite / terse muted bar.
-    """
+    """Absolute tty device path for rewriting progress, or ``None``."""
     existing = os.environ.get( PROGRESS_TTY_ENV )
     if existing and os.path.exists( existing ):
         return existing
-    candidates = ( 'CONOUT$', ) if sys.platform == 'win32' else ( '/dev/tty', )
-    for path in candidates:
+    fd = ensure_progress_tty_fd()
+    if fd is None:
+        return None
+    try:
+        return os.ttyname( fd )
+    except Exception:
+        return os.environ.get( PROGRESS_TTY_ENV )
+
+
+def ensure_progress_tty_fd():
+    """Return a live fileno for interactive progress, or ``None``.
+
+    Cascade nests use ``start_new_session`` and lose ``/dev/tty``. Re-opening
+    a pts **path** from a session without a controlling terminal is unreliable
+    (often fails or is not a usable tty). The tip keeps an open progress fd and
+    forwards it with ``subprocess`` ``pass_fds`` plus :data:`PROGRESS_FD_ENV`.
+    """
+    global _progress_tty_stream, _progress_tty_fd
+
+    if _progress_tty_fd is not None:
         try:
-            stream = open( path, 'w' )
-        except ( OSError, IOError ):
-            continue
+            if os.isatty( _progress_tty_fd ):
+                return _progress_tty_fd
+        except Exception:
+            _progress_tty_fd = None
+            _progress_tty_stream = None
+
+    inherited = os.environ.get( PROGRESS_FD_ENV )
+    if inherited:
         try:
-            if stream.isatty():
-                try:
-                    resolved = os.ttyname( stream.fileno() )
-                except Exception:
-                    resolved = path if path != '/dev/tty' else None
-                if resolved:
-                    try:
-                        os.environ[PROGRESS_TTY_ENV] = resolved
-                    except Exception:
-                        pass
-                    return resolved
+            fd = int( inherited )
+            if os.isatty( fd ):
+                _progress_tty_fd = fd
+                return fd
         except Exception:
             pass
-        finally:
-            try:
-                stream.close()
-            except Exception:
-                pass
-    return None
 
-
-def open_progress_stream():
-    """Return ``(stream, is_tty, owns_stream)`` for progress output.
-
-    Prefer the controlling terminal so rewriting works under the ``cuppa``
-    launcher (piped scons stdio). When ``/dev/tty`` is unavailable (cascade
-    nested ``start_new_session``), reopen the tip-published
-    :data:`PROGRESS_TTY_ENV` path so interactive cascade keeps TTY progress
-    (normal rewrite; terse muted bar). Fall back to ``sys.stderr`` with
-    newline / silent-terse mode when there is no tty (CI).
-    """
     candidates = []
     if sys.platform == 'win32':
         candidates.append( 'CONOUT$' )
@@ -336,12 +343,68 @@ def open_progress_stream():
             continue
         try:
             if stream.isatty():
-                _remember_progress_tty_path( stream )
-                return stream, True, True
+                _publish_progress_tty_env( stream )
+                return _progress_tty_fd
         except Exception:
             pass
         try:
             stream.close()
+        except Exception:
+            pass
+    return None
+
+
+def progress_tty_popen_kwargs( env=None ):
+    """``pass_fds`` / env updates so a child keeps the tip progress tty.
+
+    Returns ``(kwargs, env)``. ``kwargs`` is empty when there is no progress
+    tty (CI). Callers must merge ``kwargs`` into ``subprocess.Popen``.
+    """
+    if env is None:
+        env = os.environ.copy()
+    else:
+        env = dict( env )
+    fd = ensure_progress_tty_fd()
+    if fd is None:
+        return {}, env
+    env[PROGRESS_FD_ENV] = str( fd )
+    path = None
+    try:
+        path = os.ttyname( fd )
+    except Exception:
+        path = os.environ.get( PROGRESS_TTY_ENV )
+    if path:
+        env[PROGRESS_TTY_ENV] = path
+    # pass_fds implies close_fds=True on POSIX; keep 0/1/2 + progress fd.
+    return { "pass_fds": ( fd, ) }, env
+
+
+def open_progress_stream():
+    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+
+    Prefer an inherited :data:`PROGRESS_FD_ENV` (cascade nest), then the
+    controlling terminal / :data:`PROGRESS_TTY_ENV` path. Fall back to
+    ``sys.stderr`` with newline / silent-terse mode when there is no tty (CI).
+    """
+    inherited = os.environ.get( PROGRESS_FD_ENV )
+    if inherited:
+        try:
+            fd = int( inherited )
+            if os.isatty( fd ):
+                # closefd=False: parent / nest chain still owns the descriptor.
+                stream = os.fdopen( fd, 'w', closefd=False )
+                _publish_progress_tty_env( stream )
+                return stream, True, False
+        except Exception:
+            pass
+
+    fd = ensure_progress_tty_fd()
+    if fd is not None and _progress_tty_stream is not None:
+        return _progress_tty_stream, True, False
+    if fd is not None:
+        try:
+            stream = os.fdopen( fd, 'w', closefd=False )
+            return stream, True, False
         except Exception:
             pass
 
