@@ -593,6 +593,19 @@ def test_format_progress_line_muted_subdues_verb_and_label():
         colouriser.use_colour = was
 
 
+class _NoAliveTimer( object ):
+    """Disable background alive ticks in FakeClock unit tests."""
+
+    def __init__( self, *args, **kwargs ):
+        pass
+
+    def start( self ):
+        pass
+
+    def cancel( self ):
+        pass
+
+
 def test_reporter_normal_tty_has_no_alive_widget():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
@@ -603,6 +616,7 @@ def test_reporter_normal_tty_has_no_alive_widget():
     clock = FakeClock()
     reporter = dl.ProgressReporter(
             stream=stream, is_tty=True, clock=clock, tty_interval_s=0.1,
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'file.tgz', total_size=100 )
     clock.advance( 0.2 )
@@ -616,17 +630,34 @@ def test_reporter_normal_tty_has_no_alive_widget():
     hb.reset()
 
 
-class _NoAliveTimer( object ):
-    """Disable background alive ticks in FakeClock unit tests."""
+def test_reporter_quiet_normal_tty_has_alive_widget():
+    """Normal ``-Q`` muted progress shares the quiet heartbeat alive head."""
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
 
-    def __init__( self, *args, **kwargs ):
-        pass
-
-    def start( self ):
-        pass
-
-    def cancel( self ):
-        pass
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=False )
+    status = io.StringIO()
+    hb.configure_quiet_console( 'warn', stream=status, is_tty=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=0.1,
+            alive_timer_factory=_NoAliveTimer,
+    )
+    reporter.begin( 'file.tgz', total_size=100, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 50 )
+    plain = strip_ansi( stream.getvalue() )
+    assert plain.lstrip( '\r' ).startswith( '|' )  # pulse head
+    assert 'Compressing file.tgz' in plain
+    assert '[' in plain
+    assert '→' not in plain  # quiet normal is not arrow-compact
+    reporter.done( 100 )
+    hb.reset()
 
 
 def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():

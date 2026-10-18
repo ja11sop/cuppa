@@ -83,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a cycle already started after the idle gate (quick bars stay readable);
   long transfers that already showed a full cycle clear without an extra
   post-complete animation.
+- Normal ``-Q``/``-s`` transfer progress now shows the **same alive widget**
+  as the quiet heartbeat row (muted bar was previously alive-less, so some
+  quiet transient lines pulsed and compress/download did not).
 
 ### Security
 

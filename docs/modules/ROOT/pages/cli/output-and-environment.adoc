@@ -47,8 +47,10 @@ the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI st
 heartbeat. Download, extract, package compress, and registry upload (publish) progress share
 one engine:
 
-* **Normal TTY** — progress bar only (no alive widget); under `-Q`/`-s` the same bar is muted,
-  appears only after the idle gate, and is overwritten on completion.
+* **Normal TTY** — progress bar only (no alive widget); full colour; durable final 100% line.
+* **Normal + `-Q`/`-s` TTY** — muted bar **with** the same alive widget as the quiet heartbeat
+  row (unless `--quiet-heartbeat=off`); idle-gate reveal; overwrite after finishing a started
+  animation cycle.
 * **`--terse-output` TTY** — alive widget (unless `--quiet-heartbeat=off`) + `→` + progress bar,
   always muted; idle-gate reveal; alive ticks at the pulse/spinner animation rate (independent of
   byte-progress throttle); overwrite dwell finishes a cycle already started after the idle gate

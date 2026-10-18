@@ -430,10 +430,11 @@ class ProgressReporter( object ):
 
     * **Normal TTY** — progress bar only (no alive widget); full colour; show
       immediately; durable final 100% line.
-    * **Normal + quiet TTY** — same shape, muted; idle-gate reveal; overwrite
-      (clear) on completion.
+    * **Normal + quiet TTY (``-Q``/``-s``)** — muted bar + alive (unless
+      ``off``), matching the quiet heartbeat row; idle-gate reveal; overwrite
+      after finishing a started animation cycle.
     * **Terse TTY** — alive (unless ``off``) + ``→`` + progress bar, muted;
-      idle-gate reveal; overwrite on completion after one animation dwell.
+      idle-gate reveal; overwrite after finishing a started animation cycle.
     * **Non-TTY** — periodic lines in **normal** only (silent under terse).
     """
 
@@ -511,9 +512,12 @@ class ProgressReporter( object ):
             self._muted = terse or quiet
         else:
             self._muted = bool( self._muted_override )
-        # Alive only under terse + TTY (unless style off).
+        # Alive on every muted transient TTY status (terse and quiet -Q/-s),
+        # same pulse/spinner as the quiet heartbeat row (unless style off).
         self._show_alive = (
-                bool( self._is_tty ) and terse and self._alive_style != 'off'
+                bool( self._is_tty )
+                and ( terse or quiet )
+                and self._alive_style != 'off'
         )
         self._terse = terse
         self._quiet = quiet
@@ -524,7 +528,8 @@ class ProgressReporter( object ):
         self._emit_non_tty = ( not self._is_tty ) and ( not terse )
 
     def _compose_line( self, bytes_so_far, elapsed, started ):
-        # Always include the bar on TTY (terse keeps bar; compact only affects alive).
+        # Always include the bar on TTY (terse/quiet keep bar; compact only
+        # changes the alive head layout).
         body = format_progress_line(
                 self._label,
                 bytes_so_far,
@@ -536,16 +541,18 @@ class ProgressReporter( object ):
                 muted=bool( self._muted ),
                 include_bar=True,
         )
-        if not self._is_tty or not self._terse:
+        if not self._is_tty:
             return body
-        from cuppa.utility.heartbeat import format_alive_prefix
         if self._show_alive:
+            from cuppa.utility.heartbeat import format_alive_prefix
             _plain, styled_prefix = format_alive_prefix(
                     self._spin,
                     style=self._alive_style,
-                    compact=True,
+                    compact=bool( self._terse ),
             )
             return styled_prefix + body
+        if not self._terse:
+            return body
         # Terse + alive off: still arrow-align the progress bar.
         try:
             from cuppa.progress import terse_arrow_column

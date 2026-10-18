@@ -85,8 +85,8 @@ One Cuppa approach for **download, upload, compress, and extract** progress that
 | Mode | TTY presentation |
 |------|------------------|
 | **Normal** (no quiet) | **No** alive widget; progress bar in full colour; show immediately; final 100% line may remain (durable) |
-| **Normal + `-Q`/`-s`** | Same as normal (no alive) but **muted**; idle-gate reveal; **overwrite** on completion |
-| **`--terse-output`** (± `-Q`/`-s`) | Alive (unless `off`) + `→` + progress **bar**, always **muted**; idle-gate reveal; overwrite on completion; then a durable terse identity line |
+| **Normal + `-Q`/`-s`** | Muted bar **+ alive** (same pulse/spinner as the quiet heartbeat row, unless `off`); idle-gate reveal; **overwrite** after finishing a started cycle |
+| **`--terse-output`** (± `-Q`/`-s`) | Alive (unless `off`) + `→` + progress **bar**, always **muted**; idle-gate reveal; overwrite after finishing a started cycle; then a durable terse identity line |
 | **Non-TTY / CI** | Periodic whole lines **only in normal** mode (not under `--terse-output`) |
 
 ### Terse completion identity (durable)
