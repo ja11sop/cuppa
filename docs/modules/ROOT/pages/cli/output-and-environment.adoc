@@ -51,8 +51,9 @@ one engine:
   appears only after the idle gate, and is overwritten on completion.
 * **`--terse-output` TTY** — alive widget (unless `--quiet-heartbeat=off`) + `→` + progress bar,
   always muted; idle-gate reveal; alive ticks at the pulse/spinner animation rate (independent of
-  byte-progress throttle); overwrite on completion after one full animation-cycle dwell; then a
-  durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
+  byte-progress throttle); overwrite dwell finishes a cycle already started after the idle gate
+  (no obligatory extra post-complete animation); then a durable identity line
+  (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
 * **Non-TTY / CI** — periodic whole lines in **normal** mode only (not under `--terse-output`).
 * **Cascade nests** — when the tip is interactive, nested sessions keep the same TTY progress
   (normal rewrite; terse muted bar) via an inherited progress tty fd (`CUPPA_PROGRESS_FD`).

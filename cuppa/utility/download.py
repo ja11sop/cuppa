@@ -485,6 +485,7 @@ class ProgressReporter( object ):
         self._last_paint_at = None
         self._last_bytes = 0
         self._paint_lock = threading.Lock()
+        self._timer_lock = threading.Lock()
         self._alive_timer = None
         # Default ``threading.Timer``; tests may pass a no-op factory.
         self._alive_timer_factory = (
@@ -600,8 +601,9 @@ class ProgressReporter( object ):
         if not force and self._last_emit is not None:
             if self._is_tty:
                 if ( now - self._last_emit ) < self._tty_interval_s:
-                    # Still remember bytes; alive timer keeps the ECG moving.
-                    self._arm_alive_timer()
+                    # Bytes remembered; do **not** restart the alive timer —
+                    # cancelling it on every file update froze the ECG on rest.
+                    self._ensure_alive_timer()
                     return
             else:
                 percent_due = False
@@ -619,7 +621,7 @@ class ProgressReporter( object ):
                         self._next_line_percent += self._line_percent_step
 
         self._paint( bytes_so_far, advance_alive=False )
-        self._arm_alive_timer()
+        self._ensure_alive_timer()
 
     def _paint( self, bytes_so_far, advance_alive=False ):
         """Rewrite the status row (progress metrics and/or next alive frame)."""
@@ -648,8 +650,9 @@ class ProgressReporter( object ):
         return next_alive_interval_s( self._spin, style=self._alive_style )
 
     def _cancel_alive_timer( self ):
-        timer = self._alive_timer
-        self._alive_timer = None
+        with self._timer_lock:
+            timer = self._alive_timer
+            self._alive_timer = None
         if timer is None:
             return
         try:
@@ -657,33 +660,46 @@ class ProgressReporter( object ):
         except Exception:
             pass
 
-    def _arm_alive_timer( self ):
-        """Keep the alive widget on its animation cadence between byte updates."""
+    def _ensure_alive_timer( self ):
+        """Arm the alive timer only if none is running (heartbeat ``_ensure_pulse``).
+
+        Byte-progress ``update`` must not cancel/restart the timer — rapid
+        compress file callbacks were resetting it every few ms so the ECG
+        never left the rest frame ``|---------|``.
+        """
         if not self._show_alive or self._finished or not self._ever_painted:
             return
-        self._cancel_alive_timer()
-        try:
-            timer = self._alive_timer_factory(
-                    self._alive_interval_s(), self._on_alive_tick,
-            )
-        except Exception:
-            return
-        self._alive_timer = timer
-        try:
-            timer.daemon = True
-        except Exception:
-            pass
-        try:
-            timer.start()
-        except Exception:
-            self._alive_timer = None
+        with self._timer_lock:
+            if self._alive_timer is not None:
+                return
+            try:
+                timer = self._alive_timer_factory(
+                        self._alive_interval_s(), self._on_alive_tick,
+                )
+            except Exception:
+                return
+            self._alive_timer = timer
+            try:
+                timer.daemon = True
+            except Exception:
+                pass
+            try:
+                timer.start()
+            except Exception:
+                self._alive_timer = None
 
     def _on_alive_tick( self ):
-        self._alive_timer = None
+        # Drop the fired handle before re-arm (same pattern as heartbeat
+        # ``_on_pulse``) so a stuck cancelled Timer cannot block ensure.
+        with self._timer_lock:
+            self._alive_timer = None
         if self._finished or not self._show_alive:
             return
-        self._paint( self._last_bytes, advance_alive=True )
-        self._arm_alive_timer()
+        try:
+            self._paint( self._last_bytes, advance_alive=True )
+        finally:
+            # Always try to continue — a paint/flush glitch must not kill the ECG.
+            self._ensure_alive_timer()
 
     def _emit( self, line, newline ):
         if self._is_tty:
@@ -729,24 +745,28 @@ class ProgressReporter( object ):
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         if self._ever_painted:
-            # Final metrics frame, then dwell one animation cycle before
-            # overwrite so terse alive / quiet bars do not vanish unreadably.
-            if self._show_alive:
-                self._spin += 1
+            # Final metrics (no extra alive frame). Dwell only finishes a
+            # cycle we already started after the idle gate — quick bars get
+            # a readable beat; long transfers that already ran a full cycle
+            # clear immediately (not an obligatory post-complete animation).
             line = self._compose_line( bytes_so_far, elapsed, started=True )
             self._emit( line, newline=not self._overwrite_on_done )
             self._last_line = line
             self._last_paint_at = self._clock()
-            if self._overwrite_on_done:
-                from cuppa.utility.heartbeat import (
-                        cycle_duration_s,
-                        ensure_min_dwell,
+            if self._overwrite_on_done and self._visible_since is not None:
+                # Use this reporter's clock (not heartbeat's monotonic) so FakeClock
+                # / time.time transfers dwell correctly.
+                from cuppa.utility.heartbeat import cycle_duration_s
+                remaining = max(
+                        0.0,
+                        cycle_duration_s() - (
+                                self._clock() - self._visible_since
+                        ),
                 )
-                if self._show_alive:
-                    # Always one full cycle after the final alive frame.
-                    self._sleep( cycle_duration_s() )
-                else:
-                    ensure_min_dwell( self._last_paint_at )
+                if remaining > 0:
+                    self._sleep( remaining )
+                self._clear_line()
+            elif self._overwrite_on_done:
                 self._clear_line()
         try:
             from cuppa.utility import heartbeat as hb

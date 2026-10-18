@@ -665,11 +665,45 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     assert '|' in mid
     assert '[' in mid  # terse keeps the bar
     assert 'Compressing pkg.tar.gz' in mid
+    # Still early in the first animation cycle — dwell finishes that cycle.
     reporter.done( 200 )
-    # Overwrite clears the ephemeral status (no durable 100% newline).
     assert not strip_ansi( stream.getvalue() ).rstrip().endswith( '100%' )
-    # Terse alive dwells one full animation cycle before clear.
-    assert slept and slept[0] == hb.cycle_duration_s()
+    assert slept, 'quick bar past idle gate should dwell to finish one cycle'
+    assert slept[0] > 0
+    assert slept[0] <= hb.cycle_duration_s()
+    hb.reset()
+
+
+def test_reporter_long_transfer_skips_post_complete_dwell():
+    """Dwell is not an extra cycle after a long transfer already showed one."""
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    slept = []
+
+    def sleep( seconds ):
+        slept.append( seconds )
+        clock.advance( seconds )
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            sleep=sleep,
+            tty_interval_s=0.1,
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 100 )
+    # Already past one full animation cycle since first paint.
+    clock.advance( hb.cycle_duration_s() + 0.5 )
+    reporter.done( 200 )
+    assert slept == []
     hb.reset()
 
 
@@ -718,6 +752,53 @@ def test_reporter_alive_ticks_between_byte_updates():
     frame_after = strip_ansi( stream.getvalue() )
     assert 'Compressing big.tar.gz' in frame_after
     assert frame_after != frame_before or reporter._spin > spin_before
+    reporter.done( 100 )
+    hb.reset()
+
+
+def test_reporter_rapid_updates_do_not_reset_alive_timer():
+    """Compress-per-file update storms must not cancel the alive cadence."""
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    armed = []
+
+    class _CaptureTimer( object ):
+        def __init__( self, interval, func ):
+            self.interval = interval
+            self.func = func
+            self.cancelled = False
+            armed.append( self )
+
+        def start( self ):
+            pass
+
+        def cancel( self ):
+            self.cancelled = True
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=1.0,
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_CaptureTimer,
+    )
+    reporter.begin( 'many.tar.gz', total_size=10000, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 10 )
+    assert len( armed ) == 1
+    first = armed[0]
+    # Storm of throttled updates (same window) — must keep the same timer.
+    for n in range( 50 ):
+        clock.advance( 0.01 )
+        reporter.update( 10 + n )
+    assert first.cancelled is False
+    assert reporter._alive_timer is first
+    assert len( armed ) == 1
     reporter.done( 100 )
     hb.reset()
 

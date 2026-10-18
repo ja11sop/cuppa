@@ -77,10 +77,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   normal ``\\r`` rewrite and terse muted alive+bar — instead of non-TTY
   newline spam (normal) or silence (terse).
 - Terse transfer alive widget advances on its **animation cadence** (pulse /
-  spinner timer), not only when byte-progress throttles fire — long compress
-  gaps no longer freeze the ECG. Overwrite completion **dwells one full
-  animation cycle** after the final frame before clearing (plan:
-  ``transfer-and-archive-progress``).
+  spinner timer). Byte-progress updates **ensure** (do not cancel/restart)
+  that timer — rapid per-file compress callbacks were resetting it and
+  freezing the ECG on the rest frame ``|---------|``. Overwrite dwell finishes
+  a cycle already started after the idle gate (quick bars stay readable);
+  long transfers that already showed a full cycle clear without an extra
+  post-complete animation.
 
 ### Security
 
