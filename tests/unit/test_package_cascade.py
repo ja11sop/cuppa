@@ -1615,6 +1615,155 @@ def test_maybe_run_cascade_build_deps_uses_nested_build_not_publish( monkeypatch
     cascade.maybe_run_cascade( _Env(), _Publisher() )
     assert calls == [ "build" ]
     assert cascade.deferred_cascade_fetches() == {}
+    assert "/pubs/capy" in cascade.build_cascade_staged_roots()
+
+
+def test_consume_build_cascade_package_stage_binds_existing_stage( tmp_path ):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+    stage = root / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c" / "final" / "widget" / "1.0.0"
+    ( stage / "include" ).mkdir( parents=True )
+    ( stage / "lib" ).mkdir()
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+
+    found = cascade.consume_build_cascade_package_stage(
+            env, "widget", "1.0.0", name="widget",
+    )
+    assert found == str( stage )
+    assert str( root ) in cascade.build_cascade_staged_roots()
+
+
+def test_consume_build_cascade_package_stage_missing_after_nest_stops(
+        tmp_path, monkeypatch,
+):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+    nests = []
+
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: nests.append( a[1] ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+
+    with pytest.raises( SCons.Errors.StopError, match="no staged" ):
+        cascade.consume_build_cascade_package_stage(
+                env, "widget", "1.0.0", name="widget",
+        )
+    assert nests == [ str( root ) ]
+
+
+def test_maybe_run_cascade_build_deps_skips_already_staged_root( monkeypatch ):
+    calls = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self, sconstruct_dir="/tip" )
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "cascade",
+                    "build-cascade-dependencies",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: calls.append( "build" ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    monkeypatch.setattr( cascade, "audit_deferred_cascade_fetches", lambda *a, **k: None )
+    cascade.reset_cascade_nested_done()
+    cascade.record_build_cascade_staged_root( "/pubs/capy" )
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert calls == []
+
+
+def test_run_build_cascade_stages_invokes_cascade_when_edges_present( monkeypatch ):
+    ran = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self )
+            self["dependencies"] = {}
+
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    monkeypatch.setattr(
+            cascade, "_edges_from_consume_tip",
+            lambda env: [ { "name": "w", "package": "w", "version": "1" } ],
+    )
+    monkeypatch.setattr(
+            cascade, "maybe_run_cascade",
+            lambda env, publisher: ran.append( publisher._package ),
+    )
+    cascade.reset_cascade_nested_done()
+    cascade.run_build_cascade_stages( _Env() )
+    assert ran == [ "project" ]
+
+
+def test_run_build_cascade_stages_noop_without_build_deps():
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name == "cascade" or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    cascade.reset_cascade_nested_done()
+    # Must not raise; no nest without build-deps.
+    cascade.run_build_cascade_stages( _Env() )
 
 
 def test_maybe_run_cascade_refreshes_only_after_upload( monkeypatch ):

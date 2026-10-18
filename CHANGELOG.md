@@ -38,11 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``sconstruct`` (same as a full ``build_package``). Cascade walks that root
   seed for DAG children; stage-only amend left the walk stuck at tip roots
   when the seed was missing or stale.
-- Cascade ``--build-cascade-dependencies`` + ``--amend-package-manifest``
-  **overlays** each nest stage's ``cuppa-publish.json`` onto the tip extract
-  so tip ``use_libs`` / ``lib_groups`` expand before pkg-config (no registry
-  upload required). Missing ``.pc`` names after expansion raise ``StopError``
-  with a lib_groups / tip-refresh hint instead of a bare pkg-config ``OSError``.
+- Cascade ``--build-cascade-dependencies`` tip **consumes publisher-root
+  stages** (same ``final/<package>/<version>/`` layout as ``--develop``), not
+  registry extracts. Nesting runs before tip ``BuildWith`` (stage-develop
+  timing); develop still wins when ``--develop`` is active. Missing stage
+  after nest → ``StopError`` (no extract fall-back / no download-store mutate).
+  Plan: ``design/plans/cascade-build-deps-tip-consume.md``.
+- Missing pkg-config leaf names after ``use_libs`` expansion raise
+  ``StopError`` with a ``lib_groups`` / forest-stage hint instead of a bare
+  pkg-config ``OSError``.
 
 ### Changed
 

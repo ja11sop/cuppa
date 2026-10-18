@@ -1818,6 +1818,49 @@ class GitlabPackageDependency:
                 return
             # Nested session: fall through to registry download.
 
+        # Build-deps tip consume: forest stage (develop already handled above).
+        # Ranking: active --develop wins; otherwise tip links publisher-root
+        # stages produced by --build-cascade-dependencies (no extract mutate).
+        if (
+                not self._using_develop
+                and not self._develop_is_publisher_source
+        ):
+            from cuppa.package_managers.package_cascade import (
+                    build_cascade_dependencies_enabled,
+                    cascade_enabled,
+                    consume_build_cascade_package_stage,
+            )
+            if cascade_enabled( cuppa_env ) and build_cascade_dependencies_enabled(
+                    cuppa_env
+            ):
+                stage = consume_build_cascade_package_stage(
+                        cuppa_env,
+                        package,
+                        self.version(),
+                        name=self._dependency_name or package,
+                        registry=self._registry,
+                        package_source=self._package_source,
+                        label=self._package_id,
+                )
+                if stage:
+                    self._package_dir = stage
+                    self._include_dir = os.path.join( self._package_dir, 'include' )
+                    self._lib_dir = os.path.join( self._package_dir, 'lib' )
+                    if pkg_config_dir and not os.path.isabs( pkg_config_dir ):
+                        self._pkg_config_dir = os.path.abspath(
+                                os.path.join( self._package_dir, pkg_config_dir )
+                        )
+                    if not self._clean:
+                        logger.info(
+                                "--build-cascade-dependencies: using locally "
+                                "staged package [{}] from [{}]"
+                                .format(
+                                        as_info( self._package_id ),
+                                        as_notice( display_path( self._package_dir ) ),
+                                )
+                        )
+                    return
+
         if self._clean:
             return
 
@@ -2300,11 +2343,9 @@ class GitlabPackageDependency:
                     if not groups:
                         hint = (
                                 " Traveling cuppa-publish.json under [{}] has no "
-                                "lib_groups; if these names were groups, refresh "
-                                "the tip extract (cascade "
-                                "--build-cascade-dependencies "
-                                "--amend-package-manifest overlays the nest "
-                                "stage, or use --develop / republish)."
+                                "lib_groups; if these names were groups, tip "
+                                "--build-cascade-dependencies should bind the "
+                                "forest stage (or use --develop / republish)."
                                 .format( as_notice( self._package_dir ) )
                         )
                     raise SCons.Errors.StopError(

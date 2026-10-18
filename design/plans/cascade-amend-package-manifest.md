@@ -1,6 +1,6 @@
 # Plan: Cascade — metadata-only amend across the nest DAG
 
-- **Status:** in progress (on `feature/gitlab-package-lib-groups`)
+- **Status:** in progress
 - **Related:** [`../archive/package-metadata-amend.md`](../archive/package-metadata-amend.md) (tip amend shipped); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-tip-local-options.md`](cascade-tip-local-options.md) (different problem: tip-local AddOption drops); `tip_forward_args` / `_NESTED_DROP_*` / `run_nested_build` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-18
 - **Impact:** minor — new cascade companion behaviour; tip-only amend unchanged
@@ -158,10 +158,9 @@ Lean: **refuse** for v1.
 Open: land C as a follow-on commit on this PR vs keep composition-only until
 after soak.
 
-**Tip consume after amend+build-deps:** overlay nest-stage
-`cuppa-publish.json` onto the tip extract (so `lib_groups` / `use_libs` expand
-before pkg-config). Without that, tip keeps the old traveling JSON and group
-names are treated as leaf stems (`google_cloud_cpp_kms_libs.pc` miss).
+**Tip consume after amend+build-deps:** tip-extract overlay retired.
+[`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) tip
+links forest stages (metadata + binaries) under build-deps.
 
 ## Non-goals
 
@@ -189,7 +188,7 @@ names are treated as leaf stems (`google_cloud_cpp_kms_libs.pc` miss).
 | Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
 | AlwaysBuild amend so nests actually retar | **Done** (this PR — soak no-op fix) |
 | Amend also seeds publisher-root `cuppa-publish.json` (cascade DAG walk) | **Done** (this PR — soak: 9→2 packages when root seed missing) |
-| Overlay tip traveling JSON after amend+build-deps nests | **Done** (this PR — `kms_libs` pkg-config soak) |
+| Overlay tip traveling JSON after amend+build-deps nests | **Retired** — forest-stage tip consume ([`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md)) |
 | Session / plan banners say amend | **Done** |
 | Unit tests (forward / build / publish argv) | **Done** |
 | Antora cascade + amend-and-external | **Done** (composition); update when C lands |

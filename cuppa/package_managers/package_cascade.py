@@ -76,6 +76,10 @@ STAGE_DEVELOP_PLAN_OPTION = "stage-develop-plan"
 # Tip (package, version, sconstruct) keys that already ran nested publish this process.
 _cascade_nested_done: set[tuple[str, str, str]] = set()
 
+# Publisher roots already nest-built under ``--build-cascade-dependencies``
+# (pre-``BuildWith`` pass and/or tip nest-on-miss). Absolute paths.
+_build_cascade_staged_roots: set[str] = set()
+
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
 
@@ -247,6 +251,18 @@ def cascade_variants_enabled( env=None, argv=None ) -> bool:
 def reset_cascade_nested_done() -> None:
     """Clear the per-process nested-graph guard (tests / session boundaries)."""
     _cascade_nested_done.clear()
+    _build_cascade_staged_roots.clear()
+
+
+def build_cascade_staged_roots() -> set[str]:
+    """Absolute publisher roots already nest-built for build-deps tip consume."""
+    return set( _build_cascade_staged_roots )
+
+
+def record_build_cascade_staged_root( publisher_dir: str ) -> None:
+    """Remember a forest tree whose stage was produced for tip consume."""
+    if publisher_dir:
+        _build_cascade_staged_roots.add( os.path.abspath( str( publisher_dir ) ) )
 
 
 # Tip ``GitlabPackagePublisher`` remembers itself *and* the sconscript env
@@ -3876,50 +3892,6 @@ def _overlay_tip_traveling_manifest( tip_dir: str, nested_dir: str ) -> str:
     return dst
 
 
-def _overlay_tip_traveling_manifest_from_nest(
-        env, entry: dict, publisher_dir: str,
-) -> str | None:
-    """Copy nest-stage ``cuppa-publish.json`` onto the tip extract when both exist.
-
-    Used after ``--build-cascade-dependencies`` nests (especially amend) so tip
-    ``use_libs`` / ``lib_groups`` see the rewritten traveling metadata without a
-    registry upload. Returns the tip manifest path, or ``None`` when skipped.
-    """
-    from cuppa.package_managers.cuppa_publish_manifest import (
-            publish_manifest_path,
-            read_publish_manifest,
-    )
-
-    package = entry.get( "package" )
-    version = entry.get( "version" )
-    if not package or version is None:
-        return None
-    tip_dir = _tip_extract_package_dir( env, str( package ), str( version ) )
-    if not tip_dir:
-        return None
-    nested_dir = resolve_develop_package_stage(
-            str( publisher_dir ), str( package ), version, env=env,
-    )
-    if not nested_dir:
-        return None
-    src = publish_manifest_path( nested_dir )
-    if not os.path.isfile( src ):
-        return None
-    if not read_publish_manifest( nested_dir ):
-        return None
-    overlay = _overlay_tip_traveling_manifest( tip_dir, nested_dir )
-    logger.info(
-            "Cascade: overlaid traveling manifest for [{}] at [{}] "
-            "(from nest stage [{}])"
-            .format(
-                    as_info( node_label( entry ) ),
-                    as_notice( overlay ),
-                    as_notice( nested_dir ),
-            )
-    )
-    return overlay
-
-
 def _install_tip_archive_from( env, package: str, version: str, archive_path: str ) -> str | None:
     """Copy ``archive_path`` into the tip downloads cache. Returns destination."""
     if not archive_path or not os.path.isfile( archive_path ):
@@ -5214,6 +5186,119 @@ def run_location_stage_develop( env ) -> None:
         run_nested_location_project( env, root, label, ordinal=ordinal, total=total )
 
 
+def run_build_cascade_stages( env ) -> None:
+    """Nest-build publisher-root stages before tip ``BuildWith`` (build-deps).
+
+    Same timing slot as :func:`run_location_stage_develop`: tip package construct
+    can bind ``final/<package>/<version>/`` under each forest tree instead of an
+    extract. Seeds the graph from tip package factories already registered on
+    ``env`` (``default_dependencies`` / ``dependencies``). Packages registered
+    only later still nest-on-miss via :func:`consume_build_cascade_package_stage`.
+
+    Plan / collect / update-stop modes leave nesting to the post-resolve cascade
+    entry (no build here).
+    """
+    if _is_nested():
+        return
+    if not cascade_enabled( env ) or not build_cascade_dependencies_enabled( env ):
+        return
+    if cascade_stop_before_build( env ):
+        return
+    if env.get( "_cuppa_build_cascade_stages_ran" ):
+        return
+    try:
+        env["_cuppa_build_cascade_stages_ran"] = True
+    except Exception:
+        pass
+
+    edges = _edges_from_consume_tip( env )
+    if not edges:
+        return
+    maybe_run_cascade( env, make_consume_tip_publisher( env, edges ) )
+
+
+def consume_build_cascade_package_stage(
+        env,
+        package: str,
+        version,
+        name: str | None = None,
+        registry: str | None = None,
+        package_source: str | None = None,
+        label: str | None = None,
+) -> str | None:
+    """Resolve (and nest-on-miss) a publisher-root stage for tip build-deps consume.
+
+    Develop-winning packages are handled by the caller via
+    :func:`consume_develop_package_stage` first. Nested tip sessions return
+    ``None`` so children keep registry download. Missing stage after nest →
+    ``StopError`` (no silent extract fall-back).
+    """
+    if _is_nested():
+        return None
+    if not cascade_enabled( env ) or not build_cascade_dependencies_enabled( env ):
+        return None
+
+    package = str( package )
+    version = str( version )
+    label = label or "{} [=={}]".format( package, version )
+    entry = {
+            "name": str( name or package ),
+            "package": package,
+            "version": version,
+    }
+    if registry:
+        entry["registry"] = str( registry )
+    if package_source:
+        entry["package_source"] = str( package_source )
+    else:
+        stamped = effective_package_source( env, entry )
+        if stamped:
+            entry["package_source"] = stamped
+
+    publisher_dir = resolve_publisher_dir( env, entry, allow_clone=True )
+    if not publisher_dir:
+        raise SCons.Errors.StopError(
+                "--{}: no publisher tree for [{}]; plant under --publisher-root "
+                "or pass --clone-publishers / package_source"
+                .format( BUILD_CASCADE_DEPENDENCIES_OPTION, label )
+        )
+
+    abs_root = os.path.abspath( str( publisher_dir ) )
+    cleaning = _clean_enabled( env )
+    stage = resolve_develop_package_stage(
+            publisher_dir, package, version, env=env
+    )
+    if stage:
+        record_build_cascade_staged_root( abs_root )
+        return stage
+    if cleaning:
+        return None
+
+    if abs_root not in _build_cascade_staged_roots:
+        run_nested_build(
+                env, publisher_dir, node_label( entry ), ordinal=1, total=1,
+        )
+        record_build_cascade_staged_root( abs_root )
+        stage = resolve_develop_package_stage(
+                publisher_dir, package, version, env=env
+        )
+        if stage:
+            return stage
+
+    raise SCons.Errors.StopError(
+            "--{}: package [{}] at [{}] has no staged "
+            "_build/.../final/{}/{} (need include/ and lib/). Nest-build that "
+            "tree, or fix the publisher stage layout"
+            .format(
+                    BUILD_CASCADE_DEPENDENCIES_OPTION,
+                    label,
+                    publisher_dir,
+                    package,
+                    version,
+            )
+    )
+
+
 def consume_develop_package_stage(
         env,
         develop_root: str,
@@ -5595,21 +5680,23 @@ def maybe_run_cascade( env, publisher ) -> None:
         entry = nodes[key]
         label = node_label( entry )
         if build_cascade_deps:
-            # Registry HEAD skip is nest-publish only; build-deps always nests.
+            # Registry HEAD skip is nest-publish only; build-deps always nests
+            # unless the pre-BuildWith pass (or tip nest-on-miss) already staged
+            # this publisher root. Tip consumes forest stages — no extract overlay.
+            publisher_dir = entry["_publisher_dir"]
+            abs_root = os.path.abspath( str( publisher_dir ) )
+            if abs_root in _build_cascade_staged_roots:
+                write_lines( session_skipped_lines( ordinal, total, label ) )
+                skipped += 1
+                continue
             run_nested_build(
                     env,
-                    entry["_publisher_dir"],
+                    publisher_dir,
                     label,
                     ordinal=ordinal,
                     total=total,
             )
-            # Amend (and any nest that rewrote the stage manifest) must reach tip
-            # consume: build-deps does not upload, so overlay traveling JSON onto
-            # the tip extract when present (lib_groups / use_libs soak).
-            if not cleaning and tip_has_amend_package_manifest( env=env ):
-                _overlay_tip_traveling_manifest_from_nest(
-                        env, entry, entry["_publisher_dir"],
-                )
+            record_build_cascade_staged_root( abs_root )
             continue
         if (
                 not cleaning
