@@ -1,6 +1,6 @@
 # Plan: Cascade — do not forward tip-local options
 
-- **Status:** done (soak 2026-10-19)
+- **Status:** done (soak 2026-10-19); follow-on escape hatch captured below — **not this PR**
 - **Related:** [`../archive/cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (`opt-compat-early`); [`../archive/package-develop-local.md`](../archive/package-develop-local.md) (nested argv drops tip dependency-scoped flags); `tip_forward_args` / `tip_dependency_option_flags` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (`--amend-cascade-manifests`); [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (separate: tip consume forest stages); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-19
 - **Impact:** patch — nested cascade argv filter; tip UX when custom `cuppa.add_option` flags are present
@@ -105,16 +105,16 @@ take a separate argv token.
 | Tip-local `cuppa.add_option` (`--test-postgres-container`, …) | **Drop** (this plan) |
 | `~/.cuppaconfig` keys | Child loads; not tip argv |
 
-## Open questions
+## Open questions (core slice — settled)
 
-1. **Allowlist maintenance** — derive from registration modules vs static
-   frozenset of known cuppa flags (static set drifts; registration-derived is
-   better).
-2. **Value-taking tip options** — detect `nargs` / `action` from the recorded
-   kwargs so `skip_next` works; store metadata beside the flag string.
-3. **Visibility** — silent drop vs subdued nest log line listing stripped flags.
-4. **`--cascade-plan` command reprint** — should the printed nest command show
-   argv **after** tip-local stripping so operators are not surprised?
+1. **Allowlist maintenance** — **settled:** `cuppa.add_option` → tip-local;
+   cuppa internals use `cuppa.core.options.add_option` (not tip-local).
+2. **Value-taking tip options** — **settled:** kwargs recorded;
+   `tip_local_option_takes_value()` drives `skip_next`.
+3. **Visibility** — silent drop for v1; nest `command […]` already shows
+   post-strip argv (enough for soak). Subdued “stripped: …” line still optional.
+4. **`--cascade-plan` command reprint** — nest begin banners show argv **after**
+   stripping; tip plan banner still shows the full tip command (correct).
 
 ## Initial investigation notes
 
@@ -122,9 +122,55 @@ take a separate argv token.
   tip resolve — plan tree prints successfully, then nest 1 dies.
 * `tip_dependency_option_flags` cannot see `--test-postgres-container` (not a
   dependency factory option).
-* Workaround today: omit tip-local flags on cascade command lines.
+* Workaround today: omit tip-local flags on cascade command lines (no longer
+  required after this PR — tip may keep helpers; nests drop them).
 * Related soak leftover `opt-compat-early` remains about **known incompatible
   cuppa combinations**; keep that separate but cross-link.
+
+## Remainder: opt-in forward of selected tip-local options
+
+**Not this PR.** Default drop is correct and soaked. An escape hatch is only
+useful when tip **and** nests deliberately share the same custom option (nest
+must still `cuppa.add_option` it — Cuppa cannot invent child registrations).
+Forwarding is “stop dropping these tip-local argv tokens,” not “teach nests
+unknown flags.”
+
+### Constraint
+
+| Situation | Outcome |
+|-----------|---------|
+| Tip-local flag, nest never registered it | Nest still dies with `no such option` if forwarded |
+| Tip-local flag, nest also registers it | Forward can work |
+| Tip-only helper (`--test-postgres-container` soak) | Must stay **off** any allowlist |
+
+### Approaches considered
+
+| Id | Shape | Verdict |
+|----|-------|---------|
+| **A** | CLI allowlist `--cascade-local-options=opt1,opt2` (with/without leading `--`) | **Lean** — same family as `--cascade-variants`; safe default; discoverable on the command line |
+| **B** | Boolean forward-all tip-local | **Refuse** as primary — recreates soak nest-1 failure whenever tip mixes tip-only and shared helpers |
+| **C** | `cuppa.add_option(..., cascade=True)` / `cascade_forward=True` | Good later for **standing** monorepo conventions; still needs nest registration |
+| **D** | Tip API `cuppa.cascade_forward_local_options([...])` | Cleaner than C when many flags share one policy; same constraints |
+| **E** | Auto-intersect tip-local with “what child knows” | **Defer** — brittle (parse child sconstruct / side channel); too magical |
+| **F** | Denylist (drop only listed tip-local) | Prefer allowlist — denylist ≈ forward-all for tips with many helpers |
+
+### Settled lean for a follow-on (when demanded)
+
+1. Keep **default = drop all tip-local** (shipped).
+2. Add **A** — comma allowlist CLI; normalize names; **StopError** on names not
+   in the tip-local set (typos must not silently no-op).
+3. Allowlist removes flags only from the tip-local drop set — never un-drops
+   `_NESTED_DROP_*` or dependency-scoped tip flags even if named in the list.
+4. Empty / valueless flag → StopError.
+5. Apply on the same `tip_forward_args` path used for package nests and location
+   `--stage-develop` nests (same filter).
+6. Optional later: **C** registration mark ∪ CLI allowlist (CLI wins for
+   one-offs). Document that nests must still register forwarded options.
+7. Naming: `--cascade-local-options` is fine; `--cascade-forward-local-options`
+   is clearer about the verb — pick when implementing.
+
+Soak (2026-10-19) did **not** need this escape hatch; tip helpers stayed tip-only
+and nests succeeded.
 
 ## Progress
 
@@ -135,3 +181,4 @@ take a separate argv token.
 | Implementation | **Done** on this PR — `tip_forward_args` drops tip-local exact / `=` / takes-value |
 | Antora cascade note | **Done** |
 | Live soak with tip helpers on cascade line | **Succeeded** — nest command lines omit `--test-postgres-container`; tip still runs postgres docker helpers |
+| Opt-in forward allowlist (`--cascade-local-options=…`) | **Captured** (remainder above) — not this PR |
