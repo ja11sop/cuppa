@@ -1149,6 +1149,38 @@ class GitlabPackagePublisher:
                     as_info( seed_path ),
             ) )
 
+        # AlwaysBuild keeps the amend Command running under cascade nests, but
+        # skip the retar when traveling metadata (and payload) did not change
+        # relative to the existing archive — same freshness check as build_package.
+        staging_roots = [
+                str( self._target_include_dir ),
+                str( self._target_lib_dir ),
+        ]
+        modules_dir = os.path.join( package_base, 'modules' )
+        if os.path.isdir( modules_dir ):
+            staging_roots.append( modules_dir )
+        staging_roots.append( publish_path_written )
+
+        if package_archive_is_up_to_date( archive_path, staging_roots ):
+            force = False
+            getter = getattr( env, 'get_option', None )
+            if callable( getter ):
+                force = bool( getter( 'force' ) )
+            if not force:
+                logger.info(
+                        "Package archive [{}] already matches amended stage; "
+                        "skipping recreate".format( as_info( archive_path ) )
+                )
+                env.Execute( Touch( target[0] ) )
+                logger.info( "Package [{}] amend up to date".format(
+                        as_info( archive_path )
+                ) )
+                return None
+            logger.info(
+                    "Package archive [{}] already matches amended stage; "
+                    "--force recreating".format( as_info( archive_path ) )
+            )
+
         logger.info( "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )
         ) )

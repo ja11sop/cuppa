@@ -387,6 +387,54 @@ def test_amend_package_writes_manifest_on_existing_stage( tmp_path, monkeypatch 
     assert seed["default_use_libs"] == []
 
 
+def test_amend_package_skips_retar_when_manifest_unchanged( tmp_path, monkeypatch ):
+    """AlwaysBuild nests still run amend; skip compress when stage matches archive."""
+    create_calls = []
+
+    def _create( archive_path, working_dir, source_dir ):
+        create_calls.append( ( archive_path, working_dir, source_dir ) )
+        with open( archive_path, 'wb' ) as handle:
+            handle.write( b"fresh-archive" )
+        return 0
+
+    monkeypatch.setattr( gitlab, 'create_package_archive', _create )
+
+    staging = tmp_path / "widget" / "1.0.0"
+    include_dir = staging / "include"
+    lib_dir = staging / "lib"
+    include_dir.mkdir( parents=True )
+    lib_dir.mkdir( parents=True )
+    ( include_dir / "widget.hpp" ).write_text( "header\n", encoding="utf-8" )
+    ( lib_dir / "libwidget.a" ).write_text( "lib\n", encoding="utf-8" )
+
+    archive = tmp_path / "widget_debian_gcc15_rel.tar.gz"
+    archive.write_bytes( b"old" )
+    stamp = tmp_path / "widget.packaged"
+    publisher = _bare_publisher(
+            tmp_path,
+            staging,
+            include_dir,
+            lib_dir,
+            archive,
+    )
+    publisher._default_use_libs = []
+    publisher._dependencies = [
+            { "name": "fmt", "package": "fmt", "version": "12.2.0", "registry": "same" },
+    ]
+
+    touched = []
+    env = _publisher_env( tmp_path, touched )
+    assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
+    assert len( create_calls ) == 1
+    assert len( touched ) == 1
+
+    # Second amend with identical kwargs: write_publish_manifest is a no-op and
+    # the archive is newer than the stage → skip recreate, but still touch stamp.
+    assert publisher.amend_package( [ str( stamp ) ], [], env ) is None
+    assert len( create_calls ) == 1
+    assert len( touched ) == 2
+
+
 def test_amend_package_extracts_local_archive_when_stage_missing( tmp_path, monkeypatch ):
     create_calls = []
     monkeypatch.setattr(

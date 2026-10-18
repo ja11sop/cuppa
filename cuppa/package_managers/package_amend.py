@@ -9,6 +9,10 @@
 
 """Helpers for ``--amend-package-manifest`` (rewrite traveling metadata, retar).
 
+The amend ``Command`` stays ``AlwaysBuild`` so cascade nests always enter
+``amend_package``; retar is skipped inside when the archive already matches
+the amended stage (see ``GitlabPackagePublisher.amend_package``).
+
 See ``design/archive/package-metadata-amend.md``.
 """
 

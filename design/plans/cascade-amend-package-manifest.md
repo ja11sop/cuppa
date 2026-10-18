@@ -150,6 +150,9 @@ Lean: **refuse** for v1.
 3. **AlwaysBuild on amend** — amend `Command` has empty sources; without
    `AlwaysBuild`, an existing `.packaged` stamp makes nests no-op (`build up
    to date` in ~2s). Fixed on this PR for tip-only and nested amend alike.
+   Nests **always enter** `amend_package`; retar/`create_package_archive` is
+   skipped when the archive already matches the amended stage (same
+   freshness check as `build_package`).
 4. **Refuse** silent per-node rebuild fallback (**D**) and tip-orchestrated
    rewrite (**E**) for v1.
 5. Nest **always nests** under cascade-amend — no “pin current → skip”.
@@ -186,7 +189,8 @@ links forest stages (metadata + binaries) under build-deps.
 | Soak surprise captured | Done — this proposal |
 | Options A–E | Captured; lean revised → **C tip signal + B nest argv** |
 | Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
-| AlwaysBuild amend so nests actually retar | **Done** (this PR — soak no-op fix) |
+| AlwaysBuild amend so nests actually enter amend | **Done** (this PR — soak no-op fix) |
+| Skip retar inside amend when archive matches stage | **Done** (this PR — unchanged metadata) |
 | Amend also seeds publisher-root `cuppa-publish.json` (cascade DAG walk) | **Done** (this PR — soak: 9→2 packages when root seed missing) |
 | Overlay tip traveling JSON after amend+build-deps nests | **Retired** — forest-stage tip consume ([`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md)) |
 | Session / plan banners say amend | **Done** |
