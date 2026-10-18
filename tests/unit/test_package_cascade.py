@@ -449,6 +449,10 @@ def test_edges_from_consume_tip_reads_package_factories():
         _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
         _package_source = "https://gitlab.example/org/packages/widget.git"
 
+        @classmethod
+        def default_version( cls, version, env ):
+            cls._version = version if version is not None else "1.2.3"
+
     class _Env:
         def get( self, name, default=None ):
             if name == "dependencies":
@@ -465,6 +469,41 @@ def test_edges_from_consume_tip_reads_package_factories():
     assert edges[0]["package_source"] == (
             "https://gitlab.example/org/packages/widget.git"
     )
+
+
+def test_edges_from_consume_tip_resolves_floating_version_before_edge():
+    """Early build-deps must not drop boost_package while _version is None/latest."""
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "boost_package"
+        _package = "boost"
+        _version = None
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = "https://gitlab.example/org/packages/boost.git"
+
+        @classmethod
+        def default_version( cls, version, env ):
+            # Mimic remembered registry latest → concrete (offline tip path).
+            cls._version = "1.92"
+
+    class _Env:
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return {
+                        "boost_package": type( "F", (), { "__self__": _Owner } )(),
+                }
+            return default
+
+        def get_option( self, name, default=None ):
+            return default
+
+    edges = cascade._edges_from_consume_tip( _Env() )
+    assert len( edges ) == 1
+    assert edges[0]["name"] == "boost_package"
+    assert edges[0]["package"] == "boost"
+    assert edges[0]["version"] == "1.92"
+    assert _Owner._version == "1.92"
 
 
 def test_maybe_run_consume_tip_cascade_plans_from_factories( tmp_path ):
@@ -4053,6 +4092,74 @@ def test_resolve_develop_package_stage_accepts_version_mismatch_fallback( tmp_pa
             str( root ), "widget", "develop", env=None
     )
     assert found == str( stage )
+
+
+def test_resolve_develop_package_stage_rejects_wrong_toolchain( tmp_path ):
+    """Tip gcc15 must not silently bind a gcc16 forest stage."""
+    root = tmp_path / "boost"
+    wrong = (
+            root / "_build" / "gcc16" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "boost" / "1.92"
+    )
+    ( wrong / "include" ).mkdir( parents=True )
+    ( wrong / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "boost", "1.92", env=env, match_toolchain=True,
+    )
+    assert found is None
+
+
+def test_resolve_develop_package_stage_dbg_tip_accepts_rel_same_toolchain( tmp_path ):
+    """Nest-default --rel is expected when the tip is --dbg (same toolchain)."""
+    root = tmp_path / "boost"
+    rel_stage = (
+            root / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "boost" / "1.92"
+    )
+    ( rel_stage / "include" ).mkdir( parents=True )
+    ( rel_stage / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "boost", "1.92", env=env, match_toolchain=True,
+    )
+    assert found == str( rel_stage )
 
 
 def test_tip_forward_args_stage_only_adds_stage_package_not_publish():

@@ -831,8 +831,34 @@ def resolve_develop_location_stage(
     if version is None:
         version = location_stage_version( develop_root )
     return resolve_develop_package_stage(
-            develop_root, name, version, env=env
+            develop_root, name, version, env=env, match_toolchain=True,
     )
+
+
+def _toolchain_name_from_env( env ) -> str | None:
+    if env is None:
+        return None
+    try:
+        toolchain = env.get( "toolchain" )
+        if toolchain is None:
+            return None
+        name_fn = getattr( toolchain, "name", None )
+        return name_fn() if callable( name_fn ) else str( toolchain )
+    except Exception:
+        return None
+
+
+def _stage_path_toolchain( develop_root: str, stage_path: str ) -> str | None:
+    """Toolchain segment of ``_build/<toolchain>/<variant>/<arch>/<abi>/final/…``."""
+    build_root = os.path.join( os.path.abspath( develop_root ), "_build" )
+    try:
+        rel = os.path.relpath( os.path.abspath( stage_path ), build_root )
+    except ValueError:
+        return None
+    parts = rel.split( os.sep )
+    if len( parts ) < 5 or parts[4] != "final":
+        return None
+    return parts[0] or None
 
 
 def resolve_develop_package_stage(
@@ -840,40 +866,62 @@ def resolve_develop_package_stage(
         package: str,
         version,
         env=None,
+        match_toolchain: bool | str | None = None,
 ) -> str | None:
     """Locate ``final/<package>/<version>/`` (or another version) under a publisher tree.
 
     Prefers the tip's toolchain×variant layout when ``env`` supplies one, then scans
     ``_build/**/final/<package>/``. Returns the first path that looks like a staged
     package, or ``None``.
+
+    ``match_toolchain``:
+      * ``None`` / ``False`` — historical scan (any toolchain under ``_build``).
+      * ``True`` — require the tip env's toolchain (dbg tip may still use a ``rel``
+        stage of that toolchain; nest-default ``--rel``).
+      * ``str`` — require that toolchain name.
+    Wrong-toolchain stages must not silently win (tip ``gcc15`` must not bind
+    ``gcc16/…``).
     """
     develop_root = os.path.abspath( develop_root )
     version = str( version )
     candidates: list[str] = []
+    required_toolchain = None
+    if match_toolchain is True:
+        required_toolchain = _toolchain_name_from_env( env )
+    elif isinstance( match_toolchain, str ) and match_toolchain:
+        required_toolchain = str( match_toolchain )
 
     if env is not None:
         try:
             from cuppa.core.build_layout import sanitise_abi, tool_variant_dir
-            toolchain = env.get( "toolchain" )
+            toolchain_name = _toolchain_name_from_env( env )
             variant = env.get( "variant" )
             arch = env.get( "target_arch" )
             abi = env.get( "abi" )
-            toolchain_name = None
-            if toolchain is not None:
-                name_fn = getattr( toolchain, "name", None )
-                toolchain_name = name_fn() if callable( name_fn ) else str( toolchain )
             variant_name = None
             if variant is not None:
                 name_fn = getattr( variant, "name", None )
                 variant_name = name_fn() if callable( name_fn ) else str( variant )
             if toolchain_name and variant_name and arch and abi is not None:
+                abi_s = sanitise_abi( str( abi ) )
                 tvd = tool_variant_dir(
-                        toolchain_name, variant_name, arch, sanitise_abi( str( abi ) )
+                        toolchain_name, variant_name, arch, abi_s
                 )
                 preferred = os.path.join(
                         develop_root, "_build", tvd, "final", package, version
                 )
                 candidates.append( preferred )
+                # Nest package sessions default to --rel; tip may be --dbg.
+                if variant_name != "rel":
+                    rel_tvd = tool_variant_dir(
+                            toolchain_name, "rel", arch, abi_s
+                    )
+                    rel_stage = os.path.join(
+                            develop_root, "_build", rel_tvd, "final",
+                            package, version,
+                    )
+                    if rel_stage not in candidates:
+                        candidates.append( rel_stage )
         except Exception:
             pass
 
@@ -898,6 +946,10 @@ def resolve_develop_package_stage(
             dirnames[:] = []
 
     for path in candidates:
+        if required_toolchain:
+            path_tc = _stage_path_toolchain( develop_root, path )
+            if path_tc != required_toolchain:
+                continue
         if looks_like_package_stage( path ):
             return path
     return None
@@ -1255,13 +1307,33 @@ def is_consume_tip( publisher ) -> bool:
     return bool( getattr( publisher, "_consume_tip", False ) )
 
 
+def _resolve_consume_tip_factory_version( owner, env ):
+    """Ensure a tip package factory has a concrete ``_version`` for cascade edges.
+
+    Early ``run_build_cascade_stages`` runs **before** tip ``BuildWith`` /
+    ``default_version``. Factories still holding ``None`` / ``latest`` / soft
+    bounds (e.g. ``boost_package`` remembered ``1.92``) must be resolved here
+    or the early graph silently drops them and the post-pass sees
+    ``cascade_ran_for_tip`` — boost missing from nest amend is that regression.
+    """
+    resolve = getattr( owner, "default_version", None )
+    if not callable( resolve ):
+        return getattr( owner, "_version", None )
+    try:
+        resolve( getattr( owner, "_version", None ), env )
+    except Exception:
+        return getattr( owner, "_version", None )
+    return getattr( owner, "_version", None )
+
+
 def _edges_from_consume_tip( env ) -> list[dict]:
     """Root edges from tip ``env['dependencies']`` GitLab package factories.
 
-    Each factory that declares a concrete version becomes a root edge. Effective
-    ``package_source`` (CLI / declaration / tip seed) is stamped when known so
-    resolve and plan labels match publisher tips. Edges without a resolvable
-    source still enter the queue so plan/collect can report the miss.
+    Each GitLab package factory becomes a root edge after floating versions are
+    resolved to concrete pins (same ``default_version`` path tip ``BuildWith``
+    uses). Effective ``package_source`` (CLI / declaration / tip seed) is stamped
+    when known so resolve and plan labels match publisher tips. Edges without a
+    resolvable source still enter the queue so plan/collect can report the miss.
     """
     deps = env.get( "dependencies" ) or {}
     edges: list[dict] = []
@@ -1270,7 +1342,7 @@ def _edges_from_consume_tip( env ) -> list[dict]:
         owner = _factory_owner( factory )
         if getattr( owner, "_package_manager", None ) != "gitlab":
             continue
-        version = getattr( owner, "_version", None )
+        version = _resolve_consume_tip_factory_version( owner, env )
         if version is None:
             continue
         package = getattr( owner, "_package", None ) or name
@@ -5265,8 +5337,10 @@ def consume_build_cascade_package_stage(
 
     abs_root = os.path.abspath( str( publisher_dir ) )
     cleaning = _clean_enabled( env )
+    # Tip toolchain must match (dbg tip may bind nest-default rel of that
+    # toolchain). Wrong toolchain (e.g. gcc16 stage into gcc15 tip) is a bug.
     stage = resolve_develop_package_stage(
-            publisher_dir, package, version, env=env
+            publisher_dir, package, version, env=env, match_toolchain=True,
     )
     if stage:
         record_build_cascade_staged_root( abs_root )
@@ -5280,15 +5354,15 @@ def consume_build_cascade_package_stage(
         )
         record_build_cascade_staged_root( abs_root )
         stage = resolve_develop_package_stage(
-                publisher_dir, package, version, env=env
+                publisher_dir, package, version, env=env, match_toolchain=True,
         )
         if stage:
             return stage
 
     raise SCons.Errors.StopError(
             "--{}: package [{}] at [{}] has no staged "
-            "_build/.../final/{}/{} (need include/ and lib/). Nest-build that "
-            "tree, or fix the publisher stage layout"
+            "_build/.../final/{}/{} for this tip toolchain (need include/ and "
+            "lib/). Nest-build that tree, or fix the publisher stage layout"
             .format(
                     BUILD_CASCADE_DEPENDENCIES_OPTION,
                     label,
@@ -5325,10 +5399,12 @@ def consume_develop_package_stage(
     elif cleaning:
         # Tip-only clean: leave the develop package's stage alone.
         return resolve_develop_package_stage(
-                develop_root, package, version, env=env
+                develop_root, package, version, env=env, match_toolchain=True,
         )
 
-    stage = resolve_develop_package_stage( develop_root, package, version, env=env )
+    stage = resolve_develop_package_stage(
+            develop_root, package, version, env=env, match_toolchain=True,
+    )
     if cleaning:
         return stage
     if stage:
@@ -5336,13 +5412,15 @@ def consume_develop_package_stage(
     if do_stage:
         raise SCons.Errors.StopError(
                 "develop package [{}] built from [{}] but no usable stage was found "
-                "under _build/.../final/{}/{} (need include/ and lib/)"
+                "under _build/.../final/{}/{} for this tip toolchain "
+                "(need include/ and lib/)"
                 .format( label, develop_root, package, version )
         )
     raise SCons.Errors.StopError(
             "develop package [{}] at [{}] has no staged "
-            "_build/.../final/{}/{} (need include/ and lib/). Build that "
-            "tree yourself, or pass --{} with --develop to stage it from here"
+            "_build/.../final/{}/{} for this tip toolchain (need include/ and "
+            "lib/). Build that tree yourself, or pass --{} with --develop to "
+            "stage it from here"
             .format(
                     label,
                     develop_root,

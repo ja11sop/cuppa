@@ -56,6 +56,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cascade ``--build-cascade-dependencies`` early nest no longer **drops
+  tip package factories whose version is still ``None`` / ``latest``**
+  (e.g. ``boost_package`` remembered ``1.92``). Edge seeding now runs the
+  same ``default_version`` resolve tip ``BuildWith`` uses, so the early
+  graph matches the post-resolve tip (regression vs the pre-early-pass
+  9-package amend plan).
+- Stage resolve under tip consume **must match the tip toolchain**. A
+  ``gcc15`` tip no longer silently binds a ``gcc16/…`` forest stage
+  (ABI/link mismatch). Nest-default ``rel`` for a ``dbg`` tip of the
+  **same** toolchain remains expected and preferred. Plan:
+  ``design/plans/cascade-build-deps-tip-consume.md``.
+
 ### Security
 
 ## [1.12.0] - 2026-10-13

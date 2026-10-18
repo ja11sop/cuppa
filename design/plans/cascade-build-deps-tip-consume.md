@@ -157,7 +157,21 @@ alone.
 | Implementation | **Done** on this PR — `run_build_cascade_stages`, `consume_build_cascade_package_stage`, tip bind, skip double-nest |
 | Revert / retire tip-extract overlay | **Done** — build-deps nest loop no longer overlays extracts |
 | Antora + unit tests | **Done** |
-| Live soak (e.g. google_cloud_cpp / `kms_libs`) | Pending |
+| Soak: boost missing from early graph (floating `_version`) | **Fixed** — `_edges_from_consume_tip` runs `default_version` so `boost_package` / `latest` enter the early DAG (9 packages again) |
+| Soak: tip linked wrong-toolchain stage (`gcc16` into `gcc15`) | **Fixed** — `resolve_develop_package_stage(..., match_toolchain=True)`; dbg→rel same toolchain OK; different toolchain refused |
+| Live soak (e.g. google_cloud_cpp / `kms_libs`) | Pending re-soak after toolchain + floating-version fixes |
+
+### Soak corrections (2026-10-18)
+
+1. **`boost_package` is a GitLab package** on this tip (registry / publisher
+   forest), not “outside the cascade walk.” Missing from the 9→8 nest plan was
+   a **regression**: early `run_build_cascade_stages` seeded edges before tip
+   `default_version`, skipped `_version is None`, then
+   `cascade_ran_for_tip` blocked the post-pass that formerly included
+   remembered `1.92`.
+2. **Wrong toolchain×variant bind is a bug**, not flexibility. Nest-default
+   `--rel` under tip `--dbg` for the **same** toolchain is expected. Silently
+   accepting another toolchain (e.g. `gcc16/rel` into `gcc15/dbg`) is not.
 
 ## Implementation sketch (non-binding)
 

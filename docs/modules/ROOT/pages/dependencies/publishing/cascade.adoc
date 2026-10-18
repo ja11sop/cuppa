@@ -115,6 +115,9 @@ TIP: Nest-build tip consume does **not** require ``--develop``. Use
 ``--develop`` when you want tip package ``develop=`` trees to win over the
 publisher forest (and optionally ``--stage-develop`` to nest those trees).
 Publish-cascade still refreshes tip **extracts** after nested upload.
+Tip links only stages for the **tip toolchain** (nest-default ``--rel`` under
+tip ``--dbg`` of that toolchain is expected; a different toolchain under
+``_build/`` is refused, not silently chosen).
 
 [mermaid]
 ....
