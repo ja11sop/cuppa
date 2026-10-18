@@ -2254,6 +2254,7 @@ class GitlabPackageDependency:
     def use_libs( self, libs, depends_on=[], dependency_name=None ):
 
         from SCons.Script import Flatten
+        import SCons.Errors
         from cuppa.package_managers.package_lib_groups import expand_use_lib_tokens
         from cuppa.package_managers.package_link_libs import (
                 apply_resolved_libs,
@@ -2278,6 +2279,46 @@ class GitlabPackageDependency:
 
         if self._pkg_config_dir:
             if libs:
+                # Expand already ran above. If a token never matched a group and
+                # there is no .pc for the leaf name, fail with a lib_groups hint
+                # instead of a bare pkg-config OSError (soak: tip extract lacking
+                # traveling lib_groups left ``kms_libs`` as a fake stem).
+                library_prefix = self._library_prefix and self._library_prefix or ""
+                missing_pc = []
+                for lib in libs:
+                    prefix = (
+                            ""
+                            if lib.startswith( library_prefix )
+                            else library_prefix
+                    )
+                    pc_name = prefix + lib + ".pc"
+                    pc_path = os.path.join( self._pkg_config_dir, pc_name )
+                    if not os.path.isfile( pc_path ):
+                        missing_pc.append( pc_name )
+                if missing_pc:
+                    hint = ""
+                    if not groups:
+                        hint = (
+                                " Traveling cuppa-publish.json under [{}] has no "
+                                "lib_groups; if these names were groups, refresh "
+                                "the tip extract (cascade "
+                                "--build-cascade-dependencies "
+                                "--amend-package-manifest overlays the nest "
+                                "stage, or use --develop / republish)."
+                                .format( as_notice( self._package_dir ) )
+                        )
+                    raise SCons.Errors.StopError(
+                            "Package [{}]: no pkg-config file(s) {} under [{}].{}"
+                            .format(
+                                    as_error( self._package_id ),
+                                    ", ".join(
+                                            "[{}]".format( as_error( name ) )
+                                            for name in missing_pc
+                                    ),
+                                    as_notice( self._pkg_config_dir ),
+                                    hint,
+                            )
+                    )
                 self.parse_pkg_config( libs )
         else:
             contrib = apply_resolved_libs(

@@ -3876,6 +3876,50 @@ def _overlay_tip_traveling_manifest( tip_dir: str, nested_dir: str ) -> str:
     return dst
 
 
+def _overlay_tip_traveling_manifest_from_nest(
+        env, entry: dict, publisher_dir: str,
+) -> str | None:
+    """Copy nest-stage ``cuppa-publish.json`` onto the tip extract when both exist.
+
+    Used after ``--build-cascade-dependencies`` nests (especially amend) so tip
+    ``use_libs`` / ``lib_groups`` see the rewritten traveling metadata without a
+    registry upload. Returns the tip manifest path, or ``None`` when skipped.
+    """
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            publish_manifest_path,
+            read_publish_manifest,
+    )
+
+    package = entry.get( "package" )
+    version = entry.get( "version" )
+    if not package or version is None:
+        return None
+    tip_dir = _tip_extract_package_dir( env, str( package ), str( version ) )
+    if not tip_dir:
+        return None
+    nested_dir = resolve_develop_package_stage(
+            str( publisher_dir ), str( package ), version, env=env,
+    )
+    if not nested_dir:
+        return None
+    src = publish_manifest_path( nested_dir )
+    if not os.path.isfile( src ):
+        return None
+    if not read_publish_manifest( nested_dir ):
+        return None
+    overlay = _overlay_tip_traveling_manifest( tip_dir, nested_dir )
+    logger.info(
+            "Cascade: overlaid traveling manifest for [{}] at [{}] "
+            "(from nest stage [{}])"
+            .format(
+                    as_info( node_label( entry ) ),
+                    as_notice( overlay ),
+                    as_notice( nested_dir ),
+            )
+    )
+    return overlay
+
+
 def _install_tip_archive_from( env, package: str, version: str, archive_path: str ) -> str | None:
     """Copy ``archive_path`` into the tip downloads cache. Returns destination."""
     if not archive_path or not os.path.isfile( archive_path ):
@@ -5559,6 +5603,13 @@ def maybe_run_cascade( env, publisher ) -> None:
                     ordinal=ordinal,
                     total=total,
             )
+            # Amend (and any nest that rewrote the stage manifest) must reach tip
+            # consume: build-deps does not upload, so overlay traveling JSON onto
+            # the tip extract when present (lib_groups / use_libs soak).
+            if not cleaning and tip_has_amend_package_manifest( env=env ):
+                _overlay_tip_traveling_manifest_from_nest(
+                        env, entry, entry["_publisher_dir"],
+                )
             continue
         if (
                 not cleaning

@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``sconstruct`` (same as a full ``build_package``). Cascade walks that root
   seed for DAG children; stage-only amend left the walk stuck at tip roots
   when the seed was missing or stale.
+- Cascade ``--build-cascade-dependencies`` + ``--amend-package-manifest``
+  **overlays** each nest stage's ``cuppa-publish.json`` onto the tip extract
+  so tip ``use_libs`` / ``lib_groups`` expand before pkg-config (no registry
+  upload required). Missing ``.pc`` names after expansion raise ``StopError``
+  with a lib_groups / tip-refresh hint instead of a bare pkg-config ``OSError``.
 
 ### Changed
 

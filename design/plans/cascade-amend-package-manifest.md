@@ -156,7 +156,12 @@ Lean: **refuse** for v1.
 6. Plan / nest banners say **amend**.
 
 Open: land C as a follow-on commit on this PR vs keep composition-only until
-after soak; tip consume refresh after leaf amend (`payload_sha256` / develop).
+after soak.
+
+**Tip consume after amend+build-deps:** overlay nest-stage
+`cuppa-publish.json` onto the tip extract (so `lib_groups` / `use_libs` expand
+before pkg-config). Without that, tip keeps the old traveling JSON and group
+names are treated as leaf stems (`google_cloud_cpp_kms_libs.pc` miss).
 
 ## Non-goals
 
@@ -184,6 +189,7 @@ after soak; tip consume refresh after leaf amend (`payload_sha256` / develop).
 | Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
 | AlwaysBuild amend so nests actually retar | **Done** (this PR — soak no-op fix) |
 | Amend also seeds publisher-root `cuppa-publish.json` (cascade DAG walk) | **Done** (this PR — soak: 9→2 packages when root seed missing) |
+| Overlay tip traveling JSON after amend+build-deps nests | **Done** (this PR — `kms_libs` pkg-config soak) |
 | Session / plan banners say amend | **Done** |
 | Unit tests (forward / build / publish argv) | **Done** |
 | Antora cascade + amend-and-external | **Done** (composition); update when C lands |

@@ -197,3 +197,52 @@ def test_gitlab_use_libs_expands_groups( tmp_path: Path, monkeypatch ):
     catalogue = dep.show_all_libs()
     assert catalogue["groups"]["kms"] == [ "kms_client", "kms_protos" ]
     assert "extra" in catalogue["ungrouped"]
+
+
+def test_gitlab_use_libs_pkg_config_missing_pc_hints_lib_groups( tmp_path: Path ):
+    import SCons.Errors
+    from cuppa.package_managers import gitlab as gitlab_module
+
+    package_dir = tmp_path / "pkg"
+    lib_dir = package_dir / "lib"
+    pc_dir = lib_dir / "pkgconfig"
+    pc_dir.mkdir( parents=True )
+    # No lib_groups in traveling JSON; no .pc for the group-shaped token.
+    write_publish_manifest(
+            str( package_dir ),
+            "mega",
+            "1.0.0",
+            dependencies=[],
+            payload_sha256=None,
+    )
+
+    class _Env( dict ):
+        def AppendUnique( self, **kwargs ):
+            return None
+
+        def Depends( self, *args ):
+            return None
+
+        def ParseConfig( self, command ):
+            raise AssertionError( "ParseConfig should not run: " + command )
+
+    dep = object.__new__( gitlab_module.GitlabPackageDependency )
+    dep._env = _Env()
+    dep._package_dir = str( package_dir )
+    dep._lib_dir = str( lib_dir )
+    dep._library_prefix = "mega_"
+    dep._pkg_config_dir = str( pc_dir )
+    dep._package_id = "mega/1.0.0"
+    dep._package = "mega"
+    dep._registry = object()
+    dep._resolve_lib_groups = gitlab_module.GitlabPackageDependency._resolve_lib_groups.__get__(
+            dep
+    )
+    dep._link_contrib_key = gitlab_module.GitlabPackageDependency._link_contrib_key.__get__(
+            dep
+    )
+    dep.include_dir = lambda: str( package_dir / "include" )
+    dep.use_libs = gitlab_module.GitlabPackageDependency.use_libs.__get__( dep )
+
+    with pytest.raises( SCons.Errors.StopError, match="lib_groups" ):
+        dep.use_libs( [ "kms_libs" ] )
