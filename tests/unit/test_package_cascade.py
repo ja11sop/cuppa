@@ -356,6 +356,71 @@ def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
     )
 
 
+def test_tip_forward_args_keeps_amend_on_package_publish_nest():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--amend-package-manifest",
+            "--cascade",
+    ] )
+    # Default nest path is publish; amend is kept when tip requested it.
+    assert "--amend-package-manifest" in forwarded
+    assert "--publish-package" in forwarded
+    assert "--cascade" not in forwarded
+
+
+def test_tip_forward_args_drops_amend_for_location_project_only():
+    forwarded = cascade.tip_forward_args(
+            [
+                    "scons", "-D", "--rel",
+                    "--amend-package-manifest",
+                    "--publish-package",
+            ],
+            project_only=True,
+    )
+    assert "--amend-package-manifest" not in forwarded
+    assert "--publish-package" not in forwarded
+
+
+def test_argv_for_nested_build_with_amend_stages_and_amends():
+    tip = [
+            "scons", "-D", "--rel",
+            "--toolchains=gcc15",
+            "--cascade",
+            "--build-cascade-dependencies",
+            "--amend-package-manifest",
+    ]
+    nested = cascade.argv_for_nested_build( tip )
+    assert "--amend-package-manifest" in nested
+    assert "--stage-package" in nested
+    assert "--publish-package" not in nested
+    assert "--build-cascade-dependencies" not in nested
+    assert "--cascade" not in nested
+
+
+def test_argv_for_nested_publish_keeps_amend():
+    tip = [
+            "scons", "-D", "--rel",
+            "--cascade",
+            "--publish-package",
+            "--amend-package-manifest",
+    ]
+    nested = cascade.argv_for_nested_publish( tip )
+    assert "--amend-package-manifest" in nested
+    assert "--publish-package" in nested
+    assert "--stage-package" not in nested
+
+
+def test_argv_for_nested_build_without_amend_stays_project_only():
+    nested = cascade.argv_for_nested_build( [
+            "scons", "-D", "--rel",
+            "--cascade",
+            "--build-cascade-dependencies",
+    ] )
+    assert "--amend-package-manifest" not in nested
+    assert "--stage-package" not in nested
+    assert "--publish-package" not in nested
+
+
 def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
     """Consume tips use the same enable+action gate as publisher tips."""
     cascade.reset_plan_reports()

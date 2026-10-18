@@ -71,7 +71,7 @@ nest-build vs nest-publish:
 | Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package`` or ``--build-cascade-dependencies``)
 
 | ``--build-cascade-dependencies``
-| Leaf-first nested **build** (no ``--publish-package`` / no registry upload)
+| Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-package-manifest``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild)
 | Tip **build only** (cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies``)
 
 | ``--cascade-plan``

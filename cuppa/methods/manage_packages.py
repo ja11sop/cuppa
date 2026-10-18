@@ -154,8 +154,11 @@ class PublishPackageMethod(object):
                         'final/<package>/<version>/ stage; otherwise extract a '
                         'local archive or download it from the registry first. '
                         'Removes any legacy cuppa-dependency.json twin. Pair with '
-                        '--publish-package to upload. Does not restage binaries '
-                        'from source_include_dir / source_lib_dir.'
+                        '--publish-package to upload. Under --cascade with a nest '
+                        'companion, nests honour this flag (build-deps nests '
+                        'stage+amend without upload; publish nests amend+upload). '
+                        'Does not restage binaries from source_include_dir / '
+                        'source_lib_dir.'
                 ),
         )
         add_option(

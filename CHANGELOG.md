@@ -24,6 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``Append`` so static-archive order and repeats survive across packages
   (GNU ld). Package link apply, Boost, Quince, and related call sites use the
   helpers. Plan: ``design/plans/gitlab-package-lib-groups.md``.
+- Cascade **metadata-only amend nests**: tip ``--amend-package-manifest`` with
+  ``--cascade`` and a nest companion is honoured in publisher nests (no longer
+  dropped from nest argv). ``--build-cascade-dependencies`` nests become
+  ``--stage-package`` + amend (retar, no upload); publish companions keep
+  ``--publish-package`` + amend. Location ``--stage-develop`` project nests
+  still drop amend. Plan: ``design/plans/cascade-amend-package-manifest.md``.
 
 ### Changed
 

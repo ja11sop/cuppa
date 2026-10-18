@@ -100,6 +100,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
         "--publish-package",
+        "--amend-package-manifest",
 } )
 
 
@@ -2241,16 +2242,29 @@ def cascade_plan_lines(
                     .format( tip )
             )
     elif consume_tip:
-        intro = (
-                "Printing Cascade plan for building this project {} "
-                "(dependencies publish; tip build only) given the command:"
-                .format( tip )
-        )
+        if tip_has_amend_package_manifest( argv=argv ):
+            intro = (
+                    "Printing Cascade plan for amending package metadata for "
+                    "this project {} (dependencies amend; tip build only) "
+                    "given the command:".format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for building this project {} "
+                    "(dependencies publish; tip build only) given the command:"
+                    .format( tip )
+            )
     else:
-        intro = (
-                "Printing Cascade plan for building and publishing package {} "
-                "given the command:".format( tip )
-        )
+        if tip_has_amend_package_manifest( argv=argv ):
+            intro = (
+                    "Printing Cascade plan for amending and publishing package "
+                    "{} given the command:".format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for building and publishing package {} "
+                    "given the command:".format( tip )
+            )
     lines = [
             "",
             intro,
@@ -2425,15 +2439,24 @@ def session_skipped_lines(
 
 
 def _cascade_run_summary(
-        total, skipped=0, uploaded=0, clean=False, build_only=False, *, begin=False,
+        total, skipped=0, uploaded=0, clean=False, build_only=False,
+        amend_manifest: bool = False, *, begin=False,
 ) -> str:
     """Short count phrase for tip-scoped ``[cascade] … · begin|end`` lines."""
     if begin:
         return storage.emphasised_count_phrase( total, "package", "packages" )
-    nest_singular = "nested build" if build_only else "nested publish"
-    nest_plural = "nested builds" if build_only else "nested publishes"
-    skip_singular = "skipped build" if build_only else "skipped publish"
-    skip_plural = "skipped builds" if build_only else "skipped publishes"
+    if amend_manifest and build_only:
+        nest_singular, nest_plural = "nested amend", "nested amends"
+        skip_singular, skip_plural = "skipped amend", "skipped amends"
+    elif amend_manifest:
+        nest_singular, nest_plural = "nested amend publish", "nested amend publishes"
+        skip_singular, skip_plural = "skipped amend", "skipped amends"
+    elif build_only:
+        nest_singular, nest_plural = "nested build", "nested builds"
+        skip_singular, skip_plural = "skipped build", "skipped builds"
+    else:
+        nest_singular, nest_plural = "nested publish", "nested publishes"
+        skip_singular, skip_plural = "skipped publish", "skipped publishes"
     if clean:
         return storage.emphasised_count_phrase(
                 total, "nested clean", "nested cleans",
@@ -2468,11 +2491,13 @@ def _cascade_run_summary(
 def sessions_complete_lines(
         total, tip_package, tip_version, width=None, clean=False,
         skipped: int = 0, uploaded: int = 0, build_only: bool = False,
+        amend_manifest: bool = False,
 ) -> list[str]:
     """Banner handing the console back to this package's build (or clean)."""
     nested = _cascade_run_summary(
             total, skipped=skipped, uploaded=uploaded,
             clean=clean, build_only=build_only,
+            amend_manifest=amend_manifest,
     )
     resume = "resuming clean of this package" if clean else "resuming this package"
     return [
@@ -3185,6 +3210,23 @@ def tip_dependency_option_flags( env ) -> frozenset[str]:
     return frozenset( flags )
 
 
+def tip_has_amend_package_manifest( argv=None, env=None ) -> bool:
+    """True when the tip session requested ``--amend-package-manifest``."""
+    if argv is None:
+        argv = sys.argv
+    for arg in list( argv[1:] ):
+        if arg == "--amend-package-manifest":
+            return True
+        if arg.startswith( "--amend-package-manifest=" ):
+            return True
+    if env is not None:
+        from cuppa.package_managers.package_amend import (
+                amend_package_manifest_enabled,
+        )
+        return amend_package_manifest_enabled( env )
+    return False
+
+
 def tip_forward_args(
         argv=None,
         env=None,
@@ -3206,8 +3248,14 @@ def tip_forward_args(
 
     With ``project_only=True``, the child runs a normal project build/clean (no
     ``--publish-package`` / ``--stage-package``). Used for location develop trees
-    under ``--stage-develop`` and for ``--build-cascade-dependencies``.
-    ``--stage-develop`` itself is always dropped so nesting stays single-level.
+    under ``--stage-develop`` and for plain ``--build-cascade-dependencies``
+    (without tip ``--amend-package-manifest``). ``--stage-develop`` itself is
+    always dropped so nesting stays single-level.
+
+    When the tip sets ``--amend-package-manifest``, package nests (publish or
+    stage — including build-deps rewritten as stage) **keep** that flag so nests
+    metadata-amend instead of full-building. Location ``project_only`` nests
+    still drop it.
 
     Package nest identity (publish / stage / build-deps) defaults to ``--rel`` so
     tip ``--dbg`` / ``--cov`` do not change nest package stems. Pass
@@ -3227,9 +3275,17 @@ def tip_forward_args(
             ( not nest_package_identity )
             or cascade_variants_enabled( env=env, argv=argv )
     )
+    # Package publish/stage nests honour tip amend; location project nests do not.
+    keep_amend = tip_has_amend_package_manifest( argv, env ) and not project_only
     drop_exact = set( _NESTED_DROP_EXACT )
     drop_prefixes = list( _NESTED_DROP_PREFIXES )
     drop_takes_value = set( _NESTED_DROP_TAKES_VALUE )
+    if keep_amend:
+        drop_exact.discard( "--amend-package-manifest" )
+        drop_prefixes = [
+                prefix for prefix in drop_prefixes
+                if prefix != "--amend-package-manifest="
+        ]
     if env is not None:
         for flag in tip_dependency_option_flags( env ):
             drop_exact.add( flag )
@@ -3277,6 +3333,8 @@ def tip_forward_args(
         forwarded = _without( forwarded, "--stage-package" )
         if "--publish-package" not in forwarded:
             forwarded.append( "--publish-package" )
+    if keep_amend and "--amend-package-manifest" not in forwarded:
+        forwarded.append( "--amend-package-manifest" )
     return forwarded
 
 
@@ -3302,7 +3360,15 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
 
 
 def argv_for_nested_build( argv=None, env=None ) -> list[str]:
-    """Full subprocess argv for cascade build-deps-only (no nested upload)."""
+    """Full subprocess argv for cascade build-deps-only (no nested upload).
+
+    With tip ``--amend-package-manifest``, nests stage+amend (metadata retar,
+    no upload) instead of a full project build.
+    """
+    if tip_has_amend_package_manifest( argv, env ):
+        return [
+                sys.executable, "-m", "cuppa"
+        ] + tip_forward_args( argv, env=env, stage_only=True )
     return [
             sys.executable, "-m", "cuppa"
     ] + tip_forward_args(
@@ -4253,9 +4319,15 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     if not _clean_enabled( env ):
         marker_dir = _nested_upload_marker_dir()
         nested_env[UPLOAD_MARKER_ENV] = marker_dir
+    kind = (
+            "nested amend"
+            if tip_has_amend_package_manifest( env=env )
+            else "cascade session"
+    )
 
     write_lines( session_begin_lines(
-            ordinal, total, label, publisher_dir, " ".join( argv )
+            ordinal, total, label, publisher_dir, " ".join( argv ),
+            kind=kind,
     ) )
     session_timer = timer.Timer()
     returncode = None
@@ -4276,7 +4348,12 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
             # Tip Ctrl-C tore the nest down — do not dress it up as a publish failure.
             raise KeyboardInterrupt
         code = returncode if returncode is not None else "unknown"
-        verb = "clean" if _clean_enabled( env ) else "publish"
+        if _clean_enabled( env ):
+            verb = "clean"
+        elif tip_has_amend_package_manifest( env=env ):
+            verb = "amend"
+        else:
+            verb = "publish"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
@@ -4288,6 +4365,7 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall,
             outcome=outcome,
+            kind=kind,
     ) )
     return NestedPublishResult(
             uploaded=uploaded,
@@ -4370,10 +4448,15 @@ def run_nested_build(
         ordinal: int = 1,
         total: int = 1,
 ) -> None:
-    """Nested cuppa session that builds or cleans without registry upload."""
+    """Nested cuppa session that builds or cleans without registry upload.
+
+    With tip ``--amend-package-manifest``, nests metadata-amend + stage (no
+    upload) instead of a full project build.
+    """
     argv = argv_for_nested_build( env=env )
     nested_env = _nested_session_env( env )
-    kind = "nested build"
+    amending = tip_has_amend_package_manifest( env=env )
+    kind = "nested amend" if amending else "nested build"
 
     write_lines( session_begin_lines(
             ordinal, total, label, publisher_dir, " ".join( argv ),
@@ -4389,7 +4472,12 @@ def run_nested_build(
         from cuppa.utility.build_children import stop_count
         if stop_count() >= 1:
             raise KeyboardInterrupt
-        verb = "clean" if _clean_enabled( env ) else "build"
+        if _clean_enabled( env ):
+            verb = "clean"
+        elif amending:
+            verb = "amend"
+        else:
+            verb = "build"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
@@ -5511,10 +5599,12 @@ def maybe_run_cascade( env, publisher ) -> None:
             )
             _announce_parent_enter( next_entry )
 
+    tip_amend = tip_has_amend_package_manifest( env=env )
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
             skipped=skipped, uploaded=uploaded_count,
             build_only=build_cascade_deps,
+            amend_manifest=tip_amend,
     ) )
     # Blank before the tip ``end`` twin so the complete banner does not glue
     # onto ``[cascade] … · end`` (resolve ``[ready]`` already closed before plan).
@@ -5524,6 +5614,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             _cascade_run_summary(
                     total, skipped=skipped, uploaded=uploaded_count,
                     clean=cleaning, build_only=build_cascade_deps,
+                    amend_manifest=tip_amend,
             ),
     )
     _cascade_nested_done.add( nested_key )
