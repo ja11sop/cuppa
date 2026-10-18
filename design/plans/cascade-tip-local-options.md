@@ -1,8 +1,8 @@
 # Plan: Cascade — do not forward tip-local options
 
-- **Status:** proposal
-- **Related:** [`../archive/cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (`opt-compat-early`); [`../archive/package-develop-local.md`](../archive/package-develop-local.md) (nested argv drops tip dependency-scoped flags); `tip_forward_args` / `tip_dependency_option_flags` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (separate: nest **honour** of tip `--amend-package-manifest`); [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (separate: tip consume forest stages); ROADMAP **1.13.0** related
-- **Updated:** 2026-10-18
+- **Status:** in progress (implementation on this PR; soak)
+- **Related:** [`../archive/cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (`opt-compat-early`); [`../archive/package-develop-local.md`](../archive/package-develop-local.md) (nested argv drops tip dependency-scoped flags); `tip_forward_args` / `tip_dependency_option_flags` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (`--amend-cascade-manifests`); [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (separate: tip consume forest stages); ROADMAP **1.13.0** related
+- **Updated:** 2026-10-19
 - **Impact:** patch — nested cascade argv filter; tip UX when custom `cuppa.add_option` flags are present
 
 > Tip-local AddOption drops are the opposite of cascade-amend: here we **must
@@ -131,6 +131,7 @@ take a separate argv token.
 | Item | Status |
 |------|--------|
 | Soak captured | Done — this proposal |
-| Track `cuppa.add_option` + nest drop | Starting |
-| Implementation | Not started |
-| Antora cascade note | With implementation |
+| Track `cuppa.add_option` + nest drop | **Done** — `cuppa.add_option` → `add_tip_option`; cuppa internals keep `add_option` |
+| Implementation | **Done** on this PR — `tip_forward_args` drops tip-local exact / `=` / takes-value |
+| Antora cascade note | **Done** |
+| Live soak with tip helpers on cascade line | Pending |

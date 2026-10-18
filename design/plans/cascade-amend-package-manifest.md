@@ -1,8 +1,8 @@
 # Plan: Cascade — metadata-only amend across the nest DAG
 
-- **Status:** in progress
-- **Related:** [`../archive/package-metadata-amend.md`](../archive/package-metadata-amend.md) (tip amend shipped); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-tip-local-options.md`](cascade-tip-local-options.md) (different problem: tip-local AddOption drops); `tip_forward_args` / `_NESTED_DROP_*` / `run_nested_build` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); ROADMAP **1.13.0** related
-- **Updated:** 2026-10-18
+- **Status:** in progress (C tip signal landed; soak)
+- **Related:** [`../archive/package-metadata-amend.md`](../archive/package-metadata-amend.md) (tip amend shipped); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-tip-local-options.md`](cascade-tip-local-options.md) (tip-local AddOption drops — this PR); `tip_forward_args` / `_NESTED_DROP_*` / `run_nested_build` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); ROADMAP **1.13.0** related
+- **Updated:** 2026-10-19
 - **Impact:** minor — new cascade companion behaviour; tip-only amend unchanged
 
 ## Problem
@@ -158,8 +158,12 @@ Lean: **refuse** for v1.
 5. Nest **always nests** under cascade-amend — no “pin current → skip”.
 6. Plan / nest banners say **amend**.
 
-Open: land C as a follow-on commit on this PR vs keep composition-only until
-after soak.
+**Landed:** tip signal is ``--amend-cascade-manifests`` (composition of tip
+``--amend-package-manifest`` into nests removed). Soak recipe:
+
+```text
+cuppa … --cascade --build-cascade-dependencies --amend-cascade-manifests
+```
 
 **Tip consume after amend+build-deps:** tip-extract overlay retired.
 [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) tip
@@ -188,13 +192,13 @@ links forest stages (metadata + binaries) under build-deps.
 |------|--------|
 | Soak surprise captured | Done — this proposal |
 | Options A–E | Captured; lean revised → **C tip signal + B nest argv** |
-| Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** (composition path; C tip flag follow-on) |
+| Nest argv: keep amend on package nests; build-deps → stage+amend | **Done** |
 | AlwaysBuild amend so nests actually enter amend | **Done** (this PR — soak no-op fix) |
 | Skip retar inside amend when archive matches stage | **Done** (this PR — unchanged metadata) |
 | Amend also seeds publisher-root `cuppa-publish.json` (cascade DAG walk) | **Done** (this PR — soak: 9→2 packages when root seed missing) |
 | Overlay tip traveling JSON after amend+build-deps nests | **Retired** — forest-stage tip consume ([`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md)) |
 | Session / plan banners say amend | **Done** |
 | Unit tests (forward / build / publish argv) | **Done** |
-| Antora cascade + amend-and-external | **Done** (composition); update when C lands |
-| Dedicated `--amend-cascade-manifests` (C) | Not started — soak lean |
-| Live soak (google_cloud_cpp DAG / lib_groups) | In play |
+| Antora cascade + amend-and-external | **Done** (C tip signal) |
+| Dedicated `--amend-cascade-manifests` (C) | **Done** — tip signal; tip-only amend no longer enables nests |
+| Live soak (google_cloud_cpp DAG / lib_groups) | Re-soak with `--amend-cascade-manifests` (+ tip-local flags) |

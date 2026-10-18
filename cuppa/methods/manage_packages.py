@@ -13,6 +13,7 @@ import cuppa.progress
 
 from cuppa.package_managers.package_amend import (
         OPTION_NAME as AMEND_PACKAGE_MANIFEST_OPTION,
+        CASCADE_OPTION_NAME as AMEND_CASCADE_MANIFESTS_OPTION,
         amend_package_manifest_enabled,
 )
 
@@ -160,11 +161,24 @@ class PublishPackageMethod(object):
                         'final/<package>/<version>/ stage; otherwise extract a '
                         'local archive or download it from the registry first. '
                         'Removes any legacy cuppa-dependency.json twin. Pair with '
-                        '--publish-package to upload. Under --cascade with a nest '
-                        'companion, nests honour this flag (build-deps nests '
-                        'stage+amend without upload; publish nests amend+upload). '
+                        '--publish-package to upload. Tip-only — does not enable '
+                        'cascade DAG amend (use --amend-cascade-manifests). '
                         'Does not restage binaries from source_include_dir / '
                         'source_lib_dir.'
+                ),
+        )
+        add_option(
+                '--amend-cascade-manifests',
+                dest=AMEND_CASCADE_MANIFESTS_OPTION,
+                action='store_true',
+                help=(
+                        'With --cascade and a nest companion, rewrite traveling '
+                        'metadata in each publisher nest without a full rebuild: '
+                        'nests receive --amend-package-manifest (build-deps nests '
+                        'also get --stage-package, no upload; publish companions '
+                        'amend and upload). Tip-only --amend-package-manifest '
+                        'stays single-publisher and does not imply this. Requires '
+                        '--cascade.'
                 ),
         )
         add_option(
@@ -179,10 +193,11 @@ class PublishPackageMethod(object):
                         'build only), --build-cascade-dependencies (nested '
                         'build, no registry upload, tip build only), '
                         '--cascade-plan, --collect-cascade, or '
-                        '--update-publishers. Not compatible with -n/--no-exec '
-                        'when nested sessions would run. Nested publishes that '
-                        'are already current in the registry are skipped unless '
-                        '--force is set.'
+                        '--update-publishers. Optional --amend-cascade-manifests '
+                        'makes nests metadata-amend instead of full-building. '
+                        'Not compatible with -n/--no-exec when nested sessions '
+                        'would run. Nested publishes that are already current in '
+                        'the registry are skipped unless --force is set.'
                 ),
         )
         add_option(

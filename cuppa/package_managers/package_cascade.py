@@ -105,6 +105,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--develop",
         "--publish-package",
         "--amend-package-manifest",
+        "--amend-cascade-manifests",
 } )
 
 
@@ -2336,7 +2337,7 @@ def cascade_plan_lines(
                     .format( tip )
             )
     elif consume_tip:
-        if tip_has_amend_package_manifest( argv=argv ):
+        if tip_has_amend_cascade_manifests( argv=argv ):
             intro = (
                     "Printing Cascade plan for amending package metadata for "
                     "this project {} (dependencies amend; tip build only) "
@@ -2349,7 +2350,7 @@ def cascade_plan_lines(
                     .format( tip )
             )
     else:
-        if tip_has_amend_package_manifest( argv=argv ):
+        if tip_has_amend_cascade_manifests( argv=argv ):
             intro = (
                     "Printing Cascade plan for amending and publishing package "
                     "{} given the command:".format( tip )
@@ -3244,6 +3245,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
+        "--amend-cascade-manifests",
         "--cuppa-mode",
 } )
 
@@ -3254,6 +3256,7 @@ _NESTED_DROP_PREFIXES = tuple(
                 "--" + CASCADE_OPTION_LEGACY,
                 "--" + PUBLISHER_ROOT_OPTION,
                 "--amend-package-manifest",
+                "--amend-cascade-manifests",
         )
 )
 
@@ -3312,7 +3315,7 @@ def tip_dependency_option_flags( env ) -> frozenset[str]:
 
 
 def tip_has_amend_package_manifest( argv=None, env=None ) -> bool:
-    """True when the tip session requested ``--amend-package-manifest``."""
+    """True when the tip session requested tip-only ``--amend-package-manifest``."""
     if argv is None:
         argv = sys.argv
     for arg in list( argv[1:] ):
@@ -3325,6 +3328,23 @@ def tip_has_amend_package_manifest( argv=None, env=None ) -> bool:
                 amend_package_manifest_enabled,
         )
         return amend_package_manifest_enabled( env )
+    return False
+
+
+def tip_has_amend_cascade_manifests( argv=None, env=None ) -> bool:
+    """True when the tip requested DAG nest amend via ``--amend-cascade-manifests``."""
+    if argv is None:
+        argv = sys.argv
+    for arg in list( argv[1:] ):
+        if arg == "--amend-cascade-manifests":
+            return True
+        if arg.startswith( "--amend-cascade-manifests=" ):
+            return True
+    if env is not None:
+        from cuppa.package_managers.package_amend import (
+                amend_cascade_manifests_enabled,
+        )
+        return amend_cascade_manifests_enabled( env )
     return False
 
 
@@ -3342,7 +3362,8 @@ def tip_forward_args(
     all valid CLI flags and omit the tip's explicit ``--rel`` / ``--toolchains``.
 
     Tip dependency-scoped options are dropped when ``env`` is supplied: the child
-    has never registered them.
+    has never registered them. Tip-local ``cuppa.add_option`` flags are always
+    dropped (the child never registered those either).
 
     With ``stage_only=True``, the child builds and stages the package but does not
     upload (``--stage-package`` instead of ``--publish-package``).
@@ -3350,13 +3371,14 @@ def tip_forward_args(
     With ``project_only=True``, the child runs a normal project build/clean (no
     ``--publish-package`` / ``--stage-package``). Used for location develop trees
     under ``--stage-develop`` and for plain ``--build-cascade-dependencies``
-    (without tip ``--amend-package-manifest``). ``--stage-develop`` itself is
+    (without tip ``--amend-cascade-manifests``). ``--stage-develop`` itself is
     always dropped so nesting stays single-level.
 
-    When the tip sets ``--amend-package-manifest``, package nests (publish or
-    stage — including build-deps rewritten as stage) **keep** that flag so nests
-    metadata-amend instead of full-building. Location ``project_only`` nests
-    still drop it.
+    When the tip sets ``--amend-cascade-manifests``, package nests (publish or
+    stage — including build-deps rewritten as stage) receive
+    ``--amend-package-manifest`` so nests metadata-amend instead of full-building.
+    Tip-only ``--amend-package-manifest`` does not enable nest amend. Location
+    ``project_only`` nests still omit amend.
 
     Package nest identity (publish / stage / build-deps) defaults to ``--rel`` so
     tip ``--dbg`` / ``--cov`` do not change nest package stems. Pass
@@ -3376,22 +3398,25 @@ def tip_forward_args(
             ( not nest_package_identity )
             or cascade_variants_enabled( env=env, argv=argv )
     )
-    # Package publish/stage nests honour tip amend; location project nests do not.
-    keep_amend = tip_has_amend_package_manifest( argv, env ) and not project_only
+    # Package nests honour tip --amend-cascade-manifests; location project nests do not.
+    keep_amend = tip_has_amend_cascade_manifests( argv, env ) and not project_only
     drop_exact = set( _NESTED_DROP_EXACT )
     drop_prefixes = list( _NESTED_DROP_PREFIXES )
     drop_takes_value = set( _NESTED_DROP_TAKES_VALUE )
-    if keep_amend:
-        drop_exact.discard( "--amend-package-manifest" )
-        drop_prefixes = [
-                prefix for prefix in drop_prefixes
-                if prefix != "--amend-package-manifest="
-        ]
     if env is not None:
         for flag in tip_dependency_option_flags( env ):
             drop_exact.add( flag )
             drop_prefixes.append( flag + "=" )
             drop_takes_value.add( flag )
+    from cuppa.core.options import (
+            tip_local_option_flags,
+            tip_local_option_takes_value,
+    )
+    for flag in tip_local_option_flags():
+        drop_exact.add( flag )
+        drop_prefixes.append( flag + "=" )
+    for flag in tip_local_option_takes_value():
+        drop_takes_value.add( flag )
 
     forwarded: list[str] = []
     skip_next = False
@@ -3463,10 +3488,10 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
 def argv_for_nested_build( argv=None, env=None ) -> list[str]:
     """Full subprocess argv for cascade build-deps-only (no nested upload).
 
-    With tip ``--amend-package-manifest``, nests stage+amend (metadata retar,
+    With tip ``--amend-cascade-manifests``, nests stage+amend (metadata retar,
     no upload) instead of a full project build.
     """
-    if tip_has_amend_package_manifest( argv, env ):
+    if tip_has_amend_cascade_manifests( argv, env ):
         return [
                 sys.executable, "-m", "cuppa"
         ] + tip_forward_args( argv, env=env, stage_only=True )
@@ -4430,7 +4455,7 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
         nested_env[UPLOAD_MARKER_ENV] = marker_dir
     kind = (
             "nested amend"
-            if tip_has_amend_package_manifest( env=env )
+            if tip_has_amend_cascade_manifests( env=env )
             else "cascade session"
     )
 
@@ -4459,7 +4484,7 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
         code = returncode if returncode is not None else "unknown"
         if _clean_enabled( env ):
             verb = "clean"
-        elif tip_has_amend_package_manifest( env=env ):
+        elif tip_has_amend_cascade_manifests( env=env ):
             verb = "amend"
         else:
             verb = "publish"
@@ -4559,12 +4584,12 @@ def run_nested_build(
 ) -> None:
     """Nested cuppa session that builds or cleans without registry upload.
 
-    With tip ``--amend-package-manifest``, nests metadata-amend + stage (no
+    With tip ``--amend-cascade-manifests``, nests metadata-amend + stage (no
     upload) instead of a full project build.
     """
     argv = argv_for_nested_build( env=env )
     nested_env = _nested_session_env( env )
-    amending = tip_has_amend_package_manifest( env=env )
+    amending = tip_has_amend_cascade_manifests( env=env )
     kind = "nested amend" if amending else "nested build"
 
     write_lines( session_begin_lines(
@@ -5511,6 +5536,11 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( BUILD_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
         )
+    if tip_has_amend_cascade_manifests( env=env ) and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--amend-cascade-manifests requires --{}"
+                .format( CASCADE_OPTION )
+        )
     if publish and publish_cascade_deps:
         raise SCons.Errors.StopError(
                 "--{} and --publish-package cannot be combined; choose tip "
@@ -5836,7 +5866,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             )
             _announce_parent_enter( next_entry )
 
-    tip_amend = tip_has_amend_package_manifest( env=env )
+    tip_amend = tip_has_amend_cascade_manifests( env=env )
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
             skipped=skipped, uploaded=uploaded_count,

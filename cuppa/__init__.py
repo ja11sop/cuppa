@@ -86,8 +86,9 @@ def run( *args, **kwargs ):
 
 
 def add_option( *args, **kwargs ):
+    """Tip/project option registration — nested cascade sessions drop these flags."""
     import cuppa.core.options
-    cuppa.core.options.add_option( *args, **kwargs )
+    cuppa.core.options.add_tip_option( *args, **kwargs )
 
 
 import cuppa.build_with_location

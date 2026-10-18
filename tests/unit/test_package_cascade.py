@@ -356,28 +356,40 @@ def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
     )
 
 
-def test_tip_forward_args_keeps_amend_on_package_publish_nest():
+def test_tip_forward_args_injects_amend_when_cascade_amend_set():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--amend-cascade-manifests",
+            "--cascade",
+    ] )
+    # Tip signal is --amend-cascade-manifests; nests receive --amend-package-manifest.
+    assert "--amend-package-manifest" in forwarded
+    assert "--amend-cascade-manifests" not in forwarded
+    assert "--publish-package" in forwarded
+    assert "--cascade" not in forwarded
+
+
+def test_tip_forward_args_tip_only_amend_does_not_enable_nest_amend():
     forwarded = cascade.tip_forward_args( [
             "scons", "-D", "--rel",
             "--amend-package-manifest",
             "--cascade",
     ] )
-    # Default nest path is publish; amend is kept when tip requested it.
-    assert "--amend-package-manifest" in forwarded
+    assert "--amend-package-manifest" not in forwarded
     assert "--publish-package" in forwarded
-    assert "--cascade" not in forwarded
 
 
 def test_tip_forward_args_drops_amend_for_location_project_only():
     forwarded = cascade.tip_forward_args(
             [
                     "scons", "-D", "--rel",
-                    "--amend-package-manifest",
+                    "--amend-cascade-manifests",
                     "--publish-package",
             ],
             project_only=True,
     )
     assert "--amend-package-manifest" not in forwarded
+    assert "--amend-cascade-manifests" not in forwarded
     assert "--publish-package" not in forwarded
 
 
@@ -387,10 +399,11 @@ def test_argv_for_nested_build_with_amend_stages_and_amends():
             "--toolchains=gcc15",
             "--cascade",
             "--build-cascade-dependencies",
-            "--amend-package-manifest",
+            "--amend-cascade-manifests",
     ]
     nested = cascade.argv_for_nested_build( tip )
     assert "--amend-package-manifest" in nested
+    assert "--amend-cascade-manifests" not in nested
     assert "--stage-package" in nested
     assert "--publish-package" not in nested
     assert "--build-cascade-dependencies" not in nested
@@ -402,10 +415,11 @@ def test_argv_for_nested_publish_keeps_amend():
             "scons", "-D", "--rel",
             "--cascade",
             "--publish-package",
-            "--amend-package-manifest",
+            "--amend-cascade-manifests",
     ]
     nested = cascade.argv_for_nested_publish( tip )
     assert "--amend-package-manifest" in nested
+    assert "--amend-cascade-manifests" not in nested
     assert "--publish-package" in nested
     assert "--stage-package" not in nested
 
@@ -419,6 +433,30 @@ def test_argv_for_nested_build_without_amend_stays_project_only():
     assert "--amend-package-manifest" not in nested
     assert "--stage-package" not in nested
     assert "--publish-package" not in nested
+
+
+def test_tip_forward_args_drops_tip_local_add_option_flags():
+    from cuppa.core import options as cuppa_options
+
+    cuppa_options.reset_tip_local_options()
+    # Bypass SCons AddOption — only exercise nest-drop bookkeeping.
+    cuppa_options._tip_local_flags[ "--test-postgres-container" ] = False
+    cuppa_options._tip_local_flags[ "--pipeline-slot" ] = True
+    try:
+        forwarded = cascade.tip_forward_args( [
+                "scons", "-D", "--rel",
+                "--test-postgres-container",
+                "--pipeline-slot", "7",
+                "--offline",
+                "--cascade",
+        ] )
+    finally:
+        cuppa_options.reset_tip_local_options()
+    assert "--test-postgres-container" not in forwarded
+    assert "--pipeline-slot" not in forwarded
+    assert "7" not in forwarded
+    assert "--offline" in forwarded
+    assert "--rel" in forwarded
 
 
 def test_maybe_run_cascade_consume_tip_still_requires_publish_action():

@@ -71,7 +71,7 @@ nest-build vs nest-publish:
 | Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package`` or ``--build-cascade-dependencies``)
 
 | ``--build-cascade-dependencies``
-| Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-package-manifest``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild). Nests run **before** tip ``BuildWith`` (same timing idea as ``--stage-develop``)
+| Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-cascade-manifests``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild). Nests run **before** tip ``BuildWith`` (same timing idea as ``--stage-develop``)
 | Tip **build only**, linking each nest's ``final/<package>/<version>/`` stage under the publisher forest (not the download extract). ``--develop`` still wins for packages with an active develop path. Cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies`` |
 
 | ``--cascade-plan``
@@ -118,6 +118,13 @@ Publish-cascade still refreshes tip **extracts** after nested upload.
 Tip links only stages for the **tip toolchain** (nest-default ``--rel`` under
 tip ``--dbg`` of that toolchain is expected; a different toolchain under
 ``_build/`` is refused, not silently chosen).
+
+Add ``--amend-cascade-manifests`` when nests should rewrite traveling metadata
+instead of full-building (see
+xref:dependencies/publishing/amend-and-external.adoc#amend-cascade[Amending across a cascade DAG]).
+Tip-only ``--amend-package-manifest`` does not enable nest amend. Nest argv also
+drops tip dependency-scoped flags and tip-local ``cuppa.add_option`` helpers
+(for example ``--test-postgres-container``) — children never registered them.
 
 [mermaid]
 ....
