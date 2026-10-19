@@ -2357,7 +2357,7 @@ class GitlabPackageDependency:
                 # Expand already ran above. If a token never matched a group and
                 # there is no .pc for the leaf name, fail with a lib_groups hint
                 # instead of a bare pkg-config OSError (soak: tip extract lacking
-                # traveling lib_groups left ``kms_libs`` as a fake stem).
+                # traveling lib_groups left ``widget_libs`` as a fake stem).
                 library_prefix = self._library_prefix and self._library_prefix or ""
                 missing_pc = []
                 for lib in libs:

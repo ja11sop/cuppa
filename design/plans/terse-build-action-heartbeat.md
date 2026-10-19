@@ -218,8 +218,7 @@ compile `[executing...]` hook — but the soak symptom is the same class of
 |------|--------|
 | Soak gap captured | Done — this proposal |
 | Parallel outstanding-set + cycle | Settled direction (above) |
-| Process `Monitor` clear + terse shape | Soak noted (above) — reconfirmed 2026-10-19 tip `data_aggregator` under `--terse-output -Q`: `Running Process` / `docker stop` / `= done =` still verbose (not a cascade/amend regression) |
-| Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
+| Process `Monitor` clear + terse shape | Soak noted (above) — reconfirmed 2026-10-19 **project F** tip under `--terse-output -Q`: `Running Process` / `docker stop` / `= done =` still verbose (not a cascade/amend regression) || Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
 | Hook design / cycle cadence | Starting |
 | Implementation | Not started |
 | Antora note (terse + long actions) | With implementation |

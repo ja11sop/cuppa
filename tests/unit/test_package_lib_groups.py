@@ -245,4 +245,4 @@ def test_gitlab_use_libs_pkg_config_missing_pc_hints_lib_groups( tmp_path: Path 
     dep.use_libs = gitlab_module.GitlabPackageDependency.use_libs.__get__( dep )
 
     with pytest.raises( SCons.Errors.StopError, match="lib_groups" ):
-        dep.use_libs( [ "kms_libs" ] )
+        dep.use_libs( [ "widget_libs" ] )

@@ -1,7 +1,7 @@
 # Plan: Cascade — metadata-only amend across the nest DAG
 
 - **Status:** done
-- **Status note:** soak 2026-10-19 (`data_aggregator` + `--amend-cascade-manifests`)
+- **Status note:** soak 2026-10-19 (**project F** tip + `--amend-cascade-manifests`)
 - **Related:** [`../archive/package-metadata-amend.md`](../archive/package-metadata-amend.md) (tip amend shipped); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`cascade-tip-local-options.md`](cascade-tip-local-options.md) (tip-local AddOption drops — this PR); `tip_forward_args` / `_NESTED_DROP_*` / `run_nested_build` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-19
 - **Impact:** minor — new cascade companion behaviour; tip-only amend unchanged
@@ -202,4 +202,4 @@ links forest stages (metadata + binaries) under build-deps.
 | Unit tests (forward / build / publish argv) | **Done** |
 | Antora cascade + amend-and-external | **Done** (C tip signal) |
 | Dedicated `--amend-cascade-manifests` (C) | **Done** — tip signal; tip-only amend no longer enables nests |
-| Live soak (google_cloud_cpp DAG / lib_groups) | **Succeeded** — `data_aggregator` tip: 9 nested amends, tip-local `--test-postgres-container` dropped from nest argv, tip tests + forest consume OK |
+| Live soak (google_cloud_cpp DAG / lib_groups) | **Succeeded** — **project F** tip: 9 nested amends, tip-local `cuppa.add_option` helpers dropped from nest argv, tip tests + forest consume OK |

@@ -23,14 +23,14 @@ def test_tip_local_option_flags_track_takes_value( monkeypatch ):
     monkeypatch.setattr( cuppa_options.SCons.Script, "AddOption", _fake_add_option )
 
     cuppa_options.add_tip_option(
-            "--test-postgres-container",
-            dest="test_postgres_container",
+            "--tip-local-flag",
+            dest="tip_local_flag",
             action="store_true",
             help="tip helper",
     )
     cuppa_options.add_tip_option(
-            "--pipeline-slot",
-            dest="pipeline_slot",
+            "--tip-local-value",
+            dest="tip_local_value",
             type="string",
             nargs=1,
             action="store",
@@ -44,10 +44,10 @@ def test_tip_local_option_flags_track_takes_value( monkeypatch ):
             help="cuppa owned",
     )
 
-    assert "--test-postgres-container" in cuppa_options.tip_local_option_flags()
-    assert "--pipeline-slot" in cuppa_options.tip_local_option_flags()
+    assert "--tip-local-flag" in cuppa_options.tip_local_option_flags()
+    assert "--tip-local-value" in cuppa_options.tip_local_option_flags()
     assert "--offline" not in cuppa_options.tip_local_option_flags()
-    assert "--pipeline-slot" in cuppa_options.tip_local_option_takes_value()
-    assert "--test-postgres-container" not in cuppa_options.tip_local_option_takes_value()
+    assert "--tip-local-value" in cuppa_options.tip_local_option_takes_value()
+    assert "--tip-local-flag" not in cuppa_options.tip_local_option_takes_value()
     assert len( recorded ) == 3
     cuppa_options.reset_tip_local_options()

@@ -440,20 +440,20 @@ def test_tip_forward_args_drops_tip_local_add_option_flags():
 
     cuppa_options.reset_tip_local_options()
     # Bypass SCons AddOption — only exercise nest-drop bookkeeping.
-    cuppa_options._tip_local_flags[ "--test-postgres-container" ] = False
-    cuppa_options._tip_local_flags[ "--pipeline-slot" ] = True
+    cuppa_options._tip_local_flags[ "--tip-local-flag" ] = False
+    cuppa_options._tip_local_flags[ "--tip-local-value" ] = True
     try:
         forwarded = cascade.tip_forward_args( [
                 "scons", "-D", "--rel",
-                "--test-postgres-container",
-                "--pipeline-slot", "7",
+                "--tip-local-flag",
+                "--tip-local-value", "7",
                 "--offline",
                 "--cascade",
         ] )
     finally:
         cuppa_options.reset_tip_local_options()
-    assert "--test-postgres-container" not in forwarded
-    assert "--pipeline-slot" not in forwarded
+    assert "--tip-local-flag" not in forwarded
+    assert "--tip-local-value" not in forwarded
     assert "7" not in forwarded
     assert "--offline" in forwarded
     assert "--rel" in forwarded

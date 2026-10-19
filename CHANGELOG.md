@@ -34,8 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``design/plans/cascade-amend-package-manifest.md``.
 - Cascade nest argv **drops tip-local ``cuppa.add_option`` flags** (and their
   values) so nests are not failed by tip-only helpers such as
-  ``--test-postgres-container``. Dependency-scoped tip flags were already
-  dropped. Plan: ``design/plans/cascade-tip-local-options.md``.
+  ``--tip-local-flag``. Dependency-scoped tip flags were already dropped.
+  Plan: ``design/plans/cascade-tip-local-options.md``.
 - ``--amend-package-manifest`` always rebuilds the package stamp
   (``AlwaysBuild``): empty-source amend no longer no-ops when a prior
   ``.packaged`` stamp exists (cascade soak: nests finished ``up to date``

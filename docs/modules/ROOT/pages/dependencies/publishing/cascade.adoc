@@ -124,7 +124,7 @@ instead of full-building (see
 xref:dependencies/publishing/amend-and-external.adoc#amend-cascade[Amending across a cascade DAG]).
 Tip-only ``--amend-package-manifest`` does not enable nest amend. Nest argv also
 drops tip dependency-scoped flags and tip-local ``cuppa.add_option`` helpers
-(for example ``--test-postgres-container``) — children never registered them.
+(for example ``--tip-local-flag``) — children never registered them.
 
 [mermaid]
 ....

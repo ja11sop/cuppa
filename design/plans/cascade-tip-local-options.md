@@ -26,14 +26,14 @@ before the nest build:
 
 ```text
 nested build 1 of 9: abseil_cpp …
-  command [… -m cuppa … --test-postgres-container …]
-SCons Error: no such option: --test-postgres-container
+  command [… -m cuppa … --tip-local-flag …]
+SCons Error: no such option: --tip-local-flag
 ```
 
 Soak (2026-10-18): tip
 `--cascade --build-cascade-dependencies --amend-package-manifest` with
-`--test-postgres-container` (and similarly `--start-dev-env`,
-`--pipeline-debugging` on the same tip) breaks the first nest.
+tip-local helpers such as `--tip-local-flag` (and similarly other
+`cuppa.add_option` registrations on **project F**) breaks the first nest.
 
 Global settings that belong on every project still travel via
 `~/.cuppaconfig` (child loads itself). Tip-local AddOption flags are **not**
@@ -67,7 +67,7 @@ today with **no registry**. Lean:
 
 1. **Track tip AddOption ids** in `cuppa.core.options` (set of `--flag` strings
    passed as the first arg / option strings). Call sites already use
-   `cuppa.add_option('--test-postgres-container', …)`.
+   `cuppa.add_option('--tip-local-flag', …)`.
 2. Distinguish **cuppa-module** registrations (variants, toolchains, package
    managers, …) from **tip** registrations:
    * either only record when `add_option` is invoked from outside `cuppa.*`
@@ -103,7 +103,7 @@ take a separate argv token.
 |------------|----------------|
 | Cuppa / SCons global (`--rel`, `--toolchains`, `--offline`, `--terse-output`, …) | Forward (subject to existing nest-rel / drop tables) |
 | Tip dependency-scoped (`--foo-gitlab-develop`, …) | Drop today |
-| Tip-local `cuppa.add_option` (`--test-postgres-container`, …) | **Drop** (this plan) |
+| Tip-local `cuppa.add_option` (`--tip-local-flag`, …) | **Drop** (this plan) |
 | `~/.cuppaconfig` keys | Child loads; not tip argv |
 
 ## Open questions (core slice — settled)
@@ -121,7 +121,7 @@ take a separate argv token.
 
 * Failure is at **child** option parse (`scons` / cuppa launcher), not during
   tip resolve — plan tree prints successfully, then nest 1 dies.
-* `tip_dependency_option_flags` cannot see `--test-postgres-container` (not a
+* `tip_dependency_option_flags` cannot see `--tip-local-flag` (not a
   dependency factory option).
 * Workaround today: omit tip-local flags on cascade command lines (no longer
   required after this PR — tip may keep helpers; nests drop them).
@@ -142,7 +142,7 @@ unknown flags.”
 |-----------|---------|
 | Tip-local flag, nest never registered it | Nest still dies with `no such option` if forwarded |
 | Tip-local flag, nest also registers it | Forward can work |
-| Tip-only helper (`--test-postgres-container` soak) | Must stay **off** any allowlist |
+| Tip-only helper (`--tip-local-flag` soak) | Must stay **off** any allowlist |
 
 ### Approaches considered
 
@@ -181,5 +181,5 @@ and nests succeeded.
 | Track `cuppa.add_option` + nest drop | **Done** — `cuppa.add_option` → `add_tip_option`; cuppa internals keep `add_option` |
 | Implementation | **Done** on this PR — `tip_forward_args` drops tip-local exact / `=` / takes-value |
 | Antora cascade note | **Done** |
-| Live soak with tip helpers on cascade line | **Succeeded** — nest command lines omit `--test-postgres-container`; tip still runs postgres docker helpers |
+| Live soak with tip helpers on cascade line | **Succeeded** — nest command lines omit tip-local flags; tip still runs its own helpers |
 | Opt-in forward allowlist (`--cascade-local-options=…`) | **Captured** (remainder above) — not this PR |
