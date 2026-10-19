@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-17
+**As of:** 2026-10-19
 
 ---
 
@@ -23,7 +23,11 @@ polish and long carry-forwards continue where they do not block that opener.
 
 | Area | Status in 1.13.0 |
 |------|------------------|
-| GitLab package named lib groups | **In progress** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| GitLab package named lib groups | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| Cascade tip-local options | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — drop tip `cuppa.add_option` flags from nest argv; [`cascade-tip-local-options.md`](design/plans/cascade-tip-local-options.md) |
+| Cascade metadata-only amend | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — `--amend-cascade-manifests` DAG nests; [`cascade-amend-package-manifest.md`](design/plans/cascade-amend-package-manifest.md) |
+| Cascade build-deps tip consume | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — tip links forest stages under `--build-cascade-dependencies`; [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md) |
+| Terse in-progress compile + heartbeat | **Related** — long silent tool actions under `--terse-output`; process `Run` / sticky clear; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
@@ -509,7 +513,7 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | `quiet-tty-heartbeat` | Quiet+TTY configure liveness via logger INFO diversion + throttle | Low | **Shipped in 1.12.0** [#356](https://github.com/ja11sop/cuppa/pull/356). [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) |
 | `filter-directory-warn` | Drop Filter’s false-positive “probably a directory” warn for missing extensionless products | Low | **Shipped in 1.12.0** [#358](https://github.com/ja11sop/cuppa/pull/358). [`filter-directory-warn.md`](design/archive/filter-directory-warn.md); `_node_exists_as_file` in `cuppa/utility/filter.py` |
 | `gitlab-package-version-ranges` | Soft pins on transitive / package edges (`>=1.28.0`); diamond intersect policy | Medium | **Shipped in 1.12.0** — tip list ``bound → concrete``. [`gitlab-package-version-ranges.md`](design/archive/gitlab-package-version-ranges.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
-| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | **1.13.0 opener.** [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
+| `gitlab-package-lib-groups` | Named `use_libs` groups + `show_libs_for` / `show_all_libs` ( `use_all_libs()` already shipped) | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** (1.13.0 opener). [`gitlab-package-lib-groups.md`](design/plans/gitlab-package-lib-groups.md); [#279](https://github.com/ja11sop/cuppa/issues/279) |
 | `transfer-and-archive-progress` | Shared alive + progress-bar capabilities for download/upload/compress/extract; mode-tuned presentation (normal / terse / quiet); TTY vs CI | Medium | **Shipped in 1.12.0** [#360](https://github.com/ja11sop/cuppa/pull/360) with [`console-write-ownership.md`](design/archive/console-write-ownership.md). Extends [`download-progress.md`](design/archive/download-progress.md); ensure phases deferred. [`transfer-and-archive-progress.md`](design/archive/transfer-and-archive-progress.md) |
 
 ### Out of scope (storage)
@@ -609,6 +613,10 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-build-output.md`](design/archive/terse-build-output.md) |
+| `console-terse-action-heartbeat` | Muted in-progress caption + pulse during long terse toolchain actions (compile/link); clear before durable `[ok]`; process `Run` terse shape | Medium | **Proposed** — soak gap under `--terse-output` (± `-Q`). [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md); builds on [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) `operation_status` |
+| `cascade-tip-local-options` | Drop tip-only `cuppa.add_option` flags from nest argv (`--tip-local-flag`, …) | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-tip-local-options.md`](design/plans/cascade-tip-local-options.md); optional `--cascade-local-options` allowlist is a follow-on |
+| `cascade-amend-package-manifest` | Cascade nests metadata-amend via tip `--amend-cascade-manifests` (DAG retar, no CMake) | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-amend-package-manifest.md`](design/plans/cascade-amend-package-manifest.md); tip-only amend remains [`package-metadata-amend.md`](design/archive/package-metadata-amend.md) |
+| `cascade-build-deps-tip-consume` | Under `--build-cascade-dependencies`, tip consumes publisher-root stages (not extracts); pre-`BuildWith` nest like `--stage-develop` | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md); develop ranking unchanged; scoped `--develop` later |
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |

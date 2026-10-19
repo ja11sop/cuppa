@@ -76,6 +76,10 @@ STAGE_DEVELOP_PLAN_OPTION = "stage-develop-plan"
 # Tip (package, version, sconstruct) keys that already ran nested publish this process.
 _cascade_nested_done: set[tuple[str, str, str]] = set()
 
+# Publisher roots already nest-built under ``--build-cascade-dependencies``
+# (pre-``BuildWith`` pass and/or tip nest-on-miss). Absolute paths.
+_build_cascade_staged_roots: set[str] = set()
+
 # Where clones land under the storage root when no publisher root was given.
 PUBLISHERS_DIRNAME = "publishers"
 
@@ -100,6 +104,8 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--develop",
         "--publish-package",
+        "--amend-package-manifest",
+        "--amend-cascade-manifests",
 } )
 
 
@@ -246,6 +252,18 @@ def cascade_variants_enabled( env=None, argv=None ) -> bool:
 def reset_cascade_nested_done() -> None:
     """Clear the per-process nested-graph guard (tests / session boundaries)."""
     _cascade_nested_done.clear()
+    _build_cascade_staged_roots.clear()
+
+
+def build_cascade_staged_roots() -> set[str]:
+    """Absolute publisher roots already nest-built for build-deps tip consume."""
+    return set( _build_cascade_staged_roots )
+
+
+def record_build_cascade_staged_root( publisher_dir: str ) -> None:
+    """Remember a forest tree whose stage was produced for tip consume."""
+    if publisher_dir:
+        _build_cascade_staged_roots.add( os.path.abspath( str( publisher_dir ) ) )
 
 
 # Tip ``GitlabPackagePublisher`` remembers itself *and* the sconscript env
@@ -814,8 +832,42 @@ def resolve_develop_location_stage(
     if version is None:
         version = location_stage_version( develop_root )
     return resolve_develop_package_stage(
-            develop_root, name, version, env=env
+            develop_root, name, version, env=env, match_toolchain=True,
     )
+
+
+def _toolchain_name_from_env( env ) -> str | None:
+    if env is None:
+        return None
+    try:
+        toolchain = env.get( "toolchain" )
+        if toolchain is None:
+            return None
+        for attr in ( "name", "package_name" ):
+            getter = getattr( toolchain, attr, None )
+            if callable( getter ):
+                try:
+                    value = getter()
+                except Exception:
+                    continue
+                if value:
+                    return str( value )
+        return None
+    except Exception:
+        return None
+
+
+def _stage_path_toolchain( develop_root: str, stage_path: str ) -> str | None:
+    """Toolchain segment of ``_build/<toolchain>/<variant>/<arch>/<abi>/final/…``."""
+    build_root = os.path.join( os.path.abspath( develop_root ), "_build" )
+    try:
+        rel = os.path.relpath( os.path.abspath( stage_path ), build_root )
+    except ValueError:
+        return None
+    parts = rel.split( os.sep )
+    if len( parts ) < 5 or parts[4] != "final":
+        return None
+    return parts[0] or None
 
 
 def resolve_develop_package_stage(
@@ -823,40 +875,68 @@ def resolve_develop_package_stage(
         package: str,
         version,
         env=None,
+        match_toolchain: bool | str | None = None,
 ) -> str | None:
     """Locate ``final/<package>/<version>/`` (or another version) under a publisher tree.
 
     Prefers the tip's toolchain×variant layout when ``env`` supplies one, then scans
     ``_build/**/final/<package>/``. Returns the first path that looks like a staged
     package, or ``None``.
+
+    ``match_toolchain``:
+      * ``None`` / ``False`` — historical scan (any toolchain under ``_build``).
+      * ``True`` — require the tip env's toolchain (dbg tip may still use a ``rel``
+        stage of that toolchain; nest-default ``--rel``).
+      * ``str`` — require that toolchain name.
+    Wrong-toolchain stages must not silently win (tip ``gcc15`` must not bind
+    ``gcc16/…``). When tip variant is not ``rel``, nest-default ``rel`` is
+    preferred over a same-toolchain tip-variant stage so stale dbg trees do
+    not beat a freshly nested rel amend.
     """
     develop_root = os.path.abspath( develop_root )
     version = str( version )
     candidates: list[str] = []
+    required_toolchain = None
+    if match_toolchain is True:
+        required_toolchain = _toolchain_name_from_env( env )
+    elif isinstance( match_toolchain, str ) and match_toolchain:
+        required_toolchain = str( match_toolchain )
 
     if env is not None:
         try:
             from cuppa.core.build_layout import sanitise_abi, tool_variant_dir
-            toolchain = env.get( "toolchain" )
+            toolchain_name = _toolchain_name_from_env( env )
             variant = env.get( "variant" )
             arch = env.get( "target_arch" )
             abi = env.get( "abi" )
-            toolchain_name = None
-            if toolchain is not None:
-                name_fn = getattr( toolchain, "name", None )
-                toolchain_name = name_fn() if callable( name_fn ) else str( toolchain )
             variant_name = None
             if variant is not None:
                 name_fn = getattr( variant, "name", None )
                 variant_name = name_fn() if callable( name_fn ) else str( variant )
             if toolchain_name and variant_name and arch and abi is not None:
-                tvd = tool_variant_dir(
-                        toolchain_name, variant_name, arch, sanitise_abi( str( abi ) )
-                )
-                preferred = os.path.join(
-                        develop_root, "_build", tvd, "final", package, version
-                )
-                candidates.append( preferred )
+                abi_s = sanitise_abi( str( abi ) )
+                # Nest package sessions default to --rel. Prefer that stage over
+                # a stale tip-variant (dbg) tree when both exist — tip --dbg
+                # consuming nest --rel is expected; preferring dbg first left
+                # soak tips on Oct-old abseil dbg while nest amended rel.
+                variant_order = []
+                if variant_name != "rel":
+                    variant_order.append( "rel" )
+                variant_order.append( variant_name )
+                seen_variants = set()
+                for vn in variant_order:
+                    if vn in seen_variants:
+                        continue
+                    seen_variants.add( vn )
+                    tvd = tool_variant_dir(
+                            toolchain_name, vn, arch, abi_s
+                    )
+                    preferred = os.path.join(
+                            develop_root, "_build", tvd, "final",
+                            package, version,
+                    )
+                    if preferred not in candidates:
+                        candidates.append( preferred )
         except Exception:
             pass
 
@@ -881,6 +961,10 @@ def resolve_develop_package_stage(
             dirnames[:] = []
 
     for path in candidates:
+        if required_toolchain:
+            path_tc = _stage_path_toolchain( develop_root, path )
+            if path_tc != required_toolchain:
+                continue
         if looks_like_package_stage( path ):
             return path
     return None
@@ -1238,13 +1322,33 @@ def is_consume_tip( publisher ) -> bool:
     return bool( getattr( publisher, "_consume_tip", False ) )
 
 
+def _resolve_consume_tip_factory_version( owner, env ):
+    """Ensure a tip package factory has a concrete ``_version`` for cascade edges.
+
+    Early ``run_build_cascade_stages`` runs **before** tip ``BuildWith`` /
+    ``default_version``. Factories still holding ``None`` / ``latest`` / soft
+    bounds (e.g. ``boost_package`` remembered ``1.92``) must be resolved here
+    or the early graph silently drops them and the post-pass sees
+    ``cascade_ran_for_tip`` — boost missing from nest amend is that regression.
+    """
+    resolve = getattr( owner, "default_version", None )
+    if not callable( resolve ):
+        return getattr( owner, "_version", None )
+    try:
+        resolve( getattr( owner, "_version", None ), env )
+    except Exception:
+        return getattr( owner, "_version", None )
+    return getattr( owner, "_version", None )
+
+
 def _edges_from_consume_tip( env ) -> list[dict]:
     """Root edges from tip ``env['dependencies']`` GitLab package factories.
 
-    Each factory that declares a concrete version becomes a root edge. Effective
-    ``package_source`` (CLI / declaration / tip seed) is stamped when known so
-    resolve and plan labels match publisher tips. Edges without a resolvable
-    source still enter the queue so plan/collect can report the miss.
+    Each GitLab package factory becomes a root edge after floating versions are
+    resolved to concrete pins (same ``default_version`` path tip ``BuildWith``
+    uses). Effective ``package_source`` (CLI / declaration / tip seed) is stamped
+    when known so resolve and plan labels match publisher tips. Edges without a
+    resolvable source still enter the queue so plan/collect can report the miss.
     """
     deps = env.get( "dependencies" ) or {}
     edges: list[dict] = []
@@ -1253,7 +1357,7 @@ def _edges_from_consume_tip( env ) -> list[dict]:
         owner = _factory_owner( factory )
         if getattr( owner, "_package_manager", None ) != "gitlab":
             continue
-        version = getattr( owner, "_version", None )
+        version = _resolve_consume_tip_factory_version( owner, env )
         if version is None:
             continue
         package = getattr( owner, "_package", None ) or name
@@ -2241,16 +2345,29 @@ def cascade_plan_lines(
                     .format( tip )
             )
     elif consume_tip:
-        intro = (
-                "Printing Cascade plan for building this project {} "
-                "(dependencies publish; tip build only) given the command:"
-                .format( tip )
-        )
+        if tip_has_amend_cascade_manifests( argv=argv ):
+            intro = (
+                    "Printing Cascade plan for amending package metadata for "
+                    "this project {} (dependencies amend; tip build only) "
+                    "given the command:".format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for building this project {} "
+                    "(dependencies publish; tip build only) given the command:"
+                    .format( tip )
+            )
     else:
-        intro = (
-                "Printing Cascade plan for building and publishing package {} "
-                "given the command:".format( tip )
-        )
+        if tip_has_amend_cascade_manifests( argv=argv ):
+            intro = (
+                    "Printing Cascade plan for amending and publishing package "
+                    "{} given the command:".format( tip )
+            )
+        else:
+            intro = (
+                    "Printing Cascade plan for building and publishing package {} "
+                    "given the command:".format( tip )
+            )
     lines = [
             "",
             intro,
@@ -2425,15 +2542,24 @@ def session_skipped_lines(
 
 
 def _cascade_run_summary(
-        total, skipped=0, uploaded=0, clean=False, build_only=False, *, begin=False,
+        total, skipped=0, uploaded=0, clean=False, build_only=False,
+        amend_manifest: bool = False, *, begin=False,
 ) -> str:
     """Short count phrase for tip-scoped ``[cascade] … · begin|end`` lines."""
     if begin:
         return storage.emphasised_count_phrase( total, "package", "packages" )
-    nest_singular = "nested build" if build_only else "nested publish"
-    nest_plural = "nested builds" if build_only else "nested publishes"
-    skip_singular = "skipped build" if build_only else "skipped publish"
-    skip_plural = "skipped builds" if build_only else "skipped publishes"
+    if amend_manifest and build_only:
+        nest_singular, nest_plural = "nested amend", "nested amends"
+        skip_singular, skip_plural = "skipped amend", "skipped amends"
+    elif amend_manifest:
+        nest_singular, nest_plural = "nested amend publish", "nested amend publishes"
+        skip_singular, skip_plural = "skipped amend", "skipped amends"
+    elif build_only:
+        nest_singular, nest_plural = "nested build", "nested builds"
+        skip_singular, skip_plural = "skipped build", "skipped builds"
+    else:
+        nest_singular, nest_plural = "nested publish", "nested publishes"
+        skip_singular, skip_plural = "skipped publish", "skipped publishes"
     if clean:
         return storage.emphasised_count_phrase(
                 total, "nested clean", "nested cleans",
@@ -2468,11 +2594,13 @@ def _cascade_run_summary(
 def sessions_complete_lines(
         total, tip_package, tip_version, width=None, clean=False,
         skipped: int = 0, uploaded: int = 0, build_only: bool = False,
+        amend_manifest: bool = False,
 ) -> list[str]:
     """Banner handing the console back to this package's build (or clean)."""
     nested = _cascade_run_summary(
             total, skipped=skipped, uploaded=uploaded,
             clean=clean, build_only=build_only,
+            amend_manifest=amend_manifest,
     )
     resume = "resuming clean of this package" if clean else "resuming this package"
     return [
@@ -2531,11 +2659,18 @@ def _run_nested_cuppa( argv, cwd, env ) -> int:
             terminate_process_tree,
     )
 
+    popen_kwargs = dict( child_popen_kwargs() )
+    try:
+        from cuppa.utility.download import progress_tty_popen_kwargs
+        tty_kwargs, env = progress_tty_popen_kwargs( env )
+        popen_kwargs.update( tty_kwargs )
+    except Exception:
+        pass
     process = subprocess.Popen(
             argv,
             cwd=cwd,
             env=env,
-            **child_popen_kwargs(),
+            **popen_kwargs,
     )
     remember_child( process )
     returncode = None
@@ -3118,6 +3253,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + STAGE_DEVELOP_OPTION,
         "--" + STAGE_DEVELOP_PLAN_OPTION,
         "--amend-package-manifest",
+        "--amend-cascade-manifests",
         "--cuppa-mode",
 } )
 
@@ -3128,6 +3264,7 @@ _NESTED_DROP_PREFIXES = tuple(
                 "--" + CASCADE_OPTION_LEGACY,
                 "--" + PUBLISHER_ROOT_OPTION,
                 "--amend-package-manifest",
+                "--amend-cascade-manifests",
         )
 )
 
@@ -3185,6 +3322,40 @@ def tip_dependency_option_flags( env ) -> frozenset[str]:
     return frozenset( flags )
 
 
+def tip_has_amend_package_manifest( argv=None, env=None ) -> bool:
+    """True when the tip session requested tip-only ``--amend-package-manifest``."""
+    if argv is None:
+        argv = sys.argv
+    for arg in list( argv[1:] ):
+        if arg == "--amend-package-manifest":
+            return True
+        if arg.startswith( "--amend-package-manifest=" ):
+            return True
+    if env is not None:
+        from cuppa.package_managers.package_amend import (
+                amend_package_manifest_enabled,
+        )
+        return amend_package_manifest_enabled( env )
+    return False
+
+
+def tip_has_amend_cascade_manifests( argv=None, env=None ) -> bool:
+    """True when the tip requested DAG nest amend via ``--amend-cascade-manifests``."""
+    if argv is None:
+        argv = sys.argv
+    for arg in list( argv[1:] ):
+        if arg == "--amend-cascade-manifests":
+            return True
+        if arg.startswith( "--amend-cascade-manifests=" ):
+            return True
+    if env is not None:
+        from cuppa.package_managers.package_amend import (
+                amend_cascade_manifests_enabled,
+        )
+        return amend_cascade_manifests_enabled( env )
+    return False
+
+
 def tip_forward_args(
         argv=None,
         env=None,
@@ -3199,15 +3370,23 @@ def tip_forward_args(
     all valid CLI flags and omit the tip's explicit ``--rel`` / ``--toolchains``.
 
     Tip dependency-scoped options are dropped when ``env`` is supplied: the child
-    has never registered them.
+    has never registered them. Tip-local ``cuppa.add_option`` flags are always
+    dropped (the child never registered those either).
 
     With ``stage_only=True``, the child builds and stages the package but does not
     upload (``--stage-package`` instead of ``--publish-package``).
 
     With ``project_only=True``, the child runs a normal project build/clean (no
     ``--publish-package`` / ``--stage-package``). Used for location develop trees
-    under ``--stage-develop`` and for ``--build-cascade-dependencies``.
-    ``--stage-develop`` itself is always dropped so nesting stays single-level.
+    under ``--stage-develop`` and for plain ``--build-cascade-dependencies``
+    (without tip ``--amend-cascade-manifests``). ``--stage-develop`` itself is
+    always dropped so nesting stays single-level.
+
+    When the tip sets ``--amend-cascade-manifests``, package nests (publish or
+    stage — including build-deps rewritten as stage) receive
+    ``--amend-package-manifest`` so nests metadata-amend instead of full-building.
+    Tip-only ``--amend-package-manifest`` does not enable nest amend. Location
+    ``project_only`` nests still omit amend.
 
     Package nest identity (publish / stage / build-deps) defaults to ``--rel`` so
     tip ``--dbg`` / ``--cov`` do not change nest package stems. Pass
@@ -3227,6 +3406,8 @@ def tip_forward_args(
             ( not nest_package_identity )
             or cascade_variants_enabled( env=env, argv=argv )
     )
+    # Package nests honour tip --amend-cascade-manifests; location project nests do not.
+    keep_amend = tip_has_amend_cascade_manifests( argv, env ) and not project_only
     drop_exact = set( _NESTED_DROP_EXACT )
     drop_prefixes = list( _NESTED_DROP_PREFIXES )
     drop_takes_value = set( _NESTED_DROP_TAKES_VALUE )
@@ -3235,6 +3416,15 @@ def tip_forward_args(
             drop_exact.add( flag )
             drop_prefixes.append( flag + "=" )
             drop_takes_value.add( flag )
+    from cuppa.core.options import (
+            tip_local_option_flags,
+            tip_local_option_takes_value,
+    )
+    for flag in tip_local_option_flags():
+        drop_exact.add( flag )
+        drop_prefixes.append( flag + "=" )
+    for flag in tip_local_option_takes_value():
+        drop_takes_value.add( flag )
 
     forwarded: list[str] = []
     skip_next = False
@@ -3277,6 +3467,8 @@ def tip_forward_args(
         forwarded = _without( forwarded, "--stage-package" )
         if "--publish-package" not in forwarded:
             forwarded.append( "--publish-package" )
+    if keep_amend and "--amend-package-manifest" not in forwarded:
+        forwarded.append( "--amend-package-manifest" )
     return forwarded
 
 
@@ -3302,7 +3494,15 @@ def argv_for_nested_project( argv=None, env=None ) -> list[str]:
 
 
 def argv_for_nested_build( argv=None, env=None ) -> list[str]:
-    """Full subprocess argv for cascade build-deps-only (no nested upload)."""
+    """Full subprocess argv for cascade build-deps-only (no nested upload).
+
+    With tip ``--amend-cascade-manifests``, nests stage+amend (metadata retar,
+    no upload) instead of a full project build.
+    """
+    if tip_has_amend_cascade_manifests( argv, env ):
+        return [
+                sys.executable, "-m", "cuppa"
+        ] + tip_forward_args( argv, env=env, stage_only=True )
     return [
             sys.executable, "-m", "cuppa"
     ] + tip_forward_args(
@@ -4229,6 +4429,14 @@ def _nested_session_env( env ) -> dict:
     # Nested cuppa's stdout is a pipe (tip cuppa masks secrets), so CPython
     # block-buffers without this — the tip looks hung until the child exits.
     nested_env["PYTHONUNBUFFERED"] = "1"
+    # Nested sessions use start_new_session and lose /dev/tty. Stamp path +
+    # fd in the env; ``_run_nested_cuppa`` also ``pass_fds`` the open tip
+    # progress descriptor (path reopen alone is unreliable without a CTTY).
+    try:
+        from cuppa.utility.download import progress_tty_popen_kwargs
+        _kwargs, nested_env = progress_tty_popen_kwargs( nested_env )
+    except Exception:
+        pass
     root = str( env.get( "sconstruct_dir" ) or "" )
     pythonpath_parts = []
     if root:
@@ -4253,9 +4461,15 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     if not _clean_enabled( env ):
         marker_dir = _nested_upload_marker_dir()
         nested_env[UPLOAD_MARKER_ENV] = marker_dir
+    kind = (
+            "nested amend"
+            if tip_has_amend_cascade_manifests( env=env )
+            else "cascade session"
+    )
 
     write_lines( session_begin_lines(
-            ordinal, total, label, publisher_dir, " ".join( argv )
+            ordinal, total, label, publisher_dir, " ".join( argv ),
+            kind=kind,
     ) )
     session_timer = timer.Timer()
     returncode = None
@@ -4276,7 +4490,12 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
             # Tip Ctrl-C tore the nest down — do not dress it up as a publish failure.
             raise KeyboardInterrupt
         code = returncode if returncode is not None else "unknown"
-        verb = "clean" if _clean_enabled( env ) else "publish"
+        if _clean_enabled( env ):
+            verb = "clean"
+        elif tip_has_amend_cascade_manifests( env=env ):
+            verb = "amend"
+        else:
+            verb = "publish"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
@@ -4288,6 +4507,7 @@ def run_nested_publish( env, publisher_dir: str, label: str, ordinal=1, total=1 
     write_lines( session_end_lines(
             ordinal, total, label, session_timer.elapsed().wall,
             outcome=outcome,
+            kind=kind,
     ) )
     return NestedPublishResult(
             uploaded=uploaded,
@@ -4370,10 +4590,15 @@ def run_nested_build(
         ordinal: int = 1,
         total: int = 1,
 ) -> None:
-    """Nested cuppa session that builds or cleans without registry upload."""
+    """Nested cuppa session that builds or cleans without registry upload.
+
+    With tip ``--amend-cascade-manifests``, nests metadata-amend + stage (no
+    upload) instead of a full project build.
+    """
     argv = argv_for_nested_build( env=env )
     nested_env = _nested_session_env( env )
-    kind = "nested build"
+    amending = tip_has_amend_cascade_manifests( env=env )
+    kind = "nested amend" if amending else "nested build"
 
     write_lines( session_begin_lines(
             ordinal, total, label, publisher_dir, " ".join( argv ),
@@ -4389,7 +4614,12 @@ def run_nested_build(
         from cuppa.utility.build_children import stop_count
         if stop_count() >= 1:
             raise KeyboardInterrupt
-        verb = "clean" if _clean_enabled( env ) else "build"
+        if _clean_enabled( env ):
+            verb = "clean"
+        elif amending:
+            verb = "amend"
+        else:
+            verb = "build"
         raise SCons.Errors.StopError(
                 "cascade session {} of {} — {} of [{}] failed with return "
                 "code [{}] (cwd={})"
@@ -5082,6 +5312,121 @@ def run_location_stage_develop( env ) -> None:
         run_nested_location_project( env, root, label, ordinal=ordinal, total=total )
 
 
+def run_build_cascade_stages( env ) -> None:
+    """Nest-build publisher-root stages before tip ``BuildWith`` (build-deps).
+
+    Same timing slot as :func:`run_location_stage_develop`: tip package construct
+    can bind ``final/<package>/<version>/`` under each forest tree instead of an
+    extract. Seeds the graph from tip package factories already registered on
+    ``env`` (``default_dependencies`` / ``dependencies``). Packages registered
+    only later still nest-on-miss via :func:`consume_build_cascade_package_stage`.
+
+    Plan / collect / update-stop modes leave nesting to the post-resolve cascade
+    entry (no build here).
+    """
+    if _is_nested():
+        return
+    if not cascade_enabled( env ) or not build_cascade_dependencies_enabled( env ):
+        return
+    if cascade_stop_before_build( env ):
+        return
+    if env.get( "_cuppa_build_cascade_stages_ran" ):
+        return
+    try:
+        env["_cuppa_build_cascade_stages_ran"] = True
+    except Exception:
+        pass
+
+    edges = _edges_from_consume_tip( env )
+    if not edges:
+        return
+    maybe_run_cascade( env, make_consume_tip_publisher( env, edges ) )
+
+
+def consume_build_cascade_package_stage(
+        env,
+        package: str,
+        version,
+        name: str | None = None,
+        registry: str | None = None,
+        package_source: str | None = None,
+        label: str | None = None,
+) -> str | None:
+    """Resolve (and nest-on-miss) a publisher-root stage for tip build-deps consume.
+
+    Develop-winning packages are handled by the caller via
+    :func:`consume_develop_package_stage` first. Nested tip sessions return
+    ``None`` so children keep registry download. Missing stage after nest →
+    ``StopError`` (no silent extract fall-back).
+    """
+    if _is_nested():
+        return None
+    if not cascade_enabled( env ) or not build_cascade_dependencies_enabled( env ):
+        return None
+
+    package = str( package )
+    version = str( version )
+    label = label or "{} [=={}]".format( package, version )
+    entry = {
+            "name": str( name or package ),
+            "package": package,
+            "version": version,
+    }
+    if registry:
+        entry["registry"] = str( registry )
+    if package_source:
+        entry["package_source"] = str( package_source )
+    else:
+        stamped = effective_package_source( env, entry )
+        if stamped:
+            entry["package_source"] = stamped
+
+    publisher_dir = resolve_publisher_dir( env, entry, allow_clone=True )
+    if not publisher_dir:
+        raise SCons.Errors.StopError(
+                "--{}: no publisher tree for [{}]; plant under --publisher-root "
+                "or pass --clone-publishers / package_source"
+                .format( BUILD_CASCADE_DEPENDENCIES_OPTION, label )
+        )
+
+    abs_root = os.path.abspath( str( publisher_dir ) )
+    cleaning = _clean_enabled( env )
+    # Tip toolchain must match (dbg tip may bind nest-default rel of that
+    # toolchain). Wrong toolchain (e.g. gcc16 stage into gcc15 tip) is a bug.
+    stage = resolve_develop_package_stage(
+            publisher_dir, package, version, env=env, match_toolchain=True,
+    )
+    if stage:
+        record_build_cascade_staged_root( abs_root )
+        return stage
+    if cleaning:
+        return None
+
+    if abs_root not in _build_cascade_staged_roots:
+        run_nested_build(
+                env, publisher_dir, node_label( entry ), ordinal=1, total=1,
+        )
+        record_build_cascade_staged_root( abs_root )
+        stage = resolve_develop_package_stage(
+                publisher_dir, package, version, env=env, match_toolchain=True,
+        )
+        if stage:
+            return stage
+
+    raise SCons.Errors.StopError(
+            "--{}: package [{}] at [{}] has no staged "
+            "_build/.../final/{}/{} for this tip toolchain (need include/ and "
+            "lib/). Nest-build that tree, or fix the publisher stage layout"
+            .format(
+                    BUILD_CASCADE_DEPENDENCIES_OPTION,
+                    label,
+                    publisher_dir,
+                    package,
+                    version,
+            )
+    )
+
+
 def consume_develop_package_stage(
         env,
         develop_root: str,
@@ -5108,10 +5453,12 @@ def consume_develop_package_stage(
     elif cleaning:
         # Tip-only clean: leave the develop package's stage alone.
         return resolve_develop_package_stage(
-                develop_root, package, version, env=env
+                develop_root, package, version, env=env, match_toolchain=True,
         )
 
-    stage = resolve_develop_package_stage( develop_root, package, version, env=env )
+    stage = resolve_develop_package_stage(
+            develop_root, package, version, env=env, match_toolchain=True,
+    )
     if cleaning:
         return stage
     if stage:
@@ -5119,13 +5466,15 @@ def consume_develop_package_stage(
     if do_stage:
         raise SCons.Errors.StopError(
                 "develop package [{}] built from [{}] but no usable stage was found "
-                "under _build/.../final/{}/{} (need include/ and lib/)"
+                "under _build/.../final/{}/{} for this tip toolchain "
+                "(need include/ and lib/)"
                 .format( label, develop_root, package, version )
         )
     raise SCons.Errors.StopError(
             "develop package [{}] at [{}] has no staged "
-            "_build/.../final/{}/{} (need include/ and lib/). Build that "
-            "tree yourself, or pass --{} with --develop to stage it from here"
+            "_build/.../final/{}/{} for this tip toolchain (need include/ and "
+            "lib/). Build that tree yourself, or pass --{} with --develop to "
+            "stage it from here"
             .format(
                     label,
                     develop_root,
@@ -5194,6 +5543,11 @@ def maybe_run_cascade( env, publisher ) -> None:
         raise SCons.Errors.StopError(
                 "--{} requires --{}"
                 .format( BUILD_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
+        )
+    if tip_has_amend_cascade_manifests( env=env ) and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--amend-cascade-manifests requires --{}"
+                .format( CASCADE_OPTION )
         )
     if publish and publish_cascade_deps:
         raise SCons.Errors.StopError(
@@ -5463,14 +5817,23 @@ def maybe_run_cascade( env, publisher ) -> None:
         entry = nodes[key]
         label = node_label( entry )
         if build_cascade_deps:
-            # Registry HEAD skip is nest-publish only; build-deps always nests.
+            # Registry HEAD skip is nest-publish only; build-deps always nests
+            # unless the pre-BuildWith pass (or tip nest-on-miss) already staged
+            # this publisher root. Tip consumes forest stages — no extract overlay.
+            publisher_dir = entry["_publisher_dir"]
+            abs_root = os.path.abspath( str( publisher_dir ) )
+            if abs_root in _build_cascade_staged_roots:
+                write_lines( session_skipped_lines( ordinal, total, label ) )
+                skipped += 1
+                continue
             run_nested_build(
                     env,
-                    entry["_publisher_dir"],
+                    publisher_dir,
                     label,
                     ordinal=ordinal,
                     total=total,
             )
+            record_build_cascade_staged_root( abs_root )
             continue
         if (
                 not cleaning
@@ -5511,10 +5874,12 @@ def maybe_run_cascade( env, publisher ) -> None:
             )
             _announce_parent_enter( next_entry )
 
+    tip_amend = tip_has_amend_cascade_manifests( env=env )
     write_lines( sessions_complete_lines(
             total, tip_package, tip_version, clean=cleaning,
             skipped=skipped, uploaded=uploaded_count,
             build_only=build_cascade_deps,
+            amend_manifest=tip_amend,
     ) )
     # Blank before the tip ``end`` twin so the complete banner does not glue
     # onto ``[cascade] … · end`` (resolve ``[ready]`` already closed before plan).
@@ -5524,6 +5889,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             _cascade_run_summary(
                     total, skipped=skipped, uploaded=uploaded_count,
                     clean=cleaning, build_only=build_cascade_deps,
+                    amend_manifest=tip_amend,
             ),
     )
     _cascade_nested_done.add( nested_key )

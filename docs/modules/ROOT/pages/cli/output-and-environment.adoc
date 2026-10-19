@@ -47,12 +47,19 @@ the controlling terminal (not the `cuppa` launcher's pipes). Pipelines and CI st
 heartbeat. Download, extract, package compress, and registry upload (publish) progress share
 one engine:
 
-* **Normal TTY** — progress bar only (no alive widget); under `-Q`/`-s` the same bar is muted,
-  appears only after the idle gate, and is overwritten on completion.
+* **Normal TTY** — progress bar only (no alive widget); full colour; durable final 100% line.
+* **Normal + `-Q`/`-s` TTY** — muted bar **with** the same alive widget as the quiet heartbeat
+  row (unless `--quiet-heartbeat=off`); idle-gate reveal; overwrite after finishing a started
+  animation cycle.
 * **`--terse-output` TTY** — alive widget (unless `--quiet-heartbeat=off`) + `→` + progress bar,
-  always muted; idle-gate reveal; overwrite on completion after one animation dwell; then a
-  durable identity line (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
+  always muted; idle-gate reveal; alive ticks at the pulse/spinner animation rate (independent of
+  byte-progress throttle); overwrite dwell finishes a cycle already started after the idle gate
+  (no obligatory extra post-complete animation); then a durable identity line
+  (`→ [download] src → dest`, or a variant `[ok] · download · ...` line).
 * **Non-TTY / CI** — periodic whole lines in **normal** mode only (not under `--terse-output`).
+* **Cascade nests** — when the tip is interactive, nested sessions keep the same TTY progress
+  (normal rewrite; terse muted bar) via an inherited progress tty fd (`CUPPA_PROGRESS_FD`).
+  Losing that TTY would wrongly fall into non-TTY behaviour (normal newline spam; terse silence).
 
 `--verbosity=LEVEL` overrides the level `-Q` or `-s` would set and disables the heartbeat
 diversion. `--minimal-output` filters Cuppa's processed build messages and needs that processor,

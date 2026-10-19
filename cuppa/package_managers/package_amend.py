@@ -9,6 +9,10 @@
 
 """Helpers for ``--amend-package-manifest`` (rewrite traveling metadata, retar).
 
+The amend ``Command`` stays ``AlwaysBuild`` so cascade nests always enter
+``amend_package``; retar is skipped inside when the archive already matches
+the amended stage (see ``GitlabPackagePublisher.amend_package``).
+
 See ``design/archive/package-metadata-amend.md``.
 """
 
@@ -19,13 +23,22 @@ from cuppa.log import logger
 
 
 OPTION_NAME = 'amend-package-manifest'
+CASCADE_OPTION_NAME = 'amend-cascade-manifests'
 
 
 def amend_package_manifest_enabled( env ):
-    """True when ``--amend-package-manifest`` is set on ``env``."""
+    """True when ``--amend-package-manifest`` is set on ``env`` (tip-only amend)."""
     getter = getattr( env, 'get_option', None )
     if callable( getter ):
         return bool( getter( OPTION_NAME ) )
+    return False
+
+
+def amend_cascade_manifests_enabled( env ):
+    """True when ``--amend-cascade-manifests`` is set on ``env`` (DAG nest amend)."""
+    getter = getattr( env, 'get_option', None )
+    if callable( getter ):
+        return bool( getter( CASCADE_OPTION_NAME ) )
     return False
 
 

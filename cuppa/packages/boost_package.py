@@ -31,10 +31,9 @@ def use_libs( package, libraries ):
         lib_path = os.path.join( package.lib_dir(), lib_name )
         static_libs.append( env.File( lib_path ) )
 
-    # Append, not AppendUnique: dependents of later use_libs (e.g. log → thread)
-    # must appear again after that library even if quince or an earlier call already
-    # put them on STATICLIBS. Unique would drop those repeats and break GNU ld.
-    env.Append( STATICLIBS = static_libs )
+    # Delegate append policy (gcc/clang → Append so repeats survive across packages).
+    from cuppa.toolchains.link_append import append_static_libs
+    append_static_libs( env, static_libs )
 
 
 def latest_release( offline=False ):

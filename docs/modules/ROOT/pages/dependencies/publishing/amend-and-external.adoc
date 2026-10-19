@@ -44,6 +44,33 @@ xref:dependencies/using/gitlab.adoc[GitLab packages] and the planned
 ``payload_sha256`` (xref:dependencies/publishing/cascade.adoc#cascade-run[Real cascade runs]) so an unchanged tip
 consume payload is not rewritten solely to pick up the new traveling JSON.
 
+[#amend-cascade]
+=== Amending across a cascade DAG
+
+Use ``--amend-cascade-manifests`` (not tip-only ``--amend-package-manifest``)
+with ``--cascade`` and a nest companion to rewrite traveling metadata in each
+publisher nest without a full CMake (or other) rebuild:
+
+[source,shell]
+----
+# Nest stage+amend (retar under final/, no upload), then tip build
+cuppa -D --rel --toolchains=gcc15 --cascade \
+  --build-cascade-dependencies --amend-cascade-manifests
+
+# Nest amend+upload, then tip upload (publisher tips) or tip build-only
+# (--publish-cascade-dependencies)
+cuppa -D --rel --toolchains=gcc15 --cascade \
+  --publish-package --amend-cascade-manifests
+----
+
+Tip ``--amend-package-manifest`` stays single-publisher. Nest sessions receive
+``--amend-package-manifest`` from the cascade tip signal. With
+``--build-cascade-dependencies`` they also get ``--stage-package`` (no
+``--publish-package``). Publish companions keep ``--publish-package``. Location
+``--stage-develop`` project nests still drop amend (they are not package amend
+sessions). Tip-local ``cuppa.add_option`` flags are stripped from nest argv.
+See xref:dependencies/publishing/cascade.adoc[Cascading dependency publishes].
+
 == Declaring transitive dependencies
 
 Pass ``dependencies=[...]`` to ``GitlabPackagePublisher`` when package **A** needs other GitLab

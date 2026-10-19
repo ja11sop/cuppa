@@ -89,6 +89,7 @@ def test_publish_package_method_passes_archive_to_publish_command( monkeypatch )
 def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
     recorded = []
     side_effects = []
+    always_built = []
 
     class _Env( dict ):
         def File( self, path ):
@@ -100,6 +101,9 @@ def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
 
         def SideEffect( self, side_effect, target ):
             side_effects.append( ( side_effect, target ) )
+
+        def AlwaysBuild( self, target ):
+            always_built.append( target )
 
         def get_option( self, name ):
             return name in ( "publish-package", "amend-package-manifest" )
@@ -128,6 +132,7 @@ def test_publish_package_method_amend_uses_amend_package( monkeypatch ):
 
     assert callable( recorded[0][2] )
     assert recorded[0][1] == []
+    assert always_built == [ "working/widget.packaged" ]
     assert recorded[1][2] == "publish"
     assert side_effects == [ ( "final/widget.tar.gz", "working/widget.packaged" ) ]
 

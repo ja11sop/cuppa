@@ -438,6 +438,11 @@ class Gcc(object):
         pass
 
 
+    def append_static_libs( self, env, libs ):
+        """GNU ld: order and repeats matter — ``Append``, not ``AppendUnique``."""
+        env.Append( STATICLIBS = libs )
+
+
     def supports_coverage( self ):
         return 'coverage_cxx_flags' in self.values
 

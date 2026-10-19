@@ -9,6 +9,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab package **named library groups**: publishers may declare ``lib_groups``
+  on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
+  ``use_libs`` and traveling-edge ``use_libs`` accept group names and/or leaf
+  stems; groups expand (nested groups recurse, cycles rejected). Group names
+  win over same-named leaf stems; a group may still list its same-named primary
+  stem as a member (e.g. ``kms`` → ``[kms, kms_protos, …]``).
+  ``show_libs_for`` / ``show_all_libs`` report expansions at configure time.
+  Plan: ``design/plans/gitlab-package-lib-groups.md``.
+- Toolchain **opt-in link append policy**: ``cuppa.toolchains.link_append``
+  helpers (``append_static_libs`` / ``append_shared_libs`` / ``append_libpath``)
+  call through a toolchain method when present, otherwise keep today's
+  ``AppendUnique``. gcc and clang implement ``append_static_libs`` with
+  ``Append`` so static-archive order and repeats survive across packages
+  (GNU ld). Package link apply, Boost, Quince, and related call sites use the
+  helpers. Plan: ``design/plans/gitlab-package-lib-groups.md``.
+- Cascade **metadata-only amend nests**: tip ``--amend-cascade-manifests`` with
+  ``--cascade`` and a nest companion drives nest argv (nests receive
+  ``--amend-package-manifest``). ``--build-cascade-dependencies`` nests become
+  ``--stage-package`` + amend (retar, no upload); publish companions keep
+  ``--publish-package`` + amend. Tip-only ``--amend-package-manifest`` stays
+  single-publisher and no longer enables nest amend. Location
+  ``--stage-develop`` project nests still drop amend. Plan:
+  ``design/plans/cascade-amend-package-manifest.md``.
+- Cascade nest argv **drops tip-local ``cuppa.add_option`` flags** (and their
+  values) so nests are not failed by tip-only helpers such as
+  ``--tip-local-flag``. Dependency-scoped tip flags were already dropped.
+  Plan: ``design/plans/cascade-tip-local-options.md``.
+- ``--amend-package-manifest`` always rebuilds the package stamp
+  (``AlwaysBuild``): empty-source amend no longer no-ops when a prior
+  ``.packaged`` stamp exists (cascade soak: nests finished ``up to date``
+  without retarring). Inside ``amend_package``, retar is still skipped when
+  the archive already matches the amended stage (unchanged traveling
+  metadata / payload) — nests run, compress does not.
+- Amend also **seeds** ``cuppa-publish.json`` next to the publisher
+  ``sconstruct`` (same as a full ``build_package``). Cascade walks that root
+  seed for DAG children; stage-only amend left the walk stuck at tip roots
+  when the seed was missing or stale.
+- Cascade ``--build-cascade-dependencies`` tip **consumes publisher-root
+  stages** (same ``final/<package>/<version>/`` layout as ``--develop``), not
+  registry extracts. Nesting runs before tip ``BuildWith`` (stage-develop
+  timing); develop still wins when ``--develop`` is active. Missing stage
+  after nest → ``StopError`` (no extract fall-back / no download-store mutate).
+  Plan: ``design/plans/cascade-build-deps-tip-consume.md``.
+- Missing pkg-config leaf names after ``use_libs`` expansion raise
+  ``StopError`` with a ``lib_groups`` / forest-stage hint instead of a bare
+  pkg-config ``OSError``.
+
 ### Changed
 
 ### Deprecated
@@ -16,6 +63,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Cascade ``--build-cascade-dependencies`` early nest no longer **drops
+  tip package factories whose version is still ``None`` / ``latest``**
+  (e.g. ``boost_package`` remembered ``1.92``). Edge seeding now runs the
+  same ``default_version`` resolve tip ``BuildWith`` uses, so the early
+  graph matches the post-resolve tip (regression vs the pre-early-pass
+  9-package amend plan).
+- Stage resolve under tip consume **must match the tip toolchain**. A
+  ``gcc15`` tip no longer silently binds a ``gcc16/…`` forest stage
+  (ABI/link mismatch). Nest-default ``rel`` for a ``dbg`` tip of the
+  **same** toolchain remains expected and preferred. Plan:
+  ``design/plans/cascade-build-deps-tip-consume.md``.
+- Tip ``--dbg`` forest-stage bind now **prefers nest-default ``rel``** over
+  a same-toolchain stale ``dbg`` stage when both exist (soak bound Oct-old
+  abseil ``dbg`` while nest amended ``rel``).
+- Cascade nested compress/upload progress: tip keeps an open progress tty
+  and forwards it with ``CUPPA_PROGRESS_FD`` + ``pass_fds`` on POSIX
+  (path-only ``CUPPA_PROGRESS_TTY`` reopen fails after nest
+  ``start_new_session`` loses the controlling terminal). Windows omits
+  ``pass_fds`` (unsupported), never advertises or consumes
+  ``CUPPA_PROGRESS_FD`` across processes (stale fds caused EBADF on
+  GitHub Actions), probes ``CONOUT$`` writability before treating it as
+  a tty, and reopens ``CONOUT$`` / ``CUPPA_PROGRESS_TTY`` in nests.
+  ProgressReporter swallows write failures so a dead console cannot fail
+  download or package create. Nests keep interactive TTY progress —
+  normal ``\\r`` rewrite and terse muted alive+bar — instead of non-TTY
+  newline spam (normal) or silence (terse).
+- Terse transfer alive widget advances on its **animation cadence** (pulse /
+  spinner timer). Byte-progress updates **ensure** (do not cancel/restart)
+  that timer — rapid per-file compress callbacks were resetting it and
+  freezing the ECG on the rest frame ``|---------|``. Overwrite dwell finishes
+  a cycle already started after the idle gate (quick bars stay readable);
+  long transfers that already showed a full cycle clear without an extra
+  post-complete animation.
+- Normal ``-Q``/``-s`` transfer progress now shows the **same alive widget**
+  as the quiet heartbeat row (muted bar was previously alive-less, so some
+  quiet transient lines pulsed and compress/download did not).
 
 ### Security
 

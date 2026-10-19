@@ -801,6 +801,7 @@ class GitlabPackagePublisher:
         dependencies=None,
         default_use_libs=None,
         link=None,
+        lib_groups=None,
     ):
         from SCons.Script import Flatten
         from cuppa.package_managers.publish_version import (
@@ -829,6 +830,7 @@ class GitlabPackagePublisher:
         self._dependencies = list( dependencies ) if dependencies else []
         self._default_use_libs = default_use_libs
         self._link = link
+        self._lib_groups = lib_groups
         self._registry = registry
         self._package = package
         self._custom_token = custom_token
@@ -934,6 +936,7 @@ class GitlabPackagePublisher:
                 env=env,
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
+                lib_groups=getattr( self, '_lib_groups', None ),
         )
         logger.info( "Wrote [{}] for package [{}]".format(
                 as_info( publish_path_written ),
@@ -958,6 +961,7 @@ class GitlabPackagePublisher:
                     env=env,
                     default_use_libs=getattr( self, '_default_use_libs', None ),
                     link=getattr( self, '_link', None ),
+                    lib_groups=getattr( self, '_lib_groups', None ),
             )
             logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
@@ -1109,11 +1113,73 @@ class GitlabPackagePublisher:
                 env=env,
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
+                lib_groups=getattr( self, '_lib_groups', None ),
         )
         logger.info( "Amended [{}] for package [{}]".format(
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
+        # Same publisher-tree seed as build_package: cascade walks
+        # cuppa-publish.json next to sconstruct (_edges_from_publish_file),
+        # not the staged final/<pkg>/<ver>/ copy. Without this, amend leaves
+        # the DAG walk stuck at the tip roots when the root seed is missing
+        # or stale (soak: 9 → 2 packages after root seed deleted).
+        sconstruct_dir = None
+        try:
+            sconstruct_dir = env[ 'sconstruct_dir' ]
+        except Exception:
+            getter = getattr( env, 'get', None )
+            if callable( getter ):
+                sconstruct_dir = getter( 'sconstruct_dir' )
+        if sconstruct_dir:
+            seed_version = getattr( self, '_version', None )
+            if getattr( self, '_preserves_floating_seed', False ):
+                seed_version = getattr( self, '_seed_version', seed_version )
+            seed_path = write_publish_manifest(
+                    str( sconstruct_dir ),
+                    getattr( self, '_package', None ),
+                    seed_version,
+                    dependencies=getattr( self, '_dependencies', None ),
+                    env=env,
+                    default_use_libs=getattr( self, '_default_use_libs', None ),
+                    link=getattr( self, '_link', None ),
+                    lib_groups=getattr( self, '_lib_groups', None ),
+            )
+            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+                    as_info( seed_path ),
+            ) )
+
+        # AlwaysBuild keeps the amend Command running under cascade nests, but
+        # skip the retar when traveling metadata (and payload) did not change
+        # relative to the existing archive — same freshness check as build_package.
+        staging_roots = [
+                str( self._target_include_dir ),
+                str( self._target_lib_dir ),
+        ]
+        modules_dir = os.path.join( package_base, 'modules' )
+        if os.path.isdir( modules_dir ):
+            staging_roots.append( modules_dir )
+        staging_roots.append( publish_path_written )
+
+        if package_archive_is_up_to_date( archive_path, staging_roots ):
+            force = False
+            getter = getattr( env, 'get_option', None )
+            if callable( getter ):
+                force = bool( getter( 'force' ) )
+            if not force:
+                logger.info(
+                        "Package archive [{}] already matches amended stage; "
+                        "skipping recreate".format( as_info( archive_path ) )
+                )
+                env.Execute( Touch( target[0] ) )
+                logger.info( "Package [{}] amend up to date".format(
+                        as_info( archive_path )
+                ) )
+                return None
+            logger.info(
+                    "Package archive [{}] already matches amended stage; "
+                    "--force recreating".format( as_info( archive_path ) )
+            )
 
         logger.info( "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )
@@ -1375,7 +1441,8 @@ class GitlabPackageInstaller:
 
             env.ParseConfig( command )
         else:
-            env.AppendUnique( STATICLIBS = self.static_libs( env, libs ) )
+            from cuppa.toolchains.link_append import append_static_libs
+            append_static_libs( env, self.static_libs( env, libs ) )
 
 
     def static_libs( self, env, libs ):
@@ -1782,6 +1849,49 @@ class GitlabPackageDependency:
             if self._clean:
                 return
             # Nested session: fall through to registry download.
+
+        # Build-deps tip consume: forest stage (develop already handled above).
+        # Ranking: active --develop wins; otherwise tip links publisher-root
+        # stages produced by --build-cascade-dependencies (no extract mutate).
+        if (
+                not self._using_develop
+                and not self._develop_is_publisher_source
+        ):
+            from cuppa.package_managers.package_cascade import (
+                    build_cascade_dependencies_enabled,
+                    cascade_enabled,
+                    consume_build_cascade_package_stage,
+            )
+            if cascade_enabled( cuppa_env ) and build_cascade_dependencies_enabled(
+                    cuppa_env
+            ):
+                stage = consume_build_cascade_package_stage(
+                        cuppa_env,
+                        package,
+                        self.version(),
+                        name=self._dependency_name or package,
+                        registry=self._registry,
+                        package_source=self._package_source,
+                        label=self._package_id,
+                )
+                if stage:
+                    self._package_dir = stage
+                    self._include_dir = os.path.join( self._package_dir, 'include' )
+                    self._lib_dir = os.path.join( self._package_dir, 'lib' )
+                    if pkg_config_dir and not os.path.isabs( pkg_config_dir ):
+                        self._pkg_config_dir = os.path.abspath(
+                                os.path.join( self._package_dir, pkg_config_dir )
+                        )
+                    if not self._clean:
+                        logger.info(
+                                "--build-cascade-dependencies: using locally "
+                                "staged package [{}] from [{}]"
+                                .format(
+                                        as_info( self._package_id ),
+                                        as_notice( display_path( self._package_dir ) ),
+                                )
+                        )
+                    return
 
         if self._clean:
             return
@@ -2209,9 +2319,18 @@ class GitlabPackageDependency:
         env.ParseConfig( command )
 
 
+    def _resolve_lib_groups( self ):
+        """Return author ``lib_groups`` from the traveling manifest, if any."""
+        from cuppa.package_managers.cuppa_dependency_manifest import package_lib_groups
+
+        return package_lib_groups( self._package_dir )
+
+
     def use_libs( self, libs, depends_on=[], dependency_name=None ):
 
         from SCons.Script import Flatten
+        import SCons.Errors
+        from cuppa.package_managers.package_lib_groups import expand_use_lib_tokens
         from cuppa.package_managers.package_link_libs import (
                 apply_resolved_libs,
                 clear_package_link_contribution,
@@ -2219,7 +2338,9 @@ class GitlabPackageDependency:
         )
 
         env = self._env
-        libs = Flatten( [ libs ] )
+        tokens = Flatten( [ libs ] )
+        groups = self._resolve_lib_groups()
+        libs = expand_use_lib_tokens( tokens, groups )
 
         includes = env.AppendUnique( SYSINCPATH = self.include_dir() )
         if depends_on:
@@ -2233,6 +2354,44 @@ class GitlabPackageDependency:
 
         if self._pkg_config_dir:
             if libs:
+                # Expand already ran above. If a token never matched a group and
+                # there is no .pc for the leaf name, fail with a lib_groups hint
+                # instead of a bare pkg-config OSError (soak: tip extract lacking
+                # traveling lib_groups left ``widget_libs`` as a fake stem).
+                library_prefix = self._library_prefix and self._library_prefix or ""
+                missing_pc = []
+                for lib in libs:
+                    prefix = (
+                            ""
+                            if lib.startswith( library_prefix )
+                            else library_prefix
+                    )
+                    pc_name = prefix + lib + ".pc"
+                    pc_path = os.path.join( self._pkg_config_dir, pc_name )
+                    if not os.path.isfile( pc_path ):
+                        missing_pc.append( pc_name )
+                if missing_pc:
+                    hint = ""
+                    if not groups:
+                        hint = (
+                                " Traveling cuppa-publish.json under [{}] has no "
+                                "lib_groups; if these names were groups, tip "
+                                "--build-cascade-dependencies should bind the "
+                                "forest stage (or use --develop / republish)."
+                                .format( as_notice( self._package_dir ) )
+                        )
+                    raise SCons.Errors.StopError(
+                            "Package [{}]: no pkg-config file(s) {} under [{}].{}"
+                            .format(
+                                    as_error( self._package_id ),
+                                    ", ".join(
+                                            "[{}]".format( as_error( name ) )
+                                            for name in missing_pc
+                                    ),
+                                    as_notice( self._pkg_config_dir ),
+                                    hint,
+                            )
+                    )
                 self.parse_pkg_config( libs )
         else:
             contrib = apply_resolved_libs(
@@ -2283,6 +2442,44 @@ class GitlabPackageDependency:
                 as_notice( ", ".join( names ) if names else "(none)" ),
         ) )
         self.use_libs( names, depends_on=depends_on, dependency_name=dependency_name )
+
+
+    def show_libs_for( self, token ):
+        """Return (and log) the concrete stems one ``use_libs`` token expands to."""
+        from cuppa.package_managers.package_lib_groups import (
+                report_show_libs_for,
+                show_libs_for_token,
+        )
+
+        leaves = show_libs_for_token( token, self._resolve_lib_groups() )
+        report_show_libs_for( self._package_id, str( token ), leaves )
+        return leaves
+
+
+    def show_all_libs( self ):
+        """Return (and log) the full group → leaf catalogue for this package."""
+        from cuppa.package_managers.package_lib_groups import (
+                catalogue_lib_groups,
+                report_show_all_libs,
+        )
+        from cuppa.package_managers.package_link_libs import (
+                env_lib_naming,
+                list_linkable_lib_stems,
+        )
+
+        env = self._env
+        lib_prefix, lib_suffix, shlib_prefix, shlib_suffix = env_lib_naming( env )
+        stems = list_linkable_lib_stems(
+                self._lib_dir,
+                lib_prefix,
+                lib_suffix,
+                shlib_prefix,
+                shlib_suffix,
+                library_prefix=self._library_prefix,
+        )
+        catalogue = catalogue_lib_groups( self._resolve_lib_groups(), stems )
+        report_show_all_libs( self._package_id, catalogue )
+        return catalogue
 
 
     def use_static_libs( self, libs ):

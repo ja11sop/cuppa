@@ -356,6 +356,109 @@ def test_tip_forward_args_project_only_omits_publish_for_build_cascade():
     )
 
 
+def test_tip_forward_args_injects_amend_when_cascade_amend_set():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--amend-cascade-manifests",
+            "--cascade",
+    ] )
+    # Tip signal is --amend-cascade-manifests; nests receive --amend-package-manifest.
+    assert "--amend-package-manifest" in forwarded
+    assert "--amend-cascade-manifests" not in forwarded
+    assert "--publish-package" in forwarded
+    assert "--cascade" not in forwarded
+
+
+def test_tip_forward_args_tip_only_amend_does_not_enable_nest_amend():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--amend-package-manifest",
+            "--cascade",
+    ] )
+    assert "--amend-package-manifest" not in forwarded
+    assert "--publish-package" in forwarded
+
+
+def test_tip_forward_args_drops_amend_for_location_project_only():
+    forwarded = cascade.tip_forward_args(
+            [
+                    "scons", "-D", "--rel",
+                    "--amend-cascade-manifests",
+                    "--publish-package",
+            ],
+            project_only=True,
+    )
+    assert "--amend-package-manifest" not in forwarded
+    assert "--amend-cascade-manifests" not in forwarded
+    assert "--publish-package" not in forwarded
+
+
+def test_argv_for_nested_build_with_amend_stages_and_amends():
+    tip = [
+            "scons", "-D", "--rel",
+            "--toolchains=gcc15",
+            "--cascade",
+            "--build-cascade-dependencies",
+            "--amend-cascade-manifests",
+    ]
+    nested = cascade.argv_for_nested_build( tip )
+    assert "--amend-package-manifest" in nested
+    assert "--amend-cascade-manifests" not in nested
+    assert "--stage-package" in nested
+    assert "--publish-package" not in nested
+    assert "--build-cascade-dependencies" not in nested
+    assert "--cascade" not in nested
+
+
+def test_argv_for_nested_publish_keeps_amend():
+    tip = [
+            "scons", "-D", "--rel",
+            "--cascade",
+            "--publish-package",
+            "--amend-cascade-manifests",
+    ]
+    nested = cascade.argv_for_nested_publish( tip )
+    assert "--amend-package-manifest" in nested
+    assert "--amend-cascade-manifests" not in nested
+    assert "--publish-package" in nested
+    assert "--stage-package" not in nested
+
+
+def test_argv_for_nested_build_without_amend_stays_project_only():
+    nested = cascade.argv_for_nested_build( [
+            "scons", "-D", "--rel",
+            "--cascade",
+            "--build-cascade-dependencies",
+    ] )
+    assert "--amend-package-manifest" not in nested
+    assert "--stage-package" not in nested
+    assert "--publish-package" not in nested
+
+
+def test_tip_forward_args_drops_tip_local_add_option_flags():
+    from cuppa.core import options as cuppa_options
+
+    cuppa_options.reset_tip_local_options()
+    # Bypass SCons AddOption — only exercise nest-drop bookkeeping.
+    cuppa_options._tip_local_flags[ "--tip-local-flag" ] = False
+    cuppa_options._tip_local_flags[ "--tip-local-value" ] = True
+    try:
+        forwarded = cascade.tip_forward_args( [
+                "scons", "-D", "--rel",
+                "--tip-local-flag",
+                "--tip-local-value", "7",
+                "--offline",
+                "--cascade",
+        ] )
+    finally:
+        cuppa_options.reset_tip_local_options()
+    assert "--tip-local-flag" not in forwarded
+    assert "--tip-local-value" not in forwarded
+    assert "7" not in forwarded
+    assert "--offline" in forwarded
+    assert "--rel" in forwarded
+
+
 def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
     """Consume tips use the same enable+action gate as publisher tips."""
     cascade.reset_plan_reports()
@@ -384,6 +487,10 @@ def test_edges_from_consume_tip_reads_package_factories():
         _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
         _package_source = "https://gitlab.example/org/packages/widget.git"
 
+        @classmethod
+        def default_version( cls, version, env ):
+            cls._version = version if version is not None else "1.2.3"
+
     class _Env:
         def get( self, name, default=None ):
             if name == "dependencies":
@@ -400,6 +507,41 @@ def test_edges_from_consume_tip_reads_package_factories():
     assert edges[0]["package_source"] == (
             "https://gitlab.example/org/packages/widget.git"
     )
+
+
+def test_edges_from_consume_tip_resolves_floating_version_before_edge():
+    """Early build-deps must not drop boost_package while _version is None/latest."""
+
+    class _Owner:
+        _package_manager = "gitlab"
+        _name = "boost_package"
+        _package = "boost"
+        _version = None
+        _registry = "https://gitlab.example/api/v4/projects/1/packages/generic"
+        _package_source = "https://gitlab.example/org/packages/boost.git"
+
+        @classmethod
+        def default_version( cls, version, env ):
+            # Mimic remembered registry latest → concrete (offline tip path).
+            cls._version = "1.92"
+
+    class _Env:
+        def get( self, name, default=None ):
+            if name == "dependencies":
+                return {
+                        "boost_package": type( "F", (), { "__self__": _Owner } )(),
+                }
+            return default
+
+        def get_option( self, name, default=None ):
+            return default
+
+    edges = cascade._edges_from_consume_tip( _Env() )
+    assert len( edges ) == 1
+    assert edges[0]["name"] == "boost_package"
+    assert edges[0]["package"] == "boost"
+    assert edges[0]["version"] == "1.92"
+    assert _Owner._version == "1.92"
 
 
 def test_maybe_run_consume_tip_cascade_plans_from_factories( tmp_path ):
@@ -1550,6 +1692,155 @@ def test_maybe_run_cascade_build_deps_uses_nested_build_not_publish( monkeypatch
     cascade.maybe_run_cascade( _Env(), _Publisher() )
     assert calls == [ "build" ]
     assert cascade.deferred_cascade_fetches() == {}
+    assert "/pubs/capy" in cascade.build_cascade_staged_roots()
+
+
+def test_consume_build_cascade_package_stage_binds_existing_stage( tmp_path ):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+    stage = root / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c" / "final" / "widget" / "1.0.0"
+    ( stage / "include" ).mkdir( parents=True )
+    ( stage / "lib" ).mkdir()
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+
+    found = cascade.consume_build_cascade_package_stage(
+            env, "widget", "1.0.0", name="widget",
+    )
+    assert found == str( stage )
+    assert str( root ) in cascade.build_cascade_staged_roots()
+
+
+def test_consume_build_cascade_package_stage_missing_after_nest_stops(
+        tmp_path, monkeypatch,
+):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+    nests = []
+
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: nests.append( a[1] ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+
+    with pytest.raises( SCons.Errors.StopError, match="no staged" ):
+        cascade.consume_build_cascade_package_stage(
+                env, "widget", "1.0.0", name="widget",
+        )
+    assert nests == [ str( root ) ]
+
+
+def test_maybe_run_cascade_build_deps_skips_already_staged_root( monkeypatch ):
+    calls = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self, sconstruct_dir="/tip" )
+
+        def get_option( self, name, default=None ):
+            return name in (
+                    "cascade",
+                    "build-cascade-dependencies",
+            ) or default
+
+    class _Publisher:
+        _dependencies = [
+                { "name": "capy", "package": "capy", "version": "develop" },
+        ]
+        _package = "corosio"
+        _version = "develop"
+
+    monkeypatch.setattr( cascade, "build_cascade_graph", lambda *a, **k: (
+            {
+                    ( "capy", "capy", "develop" ): {
+                            "name": "capy",
+                            "package": "capy",
+                            "version": "develop",
+                            "_publisher_dir": "/pubs/capy",
+                    },
+            },
+            {},
+    ) )
+    monkeypatch.setattr(
+            cascade, "topological_publish_order",
+            lambda nodes, edges: list( nodes.keys() ),
+    )
+    monkeypatch.setattr( cascade, "judge_publisher_trees", lambda *a, **k: None )
+    monkeypatch.setattr( cascade, "write_lines", lambda *a, **k: None )
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: calls.append( "build" ),
+    )
+    monkeypatch.setattr( cascade, "_clean_enabled", lambda env: False )
+    monkeypatch.setattr( cascade, "audit_deferred_cascade_fetches", lambda *a, **k: None )
+    cascade.reset_cascade_nested_done()
+    cascade.record_build_cascade_staged_root( "/pubs/capy" )
+
+    cascade.maybe_run_cascade( _Env(), _Publisher() )
+    assert calls == []
+
+
+def test_run_build_cascade_stages_invokes_cascade_when_edges_present( monkeypatch ):
+    ran = []
+
+    class _Env( dict ):
+        def __init__( self ):
+            dict.__init__( self )
+            self["dependencies"] = {}
+
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "build-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    monkeypatch.setattr(
+            cascade, "_edges_from_consume_tip",
+            lambda env: [ { "name": "w", "package": "w", "version": "1" } ],
+    )
+    monkeypatch.setattr(
+            cascade, "maybe_run_cascade",
+            lambda env, publisher: ran.append( publisher._package ),
+    )
+    cascade.reset_cascade_nested_done()
+    cascade.run_build_cascade_stages( _Env() )
+    assert ran == [ "project" ]
+
+
+def test_run_build_cascade_stages_noop_without_build_deps():
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name == "cascade" or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    cascade.reset_cascade_nested_done()
+    # Must not raise; no nest without build-deps.
+    cascade.run_build_cascade_stages( _Env() )
 
 
 def test_maybe_run_cascade_refreshes_only_after_upload( monkeypatch ):
@@ -3839,6 +4130,114 @@ def test_resolve_develop_package_stage_accepts_version_mismatch_fallback( tmp_pa
             str( root ), "widget", "develop", env=None
     )
     assert found == str( stage )
+
+
+def test_resolve_develop_package_stage_rejects_wrong_toolchain( tmp_path ):
+    """Tip gcc15 must not silently bind a gcc16 forest stage."""
+    root = tmp_path / "boost"
+    wrong = (
+            root / "_build" / "gcc16" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "boost" / "1.92"
+    )
+    ( wrong / "include" ).mkdir( parents=True )
+    ( wrong / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "boost", "1.92", env=env, match_toolchain=True,
+    )
+    assert found is None
+
+
+def test_resolve_develop_package_stage_dbg_tip_accepts_rel_same_toolchain( tmp_path ):
+    """Nest-default --rel is expected when the tip is --dbg (same toolchain)."""
+    root = tmp_path / "boost"
+    rel_stage = (
+            root / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "boost" / "1.92"
+    )
+    ( rel_stage / "include" ).mkdir( parents=True )
+    ( rel_stage / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "boost", "1.92", env=env, match_toolchain=True,
+    )
+    assert found == str( rel_stage )
+
+
+def test_resolve_develop_package_stage_dbg_tip_prefers_rel_over_stale_dbg( tmp_path ):
+    """When both exist, nest-default rel wins over tip dbg (fresh amend path)."""
+    root = tmp_path / "abseil_cpp"
+    dbg_stage = (
+            root / "_build" / "gcc15" / "dbg" / "x86_64" / "cxx2c"
+            / "final" / "abseil-cpp" / "20250814.2"
+    )
+    rel_stage = (
+            root / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
+            / "final" / "abseil-cpp" / "20250814.2"
+    )
+    for stage in ( dbg_stage, rel_stage ):
+        ( stage / "include" ).mkdir( parents=True )
+        ( stage / "lib" ).mkdir()
+
+    class _Toolchain:
+        def name( self ):
+            return "gcc15"
+
+    class _Variant:
+        def name( self ):
+            return "dbg"
+
+    class _Env( dict ):
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env(
+            toolchain=_Toolchain(),
+            variant=_Variant(),
+            target_arch="x86_64",
+            abi="cxx2c",
+    )
+    found = cascade.resolve_develop_package_stage(
+            str( root ), "abseil-cpp", "20250814.2",
+            env=env, match_toolchain=True,
+    )
+    assert found == str( rel_stage )
 
 
 def test_tip_forward_args_stage_only_adds_stage_package_not_publish():

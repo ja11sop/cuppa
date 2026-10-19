@@ -101,6 +101,13 @@ def test_format_progress_line_unknown_size():
     assert 'ETA' not in line
 
 
+def _reset_progress_tty_state( monkeypatch ):
+    monkeypatch.delenv( dl.PROGRESS_TTY_ENV, raising=False )
+    monkeypatch.delenv( dl.PROGRESS_FD_ENV, raising=False )
+    dl._progress_tty_stream = None
+    dl._progress_tty_fd = None
+
+
 def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
     import builtins
 
@@ -111,11 +118,160 @@ def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
             raise OSError( 'no tty' )
         return real_open( path, *args, **kwargs )
 
+    _reset_progress_tty_state( monkeypatch )
     monkeypatch.setattr( builtins, 'open', fake_open )
     stream, is_tty, owns = dl.open_progress_stream()
     assert stream is __import__( 'sys' ).stderr
     assert owns is False
     assert is_tty in ( True, False )
+
+
+def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path ):
+    """Path fallback when /dev/tty is gone but CUPPA_PROGRESS_TTY is set."""
+    import builtins
+    import io
+
+    real_open = builtins.open
+    pts = tmp_path / "fake-pts"
+    pts.write_text( "", encoding="utf-8" )
+    opened = []
+
+    class _TtyStream( io.StringIO ):
+        def isatty( self ):
+            return True
+
+        def fileno( self ):
+            return 99
+
+    def fake_open( path, *args, **kwargs ):
+        opened.append( str( path ) )
+        if path in ( '/dev/tty', 'CONOUT$' ):
+            raise OSError( 'no controlling tty' )
+        if str( path ) == str( pts ):
+            return _TtyStream()
+        return real_open( path, *args, **kwargs )
+
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
+    monkeypatch.setattr( builtins, 'open', fake_open )
+    monkeypatch.setattr( os, 'ttyname', lambda fd: str( pts ), raising=False )
+    monkeypatch.setattr( os, 'isatty', lambda fd: fd == 99 )
+
+    stream, is_tty, owns = dl.open_progress_stream()
+    assert is_tty is True
+    assert owns is False
+    assert str( pts ) in opened
+
+
+def test_open_progress_stream_uses_inherited_progress_fd( monkeypatch ):
+    """pass_fds + CUPPA_PROGRESS_FD is the nest-safe path (no CTTY reopen)."""
+    import pty
+
+    _reset_progress_tty_state( monkeypatch )
+    master, slave = pty.openpty()
+    try:
+        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
+        stream, is_tty, owns = dl.open_progress_stream()
+        assert is_tty is True
+        assert owns is False
+        assert stream.fileno() == slave
+    finally:
+        try:
+            os.close( master )
+        except Exception:
+            pass
+        try:
+            os.close( slave )
+        except Exception:
+            pass
+        _reset_progress_tty_state( monkeypatch )
+
+
+def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
+    import pty
+
+    _reset_progress_tty_state( monkeypatch )
+    master, slave = pty.openpty()
+    try:
+        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
+        kwargs, env = dl.progress_tty_popen_kwargs( {} )
+        assert kwargs.get( "pass_fds" ) == ( slave, )
+        assert env[dl.PROGRESS_FD_ENV] == str( slave )
+    finally:
+        try:
+            os.close( master )
+        except Exception:
+            pass
+        try:
+            os.close( slave )
+        except Exception:
+            pass
+        _reset_progress_tty_state( monkeypatch )
+
+
+def test_progress_tty_popen_kwargs_omits_pass_fds_on_windows( monkeypatch ):
+    """Windows: no pass_fds; strip CUPPA_PROGRESS_FD; publish CONOUT$ path only."""
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setattr( dl.sys, "platform", "win32" )
+    monkeypatch.setattr( dl.os, "name", "nt" )
+    monkeypatch.setattr( dl, "ensure_progress_tty_fd", lambda: 7 )
+    monkeypatch.setattr( dl.os, "ttyname", lambda fd: "CONOUT$", raising=False )
+    kwargs, env = dl.progress_tty_popen_kwargs( { dl.PROGRESS_FD_ENV: "7" } )
+    assert "pass_fds" not in kwargs
+    assert dl.PROGRESS_FD_ENV not in env
+    assert env[dl.PROGRESS_TTY_ENV] == "CONOUT$"
+
+
+def test_open_progress_stream_ignores_progress_fd_on_windows( monkeypatch ):
+    """Stale CUPPA_PROGRESS_FD must not be consumed without pass_fds."""
+    import builtins
+    import io
+
+    real_open = builtins.open
+
+    def fake_open( path, *args, **kwargs ):
+        if path in ( '/dev/tty', 'CONOUT$' ):
+            raise OSError( 'no console' )
+        return real_open( path, *args, **kwargs )
+
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setattr( dl.sys, "platform", "win32" )
+    monkeypatch.setattr( dl.os, "name", "nt" )
+    monkeypatch.setenv( dl.PROGRESS_FD_ENV, "3" )
+    monkeypatch.setattr( builtins, "open", fake_open )
+    monkeypatch.setattr( os, "isatty", lambda fd: False )
+    stream, is_tty, owns = dl.open_progress_stream()
+    assert stream is __import__( "sys" ).stderr
+    assert owns is False
+
+
+def test_reporter_survives_dead_progress_stream():
+    """EBADF on progress write must not raise (Windows CI CONOUT$ / stale fd)."""
+
+    class _DeadStream( io.StringIO ):
+        def write( self, data ):
+            raise OSError( 9, "Bad file descriptor" )
+
+        def flush( self ):
+            raise OSError( 9, "Bad file descriptor" )
+
+        def isatty( self ):
+            return True
+
+    reporter = dl.ProgressReporter(
+            stream=_DeadStream(), is_tty=True, tty_interval_s=0,
+    )
+    reporter.begin( "file.tgz", total_size=100 )
+    reporter.update( 50, force=True )
+    reporter.done( 100 )
+
+
+def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):
+    pts = tmp_path / "pts0"
+    pts.write_text( "", encoding="utf-8" )
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
+    assert dl.resolve_progress_tty_path() == str( pts )
 
 
 def test_reporter_tty_rewrites_same_line():
@@ -494,6 +650,19 @@ def test_format_progress_line_muted_subdues_verb_and_label():
         colouriser.use_colour = was
 
 
+class _NoAliveTimer( object ):
+    """Disable background alive ticks in FakeClock unit tests."""
+
+    def __init__( self, *args, **kwargs ):
+        pass
+
+    def start( self ):
+        pass
+
+    def cancel( self ):
+        pass
+
+
 def test_reporter_normal_tty_has_no_alive_widget():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
@@ -504,6 +673,7 @@ def test_reporter_normal_tty_has_no_alive_widget():
     clock = FakeClock()
     reporter = dl.ProgressReporter(
             stream=stream, is_tty=True, clock=clock, tty_interval_s=0.1,
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'file.tgz', total_size=100 )
     clock.advance( 0.2 )
@@ -517,6 +687,36 @@ def test_reporter_normal_tty_has_no_alive_widget():
     hb.reset()
 
 
+def test_reporter_quiet_normal_tty_has_alive_widget():
+    """Normal ``-Q`` muted progress shares the quiet heartbeat alive head."""
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=False )
+    status = io.StringIO()
+    hb.configure_quiet_console( 'warn', stream=status, is_tty=True )
+    stream = io.StringIO()
+    clock = FakeClock()
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=0.1,
+            alive_timer_factory=_NoAliveTimer,
+    )
+    reporter.begin( 'file.tgz', total_size=100, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 50 )
+    plain = strip_ansi( stream.getvalue() )
+    assert plain.lstrip( '\r' ).startswith( '|' )  # pulse head
+    assert 'Compressing file.tgz' in plain
+    assert '[' in plain
+    assert '→' not in plain  # quiet normal is not arrow-compact
+    reporter.done( 100 )
+    hb.reset()
+
+
 def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     from cuppa.output_processor import strip_ansi
     from cuppa.utility import heartbeat as hb
@@ -524,8 +724,10 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     hb.reset()
     stream = io.StringIO()
     clock = FakeClock()
+    slept = []
 
     def sleep( seconds ):
+        slept.append( seconds )
         clock.advance( seconds )
 
     reporter = dl.ProgressReporter(
@@ -536,6 +738,7 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
             tty_interval_s=0.1,
             compact=True,
             alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
     # Below idle gate — no paint yet.
@@ -550,9 +753,141 @@ def test_reporter_terse_tty_alive_arrow_bar_and_overwrite():
     assert '|' in mid
     assert '[' in mid  # terse keeps the bar
     assert 'Compressing pkg.tar.gz' in mid
+    # Still early in the first animation cycle — dwell finishes that cycle.
     reporter.done( 200 )
-    # Overwrite clears the ephemeral status (no durable 100% newline).
     assert not strip_ansi( stream.getvalue() ).rstrip().endswith( '100%' )
+    assert slept, 'quick bar past idle gate should dwell to finish one cycle'
+    assert slept[0] > 0
+    assert slept[0] <= hb.cycle_duration_s()
+    hb.reset()
+
+
+def test_reporter_long_transfer_skips_post_complete_dwell():
+    """Dwell is not an extra cycle after a long transfer already showed one."""
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    slept = []
+
+    def sleep( seconds ):
+        slept.append( seconds )
+        clock.advance( seconds )
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            sleep=sleep,
+            tty_interval_s=0.1,
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
+    )
+    reporter.begin( 'pkg.tar.gz', total_size=200, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 100 )
+    # Already past one full animation cycle since first paint.
+    clock.advance( hb.cycle_duration_s() + 0.5 )
+    reporter.done( 200 )
+    assert slept == []
+    hb.reset()
+
+
+def test_reporter_alive_ticks_between_byte_updates():
+    """Alive advances on its animation timer, not only on progress throttle."""
+    from cuppa.output_processor import strip_ansi
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    pending = []
+
+    class _CaptureTimer( object ):
+        def __init__( self, interval, func ):
+            self.interval = interval
+            self.func = func
+            pending.append( self )
+
+        def start( self ):
+            pass
+
+        def cancel( self ):
+            if self in pending:
+                pending.remove( self )
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=10.0,  # byte metrics rarely refresh
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_CaptureTimer,
+    )
+    reporter.begin( 'big.tar.gz', total_size=1000, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 100 )
+    assert pending, 'alive timer should arm after first paint'
+    spin_before = reporter._spin
+    frame_before = strip_ansi( stream.getvalue() )
+    # Simulate animation ticks with no new byte progress.
+    pending[-1].func()
+    pending[-1].func()
+    assert reporter._spin == spin_before + 2
+    frame_after = strip_ansi( stream.getvalue() )
+    assert 'Compressing big.tar.gz' in frame_after
+    assert frame_after != frame_before or reporter._spin > spin_before
+    reporter.done( 100 )
+    hb.reset()
+
+
+def test_reporter_rapid_updates_do_not_reset_alive_timer():
+    """Compress-per-file update storms must not cancel the alive cadence."""
+    from cuppa.utility import heartbeat as hb
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock()
+    armed = []
+
+    class _CaptureTimer( object ):
+        def __init__( self, interval, func ):
+            self.interval = interval
+            self.func = func
+            self.cancelled = False
+            armed.append( self )
+
+        def start( self ):
+            pass
+
+        def cancel( self ):
+            self.cancelled = True
+
+    reporter = dl.ProgressReporter(
+            stream=stream,
+            is_tty=True,
+            clock=clock,
+            tty_interval_s=1.0,
+            compact=True,
+            alive_style='pulse',
+            alive_timer_factory=_CaptureTimer,
+    )
+    reporter.begin( 'many.tar.gz', total_size=10000, action='Compressing' )
+    clock.advance( 0.25 )
+    reporter.update( 10 )
+    assert len( armed ) == 1
+    first = armed[0]
+    # Storm of throttled updates (same window) — must keep the same timer.
+    for n in range( 50 ):
+        clock.advance( 0.01 )
+        reporter.update( 10 + n )
+    assert first.cancelled is False
+    assert reporter._alive_timer is first
+    assert len( armed ) == 1
+    reporter.done( 100 )
     hb.reset()
 
 
@@ -565,6 +900,7 @@ def test_reporter_terse_non_tty_stays_silent():
             clock=clock,
             line_interval_s=0,
             compact=True,
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'pkg.tar.gz', total_size=100 )
     clock.advance( 1.0 )
@@ -583,6 +919,7 @@ def test_reporter_fast_terse_never_reveals():
             clock=clock,
             compact=True,
             alive_style='pulse',
+            alive_timer_factory=_NoAliveTimer,
     )
     reporter.begin( 'tiny.bin', total_size=10 )
     clock.advance( 0.05 )  # still under idle gate

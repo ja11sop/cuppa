@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 import zipfile
 
@@ -253,26 +254,206 @@ def _muted_progress_bar( percent, width=_BAR_WIDTH, started=True ):
     return '[' + fill + ']'
 
 
-def open_progress_stream():
-    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+PROGRESS_TTY_ENV = "CUPPA_PROGRESS_TTY"
+PROGRESS_FD_ENV = "CUPPA_PROGRESS_FD"
 
-    Prefer the controlling terminal so rewriting works under the ``cuppa``
-    launcher (piped scons stdio). Fall back to ``sys.stderr`` with newline mode
-    when there is no tty (CI).
+# Keep the tip's progress tty file open so nested ``pass_fds`` stays valid.
+_progress_tty_stream = None
+_progress_tty_fd = None
+
+
+def _progress_fd_inheritance_supported():
+    """``pass_fds`` + inherited fileno only works on POSIX."""
+    return not ( sys.platform == 'win32' or os.name == 'nt' )
+
+
+def _progress_stream_writable( stream ):
+    """True when a tiny write/flush succeeds (GitHub Actions CONOUT$ lies)."""
+    try:
+        stream.write( '' )
+        stream.flush()
+        return True
+    except Exception:
+        return False
+
+
+def _publish_progress_tty_env( stream ):
+    """Record path + fd env for cascade nests / launcher children.
+
+    On Windows, never advertise :data:`PROGRESS_FD_ENV`: ``subprocess`` cannot
+    ``pass_fds``, and a stale numeric fd in the child causes EBADF on write
+    (GitHub Actions windows runners). Nests reopen ``CONOUT$`` /
+    :data:`PROGRESS_TTY_ENV` instead.
     """
-    candidates = ( 'CONOUT$', ) if sys.platform == 'win32' else ( '/dev/tty', )
+    global _progress_tty_stream, _progress_tty_fd
+    try:
+        fd = stream.fileno()
+    except Exception:
+        return
+    _progress_tty_stream = stream
+    _progress_tty_fd = fd
+    if _progress_fd_inheritance_supported():
+        try:
+            os.environ[PROGRESS_FD_ENV] = str( fd )
+        except Exception:
+            pass
+    else:
+        try:
+            os.environ.pop( PROGRESS_FD_ENV, None )
+        except Exception:
+            pass
+    try:
+        path = os.ttyname( fd )
+    except Exception:
+        path = None
+    if not path and ( sys.platform == 'win32' or os.name == 'nt' ):
+        path = 'CONOUT$'
+    if path:
+        try:
+            os.environ[PROGRESS_TTY_ENV] = path
+        except Exception:
+            pass
+
+
+def resolve_progress_tty_path():
+    """Absolute tty device path for rewriting progress, or ``None``."""
+    existing = os.environ.get( PROGRESS_TTY_ENV )
+    if existing and ( existing == 'CONOUT$' or os.path.exists( existing ) ):
+        return existing
+    fd = ensure_progress_tty_fd()
+    if fd is None:
+        return None
+    try:
+        return os.ttyname( fd )
+    except Exception:
+        return os.environ.get( PROGRESS_TTY_ENV )
+
+
+def ensure_progress_tty_fd():
+    """Return a live fileno for interactive progress, or ``None``.
+
+    Cascade nests use ``start_new_session`` and lose ``/dev/tty``. Re-opening
+    a pts **path** from a session without a controlling terminal is unreliable
+    (often fails or is not a usable tty). The tip keeps an open progress fd and
+    forwards it with ``subprocess`` ``pass_fds`` plus :data:`PROGRESS_FD_ENV`
+    on POSIX. Windows nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`.
+    """
+    global _progress_tty_stream, _progress_tty_fd
+
+    if _progress_tty_fd is not None:
+        try:
+            if os.isatty( _progress_tty_fd ):
+                return _progress_tty_fd
+        except Exception:
+            _progress_tty_fd = None
+            _progress_tty_stream = None
+
+    if _progress_fd_inheritance_supported():
+        inherited = os.environ.get( PROGRESS_FD_ENV )
+        if inherited:
+            try:
+                fd = int( inherited )
+                if os.isatty( fd ):
+                    _progress_tty_fd = fd
+                    return fd
+            except Exception:
+                pass
+
+    candidates = []
+    if sys.platform == 'win32':
+        candidates.append( 'CONOUT$' )
+    else:
+        candidates.append( '/dev/tty' )
+    env_tty = os.environ.get( PROGRESS_TTY_ENV )
+    if env_tty and env_tty not in candidates:
+        candidates.append( env_tty )
+
     for path in candidates:
         try:
             stream = open( path, 'w' )
         except ( OSError, IOError ):
             continue
         try:
-            if stream.isatty():
-                return stream, True, True
+            if stream.isatty() and _progress_stream_writable( stream ):
+                _publish_progress_tty_env( stream )
+                return _progress_tty_fd
         except Exception:
             pass
         try:
             stream.close()
+        except Exception:
+            pass
+    return None
+
+
+def progress_tty_popen_kwargs( env=None ):
+    """``pass_fds`` / env updates so a child keeps the tip progress tty.
+
+    Returns ``(kwargs, env)``. ``kwargs`` is empty when there is no progress
+    tty (CI), and also omits ``pass_fds`` on Windows (unsupported by
+    ``subprocess`` — nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`).
+    On Windows, :data:`PROGRESS_FD_ENV` is stripped from the child env so a
+    tip-local numeric fd cannot leak as a stale descriptor.
+    Callers must merge ``kwargs`` into ``subprocess.Popen``.
+    """
+    if env is None:
+        env = os.environ.copy()
+    else:
+        env = dict( env )
+    fd = ensure_progress_tty_fd()
+    if fd is None:
+        env.pop( PROGRESS_FD_ENV, None )
+        return {}, env
+    path = None
+    try:
+        path = os.ttyname( fd )
+    except Exception:
+        path = os.environ.get( PROGRESS_TTY_ENV )
+    # ``pass_fds`` is POSIX-only (Windows raises AssertionError). Cascade nests
+    # on Windows reopen CONOUT$ / the progress tty path instead — never trust
+    # an inherited numeric fd across process boundaries.
+    if not _progress_fd_inheritance_supported():
+        env.pop( PROGRESS_FD_ENV, None )
+        if not path:
+            path = 'CONOUT$'
+        env[PROGRESS_TTY_ENV] = path
+        return {}, env
+    env[PROGRESS_FD_ENV] = str( fd )
+    if path:
+        env[PROGRESS_TTY_ENV] = path
+    # pass_fds implies close_fds=True on POSIX; keep 0/1/2 + progress fd.
+    return { "pass_fds": ( fd, ) }, env
+
+
+def open_progress_stream():
+    """Return ``(stream, is_tty, owns_stream)`` for progress output.
+
+    Prefer an inherited :data:`PROGRESS_FD_ENV` on POSIX (cascade nest), then
+    the controlling terminal / :data:`PROGRESS_TTY_ENV` path. Fall back to
+    ``sys.stderr`` with newline / silent-terse mode when there is no tty (CI).
+    Windows never consumes :data:`PROGRESS_FD_ENV` (no ``pass_fds``).
+    """
+    if _progress_fd_inheritance_supported():
+        inherited = os.environ.get( PROGRESS_FD_ENV )
+        if inherited:
+            try:
+                fd = int( inherited )
+                if os.isatty( fd ):
+                    # closefd=False: parent / nest chain still owns the descriptor.
+                    stream = os.fdopen( fd, 'w', closefd=False )
+                    if _progress_stream_writable( stream ):
+                        _publish_progress_tty_env( stream )
+                        return stream, True, False
+            except Exception:
+                pass
+
+    fd = ensure_progress_tty_fd()
+    if fd is not None and _progress_tty_stream is not None:
+        return _progress_tty_stream, True, False
+    if fd is not None:
+        try:
+            stream = os.fdopen( fd, 'w', closefd=False )
+            return stream, True, False
         except Exception:
             pass
 
@@ -297,10 +478,11 @@ class ProgressReporter( object ):
 
     * **Normal TTY** — progress bar only (no alive widget); full colour; show
       immediately; durable final 100% line.
-    * **Normal + quiet TTY** — same shape, muted; idle-gate reveal; overwrite
-      (clear) on completion.
+    * **Normal + quiet TTY (``-Q``/``-s``)** — muted bar + alive (unless
+      ``off``), matching the quiet heartbeat row; idle-gate reveal; overwrite
+      after finishing a started animation cycle.
     * **Terse TTY** — alive (unless ``off``) + ``→`` + progress bar, muted;
-      idle-gate reveal; overwrite on completion after one animation dwell.
+      idle-gate reveal; overwrite after finishing a started animation cycle.
     * **Non-TTY** — periodic lines in **normal** only (silent under terse).
     """
 
@@ -318,6 +500,7 @@ class ProgressReporter( object ):
             compact=None,
             muted=None,
             alive_style=None,
+            alive_timer_factory=None,
     ):
         if stream is None:
             stream, detected_tty, owns_stream = open_progress_stream()
@@ -325,6 +508,7 @@ class ProgressReporter( object ):
                 is_tty = detected_tty
         self._stream = stream
         self._owns_stream = owns_stream
+        self._stream_dead = False
         self._clock = clock if clock is not None else time.time
         self._sleep = sleep if sleep is not None else time.sleep
         if is_tty is None:
@@ -348,6 +532,16 @@ class ProgressReporter( object ):
         self._muted_override = muted
         self._ever_painted = False
         self._visible_since = None
+        self._last_paint_at = None
+        self._last_bytes = 0
+        self._paint_lock = threading.Lock()
+        self._timer_lock = threading.Lock()
+        self._alive_timer = None
+        # Default ``threading.Timer``; tests may pass a no-op factory.
+        self._alive_timer_factory = (
+                alive_timer_factory if alive_timer_factory is not None
+                else threading.Timer
+        )
         self._resolve_presentation()
 
     def _resolve_presentation( self ):
@@ -367,9 +561,12 @@ class ProgressReporter( object ):
             self._muted = terse or quiet
         else:
             self._muted = bool( self._muted_override )
-        # Alive only under terse + TTY (unless style off).
+        # Alive on every muted transient TTY status (terse and quiet -Q/-s),
+        # same pulse/spinner as the quiet heartbeat row (unless style off).
         self._show_alive = (
-                bool( self._is_tty ) and terse and self._alive_style != 'off'
+                bool( self._is_tty )
+                and ( terse or quiet )
+                and self._alive_style != 'off'
         )
         self._terse = terse
         self._quiet = quiet
@@ -380,7 +577,8 @@ class ProgressReporter( object ):
         self._emit_non_tty = ( not self._is_tty ) and ( not terse )
 
     def _compose_line( self, bytes_so_far, elapsed, started ):
-        # Always include the bar on TTY (terse keeps bar; compact only affects alive).
+        # Always include the bar on TTY (terse/quiet keep bar; compact only
+        # changes the alive head layout).
         body = format_progress_line(
                 self._label,
                 bytes_so_far,
@@ -392,16 +590,18 @@ class ProgressReporter( object ):
                 muted=bool( self._muted ),
                 include_bar=True,
         )
-        if not self._is_tty or not self._terse:
+        if not self._is_tty:
             return body
-        from cuppa.utility.heartbeat import format_alive_prefix
         if self._show_alive:
+            from cuppa.utility.heartbeat import format_alive_prefix
             _plain, styled_prefix = format_alive_prefix(
                     self._spin,
                     style=self._alive_style,
-                    compact=True,
+                    compact=bool( self._terse ),
             )
             return styled_prefix + body
+        if not self._terse:
+            return body
         # Terse + alive off: still arrow-align the progress bar.
         try:
             from cuppa.progress import terse_arrow_column
@@ -417,6 +617,7 @@ class ProgressReporter( object ):
             hb.clear()
         except Exception:
             pass
+        self._cancel_alive_timer()
         register_active_progress( self )
         self._resolve_presentation()
         self._label = label or 'transfer'
@@ -431,6 +632,8 @@ class ProgressReporter( object ):
         self._spin = 0
         self._ever_painted = False
         self._visible_since = None
+        self._last_paint_at = None
+        self._last_bytes = 0
         self._bar_started = True
         if not self._use_reveal_gate:
             # Immediate arm: empty tip then started tip (classic download look).
@@ -444,6 +647,7 @@ class ProgressReporter( object ):
             return
         if not self._is_tty and not self._emit_non_tty:
             return
+        self._last_bytes = bytes_so_far
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         if self._use_reveal_gate:
@@ -453,6 +657,9 @@ class ProgressReporter( object ):
         if not force and self._last_emit is not None:
             if self._is_tty:
                 if ( now - self._last_emit ) < self._tty_interval_s:
+                    # Bytes remembered; do **not** restart the alive timer —
+                    # cancelling it on every file update froze the ECG on rest.
+                    self._ensure_alive_timer()
                     return
             else:
                 percent_due = False
@@ -469,43 +676,128 @@ class ProgressReporter( object ):
                     ):
                         self._next_line_percent += self._line_percent_step
 
-        if self._show_alive:
-            self._spin += 1
-        line = self._compose_line( bytes_so_far, elapsed, started=self._bar_started )
-        self._emit( line, newline=not self._is_tty )
-        self._last_emit = now
-        self._last_line = line
-        if not self._ever_painted:
-            self._ever_painted = True
-            self._visible_since = now
+        self._paint( bytes_so_far, advance_alive=False )
+        self._ensure_alive_timer()
+
+    def _paint( self, bytes_so_far, advance_alive=False ):
+        """Rewrite the status row (progress metrics and/or next alive frame)."""
+        if self._finished:
+            return
+        with self._paint_lock:
+            if self._finished:
+                return
+            now = self._clock()
+            elapsed = max( 0.0, now - ( self._started or now ) )
+            if advance_alive and self._show_alive:
+                self._spin += 1
+            line = self._compose_line(
+                    bytes_so_far, elapsed, started=self._bar_started,
+            )
+            self._emit( line, newline=not self._is_tty )
+            self._last_emit = now
+            self._last_paint_at = now
+            self._last_line = line
+            if not self._ever_painted:
+                self._ever_painted = True
+                self._visible_since = now
+
+    def _alive_interval_s( self ):
+        from cuppa.utility.heartbeat import next_alive_interval_s
+        return next_alive_interval_s( self._spin, style=self._alive_style )
+
+    def _cancel_alive_timer( self ):
+        with self._timer_lock:
+            timer = self._alive_timer
+            self._alive_timer = None
+        if timer is None:
+            return
+        try:
+            timer.cancel()
+        except Exception:
+            pass
+
+    def _ensure_alive_timer( self ):
+        """Arm the alive timer only if none is running (heartbeat ``_ensure_pulse``).
+
+        Byte-progress ``update`` must not cancel/restart the timer — rapid
+        compress file callbacks were resetting it every few ms so the ECG
+        never left the rest frame ``|---------|``.
+        """
+        if not self._show_alive or self._finished or not self._ever_painted:
+            return
+        with self._timer_lock:
+            if self._alive_timer is not None:
+                return
+            try:
+                timer = self._alive_timer_factory(
+                        self._alive_interval_s(), self._on_alive_tick,
+                )
+            except Exception:
+                return
+            self._alive_timer = timer
+            try:
+                timer.daemon = True
+            except Exception:
+                pass
+            try:
+                timer.start()
+            except Exception:
+                self._alive_timer = None
+
+    def _on_alive_tick( self ):
+        # Drop the fired handle before re-arm (same pattern as heartbeat
+        # ``_on_pulse``) so a stuck cancelled Timer cannot block ensure.
+        with self._timer_lock:
+            self._alive_timer = None
+        if self._finished or not self._show_alive:
+            return
+        try:
+            self._paint( self._last_bytes, advance_alive=True )
+        finally:
+            # Always try to continue — a paint/flush glitch must not kill the ECG.
+            self._ensure_alive_timer()
+
+    def _mark_stream_dead( self ):
+        """Stop rewriting after EBADF / closed console (Windows CI CONOUT$)."""
+        self._stream_dead = True
+        self._is_tty = False
+        self._show_alive = False
+        self._emit_non_tty = False
+        self._last_line = ''
 
     def _emit( self, line, newline ):
-        if self._is_tty:
-            width = max( visible_len( self._last_line ), visible_len( line ) )
-            self._stream.write( '\r' + pad_visible( line, width ) )
-            if newline:
-                self._stream.write( '\n' )
-        else:
-            self._stream.write( line )
-            self._stream.write( '\n' )
+        if self._stream_dead:
+            return
         try:
+            if self._is_tty:
+                width = max( visible_len( self._last_line ), visible_len( line ) )
+                self._stream.write( '\r' + pad_visible( line, width ) )
+                if newline:
+                    self._stream.write( '\n' )
+            else:
+                self._stream.write( line )
+                self._stream.write( '\n' )
             self._stream.flush()
-        except Exception:
-            pass
+        except ( OSError, IOError ):
+            # Progress must never fail a download / package create (e.g. stale
+            # CUPPA_PROGRESS_FD or non-writable CONOUT$ on GitHub Actions).
+            self._mark_stream_dead()
 
     def _clear_line( self ):
-        if not self._is_tty or not self._last_line:
+        if self._stream_dead or not self._is_tty or not self._last_line:
             return
         width = visible_len( self._last_line )
-        self._stream.write( '\r' + ( ' ' * width ) + '\r' )
         try:
+            self._stream.write( '\r' + ( ' ' * width ) + '\r' )
             self._stream.flush()
-        except Exception:
-            pass
+        except ( OSError, IOError ):
+            self._mark_stream_dead()
+            return
         self._last_line = ''
 
     def interrupt_clear( self ):
         """Wipe the rewriting row so a transcript line can own the TTY."""
+        self._cancel_alive_timer()
         self._clear_line()
 
     def done( self, bytes_so_far=None ):
@@ -513,31 +805,38 @@ class ProgressReporter( object ):
         if self._finished:
             return
         self._finished = True
+        self._cancel_alive_timer()
         if _active_progress is self:
             _active_progress = None
         if bytes_so_far is None:
-            bytes_so_far = 0
+            bytes_so_far = self._last_bytes
+        self._last_bytes = bytes_so_far
         now = self._clock()
         elapsed = max( 0.0, now - ( self._started or now ) )
         if self._ever_painted:
-            if self._show_alive and self._visible_since is not None:
+            # Final metrics (no extra alive frame). Dwell only finishes a
+            # cycle we already started after the idle gate — quick bars get
+            # a readable beat; long transfers that already ran a full cycle
+            # clear immediately (not an obligatory post-complete animation).
+            line = self._compose_line( bytes_so_far, elapsed, started=True )
+            self._emit( line, newline=not self._overwrite_on_done )
+            self._last_line = line
+            self._last_paint_at = self._clock()
+            if self._overwrite_on_done and self._visible_since is not None:
+                # Use this reporter's clock (not heartbeat's monotonic) so FakeClock
+                # / time.time transfers dwell correctly.
                 from cuppa.utility.heartbeat import cycle_duration_s
                 remaining = max(
                         0.0,
-                        cycle_duration_s() - ( now - self._visible_since ),
+                        cycle_duration_s() - (
+                                self._clock() - self._visible_since
+                        ),
                 )
                 if remaining > 0:
                     self._sleep( remaining )
-                    now = self._clock()
-                    elapsed = max( 0.0, now - ( self._started or now ) )
-            if self._overwrite_on_done:
                 self._clear_line()
-            else:
-                if self._show_alive:
-                    self._spin += 1
-                line = self._compose_line( bytes_so_far, elapsed, started=True )
-                self._emit( line, newline=True )
-                self._last_line = line
+            elif self._overwrite_on_done:
+                self._clear_line()
         try:
             from cuppa.utility import heartbeat as hb
             hb.clear()

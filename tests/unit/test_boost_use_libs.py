@@ -13,6 +13,11 @@ from cuppa.dependencies.build_with_boost import Boost
 pytestmark = pytest.mark.unit
 
 
+class _GccLike( object ):
+    def append_static_libs( self, env, libs ):
+        env.Append( STATICLIBS = libs )
+
+
 class _FakeEnv( object ):
     def __init__( self ):
         self.staticlibs = []
@@ -20,6 +25,12 @@ class _FakeEnv( object ):
         self.requested_libs = None
         self.append_calls = 0
         self.append_unique_calls = 0
+        self.toolchain = _GccLike()
+
+    def get( self, key, default=None ):
+        if key == 'toolchain':
+            return self.toolchain
+        return default
 
     def BoostStaticLibs( self, libs ):
         self.requested_libs = list( libs )

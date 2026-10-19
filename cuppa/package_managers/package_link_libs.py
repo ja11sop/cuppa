@@ -359,13 +359,19 @@ def apply_resolved_libs( env, lib_dir, libs, library_prefix="", link=LINK_PREFER
                     )
             )
 
+    from cuppa.toolchains.link_append import (
+            append_libpath,
+            append_shared_libs,
+            append_static_libs,
+    )
+
     libpath = []
     if shared_stems:
         libpath = [ lib_dir ]
-        env.AppendUnique( LIBPATH = libpath )
-        env.AppendUnique( SHAREDLIBS = shared_stems )
+        append_libpath( env, libpath )
+        append_shared_libs( env, shared_stems )
     if static_nodes:
-        env.AppendUnique( STATICLIBS = static_nodes )
+        append_static_libs( env, static_nodes )
 
     return {
             "static": static_nodes,

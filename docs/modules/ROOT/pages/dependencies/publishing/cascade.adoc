@@ -71,8 +71,8 @@ nest-build vs nest-publish:
 | Tip **build only** (consume-only **or** publisher tips; cannot combine with ``--publish-package`` or ``--build-cascade-dependencies``)
 
 | ``--build-cascade-dependencies``
-| Leaf-first nested **build** (no ``--publish-package`` / no registry upload)
-| Tip **build only** (cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies``)
+| Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-cascade-manifests``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild). Nests run **before** tip ``BuildWith`` (same timing idea as ``--stage-develop``)
+| Tip **build only**, linking each nest's ``final/<package>/<version>/`` stage under the publisher forest (not the download extract). ``--develop`` still wins for packages with an active develop path. Cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies`` |
 
 | ``--cascade-plan``
 | Nothing (report only)
@@ -105,11 +105,26 @@ cuppa -D --rel --toolchains=gcc15 \
   --publish-cascade-dependencies --cascade \
   --publisher-root=~/coding/packages
 
-# Nest-build deps (no registry upload), tip build only
+# Nest-build deps (no registry upload); tip links forest stages
 cuppa -D --rel --toolchains=gcc15 \
   --build-cascade-dependencies --cascade \
-  --publisher-root=~/coding/packages --develop
+  --publisher-root=~/coding/packages
 ----
+
+TIP: Nest-build tip consume does **not** require ``--develop``. Use
+``--develop`` when you want tip package ``develop=`` trees to win over the
+publisher forest (and optionally ``--stage-develop`` to nest those trees).
+Publish-cascade still refreshes tip **extracts** after nested upload.
+Tip links only stages for the **tip toolchain** (nest-default ``--rel`` under
+tip ``--dbg`` of that toolchain is expected; a different toolchain under
+``_build/`` is refused, not silently chosen).
+
+Add ``--amend-cascade-manifests`` when nests should rewrite traveling metadata
+instead of full-building (see
+xref:dependencies/publishing/amend-and-external.adoc#amend-cascade[Amending across a cascade DAG]).
+Tip-only ``--amend-package-manifest`` does not enable nest amend. Nest argv also
+drops tip dependency-scoped flags and tip-local ``cuppa.add_option`` helpers
+(for example ``--tip-local-flag``) — children never registered them.
 
 [mermaid]
 ....
@@ -120,7 +135,7 @@ flowchart TD
   choose -->|--cascade-plan| plan[Print plan and exit]
   choose -->|--collect-cascade| collect[Resolve or clone trees; exit]
   choose -->|--update-publishers alone| update[Update forest; exit]
-  choose -->|--build-cascade-dependencies| nestBuildOnly[Nest-build then tip build]
+  choose -->|--build-cascade-dependencies| nestBuildOnly[Nest-build then tip links forest stages]
   choose -->|--publish-cascade-dependencies| nestPublishBuild[Nest-publish then tip build]
   choose -->|--publish-package| nestUpload[Nest-publish then tip upload]
   choose -->|combined nest companions| refuseBoth[Refuse]
@@ -580,7 +595,9 @@ the command it ran, and how long it took. Cascade deliberately does not capture 
 re-indent nested output: that would cost colour, progress rewriting, and
 interleaved stderr from the build you are watching. The banners mark the
 boundaries instead, and a closing banner says this package (or project) is
-resuming.
+resuming. Interactive tip sessions forward the progress TTY into nests so
+compress/upload keep normal ``\\r`` rewrite and terse muted progress (see
+xref:cli/output-and-environment.adoc[]).
 
 When a dependency's tip consume archive already matches the registry (local file
 size equals a successful ``HEAD`` ``Content-Length``, and the extract has

@@ -207,15 +207,23 @@ def _normalise_link( value: Any ) -> str | None:
     return str( value )
 
 
+def _normalise_lib_groups_field( value: Any ) -> dict[str, list[str]] | None:
+    """Delegate to :mod:`package_lib_groups` (kept here for manifest callers)."""
+    from cuppa.package_managers.package_lib_groups import normalise_lib_groups
+
+    return normalise_lib_groups( value )
+
+
 def build_manifest(
         dependencies: list | None = None,
         default_use_libs: Any = None,
         link: Any = None,
+        lib_groups: Any = None,
 ) -> dict | None:
     """Return a manifest document, or ``None`` when there is nothing to publish.
 
     A document is produced when there are dependency edges and/or package-level
-    link metadata (``default_use_libs`` / ``link``).
+    link metadata (``default_use_libs`` / ``link`` / ``lib_groups``).
     """
     entries = []
     if dependencies:
@@ -223,7 +231,13 @@ def build_manifest(
 
     defaults = _normalise_default_use_libs( default_use_libs )
     link_mode = _normalise_link( link )
-    if not entries and defaults is None and link_mode is None:
+    groups = _normalise_lib_groups_field( lib_groups )
+    if (
+            not entries
+            and defaults is None
+            and link_mode is None
+            and groups is None
+    ):
         return None
 
     document: dict = {
@@ -234,6 +248,8 @@ def build_manifest(
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    if groups is not None:
+        document["lib_groups"] = groups
     return document
 
 
@@ -243,6 +259,7 @@ def write_manifest(
         env=None,
         default_use_libs: Any = None,
         link: Any = None,
+        lib_groups: Any = None,
 ) -> str | None:
     """Write ``cuppa-dependency.json`` under ``package_dir`` when there is content.
 
@@ -258,6 +275,7 @@ def write_manifest(
             dependencies,
             default_use_libs=default_use_libs,
             link=link,
+            lib_groups=lib_groups,
     )
     if document is None:
         return None
@@ -286,7 +304,13 @@ def read_manifest( package_dir: str ) -> dict | None:
     deps = document.get( "dependencies" ) or []
     defaults = _normalise_default_use_libs( document.get( "default_use_libs" ) )
     link_mode = _normalise_link( document.get( "link" ) )
-    if not deps and defaults is None and link_mode is None:
+    groups = _normalise_lib_groups_field( document.get( "lib_groups" ) )
+    if (
+            not deps
+            and defaults is None
+            and link_mode is None
+            and groups is None
+    ):
         return None
     # Re-normalise for validation
     document["dependencies"] = [ normalise_dependency_entry( item ) for item in deps ]
@@ -295,6 +319,10 @@ def read_manifest( package_dir: str ) -> dict | None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
+    if groups is not None:
+        document["lib_groups"] = groups
+    elif "lib_groups" in document:
+        del document["lib_groups"]
     return document
 
 
@@ -315,3 +343,11 @@ def package_link_mode( package_dir: str ) -> str | None:
             package_link_mode as _traveling_link,
     )
     return _traveling_link( package_dir )
+
+
+def package_lib_groups( package_dir: str ) -> dict[str, list[str]] | None:
+    """Return ``lib_groups`` from the traveling manifest, or ``None`` if omitted."""
+    from cuppa.package_managers.cuppa_publish_manifest import (
+            package_lib_groups as _traveling_groups,
+    )
+    return _traveling_groups( package_dir )

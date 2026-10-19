@@ -164,6 +164,21 @@ def run_scons( args_list ):
                 environ=propagated_env,
                 stdout_is_tty=outer_tty,
         )
+        # Keep an open progress tty fd into the SCons child (and onward into
+        # cascade nests via pass_fds). Path-only CUPPA_PROGRESS_TTY is not
+        # enough after start_new_session loses the controlling terminal.
+        try:
+            from cuppa.utility.download import progress_tty_popen_kwargs
+            tty_kwargs, propagated_env = progress_tty_popen_kwargs(
+                    propagated_env
+            )
+            if tty_kwargs:
+                kwargs.update( tty_kwargs )
+                # pass_fds forces close_fds=True; drop the explicit flag so
+                # Popen does not see conflicting kwargs on older Pythons.
+                kwargs.pop( 'close_fds', None )
+        except Exception:
+            pass
 
         process = subprocess.Popen(
             use_shell and " ".join(args_list) or args_list,
@@ -197,10 +212,21 @@ def run_scons( args_list ):
 
     except Exception:
         if process:
-            process.kill()
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                process.wait()
+            except Exception:
+                pass
+            code = process.returncode
+            if stderr_thread:
+                stderr_thread.join()
+            return code if code is not None else 1
         if stderr_thread:
             stderr_thread.join()
-        return process.returncode
+        return 1
 
     except KeyboardInterrupt:
         _abort_scons( process )

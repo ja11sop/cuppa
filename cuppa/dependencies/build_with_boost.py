@@ -360,10 +360,9 @@ class Boost(object):
         env = self._env
         libs = Flatten( [ libs ] )
         libraries = env.BoostStaticLibs( libs )
-        # Append, not AppendUnique: same as boost_package.use_libs — dependents
-        # expanded by BoostStaticLibs must be allowed to repeat after libraries
-        # that need them when an earlier use_libs already linked those archives.
-        env.Append( STATICLIBS = libraries )
+        # Toolchain append policy (gcc/clang → Append so dependents may repeat).
+        from cuppa.toolchains.link_append import append_static_libs
+        append_static_libs( env, libraries )
         if depends_on:
             env.Depends( libraries, Flatten( [ depends_on ] ) )
         return libraries

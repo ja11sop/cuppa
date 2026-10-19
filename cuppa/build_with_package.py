@@ -311,6 +311,26 @@ class base(object):
         use_all( depends_on=depends_on, dependency_name=self._name )
 
 
+    def show_libs_for( self, token ):
+        show = getattr( self._package, 'show_libs_for', None )
+        if not callable( show ):
+            import SCons.Errors
+            raise SCons.Errors.StopError(
+                    "Package [{}] does not support show_libs_for().".format( self._name )
+            )
+        return show( token )
+
+
+    def show_all_libs( self ):
+        show = getattr( self._package, 'show_all_libs', None )
+        if not callable( show ):
+            import SCons.Errors
+            raise SCons.Errors.StopError(
+                    "Package [{}] does not support show_all_libs().".format( self._name )
+            )
+        return show()
+
+
     def package( self ):
         return self._package
 

@@ -4,6 +4,8 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import logging
+
 import pytest
 
 import cuppa.utility.filter as filter_mod
@@ -67,7 +69,9 @@ def test_missing_extensionless_final_program_does_not_warn( monkeypatch, caplog 
     monkeypatch.setattr( filter_mod, 'Node', _FakeFileNode )
     monkeypatch.setattr( filter_mod.os.path, 'exists', lambda p: False )
 
-    with caplog.at_level( 'DEBUG' ):
+    # Target the cuppa logger: suite peers may have pinned it via set_logging_level
+    # (e.g. quiet heartbeat), so root-only DEBUG is not enough.
+    with caplog.at_level( logging.DEBUG, logger='cuppa' ):
         matched = filter_nodes( [ node ], match_patterns='*/final/*' )
 
     assert matched == []
@@ -101,7 +105,7 @@ def test_existing_directory_stays_out_of_file_matches( monkeypatch, caplog ):
     monkeypatch.setattr( filter_mod.os.path, 'exists', lambda p: True )
     monkeypatch.setattr( filter_mod.os.path, 'isdir', lambda p: True )
 
-    with caplog.at_level( 'DEBUG' ):
+    with caplog.at_level( logging.DEBUG, logger='cuppa' ):
         matched = filter_nodes( [ node ], match_patterns='*' )
 
     assert matched == []

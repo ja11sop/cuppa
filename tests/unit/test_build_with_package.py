@@ -214,7 +214,10 @@ def _develop_env(tmp_path, monkeypatch, **overrides):
         downloads_root=str(tmp_path / "downloads"),
         dependencies_root=str(tmp_path / "dependencies"),
         sconstruct_dir=str(tmp_path / "project"),
-        toolchain=SimpleNamespace(package_name=lambda: "gcc15"),
+        toolchain=SimpleNamespace(
+                name=lambda: "gcc15",
+                package_name=lambda: "gcc15",
+        ),
         variant=SimpleNamespace(name=lambda: "rel"),
         target_arch="x86_64",
         abi="cxx2c",
@@ -353,7 +356,7 @@ def test_publisher_source_consume_discovers_existing_stage(tmp_path, monkeypatch
     source.mkdir()
     (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
     stage = (
-        source / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c"
+        source / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
         / "final" / "widget" / "1.2"
     )
     (stage / "include").mkdir(parents=True)
@@ -409,7 +412,7 @@ def test_stage_develop_nests_then_consumes_stage(tmp_path, monkeypatch):
     source.mkdir()
     (source / "sconstruct").write_text("import cuppa\n", encoding="utf-8")
     stage = (
-        source / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c"
+        source / "_build" / "gcc15" / "rel" / "x86_64" / "cxx2c"
         / "final" / "widget" / "1.2"
     )
 

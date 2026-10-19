@@ -1160,6 +1160,10 @@ class Construct(object):
             # Nest location --stage-develop before tip BuildWith so N of M is
             # known and nests are not interleaved with construction.
             package_cascade.run_location_stage_develop( cuppa_env )
+            # Nest --build-cascade-dependencies forest stages before tip
+            # BuildWith so tip binds final/<pkg>/<ver>/ like develop stages
+            # (not extracts). See cascade-build-deps-tip-consume.
+            package_cascade.run_build_cascade_stages( cuppa_env )
 
             for toolchain in toolchains:
                 build_envs = self.create_build_envs( toolchain, cuppa_env )
