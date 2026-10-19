@@ -210,15 +210,60 @@ def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
 
 
 def test_progress_tty_popen_kwargs_omits_pass_fds_on_windows( monkeypatch ):
-    """Windows subprocess rejects pass_fds — only publish env for CONOUT$ reopen."""
+    """Windows: no pass_fds; strip CUPPA_PROGRESS_FD; publish CONOUT$ path only."""
     _reset_progress_tty_state( monkeypatch )
     monkeypatch.setattr( dl.sys, "platform", "win32" )
     monkeypatch.setattr( dl.os, "name", "nt" )
     monkeypatch.setattr( dl, "ensure_progress_tty_fd", lambda: 7 )
     monkeypatch.setattr( dl.os, "ttyname", lambda fd: "CONOUT$", raising=False )
-    kwargs, env = dl.progress_tty_popen_kwargs( {} )
+    kwargs, env = dl.progress_tty_popen_kwargs( { dl.PROGRESS_FD_ENV: "7" } )
     assert "pass_fds" not in kwargs
-    assert env[dl.PROGRESS_FD_ENV] == "7"
+    assert dl.PROGRESS_FD_ENV not in env
+    assert env[dl.PROGRESS_TTY_ENV] == "CONOUT$"
+
+
+def test_open_progress_stream_ignores_progress_fd_on_windows( monkeypatch ):
+    """Stale CUPPA_PROGRESS_FD must not be consumed without pass_fds."""
+    import builtins
+    import io
+
+    real_open = builtins.open
+
+    def fake_open( path, *args, **kwargs ):
+        if path in ( '/dev/tty', 'CONOUT$' ):
+            raise OSError( 'no console' )
+        return real_open( path, *args, **kwargs )
+
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setattr( dl.sys, "platform", "win32" )
+    monkeypatch.setattr( dl.os, "name", "nt" )
+    monkeypatch.setenv( dl.PROGRESS_FD_ENV, "3" )
+    monkeypatch.setattr( builtins, "open", fake_open )
+    monkeypatch.setattr( os, "isatty", lambda fd: False )
+    stream, is_tty, owns = dl.open_progress_stream()
+    assert stream is __import__( "sys" ).stderr
+    assert owns is False
+
+
+def test_reporter_survives_dead_progress_stream():
+    """EBADF on progress write must not raise (Windows CI CONOUT$ / stale fd)."""
+
+    class _DeadStream( io.StringIO ):
+        def write( self, data ):
+            raise OSError( 9, "Bad file descriptor" )
+
+        def flush( self ):
+            raise OSError( 9, "Bad file descriptor" )
+
+        def isatty( self ):
+            return True
+
+    reporter = dl.ProgressReporter(
+            stream=_DeadStream(), is_tty=True, tty_interval_s=0,
+    )
+    reporter.begin( "file.tgz", total_size=100 )
+    reporter.update( 50, force=True )
+    reporter.done( 100 )
 
 
 def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):

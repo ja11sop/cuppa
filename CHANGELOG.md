@@ -82,10 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and forwards it with ``CUPPA_PROGRESS_FD`` + ``pass_fds`` on POSIX
   (path-only ``CUPPA_PROGRESS_TTY`` reopen fails after nest
   ``start_new_session`` loses the controlling terminal). Windows omits
-  ``pass_fds`` (unsupported) and reopens ``CONOUT$`` / the tty path.
-  Nests keep interactive TTY progress — normal ``\\r`` rewrite and terse
-  muted alive+bar — instead of non-TTY newline spam (normal) or silence
-  (terse).
+  ``pass_fds`` (unsupported), never advertises or consumes
+  ``CUPPA_PROGRESS_FD`` across processes (stale fds caused EBADF on
+  GitHub Actions), probes ``CONOUT$`` writability before treating it as
+  a tty, and reopens ``CONOUT$`` / ``CUPPA_PROGRESS_TTY`` in nests.
+  ProgressReporter swallows write failures so a dead console cannot fail
+  download or package create. Nests keep interactive TTY progress —
+  normal ``\\r`` rewrite and terse muted alive+bar — instead of non-TTY
+  newline spam (normal) or silence (terse).
 - Terse transfer alive widget advances on its **animation cadence** (pulse /
   spinner timer). Byte-progress updates **ensure** (do not cancel/restart)
   that timer — rapid per-file compress callbacks were resetting it and

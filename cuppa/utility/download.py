@@ -262,8 +262,29 @@ _progress_tty_stream = None
 _progress_tty_fd = None
 
 
+def _progress_fd_inheritance_supported():
+    """``pass_fds`` + inherited fileno only works on POSIX."""
+    return not ( sys.platform == 'win32' or os.name == 'nt' )
+
+
+def _progress_stream_writable( stream ):
+    """True when a tiny write/flush succeeds (GitHub Actions CONOUT$ lies)."""
+    try:
+        stream.write( '' )
+        stream.flush()
+        return True
+    except Exception:
+        return False
+
+
 def _publish_progress_tty_env( stream ):
-    """Record path + fd env for cascade nests / launcher children."""
+    """Record path + fd env for cascade nests / launcher children.
+
+    On Windows, never advertise :data:`PROGRESS_FD_ENV`: ``subprocess`` cannot
+    ``pass_fds``, and a stale numeric fd in the child causes EBADF on write
+    (GitHub Actions windows runners). Nests reopen ``CONOUT$`` /
+    :data:`PROGRESS_TTY_ENV` instead.
+    """
     global _progress_tty_stream, _progress_tty_fd
     try:
         fd = stream.fileno()
@@ -271,14 +292,22 @@ def _publish_progress_tty_env( stream ):
         return
     _progress_tty_stream = stream
     _progress_tty_fd = fd
-    try:
-        os.environ[PROGRESS_FD_ENV] = str( fd )
-    except Exception:
-        pass
+    if _progress_fd_inheritance_supported():
+        try:
+            os.environ[PROGRESS_FD_ENV] = str( fd )
+        except Exception:
+            pass
+    else:
+        try:
+            os.environ.pop( PROGRESS_FD_ENV, None )
+        except Exception:
+            pass
     try:
         path = os.ttyname( fd )
     except Exception:
         path = None
+    if not path and ( sys.platform == 'win32' or os.name == 'nt' ):
+        path = 'CONOUT$'
     if path:
         try:
             os.environ[PROGRESS_TTY_ENV] = path
@@ -289,7 +318,7 @@ def _publish_progress_tty_env( stream ):
 def resolve_progress_tty_path():
     """Absolute tty device path for rewriting progress, or ``None``."""
     existing = os.environ.get( PROGRESS_TTY_ENV )
-    if existing and os.path.exists( existing ):
+    if existing and ( existing == 'CONOUT$' or os.path.exists( existing ) ):
         return existing
     fd = ensure_progress_tty_fd()
     if fd is None:
@@ -306,7 +335,8 @@ def ensure_progress_tty_fd():
     Cascade nests use ``start_new_session`` and lose ``/dev/tty``. Re-opening
     a pts **path** from a session without a controlling terminal is unreliable
     (often fails or is not a usable tty). The tip keeps an open progress fd and
-    forwards it with ``subprocess`` ``pass_fds`` plus :data:`PROGRESS_FD_ENV`.
+    forwards it with ``subprocess`` ``pass_fds`` plus :data:`PROGRESS_FD_ENV`
+    on POSIX. Windows nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`.
     """
     global _progress_tty_stream, _progress_tty_fd
 
@@ -318,15 +348,16 @@ def ensure_progress_tty_fd():
             _progress_tty_fd = None
             _progress_tty_stream = None
 
-    inherited = os.environ.get( PROGRESS_FD_ENV )
-    if inherited:
-        try:
-            fd = int( inherited )
-            if os.isatty( fd ):
-                _progress_tty_fd = fd
-                return fd
-        except Exception:
-            pass
+    if _progress_fd_inheritance_supported():
+        inherited = os.environ.get( PROGRESS_FD_ENV )
+        if inherited:
+            try:
+                fd = int( inherited )
+                if os.isatty( fd ):
+                    _progress_tty_fd = fd
+                    return fd
+            except Exception:
+                pass
 
     candidates = []
     if sys.platform == 'win32':
@@ -343,7 +374,7 @@ def ensure_progress_tty_fd():
         except ( OSError, IOError ):
             continue
         try:
-            if stream.isatty():
+            if stream.isatty() and _progress_stream_writable( stream ):
                 _publish_progress_tty_env( stream )
                 return _progress_tty_fd
         except Exception:
@@ -361,6 +392,8 @@ def progress_tty_popen_kwargs( env=None ):
     Returns ``(kwargs, env)``. ``kwargs`` is empty when there is no progress
     tty (CI), and also omits ``pass_fds`` on Windows (unsupported by
     ``subprocess`` — nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`).
+    On Windows, :data:`PROGRESS_FD_ENV` is stripped from the child env so a
+    tip-local numeric fd cannot leak as a stale descriptor.
     Callers must merge ``kwargs`` into ``subprocess.Popen``.
     """
     if env is None:
@@ -369,19 +402,25 @@ def progress_tty_popen_kwargs( env=None ):
         env = dict( env )
     fd = ensure_progress_tty_fd()
     if fd is None:
+        env.pop( PROGRESS_FD_ENV, None )
         return {}, env
-    env[PROGRESS_FD_ENV] = str( fd )
     path = None
     try:
         path = os.ttyname( fd )
     except Exception:
         path = os.environ.get( PROGRESS_TTY_ENV )
+    # ``pass_fds`` is POSIX-only (Windows raises AssertionError). Cascade nests
+    # on Windows reopen CONOUT$ / the progress tty path instead — never trust
+    # an inherited numeric fd across process boundaries.
+    if not _progress_fd_inheritance_supported():
+        env.pop( PROGRESS_FD_ENV, None )
+        if not path:
+            path = 'CONOUT$'
+        env[PROGRESS_TTY_ENV] = path
+        return {}, env
+    env[PROGRESS_FD_ENV] = str( fd )
     if path:
         env[PROGRESS_TTY_ENV] = path
-    # ``pass_fds`` is POSIX-only (Windows raises AssertionError). Cascade nests
-    # on Windows reopen CONOUT$ / the progress tty path instead.
-    if sys.platform == 'win32' or os.name == 'nt':
-        return {}, env
     # pass_fds implies close_fds=True on POSIX; keep 0/1/2 + progress fd.
     return { "pass_fds": ( fd, ) }, env
 
@@ -389,21 +428,24 @@ def progress_tty_popen_kwargs( env=None ):
 def open_progress_stream():
     """Return ``(stream, is_tty, owns_stream)`` for progress output.
 
-    Prefer an inherited :data:`PROGRESS_FD_ENV` (cascade nest), then the
-    controlling terminal / :data:`PROGRESS_TTY_ENV` path. Fall back to
+    Prefer an inherited :data:`PROGRESS_FD_ENV` on POSIX (cascade nest), then
+    the controlling terminal / :data:`PROGRESS_TTY_ENV` path. Fall back to
     ``sys.stderr`` with newline / silent-terse mode when there is no tty (CI).
+    Windows never consumes :data:`PROGRESS_FD_ENV` (no ``pass_fds``).
     """
-    inherited = os.environ.get( PROGRESS_FD_ENV )
-    if inherited:
-        try:
-            fd = int( inherited )
-            if os.isatty( fd ):
-                # closefd=False: parent / nest chain still owns the descriptor.
-                stream = os.fdopen( fd, 'w', closefd=False )
-                _publish_progress_tty_env( stream )
-                return stream, True, False
-        except Exception:
-            pass
+    if _progress_fd_inheritance_supported():
+        inherited = os.environ.get( PROGRESS_FD_ENV )
+        if inherited:
+            try:
+                fd = int( inherited )
+                if os.isatty( fd ):
+                    # closefd=False: parent / nest chain still owns the descriptor.
+                    stream = os.fdopen( fd, 'w', closefd=False )
+                    if _progress_stream_writable( stream ):
+                        _publish_progress_tty_env( stream )
+                        return stream, True, False
+            except Exception:
+                pass
 
     fd = ensure_progress_tty_fd()
     if fd is not None and _progress_tty_stream is not None:
@@ -466,6 +508,7 @@ class ProgressReporter( object ):
                 is_tty = detected_tty
         self._stream = stream
         self._owns_stream = owns_stream
+        self._stream_dead = False
         self._clock = clock if clock is not None else time.time
         self._sleep = sleep if sleep is not None else time.sleep
         if is_tty is None:
@@ -714,29 +757,42 @@ class ProgressReporter( object ):
             # Always try to continue — a paint/flush glitch must not kill the ECG.
             self._ensure_alive_timer()
 
+    def _mark_stream_dead( self ):
+        """Stop rewriting after EBADF / closed console (Windows CI CONOUT$)."""
+        self._stream_dead = True
+        self._is_tty = False
+        self._show_alive = False
+        self._emit_non_tty = False
+        self._last_line = ''
+
     def _emit( self, line, newline ):
-        if self._is_tty:
-            width = max( visible_len( self._last_line ), visible_len( line ) )
-            self._stream.write( '\r' + pad_visible( line, width ) )
-            if newline:
-                self._stream.write( '\n' )
-        else:
-            self._stream.write( line )
-            self._stream.write( '\n' )
+        if self._stream_dead:
+            return
         try:
+            if self._is_tty:
+                width = max( visible_len( self._last_line ), visible_len( line ) )
+                self._stream.write( '\r' + pad_visible( line, width ) )
+                if newline:
+                    self._stream.write( '\n' )
+            else:
+                self._stream.write( line )
+                self._stream.write( '\n' )
             self._stream.flush()
-        except Exception:
-            pass
+        except ( OSError, IOError ):
+            # Progress must never fail a download / package create (e.g. stale
+            # CUPPA_PROGRESS_FD or non-writable CONOUT$ on GitHub Actions).
+            self._mark_stream_dead()
 
     def _clear_line( self ):
-        if not self._is_tty or not self._last_line:
+        if self._stream_dead or not self._is_tty or not self._last_line:
             return
         width = visible_len( self._last_line )
-        self._stream.write( '\r' + ( ' ' * width ) + '\r' )
         try:
+            self._stream.write( '\r' + ( ' ' * width ) + '\r' )
             self._stream.flush()
-        except Exception:
-            pass
+        except ( OSError, IOError ):
+            self._mark_stream_dead()
+            return
         self._last_line = ''
 
     def interrupt_clear( self ):
