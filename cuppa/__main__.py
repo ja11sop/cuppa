@@ -212,10 +212,21 @@ def run_scons( args_list ):
 
     except Exception:
         if process:
-            process.kill()
+            try:
+                process.kill()
+            except Exception:
+                pass
+            try:
+                process.wait()
+            except Exception:
+                pass
+            code = process.returncode
+            if stderr_thread:
+                stderr_thread.join()
+            return code if code is not None else 1
         if stderr_thread:
             stderr_thread.join()
-        return process.returncode
+        return 1
 
     except KeyboardInterrupt:
         _abort_scons( process )

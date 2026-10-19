@@ -209,6 +209,18 @@ def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
         _reset_progress_tty_state( monkeypatch )
 
 
+def test_progress_tty_popen_kwargs_omits_pass_fds_on_windows( monkeypatch ):
+    """Windows subprocess rejects pass_fds — only publish env for CONOUT$ reopen."""
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.setattr( dl.sys, "platform", "win32" )
+    monkeypatch.setattr( dl.os, "name", "nt" )
+    monkeypatch.setattr( dl, "ensure_progress_tty_fd", lambda: 7 )
+    monkeypatch.setattr( dl.os, "ttyname", lambda fd: "CONOUT$", raising=False )
+    kwargs, env = dl.progress_tty_popen_kwargs( {} )
+    assert "pass_fds" not in kwargs
+    assert env[dl.PROGRESS_FD_ENV] == "7"
+
+
 def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):
     pts = tmp_path / "pts0"
     pts.write_text( "", encoding="utf-8" )

@@ -359,7 +359,9 @@ def progress_tty_popen_kwargs( env=None ):
     """``pass_fds`` / env updates so a child keeps the tip progress tty.
 
     Returns ``(kwargs, env)``. ``kwargs`` is empty when there is no progress
-    tty (CI). Callers must merge ``kwargs`` into ``subprocess.Popen``.
+    tty (CI), and also omits ``pass_fds`` on Windows (unsupported by
+    ``subprocess`` — nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`).
+    Callers must merge ``kwargs`` into ``subprocess.Popen``.
     """
     if env is None:
         env = os.environ.copy()
@@ -376,6 +378,10 @@ def progress_tty_popen_kwargs( env=None ):
         path = os.environ.get( PROGRESS_TTY_ENV )
     if path:
         env[PROGRESS_TTY_ENV] = path
+    # ``pass_fds`` is POSIX-only (Windows raises AssertionError). Cascade nests
+    # on Windows reopen CONOUT$ / the progress tty path instead.
+    if sys.platform == 'win32' or os.name == 'nt':
+        return {}, env
     # pass_fds implies close_fds=True on POSIX; keep 0/1/2 + progress fd.
     return { "pass_fds": ( fd, ) }, env
 
