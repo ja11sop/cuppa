@@ -35,6 +35,7 @@ from cuppa.core import (
 from cuppa.log import logger
 from cuppa.utility.console_report import report_mode_banner
 from cuppa.utility import storage
+from cuppa.utility.terminal import visible_len
 
 
 INDENT = '  '
@@ -1474,7 +1475,7 @@ def _write_ruled_table( out, columns, rows ):
     if not lines:
         return 0
     # Rule length follows visible columns; ANSI on subdued/info cells must not stretch it.
-    width = max( storage.visible_len( line ) for line in lines )
+    width = max( visible_len( line ) for line in lines )
     rule = as_subdued( INDENT + RULE * width )
     out.write( rule + "\n" )
     out.write( INDENT + lines[0] + "\n" )
@@ -1510,7 +1511,7 @@ def _write_ruled_tree( out, tree, verbose=False, tree_header='DEPENDENCY' ):
     # Header-only means empty sections — treat as no tree so callers can fall back.
     if len( lines ) <= 1:
         return False
-    width = max( storage.visible_len( line ) for line in lines )
+    width = max( visible_len( line ) for line in lines )
     rule = as_subdued( INDENT + RULE * width )
     out.write( rule + "\n" )
     out.write( INDENT + lines[0] + "\n" )

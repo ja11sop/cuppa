@@ -5,6 +5,7 @@
 - **Related:** [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md) (Q3 nest-only; tip refresh gap); [`../archive/package-develop-local.md`](../archive/package-develop-local.md) (tip → stage via `consume_develop_package_stage`); [`../archive/stage-develop-locations.md`](../archive/stage-develop-locations.md) (**working example**: nest before tip `BuildWith`); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (amend composition; tip-extract overlay is the wrong lean for this); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-19
 - **Impact:** minor — behaviour under existing `--build-cascade-dependencies`; no new required flag
+- **Follow-on:** [`cascade-consume-dependencies.md`](cascade-consume-dependencies.md) — tip bind forest stages with **no** nests
 
 > Tip consumes **forest stages** the way develop consumes **develop stages**.
 > Nest timing follows **location `--stage-develop`**: stage first, then tip
@@ -41,7 +42,7 @@ resolved via `package_source`, staged in-tree, tip-linked like develop stages.
 | Medium | **In-tree stage** under the forest publisher tree (`_build/…/final/<pkg>/<ver>/`). Same layout as develop. |
 | Extracts | **Do not mutate** `~/_cuppa/_download`. No traveling-JSON overlay onto extracts as the product answer. |
 | Missing stage after nest | **StopError** (develop-style), not silent fall-back to a stale extract. |
-| Second consume flag | **Not for v1.** Escape hatch “force extract under build-deps” only if soak proves need. |
+| Second consume flag | **Follow-on** — tip forest bind **without** nesting: [`cascade-consume-dependencies.md`](cascade-consume-dependencies.md) (`--consume-cascade-dependencies`). Not an extract fall-back. |
 | Scoped develop | **Out of scope** — later (`--develop-packages` / filter). Keep global `--develop` as today. |
 
 ### Why automatic (not a second opt-in)

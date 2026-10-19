@@ -31,6 +31,14 @@ import threading
 import time
 from contextlib import contextmanager
 
+from cuppa.utility.terminal import (
+        fit_plain as _fit_plain_terminal,
+        open_progress_stream,
+        outer_stdout_is_tty as _outer_stdout_is_tty,
+        set_columns_override,
+        terminal_columns as _terminal_columns_terminal,
+)
+
 
 # Message changes throttle slightly slower than the pulse tick.
 _MESSAGE_INTERVAL_S = 0.12
@@ -42,7 +50,6 @@ _MESSAGE_HOLD_S = _MESSAGE_INTERVAL_S * _MESSAGE_HOLD_PERIODS
 # quiet this long — coalesce to the latest pending message.
 _IDLE_GATE_S = 0.20
 _PULSE_INTERVAL_S = 0.08
-_ELLIPSIS = '\u2026'
 # Compact ECG-style pulse (alive-progress ``pulse`` idea, not the library):
 # bordered track, bullet, short QRS blip. Cycle starts on rest so the first
 # paint is not mid-beat; rest frames also use a longer tick.
@@ -131,9 +138,9 @@ _scons_display_original = None
 def _terminal_columns():
     """Columns for one physical status line.
 
-    Prefer the progress TTY's file descriptor. Under the ``cuppa`` launcher
-    stdout/stderr are pipes, so ``shutil.get_terminal_size()`` falls back to
-    80 and the status line looks arbitrarily narrow.
+    Prefer an explicit configure override, then the diverted heartbeat stream,
+    then ``cuppa.utility.terminal.terminal_columns`` (progress tty / controlling
+    terminal — not the launcher stdout pipe).
     """
     if _columns is not None:
         return max( 1, int( _columns ) )
@@ -142,23 +149,22 @@ def _terminal_columns():
             return max( 1, os.get_terminal_size( _stream.fileno() ).columns )
         except Exception:
             pass
-    try:
-        import shutil
-        return max( 1, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
-    except Exception:
-        return 80
+    return _terminal_columns_terminal()
 
 
 def _fit_plain( plain, cols ):
     """Truncate plain text to ``cols`` visible columns with an ellipsis."""
-    text = plain or ''
-    if cols < 1:
-        cols = 1
-    if len( text ) <= cols:
-        return text
-    if cols == 1:
-        return _ELLIPSIS
-    return text[ : cols - 1 ] + _ELLIPSIS
+    return _fit_plain_terminal( plain, cols )
+
+
+def terminal_columns():
+    """Public: columns of the interactive console (not the launcher pipe)."""
+    return _terminal_columns()
+
+
+def fit_plain( plain, cols ):
+    """Public: truncate plain text to ``cols`` with an ellipsis (heartbeat rule)."""
+    return _fit_plain( plain, cols )
 
 
 def _pulse_frame( index ):
@@ -496,38 +502,6 @@ def transfer_progress_allowed():
     return logger.isEnabledFor( logging.INFO )
 
 
-def resolve_cuppa_stdout_is_tty( environ=None, stdout_is_tty=None ):
-    """Env value for ``CUPPA_STDOUT_IS_TTY`` passed to the SCons child.
-
-    Preserve an outermost interactive flag through nested ``python -m cuppa``
-    (cascade). Only probe ``stdout.isatty()`` when the flag is unset.
-    """
-    env = os.environ if environ is None else environ
-    inherited = env.get( 'CUPPA_STDOUT_IS_TTY' )
-    if inherited is not None and str( inherited ).strip() != '':
-        return str( inherited ).strip()
-    if stdout_is_tty is None:
-        try:
-            stdout_is_tty = bool( sys.stdout.isatty() )
-        except Exception:
-            stdout_is_tty = False
-    return '1' if stdout_is_tty else '0'
-
-
-def _outer_stdout_is_tty():
-    """Whether the ultimate human console is a TTY.
-
-    The outermost ``cuppa`` launcher sets ``CUPPA_STDOUT_IS_TTY`` because the
-    SCons child's stdout is always a pipe. Nested cascade must **preserve**
-    that flag (nested ``cuppa`` stdout is also a pipe). Unset (direct SCons)
-    means "assume interactive".
-    """
-    flag = os.environ.get( 'CUPPA_STDOUT_IS_TTY' )
-    if flag is None:
-        return True
-    return flag.strip() not in ( '0', 'false', 'False', 'no', 'NO' )
-
-
 def _ensure_scons_display_routed():
     """Patch SCons ``DisplayEngine`` so durable messages clear the status row.
 
@@ -594,7 +568,6 @@ def restore_terminal_wrap( *, force=False ):
     if _write_wrap_on( stream ):
         return
     try:
-        from cuppa.utility.download import open_progress_stream
         tty, is_tty, owns = open_progress_stream()
     except Exception:
         return
@@ -871,6 +844,7 @@ def reset():
     _visible_since = 0.0
     _last_line = ''
     _columns = None
+    set_columns_override( None )
     _spin = 0
     _pulse_enabled = True
     _suppress_depth = 0
@@ -928,6 +902,7 @@ def configure_quiet_console(
         _sleep = sleep
     if columns is not None:
         _columns = columns
+        set_columns_override( columns )
     _pulse_enabled = bool( pulse )
     if not quiet_kind:
         return
@@ -940,7 +915,6 @@ def configure_quiet_console(
         return
 
     if stream is None:
-        from cuppa.utility.download import open_progress_stream
         stream, detected_tty, opened_owns = open_progress_stream()
         if is_tty is None:
             is_tty = detected_tty
@@ -980,7 +954,6 @@ def ensure_status_row():
         return False
     if _heartbeat_active and _stream is not None:
         return True
-    from cuppa.utility.download import open_progress_stream
     stream, is_tty, owns = open_progress_stream()
     if not is_tty:
         if owns and stream is not None:

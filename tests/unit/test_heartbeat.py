@@ -15,7 +15,7 @@ from cuppa.log import logger, set_logging_level
 from cuppa.output_processor import strip_ansi
 from cuppa.utility import heartbeat as hb
 from cuppa.utility.console_report import write_report_lines
-from cuppa.utility.storage import visible_len
+from cuppa.utility.terminal import ELLIPSIS, resolve_cuppa_stdout_is_tty, visible_len
 
 
 pytestmark = pytest.mark.unit
@@ -120,8 +120,8 @@ def test_configure_keeps_heartbeat_for_terse_gaps( monkeypatch ):
 
 def test_fit_plain_truncates_with_ellipsis():
     assert hb._fit_plain( 'short', 80 ) == 'short'
-    assert hb._fit_plain( 'abcdefghij', 5 ) == 'abcd' + hb._ELLIPSIS
-    assert hb._fit_plain( 'ab', 1 ) == hb._ELLIPSIS
+    assert hb._fit_plain( 'abcdefghij', 5 ) == 'abcd' + ELLIPSIS
+    assert hb._fit_plain( 'ab', 1 ) == ELLIPSIS
 
 
 def test_pulse_status_omits_working_word():
@@ -357,7 +357,7 @@ def test_long_info_stays_on_one_physical_line():
     body = _status_body( stream )
     assert visible_len( body ) <= cols
     assert body[ : hb._PULSE_WIDTH ] in hb._PULSE_FRAMES
-    assert body.endswith( hb._ELLIPSIS )
+    assert body.endswith( ELLIPSIS )
 
     clock.advance( 0.15 )
     logger.info( 'Using package [tip]' )
@@ -370,10 +370,13 @@ def test_long_info_stays_on_one_physical_line():
 
 def test_terminal_columns_prefer_stream_fileno( monkeypatch ):
     """Piped stdout makes ``shutil.get_terminal_size`` lie; use the TTY fd."""
+    from cuppa.utility.terminal import set_columns_override
+
     stream = io.StringIO()
     clock = FakeClock()
     _configure( stream, clock )  # columns override set — clear it to exercise fd path
     hb._columns = None
+    set_columns_override( None )
 
     class Size( object ):
         columns = 160
@@ -613,19 +616,19 @@ def test_write_transcript_pipe_only_when_launcher_piped( monkeypatch ):
 
 
 def test_resolve_cuppa_stdout_is_tty_preserves_inherited():
-    assert hb.resolve_cuppa_stdout_is_tty(
+    assert resolve_cuppa_stdout_is_tty(
             environ={ 'CUPPA_STDOUT_IS_TTY': '1' },
             stdout_is_tty=False,
     ) == '1'
-    assert hb.resolve_cuppa_stdout_is_tty(
+    assert resolve_cuppa_stdout_is_tty(
             environ={ 'CUPPA_STDOUT_IS_TTY': '0' },
             stdout_is_tty=True,
     ) == '0'
-    assert hb.resolve_cuppa_stdout_is_tty(
+    assert resolve_cuppa_stdout_is_tty(
             environ={},
             stdout_is_tty=True,
     ) == '1'
-    assert hb.resolve_cuppa_stdout_is_tty(
+    assert resolve_cuppa_stdout_is_tty(
             environ={},
             stdout_is_tty=False,
     ) == '0'
@@ -937,8 +940,6 @@ def test_rapid_non_sticky_info_can_flush_several_times_per_cycle():
 
 def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatch ):
     """Compact terse arms the same heartbeat row — not a second painter."""
-    import cuppa.utility.download as download_mod
-
     hb.reset()
     hb.set_presentation( style='pulse', compact=True )
     stream = io.StringIO()
@@ -952,7 +953,7 @@ def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatc
     monkeypatch.setattr( hb, '_clock', clock )
     monkeypatch.setattr( hb, '_sleep', sleep )
     monkeypatch.setattr(
-            download_mod, 'open_progress_stream',
+            hb, 'open_progress_stream',
             lambda: ( stream, True, False ),
     )
     monkeypatch.setattr( hb, '_columns', 200 )
@@ -980,7 +981,6 @@ def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatc
 
 def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monkeypatch ):
     """Uncounted resolve children must not seize one ECG cycle each."""
-    import cuppa.utility.download as download_mod
     from cuppa.progress import _write_terse_stdout
 
     hb.reset()
@@ -996,7 +996,7 @@ def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monke
     monkeypatch.setattr( hb, '_clock', clock )
     monkeypatch.setattr( hb, '_sleep', sleep )
     monkeypatch.setattr(
-            download_mod, 'open_progress_stream',
+            hb, 'open_progress_stream',
             lambda: ( stream, True, False ),
     )
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )

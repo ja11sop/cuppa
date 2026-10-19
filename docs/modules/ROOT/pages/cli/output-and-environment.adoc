@@ -94,6 +94,14 @@ warning or a non-zero exit prints the command and the processed output, then the
 line as the summary. It does not imply `--minimal-output`. Combined with it, a clean run
 is still one line, and failure output is filtered to errors and warnings. It needs the
 spawn processor, so it is refused with `--raw-output` or `--scons-output`.
+`env.Run()` / process actions omit the emphasised `Running Process [...]` banner and
+`= done =` timing block under `--terse-output` (child stdout/stderr stay in the on-disk
+logs; argv is not echoed). The durable line spells action **`run`** (even under
+`--test` — fixtures and helpers are not tests; `Test()` / `BuildTest()` keep `test` /
+`[pass]`), includes wall duration, and puts the full command summary in the file cell
+instead of a `.success` stamp name (long lines wrap; they are not ellipsis-truncated by
+default). Process transcript still clears any quiet/terse status row before writing, so
+a heartbeat caption cannot glue onto the banner.
 `Progress(...)` lines are replaced by a `[progress]` checkpoint when a sconstruct,
 sconscript, or variant begins or ends. The scope word is subdued. The percent is the
 whole build. `[progress]` is info and bold. Status lines are indented so `[ok]` starts

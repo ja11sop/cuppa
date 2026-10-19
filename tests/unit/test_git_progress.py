@@ -196,7 +196,7 @@ def test_run_with_progress_pipes_stderr( monkeypatch ):
         return FakeProcess()
 
     monkeypatch.setattr(
-            'cuppa.utility.download.open_progress_stream',
+            'cuppa.utility.terminal.open_progress_stream',
             lambda: ( tty, True, True ),
     )
     monkeypatch.setattr( 'cuppa.scms.git.subprocess.Popen', fake_popen )

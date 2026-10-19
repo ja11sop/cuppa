@@ -1,8 +1,8 @@
 # Plan: Terse in-progress build action + heartbeat
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
-- **Updated:** 2026-10-18
+- **Updated:** 2026-10-19
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
 - **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
@@ -218,7 +218,8 @@ compile `[executing...]` hook — but the soak symptom is the same class of
 |------|--------|
 | Soak gap captured | Done — this proposal |
 | Parallel outstanding-set + cycle | Settled direction (above) |
-| Process `Monitor` clear + terse shape | Soak noted (above) — reconfirmed 2026-10-19 **project F** tip under `--terse-output -Q`: `Running Process` / `docker stop` / `= done =` still verbose (not a cascade/amend regression) || Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
+| Process `Monitor` clear + terse shape | **In progress** — banner / `= done =` / argv echo suppressed under terse (soak OK). Durable line: `[ok] · run · <duration> · <command>` even under `--test` (`Test()` keeps `test` / `[pass]`). In-progress `[executing...]` is the next slice |
+| Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
+| Toolchain `[executing...]` outstanding set | Next slice after process `Run` |
 | Hook design / cycle cadence | Starting |
-| Implementation | Not started |
-| Antora note (terse + long actions) | With implementation |
+| Antora note (terse + long actions) | With this slice (process `Run`) |

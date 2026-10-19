@@ -33,6 +33,7 @@ from cuppa.core.dependency_identity import (
     with_vcs_qualifier,
 )
 from cuppa.utility import storage
+from cuppa.utility.terminal import visible_len
 
 
 TYPE_LABELS = (
@@ -1954,7 +1955,7 @@ def render_tree_lines( tree, verbose=False, tree_header='DEPENDENCY' ):
     table_lines = storage.render_table( columns, table_rows )
     header = table_lines[0]
     body = table_lines[1:]
-    width = max( storage.visible_len( line ) for line in table_lines ) if table_lines else 0
+    width = max( visible_len( line ) for line in table_lines ) if table_lines else 0
     lines = [ header ]
     body_index = 0
     for entry in structure:

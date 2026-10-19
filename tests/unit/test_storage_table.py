@@ -5,6 +5,7 @@ import pytest
 from cuppa.colourise import as_info, as_subdued, colouriser
 from cuppa.utility import storage
 from cuppa.utility.preprocess import AnsiEscape
+from cuppa.utility.terminal import pad_visible, visible_len
 
 
 pytestmark = pytest.mark.unit
@@ -35,15 +36,15 @@ def test_visible_len_ignores_html_colouriser_tokens():
     with using_colouriser( backend ):
         coloured = as_info( 'boost' )
     assert len( coloured ) > len( 'boost' )
-    assert storage.visible_len( coloured ) == len( 'boost' )
+    assert visible_len( coloured ) == len( 'boost' )
 
 
 def test_visible_len_ignores_ansi( colour ):
     plain = 'boost'
     coloured = as_info( plain )
     assert len( coloured ) > len( plain )
-    assert storage.visible_len( coloured ) == len( plain )
-    assert storage.visible_len( as_subdued( plain ) ) == len( plain )
+    assert visible_len( coloured ) == len( plain )
+    assert visible_len( as_subdued( plain ) ) == len( plain )
 
 
 def test_render_table_aligns_coloured_and_plain_cells( colour ):
@@ -70,7 +71,7 @@ def test_render_table_aligns_coloured_and_plain_cells( colour ):
         assert _column_offsets( line ) == header_offsets
 
     # ANSI must not stretch the rule beyond the visible table.
-    assert max( storage.visible_len( line ) for line in lines ) < max( len( line ) for line in lines )
+    assert max( visible_len( line ) for line in lines ) < max( len( line ) for line in lines )
 
 
 def _column_offsets( plain_line ):
@@ -88,7 +89,7 @@ def _column_offsets( plain_line ):
 
 def test_pad_visible_appends_spaces_after_ansi( colour ):
     coloured = as_info( 'gitlab' )
-    padded = storage.pad_visible( coloured, 12 )
-    assert storage.visible_len( padded ) == 12
+    padded = pad_visible( coloured, 12 )
+    assert visible_len( padded ) == 12
     assert padded.startswith( coloured )
     assert padded.endswith( ' ' * ( 12 - len( 'gitlab' ) ) )

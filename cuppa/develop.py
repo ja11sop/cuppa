@@ -802,7 +802,7 @@ class remote_check_progress( object ):
     """
 
     def __init__( self ):
-        from cuppa.utility.download import open_progress_stream
+        from cuppa.utility.terminal import open_progress_stream
         self._stream, self._is_tty, self._owns = open_progress_stream()
         self._cleared = False
 
@@ -818,14 +818,9 @@ class remote_check_progress( object ):
         """Show a static subdued status before git has spoken."""
         if not self._is_tty or self._cleared:
             return
-        from cuppa.utility.storage import pad_visible, visible_len
+        from cuppa.utility.terminal import pad_visible, terminal_columns, visible_len
         styled = as_subdued( text )
-        cols = max( visible_len( styled ), 1 )
-        try:
-            import shutil
-            cols = max( cols, shutil.get_terminal_size( fallback=( 80, 24 ) ).columns )
-        except Exception:
-            cols = max( cols, 80 )
+        cols = max( visible_len( styled ), terminal_columns() )
         try:
             self._stream.write( '\r' + pad_visible( styled, cols ) )
             self._stream.flush()
@@ -838,8 +833,8 @@ class remote_check_progress( object ):
         self._cleared = True
         if self._is_tty:
             try:
-                import shutil
-                cols = shutil.get_terminal_size( fallback=( 80, 24 ) ).columns
+                from cuppa.utility.terminal import terminal_columns
+                cols = terminal_columns()
                 self._stream.write( '\r' + ( ' ' * cols ) + '\r' )
                 self._stream.flush()
             except Exception:

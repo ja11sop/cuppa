@@ -951,7 +951,7 @@ def test_remote_check_progress_clear_is_idempotent( monkeypatch ):
             'close': lambda self: None,
     } )()
     monkeypatch.setattr(
-            'cuppa.utility.download.open_progress_stream',
+            'cuppa.utility.terminal.open_progress_stream',
             lambda: ( stream, True, True ),
     )
     status = remote_check_progress()

@@ -2409,11 +2409,51 @@ def take_terse_status_emitted():
     return done
 
 
-def format_terse_line( status, command, target, source, env, count=True ):
-    """``[status] sconscript · variant · action · file``.
+def _fit_terse_file_field( file_text, head_parts, fields_before_file ):
+    """Optionally truncate a long ``Run`` command cell to remaining columns.
+
+    Opt-in only (see ``format_terse_line(..., truncate_file=True)``). Default
+    terse lines keep the full command and let the terminal wrap. When fitting,
+    measure against the controlling TTY (``terminal.terminal_columns``), not
+    the launcher pipe.
+    """
+    if not file_text:
+        return file_text
+    try:
+        from cuppa.output_processor import strip_ansi
+        from cuppa.utility.terminal import fit_plain, terminal_columns, visible_len
+    except Exception:
+        return file_text
+    sep = " " + as_subdued( "·" ) + " "
+    head = " ".join( head_parts )
+    mid = sep.join( fields_before_file ) if fields_before_file else ""
+    used = visible_len( head )
+    if mid:
+        used += 1 + visible_len( mid )  # space between marker and fields
+    used += visible_len( sep )  # middot before the file cell
+    budget = terminal_columns() - used
+    if budget < 8:
+        budget = 8
+    plain = strip_ansi( file_text )
+    fitted = fit_plain( plain, budget )
+    if fitted == plain:
+        return file_text
+    # Summary cells are subdued; keep that after a plain fit.
+    return as_subdued( fitted )
+
+
+def format_terse_line(
+        status, command, target, source, env, count=True, duration="",
+        truncate_file=False,
+):
+    """``[status] sconscript · variant · action · [duration ·] file``.
 
     ``count=False`` is a line that is not in the action total, such as a
     nested copy or move. It leads with ``→``. The caller is still the action.
+    ``duration`` is optional (``env.Run`` / process helpers stash wall time).
+    Long ``env.Run`` command summaries are kept in full by default (terminal
+    wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell to the
+    controlling TTY width.
     """
     parts = []
     prefix = _account_and_prefix( target, env, count=count, mark=False )
@@ -2433,7 +2473,16 @@ def format_terse_line( status, command, target, source, env, count=True ):
         fields.append( cell )
     action = spell_terse_action( command, target, env )
     fields.append( _action_label( action ) )
+    if duration:
+        fields.append( as_subdued( duration ) )
     file_text = _file_field( action, target, source, env )
+    if (
+            truncate_file
+            and file_text
+            and action in _RUN_FILE_ACTIONS
+            and _explicit_terse_summary( target )
+    ):
+        file_text = _fit_terse_file_field( file_text, parts, fields )
     if file_text:
         fields.append( file_text )
     if fields:
@@ -2455,6 +2504,26 @@ def stash_terse_command( cmd, target, source, env ):
     _terse_command.env = env
     with _pending_lock:
         _pending_commands[ threading.get_ident() ] = ( cmd, target, source, env )
+
+
+_terse_duration = threading.local()
+
+
+def stash_terse_duration( nanos ):
+    """Wall-time nanos for the next durable terse line (``env.Run`` helpers)."""
+    try:
+        _terse_duration.nanos = int( nanos )
+    except ( TypeError, ValueError ):
+        _terse_duration.nanos = None
+
+
+def take_terse_duration():
+    """Return and clear a stashed duration string, or ``\"\"``."""
+    nanos = getattr( _terse_duration, "nanos", None )
+    _terse_duration.nanos = None
+    if nanos is None:
+        return ""
+    return format_terse_duration( nanos )
 
 
 def note_terse_child( command, lines, failed=False ):
@@ -3822,6 +3891,7 @@ def _report_python_action( target, source, env, failed ):
             use_target,
             use_source,
             use_env,
+            duration=take_terse_duration(),
     )
     if severity not in ( "ok", "done" ):
         if launched and launch_command:

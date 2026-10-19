@@ -354,7 +354,7 @@ def test_registered_stats_prefer_inventory( tmp_path, monkeypatch ):
 
 def test_verbose_render_rules_span_widest_content_line():
     from cuppa.core.toolchain_actions import _render_text
-    from cuppa.utility import storage
+    from cuppa.utility.terminal import visible_len
 
     long_link = (
             '<objects> -rdynamic -Wl,-rpath=. -Xlinker -Bstatic <static_libs> '
@@ -408,9 +408,9 @@ def test_verbose_render_rules_span_widest_content_line():
     ]
     ruled = [ line for line in plain_lines if set( line.strip() ) == { '-' } ]
     assert len( ruled ) >= 3
-    content_width = max( storage.visible_len( line ) for line in plain_lines )
+    content_width = max( visible_len( line ) for line in plain_lines )
     for rule in ruled:
-        assert storage.visible_len( rule ) == content_width
+        assert visible_len( rule ) == content_width
         assert content_width > 80
 
 

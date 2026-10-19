@@ -19,7 +19,6 @@ from __future__ import print_function
 import os
 import shutil
 import subprocess
-import sys
 import tarfile
 import threading
 import time
@@ -33,7 +32,8 @@ except ImportError:
 
 from cuppa.colourise import as_emphasised, as_info, as_subdued
 from cuppa.utility.python2to3 import Exception as CuppaException
-from cuppa.utility.storage import human_size, pad_visible, visible_len
+from cuppa.utility.storage import human_size
+from cuppa.utility.terminal import open_progress_stream, pad_visible, visible_len
 
 
 class DownloadError( CuppaException ):
@@ -254,221 +254,8 @@ def _muted_progress_bar( percent, width=_BAR_WIDTH, started=True ):
     return '[' + fill + ']'
 
 
-PROGRESS_TTY_ENV = "CUPPA_PROGRESS_TTY"
-PROGRESS_FD_ENV = "CUPPA_PROGRESS_FD"
-
-# Keep the tip's progress tty file open so nested ``pass_fds`` stays valid.
-_progress_tty_stream = None
-_progress_tty_fd = None
-
-
-def _progress_fd_inheritance_supported():
-    """``pass_fds`` + inherited fileno only works on POSIX."""
-    return not ( sys.platform == 'win32' or os.name == 'nt' )
-
-
-def _progress_stream_writable( stream ):
-    """True when a tiny write/flush succeeds (GitHub Actions CONOUT$ lies)."""
-    try:
-        stream.write( '' )
-        stream.flush()
-        return True
-    except Exception:
-        return False
-
-
-def _publish_progress_tty_env( stream ):
-    """Record path + fd env for cascade nests / launcher children.
-
-    On Windows, never advertise :data:`PROGRESS_FD_ENV`: ``subprocess`` cannot
-    ``pass_fds``, and a stale numeric fd in the child causes EBADF on write
-    (GitHub Actions windows runners). Nests reopen ``CONOUT$`` /
-    :data:`PROGRESS_TTY_ENV` instead.
-    """
-    global _progress_tty_stream, _progress_tty_fd
-    try:
-        fd = stream.fileno()
-    except Exception:
-        return
-    _progress_tty_stream = stream
-    _progress_tty_fd = fd
-    if _progress_fd_inheritance_supported():
-        try:
-            os.environ[PROGRESS_FD_ENV] = str( fd )
-        except Exception:
-            pass
-    else:
-        try:
-            os.environ.pop( PROGRESS_FD_ENV, None )
-        except Exception:
-            pass
-    try:
-        path = os.ttyname( fd )
-    except Exception:
-        path = None
-    if not path and ( sys.platform == 'win32' or os.name == 'nt' ):
-        path = 'CONOUT$'
-    if path:
-        try:
-            os.environ[PROGRESS_TTY_ENV] = path
-        except Exception:
-            pass
-
-
-def resolve_progress_tty_path():
-    """Absolute tty device path for rewriting progress, or ``None``."""
-    existing = os.environ.get( PROGRESS_TTY_ENV )
-    if existing and ( existing == 'CONOUT$' or os.path.exists( existing ) ):
-        return existing
-    fd = ensure_progress_tty_fd()
-    if fd is None:
-        return None
-    try:
-        return os.ttyname( fd )
-    except Exception:
-        return os.environ.get( PROGRESS_TTY_ENV )
-
-
-def ensure_progress_tty_fd():
-    """Return a live fileno for interactive progress, or ``None``.
-
-    Cascade nests use ``start_new_session`` and lose ``/dev/tty``. Re-opening
-    a pts **path** from a session without a controlling terminal is unreliable
-    (often fails or is not a usable tty). The tip keeps an open progress fd and
-    forwards it with ``subprocess`` ``pass_fds`` plus :data:`PROGRESS_FD_ENV`
-    on POSIX. Windows nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`.
-    """
-    global _progress_tty_stream, _progress_tty_fd
-
-    if _progress_tty_fd is not None:
-        try:
-            if os.isatty( _progress_tty_fd ):
-                return _progress_tty_fd
-        except Exception:
-            _progress_tty_fd = None
-            _progress_tty_stream = None
-
-    if _progress_fd_inheritance_supported():
-        inherited = os.environ.get( PROGRESS_FD_ENV )
-        if inherited:
-            try:
-                fd = int( inherited )
-                if os.isatty( fd ):
-                    _progress_tty_fd = fd
-                    return fd
-            except Exception:
-                pass
-
-    candidates = []
-    if sys.platform == 'win32':
-        candidates.append( 'CONOUT$' )
-    else:
-        candidates.append( '/dev/tty' )
-    env_tty = os.environ.get( PROGRESS_TTY_ENV )
-    if env_tty and env_tty not in candidates:
-        candidates.append( env_tty )
-
-    for path in candidates:
-        try:
-            stream = open( path, 'w' )
-        except ( OSError, IOError ):
-            continue
-        try:
-            if stream.isatty() and _progress_stream_writable( stream ):
-                _publish_progress_tty_env( stream )
-                return _progress_tty_fd
-        except Exception:
-            pass
-        try:
-            stream.close()
-        except Exception:
-            pass
-    return None
-
-
-def progress_tty_popen_kwargs( env=None ):
-    """``pass_fds`` / env updates so a child keeps the tip progress tty.
-
-    Returns ``(kwargs, env)``. ``kwargs`` is empty when there is no progress
-    tty (CI), and also omits ``pass_fds`` on Windows (unsupported by
-    ``subprocess`` — nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`).
-    On Windows, :data:`PROGRESS_FD_ENV` is stripped from the child env so a
-    tip-local numeric fd cannot leak as a stale descriptor.
-    Callers must merge ``kwargs`` into ``subprocess.Popen``.
-    """
-    if env is None:
-        env = os.environ.copy()
-    else:
-        env = dict( env )
-    fd = ensure_progress_tty_fd()
-    if fd is None:
-        env.pop( PROGRESS_FD_ENV, None )
-        return {}, env
-    path = None
-    try:
-        path = os.ttyname( fd )
-    except Exception:
-        path = os.environ.get( PROGRESS_TTY_ENV )
-    # ``pass_fds`` is POSIX-only (Windows raises AssertionError). Cascade nests
-    # on Windows reopen CONOUT$ / the progress tty path instead — never trust
-    # an inherited numeric fd across process boundaries.
-    if not _progress_fd_inheritance_supported():
-        env.pop( PROGRESS_FD_ENV, None )
-        if not path:
-            path = 'CONOUT$'
-        env[PROGRESS_TTY_ENV] = path
-        return {}, env
-    env[PROGRESS_FD_ENV] = str( fd )
-    if path:
-        env[PROGRESS_TTY_ENV] = path
-    # pass_fds implies close_fds=True on POSIX; keep 0/1/2 + progress fd.
-    return { "pass_fds": ( fd, ) }, env
-
-
-def open_progress_stream():
-    """Return ``(stream, is_tty, owns_stream)`` for progress output.
-
-    Prefer an inherited :data:`PROGRESS_FD_ENV` on POSIX (cascade nest), then
-    the controlling terminal / :data:`PROGRESS_TTY_ENV` path. Fall back to
-    ``sys.stderr`` with newline / silent-terse mode when there is no tty (CI).
-    Windows never consumes :data:`PROGRESS_FD_ENV` (no ``pass_fds``).
-    """
-    if _progress_fd_inheritance_supported():
-        inherited = os.environ.get( PROGRESS_FD_ENV )
-        if inherited:
-            try:
-                fd = int( inherited )
-                if os.isatty( fd ):
-                    # closefd=False: parent / nest chain still owns the descriptor.
-                    stream = os.fdopen( fd, 'w', closefd=False )
-                    if _progress_stream_writable( stream ):
-                        _publish_progress_tty_env( stream )
-                        return stream, True, False
-            except Exception:
-                pass
-
-    fd = ensure_progress_tty_fd()
-    if fd is not None and _progress_tty_stream is not None:
-        return _progress_tty_stream, True, False
-    if fd is not None:
-        try:
-            stream = os.fdopen( fd, 'w', closefd=False )
-            return stream, True, False
-        except Exception:
-            pass
-
-    stream = sys.stderr
-    is_tty = False
-    try:
-        is_tty = bool( stream.isatty() )
-    except Exception:
-        is_tty = False
-    if not is_tty:
-        try:
-            is_tty = os.isatty( 2 )
-        except Exception:
-            is_tty = False
-    return stream, is_tty, False
+# Progress tty open / nest forward live in ``cuppa.utility.terminal`` (imported
+# above). Re-export names stay stable for callers and unit tests.
 
 
 class ProgressReporter( object ):

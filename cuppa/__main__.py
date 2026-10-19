@@ -154,8 +154,11 @@ def run_scons( args_list ):
             propagated_env["CUPPA_CONSOLE_ENCODING"] = console_encoding
         # Inner SCons opens /dev/tty for the quiet heartbeat / owned durable
         # lines. Preserve outermost ``CUPPA_STDOUT_IS_TTY`` through nested cuppa
-        # (cascade); see ``heartbeat.resolve_cuppa_stdout_is_tty``.
-        from cuppa.utility.heartbeat import resolve_cuppa_stdout_is_tty
+        # (cascade); see ``terminal.resolve_cuppa_stdout_is_tty``.
+        from cuppa.utility.terminal import (
+                progress_tty_popen_kwargs,
+                resolve_cuppa_stdout_is_tty,
+        )
         try:
             outer_tty = bool( sys.stdout.isatty() )
         except Exception:
@@ -168,7 +171,6 @@ def run_scons( args_list ):
         # cascade nests via pass_fds). Path-only CUPPA_PROGRESS_TTY is not
         # enough after start_new_session loses the controlling terminal.
         try:
-            from cuppa.utility.download import progress_tty_popen_kwargs
             tty_kwargs, propagated_env = progress_tty_popen_kwargs(
                     propagated_env
             )

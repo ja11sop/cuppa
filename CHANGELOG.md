@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Under ``--terse-output``, ``env.Run`` / process actions label the durable
+  status line as action **``run``** (even under ``--test``; fixtures are not
+  tests), with wall **duration** and a **command summary** (or callable name)
+  instead of a ``.success`` stamp basename. The summary stays full-length by
+  default (terminal wrap); ellipsis fit is opt-in only. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
+
 - GitLab package **named library groups**: publishers may declare ``lib_groups``
   on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
   ``use_libs`` and traveling-edge ``use_libs`` accept group names and/or leaf
@@ -58,12 +65,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Interactive console helpers (visible width, column fit, controlling TTY /
+  progress stream, ``CUPPA_STDOUT_IS_TTY`` / ``CUPPA_PROGRESS_*`` nest forward)
+  live in ``cuppa.utility.terminal``. Heartbeat, transfer progress, develop /
+  git status, storage tables, and terse ``Run`` paint import from that module
+  instead of duplicating probes.
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
+- ``env.Run`` / process ``Monitor`` no longer writes ``Running Process`` /
+  ``= done =`` straight to ``sys.stdout`` (which glued quiet/terse heartbeat
+  captions onto the banner). Writes go through ``write_transcript``. Under
+  ``--terse-output`` the verbose banner, timing block, live child echo, and
+  ``Popen2`` argv echo are suppressed (logs stay on disk); the durable terse
+  ``[ok]`` / ``[error]`` line remains. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
 - Cascade ``--build-cascade-dependencies`` early nest no longer **drops
   tip package factories whose version is still ``None`` / ``latest``**
   (e.g. ``boost_package`` remembered ``1.92``). Edge seeding now runs the

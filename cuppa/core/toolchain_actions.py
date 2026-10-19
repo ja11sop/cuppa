@@ -26,6 +26,7 @@ from cuppa.colourise import (
 )
 from cuppa.utility import storage
 from cuppa.utility.console_report import ensure_report_stream, report_mode_banner
+from cuppa.utility.terminal import pad_visible, visible_len
 
 
 SECTION_DISCOVERED = 'discovered'
@@ -475,7 +476,7 @@ def _age_cell( epoch, muted=False ):
         text = '--'
     else:
         text = storage.relative_age( epoch ) or '--'
-    text = storage.pad_visible( text, MIDDLE_WIDTH )
+    text = pad_visible( text, MIDDLE_WIDTH )
     return as_subdued( text ) if muted else text
 
 
@@ -768,7 +769,7 @@ def _render_text( sections, out, verbose=False ):
     tee, elbow, pipe, gap = storage.glyphs()
     heading = "{size}  {age}{indent}{title} {hint}".format(
             size='SIZE'.rjust( SIZE_WIDTH ),
-            age=storage.pad_visible( 'LAST USED', MIDDLE_WIDTH ),
+            age=pad_visible( 'LAST USED', MIDDLE_WIDTH ),
             indent=INDENT,
             title=HEADING_TITLE,
             hint=as_subdued( HEADING_HINT ),
@@ -789,11 +790,11 @@ def _render_text( sections, out, verbose=False ):
         )
         section_buffers.append( buffer )
 
-    content_widths = [ storage.visible_len( heading ) ]
+    content_widths = [ visible_len( heading ) ]
     for buffer in section_buffers:
         for chunk in buffer:
             for line in chunk.splitlines():
-                content_widths.append( storage.visible_len( line ) )
+                content_widths.append( visible_len( line ) )
     width = max( max( content_widths ), 80 )
 
     out.write( INDENT + _ruled_line( width ) + "\n" )
