@@ -102,6 +102,17 @@ logs; argv is not echoed). The durable line spells action **`run`** (even under
 instead of a `.success` stamp name (long lines wrap; they are not ellipsis-truncated by
 default). Process transcript still clears any quiet/terse status row before writing, so
 a heartbeat caption cannot glue onto the banner.
+While a terse tool or Python action is in flight on a TTY, the status row shows a muted
+`[....]` caption (six columns, so fields line up under `[ok]`) with the same sconscript /
+variant / file fields as the eventual durable line, and a progressive action word
+(`compiling`, `copying`, `testing`, ...). Script leaf, variant, action, and sources use the
+same colours as the durable finish line; the product that does not exist yet (object
+file, staged binary, test program) is muted+bold like `[location]`, not success/info
+green. There is no duration or assertion detail on the in-flight row. Pulse or spinner
+follows `--quiet-heartbeat`. Under `--parallel` / `-j`, one caption is shown at a time
+and cycles across outstanding actions as they finish. Delegated builders that print
+`[launch]` drop the in-flight caption in favour of that bookend.
+
 `Progress(...)` lines are replaced by a `[progress]` checkpoint when a sconstruct,
 sconscript, or variant begins or ends. The scope word is subdued. The percent is the
 whole build. `[progress]` is info and bold. Status lines are indented so `[ok]` starts

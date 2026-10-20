@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
-- **Updated:** 2026-10-19
+- **Updated:** 2026-10-20
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
 - **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
@@ -28,7 +28,7 @@ fields as the eventual `[ok]`):
 **Serial** (one action in flight):
 
 ```text
-|-•-------|     [executing...] test/pipelines · gcc15_dbg_x86_64_cxx2c · compile · test/pipelines/pipeline.cpp → <working>/pipeline.o
+|-•-------|   → [....] test/pipelines · gcc15_dbg_x86_64_cxx2c · compiling · test/pipelines/pipeline.cpp → <working>/pipeline.o
 ```
 
 Then, on success, clear/rewrite the status row and emit the usual durable
@@ -39,15 +39,15 @@ cannot show every job. Prefer a **generic** muted caption that is **always
 rewritten** as the set of in-flight actions changes:
 
 ```text
-|-•-------|     [executing...] test/pipelines · … · compile · pipeline.cpp → <working>/pipeline.o
+|-•-------|   → [....] test/pipelines · … · compiling · pipeline.cpp → <working>/pipeline.o
 ```
 
 Rules of thumb:
 
 1. Maintain the set of **outstanding** (started, not yet durable) actions.
-2. The status row shows **one** of them under a shared token such as
-   `[executing...]` (not a per-tool `[compiling...]` — under `-j` the row is
-   multiplexed).
+2. The status row shows **one** of them under a shared six-column badge
+   `[....]` (aligns under durable `[ok]`); the action word uses the progressive
+   form (`compiling`, `copying`, …). Under `-j` the row is multiplexed.
 3. When an action completes and writes its durable `[ok]` / `[error]`, remove
    it from the set and **immediately rewrite** the status row to another
    outstanding action (if any).
@@ -68,8 +68,8 @@ heartbeat diversion is on.
 1. While one or more terse-eligible **build actions** are in flight on a TTY,
    show a **sticky** muted in-progress caption (with pulse/spinner per
    `--quiet-heartbeat` / terse compact alive style).
-2. Prefer a shared **`[executing...]`** token (works for compile, link, and
-   other actions; multiplexes cleanly under `--parallel`).
+2. Prefer a shared **`[....]`** badge plus progressive action word (works for
+   compile, link, and other actions; multiplexes cleanly under `--parallel`).
 3. On each action completion, emit the existing durable terse line, drop that
    action from the outstanding set, and rewrite the status row to another
    outstanding member (cycling the display across the live set).
@@ -90,7 +90,7 @@ clone waits) rather than inventing a second painter.
 
 | Hook point (candidates) | Role |
 |-------------------------|------|
-| Terse action start (before spawn or Python action body) | Register outstanding entry; rewrite status to `[executing…]` + identity fields |
+| Terse action start (before spawn or Python action body) | Register outstanding entry; rewrite status to `[....]` + progressive action + identity fields |
 | Terse success / failure / interrupt path | Durable `[ok]` / `[error]`; unregister; rewrite status to next outstanding (or clear) |
 | Pulse / idle timer (optional) | Advance the displayed outstanding member so parallel long jobs rotate |
 
@@ -100,8 +100,9 @@ the current cycle pick via sticky `show_info` / `operation_status`-style API.
 
 Caption spelling should mirror durable lines so the eye can match start → finish
 (action name like `compile`, paths via existing terse file-field helpers). Shared
-token **`[executing...]`** (subdued), not a second success badge. Optional later:
-show `N in flight` as a trailing subdued hint when `N > 1`.
+token **`[....]`** (subdued, six columns) plus progressive action
+(`compiling`, …) with durable-line colour on script / variant / file fields.
+Optional later: show `N in flight` as a trailing subdued hint when `N > 1`.
 
 ### Mode matrix (draft)
 
@@ -217,9 +218,9 @@ compile `[executing...]` hook — but the soak symptom is the same class of
 | Item | Status |
 |------|--------|
 | Soak gap captured | Done — this proposal |
-| Parallel outstanding-set + cycle | Settled direction (above) |
-| Process `Monitor` clear + terse shape | **In progress** — banner / `= done =` / argv echo suppressed under terse (soak OK). Durable line: `[ok] · run · <duration> · <command>` even under `--test` (`Test()` keeps `test` / `[pass]`). In-progress `[executing...]` is the next slice |
+| Parallel outstanding-set + cycle | Settled — rewrite on start/finish; cycle index advances on refresh (timer optional later) |
+| Process `Monitor` clear + terse shape | **Done** — banner / `= done =` / argv echo suppressed under terse. Durable line: `[ok] · run · <duration> · <command>` even under `--test` (`Test()` keeps `test` / `[pass]`) |
+| Toolchain `[....]` outstanding set | **Done** — `begin`/`end`/`refresh` in `cuppa.progress`; badge `[....]` + progressive verbs; durable field colour via `preserve_style`; armed from `terse_print_cmd_line`; terse `Popen2` keeps heartbeat; `[launch]` drops in-flight caption |
 | Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
-| Toolchain `[executing...]` outstanding set | Next slice after process `Run` |
-| Hook design / cycle cadence | Starting |
-| Antora note (terse + long actions) | With this slice (process `Run`) |
+| Hook design / cycle cadence | Done for start/finish cycle; timer rotation deferred |
+| Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |

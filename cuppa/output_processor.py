@@ -28,9 +28,11 @@ from cuppa.cpp.profiles_report_collector import ProfilesDiagnosticCollector
 from cuppa.log import logger
 from cuppa.progress import (
         NotifyProgress,
+        end_terse_executing,
         is_interrupt_returncode,
         note_build_failure_draining,
         note_build_interrupted,
+        refresh_terse_executing,
         render_terse_spawn,
         take_terse_command,
 )
@@ -155,6 +157,7 @@ class IncrementalSubProcess:
         if 'suppress_output' in kwargs:
             suppress_output = kwargs['suppress_output']
             del kwargs['suppress_output']
+        keep_heartbeat = bool( kwargs.pop( 'keep_heartbeat', False ) )
 
         use_shell = False
         inherit_process_env = kwargs.pop( 'inherit_process_env', None )
@@ -184,12 +187,14 @@ class IncrementalSubProcess:
 
             close_fds = platform.system() == "Windows" and False or True
 
-            # Hold the TTY heartbeat for the whole spawn. Status was already
-            # revealed in place by PRINT_CMD_LINE_FUNC (or we erase in place
-            # here before echoing the command ourselves). Never advance — that
-            # left a blank row above every tool line.
-            _suppress_heartbeat( advance=False )
-            held_heartbeat = True
+            # Hold the TTY heartbeat for the whole spawn unless terse asked to
+            # keep it (sticky ``[....]`` must pulse during long tools).
+            # Status was already revealed in place by PRINT_CMD_LINE_FUNC (or
+            # we erase in place here before echoing the command ourselves).
+            # Never advance — that left a blank row above every tool line.
+            if not keep_heartbeat:
+                _suppress_heartbeat( advance=False )
+                held_heartbeat = True
             if not suppress_output:
                 sys.stdout.write( " ".join(args_list) + "\n" )
                 try:
@@ -350,6 +355,7 @@ class Processor:
             [ arg.strip('"') for arg in args ],
             env=env,
             suppress_output=True,
+            keep_heartbeat=bool( self.scons_env.get( 'terse_output' ) ),
         )
 
         processor.finish( returncode )
@@ -446,7 +452,9 @@ class SpawnedProcessor(object):
         """Print the spawn transcript. Terse success is one line; the command waits."""
         if self._terse and is_interrupt_returncode( returncode ):
             take_terse_command()
+            end_terse_executing()
             note_build_interrupted()
+            refresh_terse_executing()
             return
         if not self._terse:
             summary = self.summary( returncode )
@@ -467,6 +475,7 @@ class SpawnedProcessor(object):
                 self.summary( returncode ),
         ):
             _emit_transcript( line )
+        refresh_terse_executing()
         if returncode or self._processor.errors:
             note_build_failure_draining()
 

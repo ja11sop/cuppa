@@ -129,6 +129,10 @@ _last_transcript_at = 0.0
 # They do not age out to the pulse-only anchor until cleared or replaced.
 _sticky = False
 _pending_is_sticky = False
+# When True, ``_body`` already carries colour / emphasis (terse ``[....]``
+# caption); do not strip and re-subdue on paint unless truncated.
+_body_preserve_style = False
+_pending_preserve_style = False
 # SCons ``display()`` (clean ``Removed …``, etc.) bypasses PRINT_CMD_LINE;
 # route those lines through ``write_line`` while the heartbeat is diverting.
 _scons_display_patched = False
@@ -805,6 +809,11 @@ def _release_sticky_caption():
             _message_shown_at = _clock()
 
 
+def release_sticky_caption():
+    """Public: end a sticky in-progress hold without blanking the status row."""
+    _release_sticky_caption()
+
+
 def reset():
     """Stop diversion and restore a clean status line."""
     global _quiet_console, _suppress_below, _heartbeat_active
@@ -812,6 +821,7 @@ def reset():
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
     global _message_shown_at, _visible_since, _style, _sleep, _compact
     global _last_transcript_at, _sticky, _pending_is_sticky
+    global _body_preserve_style, _pending_preserve_style
     with _draw_lock:
         _cancel_idle_flush_unlocked()
     clear_operation_status( dwell=False )
@@ -853,6 +863,8 @@ def reset():
     _last_transcript_at = 0.0
     _sticky = False
     _pending_is_sticky = False
+    _body_preserve_style = False
+    _pending_preserve_style = False
     _clock = time.monotonic
     _sleep = time.sleep
 
@@ -1039,7 +1051,7 @@ def pulse_ephemeral_status( message ):
         show_info( text, sticky=False )
 
 
-def show_info( message, sticky=False ):
+def show_info( message, sticky=False, preserve_style=False ):
     """Rewrite the status line with the latest INFO message (throttled).
 
     While a recent transcript write keeps the idle gate closed, only the
@@ -1051,8 +1063,12 @@ def show_info( message, sticky=False ):
     event-style and ages out after the caption hold. A non-sticky INFO while
     a sticky caption is held is remembered as pending and does not steal the
     row; a newer sticky message replaces the current one.
+
+    ``preserve_style=True`` keeps colour / emphasis already in ``message``
+    (terse ``[....]`` captions) when the line fits the TTY; over-wide lines
+    still fall back to a subdued ellipsis fit.
     """
-    global _pending, _pending_is_sticky
+    global _pending, _pending_is_sticky, _pending_preserve_style
     if not _heartbeat_active or _stream is None:
         return
     text = ( message or '' ).replace( '\n', ' ' ).strip()
@@ -1063,9 +1079,11 @@ def show_info( message, sticky=False ):
             # Keep the in-progress caption; coalesce event INFO for after clear.
             _pending = text
             _pending_is_sticky = False
+            _pending_preserve_style = False
             return
         _pending = text
         _pending_is_sticky = bool( sticky )
+        _pending_preserve_style = bool( preserve_style ) and bool( sticky )
         if _suppress_depth:
             # Remember for after the spawn; do not fight the transcript.
             return
@@ -1178,16 +1196,18 @@ def allow():
 def _clear_unlocked( advance=False, keep_pending=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
     global _wrap_off_sent, _message_shown_at, _visible_since, _sticky
-    global _pending_is_sticky, _spin
+    global _pending_is_sticky, _pending_preserve_style, _body_preserve_style, _spin
     _cancel_pulse()
     # Keep ``_pending`` when suppressing or clearing for transcript so INFO
     # during a busy stream can show after the idle gate; warn/report drops it.
     if not keep_pending:
         _pending = None
         _pending_is_sticky = False
+        _pending_preserve_style = False
         _cancel_idle_flush_unlocked()
     _body = None
     _sticky = False
+    _body_preserve_style = False
     _message_shown_at = 0.0
     _visible_since = 0.0
     # Leaving the status row — next paint is a new line; restart the cycle
@@ -1233,14 +1253,16 @@ def _flush_unlocked( now ):
     (option 2) is a follow-on if soak still shows widget flicker.
     """
     global _pending, _last_emit, _body, _message_shown_at, _spin
-    global _sticky, _pending_is_sticky
+    global _sticky, _pending_is_sticky, _body_preserve_style, _pending_preserve_style
     if _pending is None or _stream is None or _suppress_depth:
         return
     same_row = bool( _last_line )
     _body = _pending
     _sticky = bool( _pending_is_sticky )
+    _body_preserve_style = bool( _pending_preserve_style )
     _pending = None
     _pending_is_sticky = False
+    _pending_preserve_style = False
     _message_shown_at = now
     if not same_row:
         _spin = 0
@@ -1263,8 +1285,12 @@ def _draw_unlocked( body ):
     prefix_styled = _prefix_styled()
     if body:
         budget = max( 1, cols - len( prefix_plain ) )
-        plain = _fit_plain( strip_ansi( body ), budget )
-        styled = prefix_styled + as_subdued( plain )
+        stripped = strip_ansi( body )
+        if _body_preserve_style and len( stripped ) <= budget:
+            # Terse ``[....]`` caption: keep emphasis / info colour on fields.
+            styled = prefix_styled + body
+        else:
+            styled = prefix_styled + as_subdued( _fit_plain( stripped, budget ) )
     else:
         # Anchor only — no arrow/gap after the widget.
         if _style == _STYLE_SPINNER:

@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   instead of a ``.success`` stamp basename. The summary stays full-length by
   default (terminal wrap); ellipsis fit is opt-in only. Plan:
   ``design/plans/terse-build-action-heartbeat.md``.
+- Under ``--terse-output`` on a TTY, in-flight toolchain / process actions show
+  a sticky muted ``[....]`` caption on the shared heartbeat status row (six
+  columns so fields line up under ``[ok]``), with progressive action words
+  (``compiling``, ``copying``, ``testing``, …). Script / variant / action /
+  sources use durable colours; the not-yet-written product leaf is muted+bold
+  (no success/info green). An outstanding set cycles the displayed member
+  under ``-j``. Terse spawns keep the heartbeat alive for the tool duration.
+  Delegated ``[launch]`` bookends replace the in-flight caption. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
 
 - GitLab package **named library groups**: publishers may declare ``lib_groups``
   on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
