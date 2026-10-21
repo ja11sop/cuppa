@@ -128,8 +128,7 @@ Optional later: show `N in flight` as a trailing subdued hint when `N > 1`.
    `→` when `N > 1` (`5 [...3]`; single job keeps `→ [....]`).
 2. **Python actions / non-spawn** (e.g. some Cuppa builders): same register /
    unregister hooks?
-3. **Delegated builders** (CMake / `b2`): they already have `[launch]` / children —
-   avoid double captions; prefer extending those bookends only if gaps remain.
+3. ~~**Delegated builders** (CMake / `b2`)~~ — **Deferred.** See below.
 4. **Idle after empty set:** clear sticky when outstanding is empty (do not leave
    a stale `[executing...]` between waves). — Done with outstanding refresh.
 
@@ -141,6 +140,15 @@ forever. Keep an outstanding set; show one member under `[....]` / `[...k]`;
 after each durable terse line so the console always reflects something still
 running. Shape: `→ [....]` when alone; `N [...k]` (muted count, right-aligned
 on the arrow column; badge dots + 1-based index) when multiplexing.
+
+## Delegated CMake / `b2` (deferred)
+
+CMake and `b2` already print a durable `[launch]` bookend and then stream
+muted child lines. `write_terse_launch` drops any stash-time `[....]` so the
+status row does not carry a second caption beside that bookend. That is the
+in-flight cue for those builders. Do not add another `[....]` (or a parallel
+`N [...k]` row) for the delegated span unless a soak shows a long silent gap
+with `[launch]` already printed and no muted children moving.
 
 ## Soak addendum (2026-10-18) — process runs + sticky residue
 
@@ -241,3 +249,4 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
+| Delegated CMake / `b2` extra `[....]` | **Deferred** — `[launch]` already drops the in-flight caption; muted children are the mid-flight cue. Do not add a second `[....]` unless a soak shows a silent gap beside `[launch]` |
