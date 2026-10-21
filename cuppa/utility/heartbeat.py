@@ -122,6 +122,10 @@ _wrap_disabled = False
 _wrap_off_sent = False
 _style = _STYLE_PULSE
 _compact = False
+# Compact status bridge after the alive widget. ``None`` → subdued ``→ ``
+# (location-map column). Parallel terse ``[....]`` replaces it with a muted
+# right-aligned job count (``5`` / ``12``) ending on the same column as ``→``.
+_compact_bridge = None
 _transcript_lock = threading.Lock()
 # Monotonic time of the last stdout transcript write (0 = none yet).
 _last_transcript_at = 0.0
@@ -205,17 +209,35 @@ def _status_head_plain():
     return widget
 
 
+def _bridge_token():
+    """Compact bridge glyph/text before the caption (no trailing space)."""
+    if _compact_bridge is None:
+        return '→'
+    return str( _compact_bridge )
+
+
+def _with_aligned_bridge( head ):
+    """Pad ``head`` so the bridge ends on the terse location-map arrow column.
+
+    Single-job captions use ``→``. Parallel ``[....]`` captions pass a job
+    count via :func:`set_compact_bridge`; multi-digit counts grow left into the
+    pad (right-aligned like the durable ``%`` cell).
+    """
+    token = _bridge_token()
+    pad = max( _arrow_column() - len( head ) - len( token ) + 1, 1 )
+    return head + ( ' ' * pad ) + token + ' '
+
+
 def _with_aligned_arrow( head ):
     """Pad ``head`` so ``→`` lines up with terse location-map arrows."""
-    pad = max( _arrow_column() - len( head ), 1 )
-    return head + ( ' ' * pad ) + '→ '
+    return _with_aligned_bridge( head )
 
 
 def _prefix_plain():
     """Plain status prefix used for column budgeting."""
     head = _status_head_plain()
     if _compact:
-        return _with_aligned_arrow( head )
+        return _with_aligned_bridge( head )
     return "{}{}".format( head, _GAP )
 
 
@@ -262,9 +284,28 @@ def _prefix_styled():
     else:
         widget = _animation_styled()
     if _compact:
-        pad = max( _arrow_column() - len( head ), 1 )
-        return widget + as_subdued( ( ' ' * pad ) + '→ ' )
+        token = _bridge_token()
+        pad = max( _arrow_column() - len( head ) - len( token ) + 1, 1 )
+        return widget + as_subdued( ( ' ' * pad ) + token + ' ' )
     return widget + as_subdued( _GAP )
+
+
+def set_compact_bridge( token ):
+    """Override the compact ``→`` bridge (e.g. parallel job count ``\"5\"``).
+
+    ``token`` is plain text without a trailing space; ``None`` restores ``→``.
+    Right-aligned to the location-map arrow column (multi-digit grows left).
+    """
+    global _compact_bridge
+    if token is None or token == '':
+        _compact_bridge = None
+    else:
+        _compact_bridge = str( token )
+
+
+def compact_bridge():
+    """Current compact bridge override, or ``None`` for the default ``→``."""
+    return _compact_bridge
 
 
 def _next_pulse_interval():
@@ -386,11 +427,17 @@ def _arm_idle_flush_unlocked():
 
 
 def _mark_transcript_unlocked():
-    """Record a transcript write; defer any pending INFO until idle again."""
+    """Record a transcript write; defer any pending *event* INFO until idle.
+
+    Sticky in-progress captions (``[....]``, retrieve waits) are restored by
+    :func:`write_line` immediately after the durable write — they must not wait
+    on the idle gate, or a stream of fast ``[ok]`` lines keeps them invisible
+    while long jobs are still running.
+    """
     global _last_transcript_at
     _last_transcript_at = _clock()
     _cancel_idle_flush_unlocked()
-    if _pending is not None and not _suppress_depth:
+    if _pending is not None and not _suppress_depth and not _pending_is_sticky:
         _arm_idle_flush_unlocked()
 
 
@@ -589,6 +636,19 @@ def restore_terminal_wrap( *, force=False ):
 atexit.register( restore_terminal_wrap )
 
 
+def _restore_sticky_after_transcript_unlocked():
+    """Paint a preserved sticky caption immediately after a durable write.
+
+    Caller holds ``_draw_lock``. Fast durable ``[ok]`` lines clear the status
+    row; armed ``[....]`` must chase back without waiting on the idle gate.
+    """
+    if _suppress_depth or _pending is None or not _pending_is_sticky:
+        return
+    if not _heartbeat_active or _stream is None:
+        return
+    _flush_unlocked( _clock() )
+
+
 def write_line( text, *, dwell=False, keep_pending=False ):
     """Durable console line — one owner for transcript and console reports.
 
@@ -601,6 +661,11 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     When not diverting, write ``sys.stdout`` after clearing any armed status
     row (compact terse ``operation_status`` shares that row) and any active
     ProgressReporter so rows cannot glue.
+
+    With ``keep_pending=True``, a sticky in-progress caption is preserved across
+    the clear and painted again immediately after the durable line so armed
+    ``[....]`` jobs chase back onto the status row while fast ``[ok]`` lines
+    scroll the transcript (they must not wait on the idle gate).
     """
     global _pending, _pending_is_sticky
     if dwell and status_row_active():
@@ -630,24 +695,31 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                 try:
                     _stream.write( text )
                     _stream.flush()
-                    return
                 except Exception:
                     pass
-        # Non-diverting (incl. compact terse status row) or piped launcher:
-        # durable line on the pipe / stdout only (status already cleared).
+                else:
+                    if keep_pending:
+                        _restore_sticky_after_transcript_unlocked()
+                    return
+        # Non-diverting (incl. compact terse status row) or piped launcher,
+        # or diverting write failed: durable line on the pipe / stdout only.
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
         except Exception:
             pass
+        if keep_pending:
+            with _draw_lock:
+                _restore_sticky_after_transcript_unlocked()
 
 
 def write_transcript( text, *, dwell=True ):
     """Serialize a durable transcript write (terse lines, muted cmake children).
 
     Parallel ``-j`` / ``--parallel`` jobs must not interleave terse lines.
-    Dwell waits run *outside* the transcript lock. Keeps unpainted INFO for
-    the idle gate (``keep_pending=True``).
+    Dwell waits run *outside* the transcript lock. Keeps sticky in-progress
+    captions and restores them immediately after the durable line; ordinary
+    event INFO still waits on the idle gate (``keep_pending=True``).
     """
     write_line( text, dwell=dwell, keep_pending=True )
 
@@ -820,6 +892,7 @@ def reset():
     global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
     global _message_shown_at, _visible_since, _style, _sleep, _compact
+    global _compact_bridge
     global _last_transcript_at, _sticky, _pending_is_sticky
     global _body_preserve_style, _pending_preserve_style
     with _draw_lock:
@@ -860,6 +933,7 @@ def reset():
     _suppress_depth = 0
     _style = _STYLE_PULSE
     _compact = False
+    _compact_bridge = None
     _last_transcript_at = 0.0
     _sticky = False
     _pending_is_sticky = False
@@ -1054,15 +1128,16 @@ def pulse_ephemeral_status( message ):
 def show_info( message, sticky=False, preserve_style=False ):
     """Rewrite the status line with the latest INFO message (throttled).
 
-    While a recent transcript write keeps the idle gate closed, only the
-    latest message is remembered — it paints once the gate opens so a fast
+    While a recent transcript write keeps the idle gate closed, ordinary event
+    INFO is only remembered — it paints once the gate opens so a fast
     ``terse–info–terse`` stream cannot force full-cycle dwells.
 
-    ``sticky=True`` marks an **in-progress** caption (see ``operation_status``):
-    it does not age out to the pulse-only anchor. Ordinary INFO stays
-    event-style and ages out after the caption hold. A non-sticky INFO while
-    a sticky caption is held is remembered as pending and does not steal the
-    row; a newer sticky message replaces the current one.
+    ``sticky=True`` marks an **in-progress** caption (see ``operation_status`` /
+    terse ``[....]``): it does not age out to the pulse-only anchor, and it
+    **bypasses** the transcript idle gate so armed long jobs stay visible while
+    fast durable ``[ok]`` lines scroll. A non-sticky INFO while a sticky
+    caption is held is remembered as pending and does not steal the row; a
+    newer sticky message replaces the current one.
 
     ``preserve_style=True`` keeps colour / emphasis already in ``message``
     (terse ``[....]`` captions) when the line fits the TTY; over-wide lines
@@ -1088,11 +1163,12 @@ def show_info( message, sticky=False, preserve_style=False ):
             # Remember for after the spawn; do not fight the transcript.
             return
         now = _clock()
-        if not _transcript_is_idle( now ):
+        # Sticky in-progress captions paint immediately — a stream of fast
+        # durable lines must not keep resetting the idle gate and starving
+        # ``[....]``. Event INFO still waits for transcript idle.
+        if not sticky and not _transcript_is_idle( now ):
             _arm_idle_flush_unlocked()
             return
-        # Sticky in-progress captions skip the event INFO throttle so a long
-        # wait arms immediately once the transcript idle gate is open.
         if (
                 not sticky
                 and _last_emit
@@ -1198,9 +1274,17 @@ def _clear_unlocked( advance=False, keep_pending=False ):
     global _wrap_off_sent, _message_shown_at, _visible_since, _sticky
     global _pending_is_sticky, _pending_preserve_style, _body_preserve_style, _spin
     _cancel_pulse()
-    # Keep ``_pending`` when suppressing or clearing for transcript so INFO
-    # during a busy stream can show after the idle gate; warn/report drops it.
-    if not keep_pending:
+    # Keep / capture sticky in-progress captions across transcript clears so
+    # write_line can chase them back onto the row. Event INFO pending stays
+    # for the idle gate. Warn/report drops everything.
+    if keep_pending:
+        if _sticky and _body is not None:
+            # Prefer the live sticky body over a stale event-INFO pending.
+            _pending = _body
+            _pending_is_sticky = True
+            _pending_preserve_style = bool( _body_preserve_style )
+        # else: leave any existing ``_pending`` (sticky or event) alone
+    else:
         _pending = None
         _pending_is_sticky = False
         _pending_preserve_style = False

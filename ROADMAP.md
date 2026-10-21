@@ -28,7 +28,7 @@ polish and long carry-forwards continue where they do not block that opener.
 | Cascade metadata-only amend | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — `--amend-cascade-manifests` DAG nests; [`cascade-amend-package-manifest.md`](design/plans/cascade-amend-package-manifest.md) |
 | Cascade build-deps tip consume | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — tip links forest stages under `--build-cascade-dependencies`; [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md) |
 | Cascade consume-deps (no nest) | **Proposed** — tip forest bind without nesting; [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
-| Terse in-progress compile + heartbeat | **In progress** — process `Run` + `[....]` / progressive action captions; compress triage open; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
+| Terse in-progress compile + heartbeat | **In progress** — process `Run` + `[....]` / parallel `N [...k]` dwell rotate; nest compress TTY fixed via `CUPPA_PROGRESS_FD`; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |

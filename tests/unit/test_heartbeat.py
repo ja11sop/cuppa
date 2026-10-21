@@ -821,6 +821,65 @@ def test_sticky_caption_does_not_age_out():
     hb.reset()
 
 
+def test_sticky_caption_chases_busy_transcript( monkeypatch ):
+    """Armed sticky ``[....]`` must reappear after fast durable lines.
+
+    Event INFO still waits on the idle gate; sticky in-progress must not —
+    otherwise a stream of quick ``[ok]`` lines keeps resetting idle and the
+    long-running jobs look invisible.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.show_info( '[....] long · compiling · big.cpp', sticky=True, preserve_style=True )
+        assert '[....] long' in _status_body( stream )
+        assert hb._sticky is True
+
+        for i in range( 5 ):
+            hb.write_transcript( '  {}/10 ·  {}% [ok]   · copy · file{}.json\n'.format( i, i * 10, i ) )
+            # Sticky chases immediately — no idle wait — while fast lines scroll.
+            assert '[....] long' in _status_body( stream )
+            assert hb._sticky is True
+            assert hb._pending is None
+
+        # Event INFO while sticky is held still does not steal the row.
+        logger.info( 'Updating [side]' )
+        assert '[....] long' in _status_body( stream )
+        assert 'Updating [side]' not in _status_body( stream )
+    finally:
+        heartbeat_module.sys.stdout = real
+    assert 'copy · file' in stream.getvalue()
+    hb.reset()
+
+
+def test_sticky_show_info_bypasses_idle_gate_after_transcript( monkeypatch ):
+    """Promote / refresh sticky must paint even when transcript just wrote."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.write_transcript( '  1/2 · 10% [ok] · copy · a.json\n' )
+        assert hb._body is None
+        # Immediately after transcript (idle gate closed for event INFO):
+        hb.show_info( '[....] long · compiling · big.cpp', sticky=True )
+        assert '[....] long' in _status_body( stream )
+        assert hb._sticky is True
+    finally:
+        heartbeat_module.sys.stdout = real
+    hb.reset()
+
+
 def test_caption_flush_does_not_advance_spin():
     """Same-row message updates keep the ECG frame; only pulse advances spin."""
     stream = io.StringIO()

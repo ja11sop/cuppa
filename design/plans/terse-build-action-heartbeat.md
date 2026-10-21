@@ -35,25 +35,32 @@ Then, on success, clear/rewrite the status row and emit the usual durable
 `[ok]` line.
 
 **Parallel** (`--parallel` / `-j` / several actions at once): one status row
-cannot show every job. Prefer a **generic** muted caption that is **always
-rewritten** as the set of in-flight actions changes:
+cannot show every job. Multiplex with a muted job count (right-aligned on the
+arrow column) and embed the 1-based display index in the badge:
 
 ```text
-|-•-------|   → [....] test/pipelines · … · compiling · pipeline.cpp → <working>/pipeline.o
+|--------•|   5 [...3] test/pipelines · … · compiling · pipeline.cpp → <working>/pipeline.o
+```
+
+Single in-flight job keeps the arrow:
+
+```text
+|--------•|   → [....] test/pipelines · … · compiling · pipeline.cpp → <working>/pipeline.o
 ```
 
 Rules of thumb:
 
 1. Maintain the set of **outstanding** (started, not yet durable) actions.
 2. The status row shows **one** of them under a shared six-column badge
-   `[....]` (aligns under durable `[ok]`); the action word uses the progressive
-   form (`compiling`, `copying`, …). Under `-j` the row is multiplexed.
+   (`[....]` alone, or `[...k]` when `N > 1`); the action word uses the
+   progressive form (`compiling`, `copying`, …). Under `-j` the row is
+   multiplexed with muted `N` replacing `→`.
 3. When an action completes and writes its durable `[ok]` / `[error]`, remove
    it from the set and **immediately rewrite** the status row to another
    outstanding action (if any).
-4. **Cycle** the displayed member through the outstanding set on a timer (or
-   on each completion / start) so long-running siblings each get airtime while
-   others finish — not “stuck forever on the last-started job.”
+4. **Cycle** the displayed member through the outstanding set on a dwell timer
+   (~2s) and on each completion / start so long-running siblings each get
+   airtime — not “stuck forever on the last-started job.”
 5. When the set is empty, clear the sticky caption (idle / between waves).
 
 Quiet+TTY heartbeat ([`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md))
@@ -116,23 +123,24 @@ Optional later: show `N in flight` as a trailing subdued hint when `N > 1`.
 
 ## Open questions
 
-1. **Cycle cadence** under `-j`: rewrite only on start/finish vs also on a
-   heartbeat tick (e.g. every full pulse cycle) so two long compiles rotate
-   without waiting for a third completion.
+1. ~~**Cycle cadence** under `-j`~~ — **Settled:** dwell timer (~2s) plus
+   rewrite on start/finish; badge embeds 1-based index; muted job count replaces
+   `→` when `N > 1` (`5 [...3]`; single job keeps `→ [....]`).
 2. **Python actions / non-spawn** (e.g. some Cuppa builders): same register /
    unregister hooks?
 3. **Delegated builders** (CMake / `b2`): they already have `[launch]` / children —
    avoid double captions; prefer extending those bookends only if gaps remain.
 4. **Idle after empty set:** clear sticky when outstanding is empty (do not leave
-   a stale `[executing...]` between waves).
+   a stale `[executing...]` between waves). — Done with outstanding refresh.
 
 ## Settled (parallel)
 
 Under `--parallel` / `-j`, **do not** pin the status row to “last started”
-forever. Keep an outstanding set; show one member under `[executing...]`;
-**cycle** through the set as actions complete (and optionally on a timer);
-rewrite after each durable terse line so the console always reflects something
-still running.
+forever. Keep an outstanding set; show one member under `[....]` / `[...k]`;
+**cycle** through the set on a dwell timer and as actions complete; rewrite
+after each durable terse line so the console always reflects something still
+running. Shape: `→ [....]` when alone; `N [...k]` (muted count, right-aligned
+on the arrow column; badge dots + 1-based index) when multiplexing.
 
 ## Soak addendum (2026-10-18) — process runs + sticky residue
 
@@ -209,9 +217,12 @@ reporter).
 | Amend vs `build_package` path | Both call `create_package_archive` without forcing `show_progress=True` (rely on `_maybe_reporter`) — confirm both hit the reporter under soak flags |
 | Heartbeat vs transfer confusion | Operator expects green ECG / `[executing...]`; shipped shape is muted **Compressing** transfer status — if that is absent entirely, it is a **regression / gap**, not “wrong caption” |
 
-Cross-link: any fix may live in transfer/heartbeat enrolment rather than the
-compile `[executing...]` hook — but the soak symptom is the same class of
-“long action, no liveness,” so track it here until triage says otherwise.
+**Triage (2026-10-20):** Yes — this was the nest TTY / progress-fd gap, not a
+missing `[....]` hook. Cascade nests lose `/dev/tty` under `start_new_session`;
+tip now keeps an open progress fd and forwards `CUPPA_PROGRESS_FD` + `pass_fds`
+(POSIX). That landed with cascade tip-consume (see CHANGELOG “Cascade nested
+compress/upload progress”). Re-soak amend compress under `--terse-output` ±
+`-Q`; only reopen if the muted **Compressing** bar is still absent.
 
 ## Progress
 
@@ -221,6 +232,12 @@ compile `[executing...]` hook — but the soak symptom is the same class of
 | Parallel outstanding-set + cycle | Settled — rewrite on start/finish; cycle index advances on refresh (timer optional later) |
 | Process `Monitor` clear + terse shape | **Done** — banner / `= done =` / argv echo suppressed under terse. Durable line: `[ok] · run · <duration> · <command>` even under `--test` (`Test()` keeps `test` / `[pass]`) |
 | Toolchain `[....]` outstanding set | **Done** — `begin`/`end`/`refresh` in `cuppa.progress`; badge `[....]` + progressive verbs; durable field colour via `preserve_style`; armed from `terse_print_cmd_line`; terse `Popen2` keeps heartbeat; `[launch]` drops in-flight caption |
-| Package compress / tar liveness gap | Soak noted (above) — triage vs #360 |
-| Hook design / cycle cadence | Done for start/finish cycle; timer rotation deferred |
+| Parallel `N [...k]` + dwell rotate | **Done** — single job `→ [....]`; multiplex muted count on arrow column + `[...k]` badge; ~2s dwell timer |
+| Execute(Copy) outstanding leak | **Done** — nested `Execute` armed `[....]` via `PRINT_CMD_LINE` but never ended (no SPAWN finish); finished copies stayed in the set and looked “queued”. Wrap now drops nested key and restores parent |
+| Deferred `[....]` arm (fast actions) | **Done** — pending set + ~0.2s arm delay (idle-gate order); end before arm → durable line only |
+| Sticky chase vs busy transcript | **Done** — sticky bypasses idle gate; `write_transcript` preserves + restores sticky after each durable line so fast `[ok]` cannot starve armed long jobs |
+| Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
+| Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
+| Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
+| Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |

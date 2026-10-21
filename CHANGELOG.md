@@ -18,11 +18,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Under ``--terse-output`` on a TTY, in-flight toolchain / process actions show
   a sticky muted ``[....]`` caption on the shared heartbeat status row (six
   columns so fields line up under ``[ok]``), with progressive action words
-  (``compiling``, ``copying``, ``testing``, …). Script / variant / action /
-  sources use durable colours; the not-yet-written product leaf is muted+bold
-  (no success/info green). An outstanding set cycles the displayed member
-  under ``-j``. Terse spawns keep the heartbeat alive for the tool duration.
-  Delegated ``[launch]`` bookends replace the in-flight caption. Plan:
+  (``compiling``, ``copying``, ``testing``, …). Script / variant / sources use
+  durable colours; the in-flight verb and the not-yet-written product leaf are
+  muted+bold. Hyphenated progressives follow the verb (``test-indexing``, not
+  ``testing-index``).
+  (no success/info green). A single in-flight job keeps ``→ [....]``; under
+  ``-j`` / ``--parallel`` the arrow becomes a muted right-aligned job count and
+  the badge embeds the 1-based display index (``5 [...3]``), rotating across
+  the outstanding set on a short dwell. Terse spawns keep the heartbeat alive
+  for the tool duration. Delegated ``[launch]`` bookends replace the in-flight
+  caption.   Nested ``env.Execute(Copy/…)`` no longer leaks finished actions into
+  that set (they armed ``[....]`` via ``PRINT_CMD_LINE`` but had no SPAWN finish
+  hook). ``[....]`` arms only after a short idle-style delay so fast Copy/Move/…
+  emit the durable line alone. Sticky in-progress captions bypass the transcript
+  idle gate and chase back onto the status row after each durable write, so a
+  stream of quick ``[ok]`` lines cannot starve the display of long armed jobs.
+  Stderr/stdout through the terse interrupt filter clears the status row first
+  so ``scons: ***`` cannot glue onto a live caption. Plan:
   ``design/plans/terse-build-action-heartbeat.md``.
 
 - GitLab package **named library groups**: publishers may declare ``lib_groups``
