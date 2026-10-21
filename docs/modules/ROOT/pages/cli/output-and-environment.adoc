@@ -105,7 +105,7 @@ a heartbeat caption cannot glue onto the banner.
 While a terse tool or Python action is in flight on a TTY, the status row shows a muted
 `[....]` caption (six columns, so fields line up under `[ok]`) with the same sconscript /
 variant / file fields as the eventual durable line, and a progressive action word
-(`compiling`, `copying`, `testing`, ...). Script leaf, variant, and sources use the
+(`compiling`, `copying`, `running-test`, `enabling-cxx-profiles`, ...). Script leaf, variant, and sources use the
 same colours as the durable finish line. The in-flight verb and the product that does
 not exist yet (object file, staged binary, test program) are muted+bold like
 `[location]`, not success/info green — the work is not finished yet. Hyphenated
@@ -267,7 +267,7 @@ method label. Anything still unnamed is `run`.
 | `GenerateHtmlTestReport` | `test-report`
 | `CollateTestReportIndex` | `test-index`
 | `GenerateBittenReport` | `bitten-report`
-| C++ profiles merge | `profiles`
+| C++ Profiles enforce view | `cxx-profiles`
 | C++ module map | `module-map`
 | package amend (`--amend-package-manifest`) | `amend`
 | `Build`, `Compile`, link | `compile`, `link`, `link-shared`

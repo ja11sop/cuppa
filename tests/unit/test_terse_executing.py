@@ -93,13 +93,17 @@ def test_progressive_terse_action_verbs():
     assert progress.progressive_terse_action( "test-index" ) == "test-indexing"
     assert progress.progressive_terse_action( "test-report" ) == "test-reporting"
     assert progress.progressive_terse_action( "coverage-index" ) == "coverage-indexing"
-    assert progress.progressive_terse_action( "cmake-build" ) == "cmake-building"
-    assert progress.progressive_terse_action( "cmake-configure" ) == "cmake-configuring"
-    assert progress.progressive_terse_action( "cmake-install" ) == "cmake-installing"
+    assert progress.progressive_terse_action( "cmake-build" ) == "launching-cmake-build"
+    assert progress.progressive_terse_action( "cmake-configure" ) == "launching-cmake-configure"
+    assert progress.progressive_terse_action( "cmake-install" ) == "launching-cmake-install"
+    assert progress.progressive_terse_action( "b2" ) == "launching-b2"
     assert progress.progressive_terse_action( "module-map" ) == "module-mapping"
     assert progress.progressive_terse_action( "bitten-report" ) == "bitten-reporting"
-    # A case result is not "testing a case".
-    assert progress.progressive_terse_action( "test-case" ) == "test-case"
+    assert progress.progressive_terse_action( "test" ) == "running-test"
+    assert progress.progressive_terse_action( "test-case" ) == "running-test-case"
+    assert progress.progressive_terse_action( "coverage" ) == "running-coverage"
+    assert progress.progressive_terse_action( "benchmark" ) == "running-benchmark"
+    assert progress.progressive_terse_action( "cxx-profiles" ) == "enabling-cxx-profiles"
 
 
 def test_executing_badge_single_and_parallel():
@@ -303,7 +307,7 @@ def test_format_terse_executing_caption_test_product_is_muted_bold():
         )
         plain = strip_ansi( caption )
         assert plain.startswith( "[....] " )
-        assert "testing" in plain
+        assert "running-test" in plain
         assert "ms" not in plain
         assert "cases" not in plain
         assert "assertions" not in plain

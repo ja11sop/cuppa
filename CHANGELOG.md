@@ -18,11 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Under ``--terse-output`` on a TTY, in-flight toolchain / process actions show
   a sticky muted ``[....]`` caption on the shared heartbeat status row (six
   columns so fields line up under ``[ok]``), with progressive action words
-  (``compiling``, ``copying``, ``testing``, …). Script / variant / sources use
+  (``compiling``, ``copying``, ``running-test``, …). Script / variant / sources use
   durable colours; the in-flight verb and the not-yet-written product leaf are
-  muted+bold. Hyphenated progressives follow the verb (``test-indexing``, not
-  ``testing-index``).
-  (no success/info green). A single in-flight job keeps ``→ [....]``; under
+  muted+bold (no success/info green). Hyphenated progressives follow the verb
+  (``test-indexing``, not ``testing-index``). A single in-flight job keeps
+  ``→ [....]``; under
   ``-j`` / ``--parallel`` the arrow becomes a muted right-aligned job count and
   the badge embeds the 1-based display index (``5 [...3]``), rotating across
   the outstanding set on a short dwell. Terse spawns keep the heartbeat alive
@@ -86,6 +86,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Terse action for the C++ Profiles enforce view is ``cxx-profiles`` (was
+  ``profiles``). The in-flight caption is ``enabling-cxx-profiles``.
 - Interactive console helpers (visible width, column fit, controlling TTY /
   progress stream, ``CUPPA_STDOUT_IS_TTY`` / ``CUPPA_PROGRESS_*`` nest forward)
   live in ``cuppa.utility.terminal``. Heartbeat, transfer progress, develop /
