@@ -1,8 +1,9 @@
 # Plan: Terse in-progress build action + heartbeat
 
-- **Status:** in progress
+- **Status:** done
+- **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375)
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
-- **Updated:** 2026-10-20
+- **Updated:** 2026-10-23
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
 - **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
@@ -179,6 +180,12 @@ before** `Monitor` / raw process stdout, and prefer routing those writes through
 the shared transcript lock helpers.
 
 ### 2. No first-class terse form for general process actions
+
+**Settled (2026-10-23, [#375](https://github.com/ja11sop/cuppa/pull/375)).**
+Durable process lines are action `run` (duration + command summary), and
+in-flight process actions use the same `[....]` outstanding set as toolchain
+spawns. Python callables and `env.Execute` are wrapped so they enter and
+leave that set.
 
 Under `--terse-output`, toolchain compiles already get a durable
 `N/M · % [ok] … · compile · …` line, but `Run()` process helpers still emit the

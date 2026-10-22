@@ -317,6 +317,77 @@ def test_maybe_run_cascade_refuses_build_and_publish_cascade_together():
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
+def test_maybe_run_cascade_accepts_consume_without_nesting( monkeypatch ):
+    calls = []
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "consume-cascade-dependencies" )
+
+        def get( self, name, default=None ):
+            if name == "sconstruct_dir":
+                return "/home/user/coding/app"
+            return default
+
+    monkeypatch.setattr(
+            cascade, "build_cascade_graph",
+            lambda *a, **k: calls.append( "graph" ) or ( {}, [] ),
+    )
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: calls.append( "nest" ),
+    )
+    tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
+    cascade.maybe_run_cascade( _Env(), tip )
+    assert calls == []
+
+
+def test_maybe_run_cascade_refuses_consume_with_build_cascade():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "cascade",
+                    "consume-cascade-dependencies",
+                    "build-cascade-dependencies",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_maybe_run_cascade_refuses_consume_with_amend():
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "cascade",
+                    "consume-cascade-dependencies",
+                    "amend-cascade-manifests",
+            )
+
+    class _Publisher:
+        _dependencies = []
+        _package = "widget"
+        _version = "1"
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        cascade.maybe_run_cascade( _Env(), _Publisher() )
+
+
+def test_tip_forward_args_drops_consume_cascade_dependencies():
+    forwarded = cascade.tip_forward_args( [
+            "scons", "-D", "--rel",
+            "--consume-cascade-dependencies",
+            "--cascade",
+    ] )
+    assert "--consume-cascade-dependencies" not in forwarded
+    assert "--cascade" not in forwarded
+
+
 def test_tip_forward_args_drops_build_cascade_dependencies():
     forwarded = cascade.tip_forward_args( [
             "scons", "-D", "--rel",
@@ -1751,6 +1822,71 @@ def test_consume_build_cascade_package_stage_missing_after_nest_stops(
                 env, "widget", "1.0.0", name="widget",
         )
     assert nests == [ str( root ) ]
+
+
+def test_consume_cascade_dependencies_binds_existing_stage_without_nest(
+        tmp_path, monkeypatch,
+):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+    stage = root / "_build" / "gcc" / "rel" / "x86_64" / "cxx2c" / "final" / "widget" / "1.0.0"
+    ( stage / "include" ).mkdir( parents=True )
+    ( stage / "lib" ).mkdir()
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "consume-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+    nests = []
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: nests.append( "nest" ),
+    )
+
+    found = cascade.consume_build_cascade_package_stage(
+            env, "widget", "1.0.0", name="widget",
+    )
+    assert found == str( stage )
+    assert nests == []
+    assert str( root ) not in cascade.build_cascade_staged_roots()
+
+
+def test_consume_cascade_dependencies_missing_stage_does_not_nest(
+        tmp_path, monkeypatch,
+):
+    cascade.reset_cascade_nested_done()
+    root = tmp_path / "widget"
+    root.mkdir()
+    ( root / "sconstruct" ).write_text( "#\n", encoding="utf-8" )
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "consume-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env()
+    env["publisher_root"] = str( tmp_path )
+    nests = []
+    monkeypatch.setattr(
+            cascade, "run_nested_build",
+            lambda *a, **k: nests.append( "nest" ),
+    )
+
+    with pytest.raises( SCons.Errors.StopError, match="does not nest" ) as raised:
+        cascade.consume_build_cascade_package_stage(
+                env, "widget", "1.0.0", name="widget",
+        )
+    assert nests == []
+    assert "--build-cascade-dependencies" in str( raised.value )
 
 
 def test_maybe_run_cascade_build_deps_skips_already_staged_root( monkeypatch ):
@@ -3931,11 +4067,10 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
     assert "--publisher-root" in visible
     assert "folder that already holds the trees" in visible
     assert "only fetches URL package_source dependencies" in visible
-    assert "then re-run with either --build-cascade-dependencies" in visible
-    assert "or --publish-cascade-dependencies to execute" in visible
+    assert "then re-run with one of --build-cascade-dependencies" in visible
+    assert "or --consume-cascade-dependencies to execute" in visible
     assert as_info( "package_source" ) in text
     assert as_emphasised_plain( "one of" ) in text
-    assert as_emphasised_plain( "either" ) in text
     assert as_emphasised_plain( "or" ) in text
     assert as_emphasised_plain( "then" ) in text
     # Must not pitch clone as a peer choice for no-URL gaps.
@@ -3966,8 +4101,8 @@ def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
     assert "manually place publisher trees under --publisher-root" in visible
     assert "folder that already holds the trees" in visible
     assert "pass --clone-publishers for dependencies that already have a URL package_source" in visible
-    assert "then re-run with either --build-cascade-dependencies" in visible
-    assert "or --publish-cascade-dependencies to execute" in visible
+    assert "then re-run with one of --build-cascade-dependencies" in visible
+    assert "or --consume-cascade-dependencies to execute" in visible
     assert "│   --publish-cascade-dependencies" not in visible
     assert "│   or --publish-cascade-dependencies" not in visible
 
