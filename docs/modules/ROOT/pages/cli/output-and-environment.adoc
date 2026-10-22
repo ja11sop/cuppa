@@ -94,6 +94,36 @@ warning or a non-zero exit prints the command and the processed output, then the
 line as the summary. It does not imply `--minimal-output`. Combined with it, a clean run
 is still one line, and failure output is filtered to errors and warnings. It needs the
 spawn processor, so it is refused with `--raw-output` or `--scons-output`.
+`env.Run()` / process actions omit the emphasised `Running Process [...]` banner and
+`= done =` timing block under `--terse-output` (child stdout/stderr stay in the on-disk
+logs; argv is not echoed). The durable line spells action **`run`** (even under
+`--test` — fixtures and helpers are not tests; `Test()` / `BuildTest()` keep `test` /
+`[pass]`), includes wall duration, and puts the full command summary in the file cell
+instead of a `.success` stamp name (long lines wrap; they are not ellipsis-truncated by
+default). Process transcript still clears any quiet/terse status row before writing, so
+a heartbeat caption cannot glue onto the banner.
+While a terse tool or Python action is in flight on a TTY, the status row shows a muted
+`[....]` caption (six columns, so fields line up under `[ok]`) with the same sconscript /
+variant / file fields as the eventual durable line, and a progressive action word
+(`compiling`, `copying`, `running-test`, `enabling-cxx-profiles`, ...). Script leaf, variant, and sources use the
+same colours as the durable finish line. The in-flight verb and the product that does
+not exist yet (object file, staged binary, test program) are muted+bold like
+`[location]`, not success/info green — the work is not finished yet. Hyphenated
+verbs progressive the verb segment (`test-index` → `test-indexing`, `compile-scss` →
+`compiling-scss`). There is no duration or assertion detail on the in-flight row. Pulse or spinner
+follows `--quiet-heartbeat`. A single in-flight job keeps the compact arrow
+(`→ [....]`). Under `--parallel` / `-j`, the arrow is replaced by a muted
+right-aligned job count and the badge embeds which member is shown
+(`5 [...3]` for five jobs, displaying the third); the status row rotates across the
+outstanding set on a short dwell as well as when actions finish. The caption arms
+only after a short delay (same order as the quiet idle gate), so fast Copy/Move/...
+actions that finish immediately never flash on the status row — only their durable
+`[ok]` line appears. Armed long jobs stay on the status row: each durable line
+clears the caption briefly, then the sticky `[....]` chases back (it does not wait
+on the idle gate, so a stream of quick finishes cannot hide parallel compiles).
+Delegated builders that print `[launch]` drop the in-flight caption in favour of
+that bookend.
+
 `Progress(...)` lines are replaced by a `[progress]` checkpoint when a sconstruct,
 sconscript, or variant begins or ends. The scope word is subdued. The percent is the
 whole build. `[progress]` is info and bold. Status lines are indented so `[ok]` starts
@@ -237,7 +267,7 @@ method label. Anything still unnamed is `run`.
 | `GenerateHtmlTestReport` | `test-report`
 | `CollateTestReportIndex` | `test-index`
 | `GenerateBittenReport` | `bitten-report`
-| C++ profiles merge | `profiles`
+| C++ Profiles enforce view | `cxx-profiles`
 | C++ module map | `module-map`
 | package amend (`--amend-package-manifest`) | `amend`
 | `Build`, `Compile`, link | `compile`, `link`, `link-shared`

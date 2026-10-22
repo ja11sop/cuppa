@@ -67,9 +67,26 @@ jobs:
           # Prefer GCC 15 when available (ubuntu-latest / 24.04 needs the toolchain test PPA).
           # Keep this off the clang jobs: Clang + libstdc++ from GCC 15 breaks with -std=c++2c
           # (e.g. <format> constexpr errors in CreateVersion).
+          # Launchpad often serves the index (HTTP 200) and then 503s the .debs.
+          # A missing g++-15 is also an apt regex (the '+'), which installs clang-15
+          # and exits 0, so require the gcc-15 binaries before continuing.
           sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-          sudo apt-get update
-          sudo apt-get install -y g++-15 gcovr
+          echo 'Acquire::Retries "5";' | sudo tee /etc/apt/apt.conf.d/80-retries >/dev/null
+          installed=0
+          for attempt in 1 2 3 4 5; do
+            sudo apt-get update || true
+            if sudo apt-get install -y g++-15 gcovr \
+                && [[ -x /usr/bin/gcc-15 && -x /usr/bin/g++-15 ]]; then
+              installed=1
+              break
+            fi
+            echo "g++-15 install failed (attempt ${attempt}); retrying..."
+            sleep $((attempt * 20))
+          done
+          if [[ "${installed}" -ne 1 ]]; then
+            echo "g++-15 could not be installed from ppa:ubuntu-toolchain-r/test"
+            exit 1
+          fi
           sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 150
           sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 150
           sudo update-alternatives --set gcc /usr/bin/gcc-15

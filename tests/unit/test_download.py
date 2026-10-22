@@ -51,7 +51,7 @@ def test_format_progress_line_known_size():
 
 
 def test_format_progress_line_columns_stable():
-    from cuppa.utility.storage import visible_len
+    from cuppa.utility.terminal import visible_len
 
     total = int( 1.6 * 1024 ** 3 )
     lines = [
@@ -102,14 +102,16 @@ def test_format_progress_line_unknown_size():
 
 
 def _reset_progress_tty_state( monkeypatch ):
-    monkeypatch.delenv( dl.PROGRESS_TTY_ENV, raising=False )
-    monkeypatch.delenv( dl.PROGRESS_FD_ENV, raising=False )
-    dl._progress_tty_stream = None
-    dl._progress_tty_fd = None
+    from cuppa.utility import terminal as term
+
+    monkeypatch.delenv( term.PROGRESS_TTY_ENV, raising=False )
+    monkeypatch.delenv( term.PROGRESS_FD_ENV, raising=False )
+    term.reset_progress_tty_state()
 
 
 def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
     import builtins
+    from cuppa.utility import terminal as term
 
     real_open = builtins.open
 
@@ -120,7 +122,7 @@ def test_open_progress_stream_falls_back_without_tty( monkeypatch ):
 
     _reset_progress_tty_state( monkeypatch )
     monkeypatch.setattr( builtins, 'open', fake_open )
-    stream, is_tty, owns = dl.open_progress_stream()
+    stream, is_tty, owns = term.open_progress_stream()
     assert stream is __import__( 'sys' ).stderr
     assert owns is False
     assert is_tty in ( True, False )
@@ -130,6 +132,7 @@ def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path
     """Path fallback when /dev/tty is gone but CUPPA_PROGRESS_TTY is set."""
     import builtins
     import io
+    from cuppa.utility import terminal as term
 
     real_open = builtins.open
     pts = tmp_path / "fake-pts"
@@ -152,12 +155,12 @@ def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path
         return real_open( path, *args, **kwargs )
 
     _reset_progress_tty_state( monkeypatch )
-    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
+    monkeypatch.setenv( term.PROGRESS_TTY_ENV, str( pts ) )
     monkeypatch.setattr( builtins, 'open', fake_open )
     monkeypatch.setattr( os, 'ttyname', lambda fd: str( pts ), raising=False )
     monkeypatch.setattr( os, 'isatty', lambda fd: fd == 99 )
 
-    stream, is_tty, owns = dl.open_progress_stream()
+    stream, is_tty, owns = term.open_progress_stream()
     assert is_tty is True
     assert owns is False
     assert str( pts ) in opened
@@ -166,12 +169,13 @@ def test_open_progress_stream_uses_cuppa_progress_tty_env( monkeypatch, tmp_path
 def test_open_progress_stream_uses_inherited_progress_fd( monkeypatch ):
     """pass_fds + CUPPA_PROGRESS_FD is the nest-safe path (no CTTY reopen)."""
     import pty
+    from cuppa.utility import terminal as term
 
     _reset_progress_tty_state( monkeypatch )
     master, slave = pty.openpty()
     try:
-        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
-        stream, is_tty, owns = dl.open_progress_stream()
+        monkeypatch.setenv( term.PROGRESS_FD_ENV, str( slave ) )
+        stream, is_tty, owns = term.open_progress_stream()
         assert is_tty is True
         assert owns is False
         assert stream.fileno() == slave
@@ -189,14 +193,15 @@ def test_open_progress_stream_uses_inherited_progress_fd( monkeypatch ):
 
 def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
     import pty
+    from cuppa.utility import terminal as term
 
     _reset_progress_tty_state( monkeypatch )
     master, slave = pty.openpty()
     try:
-        monkeypatch.setenv( dl.PROGRESS_FD_ENV, str( slave ) )
-        kwargs, env = dl.progress_tty_popen_kwargs( {} )
+        monkeypatch.setenv( term.PROGRESS_FD_ENV, str( slave ) )
+        kwargs, env = term.progress_tty_popen_kwargs( {} )
         assert kwargs.get( "pass_fds" ) == ( slave, )
-        assert env[dl.PROGRESS_FD_ENV] == str( slave )
+        assert env[term.PROGRESS_FD_ENV] == str( slave )
     finally:
         try:
             os.close( master )
@@ -211,21 +216,23 @@ def test_progress_tty_popen_kwargs_pass_fds( monkeypatch ):
 
 def test_progress_tty_popen_kwargs_omits_pass_fds_on_windows( monkeypatch ):
     """Windows: no pass_fds; strip CUPPA_PROGRESS_FD; publish CONOUT$ path only."""
+    from cuppa.utility import terminal as term
+
     _reset_progress_tty_state( monkeypatch )
-    monkeypatch.setattr( dl.sys, "platform", "win32" )
-    monkeypatch.setattr( dl.os, "name", "nt" )
-    monkeypatch.setattr( dl, "ensure_progress_tty_fd", lambda: 7 )
-    monkeypatch.setattr( dl.os, "ttyname", lambda fd: "CONOUT$", raising=False )
-    kwargs, env = dl.progress_tty_popen_kwargs( { dl.PROGRESS_FD_ENV: "7" } )
+    monkeypatch.setattr( term.sys, "platform", "win32" )
+    monkeypatch.setattr( term.os, "name", "nt" )
+    monkeypatch.setattr( term, "ensure_progress_tty_fd", lambda: 7 )
+    monkeypatch.setattr( term.os, "ttyname", lambda fd: "CONOUT$", raising=False )
+    kwargs, env = term.progress_tty_popen_kwargs( { term.PROGRESS_FD_ENV: "7" } )
     assert "pass_fds" not in kwargs
-    assert dl.PROGRESS_FD_ENV not in env
-    assert env[dl.PROGRESS_TTY_ENV] == "CONOUT$"
+    assert term.PROGRESS_FD_ENV not in env
+    assert env[term.PROGRESS_TTY_ENV] == "CONOUT$"
 
 
 def test_open_progress_stream_ignores_progress_fd_on_windows( monkeypatch ):
     """Stale CUPPA_PROGRESS_FD must not be consumed without pass_fds."""
     import builtins
-    import io
+    from cuppa.utility import terminal as term
 
     real_open = builtins.open
 
@@ -235,12 +242,12 @@ def test_open_progress_stream_ignores_progress_fd_on_windows( monkeypatch ):
         return real_open( path, *args, **kwargs )
 
     _reset_progress_tty_state( monkeypatch )
-    monkeypatch.setattr( dl.sys, "platform", "win32" )
-    monkeypatch.setattr( dl.os, "name", "nt" )
-    monkeypatch.setenv( dl.PROGRESS_FD_ENV, "3" )
+    monkeypatch.setattr( term.sys, "platform", "win32" )
+    monkeypatch.setattr( term.os, "name", "nt" )
+    monkeypatch.setenv( term.PROGRESS_FD_ENV, "3" )
     monkeypatch.setattr( builtins, "open", fake_open )
     monkeypatch.setattr( os, "isatty", lambda fd: False )
-    stream, is_tty, owns = dl.open_progress_stream()
+    stream, is_tty, owns = term.open_progress_stream()
     assert stream is __import__( "sys" ).stderr
     assert owns is False
 
@@ -267,11 +274,13 @@ def test_reporter_survives_dead_progress_stream():
 
 
 def test_resolve_progress_tty_path_remembers_existing_env( monkeypatch, tmp_path ):
+    from cuppa.utility import terminal as term
+
     pts = tmp_path / "pts0"
     pts.write_text( "", encoding="utf-8" )
     _reset_progress_tty_state( monkeypatch )
-    monkeypatch.setenv( dl.PROGRESS_TTY_ENV, str( pts ) )
-    assert dl.resolve_progress_tty_path() == str( pts )
+    monkeypatch.setenv( term.PROGRESS_TTY_ENV, str( pts ) )
+    assert term.resolve_progress_tty_path() == str( pts )
 
 
 def test_reporter_tty_rewrites_same_line():

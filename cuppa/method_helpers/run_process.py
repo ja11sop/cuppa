@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2019-2020
+#          Copyright Jamie Allsop 2019-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -26,19 +26,68 @@ from cuppa.utility.dict_tools import args_from_dict
 from cuppa.utility.env import merge_callable_exports
 
 
+def _write_process_transcript( text ):
+    """Durable process transcript: clear sticky status / progress first.
+
+    ``Monitor`` and live process echo used to write ``sys.stdout`` directly,
+    so a quiet/terse heartbeat caption could glue onto ``Running Process`` /
+    ``= done =`` (soak under ``--terse-output -Q``). Route through the shared
+    transcript helper whenever heartbeat is importable.
+    """
+    try:
+        from cuppa.utility.heartbeat import write_transcript
+        write_transcript( text )
+        return
+    except Exception:
+        pass
+    sys.stdout.write( text )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
+def _env_terse( scons_env ):
+    try:
+        return bool( scons_env.get( 'terse_output' ) )
+    except Exception:
+        return False
+
+
+def short_run_summary( command, *, limit=None ):
+    """One-line command field for terse ``Run`` status lines.
+
+    Store the full normalised command on the node. Durable terse paint keeps
+    that full text by default (terminal wrap). Pass ``limit`` only when a
+    caller explicitly wants an ellipsis fit (tests / opt-in).
+    """
+    text = " ".join( str( command or "" ).split() )
+    if not text:
+        return ""
+    if limit is not None:
+        from cuppa.utility.terminal import fit_plain
+        return fit_plain( text, max( 24, int( limit ) ) )
+    return text
+
+
 class Monitor(object):
 
     def __init__( self, name, scons_env ):
         self._name = name
         self._scons_env = scons_env
+        self._terse = _env_terse( scons_env )
         self._timer = None
-
-        sys.stdout.write('\n')
-        sys.stdout.write(
-            as_emphasised( "Running Process [{}]".format( name ) )
-        )
-        sys.stdout.write('\n')
         self._cpu_times = cuppa.timer.CpuTimes( 0, 0, 0, 0 )
+
+        if self._terse:
+            # Durable ``[ok] · run|test|…`` comes from the terse Python-action
+            # wrapper; keep the verbose banner / timing block off the TTY.
+            return
+
+        _write_process_transcript( '\n' )
+        _write_process_transcript(
+            as_emphasised( "Running Process [{}]".format( name ) ) + '\n'
+        )
 
 
     def start( self ):
@@ -46,23 +95,33 @@ class Monitor(object):
 
 
     def stop( self, status='success', treat_error_as_warning=False ):
+        if self._terse:
+            if self._timer:
+                self._timer.stop()
+                self._cpu_times = self._timer.elapsed()
+                try:
+                    # Durable ``[ok] · run · <duration> · …`` reads this stash.
+                    cuppa.progress.stash_terse_duration( self._cpu_times.wall )
+                except Exception:
+                    pass
+            return
         meaning = status
         if treat_error_as_warning and is_error( status ):
             meaning = 'warning'
         if status == 'success':
             status = 'done'
-        sys.stdout.write( as_highlighted( meaning, " = {} = ".format( status ) ) )
+        line = as_highlighted( meaning, " = {} = ".format( status ) )
         if self._timer:
             self._timer.stop()
             self._cpu_times = self._timer.elapsed()
-            cuppa.timer.write_time( self._cpu_times, True )
-            sys.stdout.write('\n\n')
+            # One transcript write (not ``write_time`` → raw stdout) so a pulse
+            # cannot repaint between the status badge and the timing fields.
+            line = line + " " + cuppa.timer.as_string( self._cpu_times )
+        _write_process_transcript( line + '\n\n' )
 
 
     def message( self, line ):
-        sys.stdout.write(
-            line + "\n"
-        )
+        _write_process_transcript( line + "\n" )
 
 
 def stdout_file_name_from( program_file ):
@@ -145,7 +204,7 @@ class ProcessStdout(object):
     def __call__( self, line ):
         self.log.write( line + '\n' )
         if self._show_output:
-            sys.stdout.write( line + '\n' )
+            _write_process_transcript( line + '\n' )
 
 
     def __exit__( self, type, value, traceback ):
@@ -163,6 +222,13 @@ class ProcessStderr(object):
     def __call__( self, line ):
         self.log.write( line + '\n' )
         if self._show_output:
+            # Still clear any sticky status before stderr so a heartbeat row
+            # cannot glue onto the first error line.
+            try:
+                from cuppa.utility.heartbeat import clear as clear_status
+                clear_status()
+            except Exception:
+                pass
             sys.stderr.write( line + '\n' )
 
 
@@ -183,11 +249,29 @@ class RunProcessAction(object):
         self._inherit_process_env = inherit_process_env
 
 
+    def _note_terse_command( self, command, source, env, target=None ):
+        if not _env_terse( env ):
+            return
+        summary = short_run_summary( command )
+        try:
+            cuppa.progress.stash_terse_command( command, target, source, env )
+        except Exception:
+            pass
+        if summary and target is not None:
+            try:
+                # Prefer the concrete argv over a ``.success`` stamp basename.
+                cuppa.progress.label_terse_action( target, None, summary=summary )
+            except Exception:
+                pass
+
+
     def _run_command( self, source, suppress_output, program_path, command, working_dir, env, retry ):
 
         log_failure = retry and logger.warn or logger.error
         success = False
 
+        # ``target`` is unavailable here; ``__call__`` re-labels when it has nodes.
+        self._note_terse_command( command, source, env )
         monitor = Monitor( program_path, env )
         monitor.start()
 
@@ -244,6 +328,8 @@ class RunProcessAction(object):
 
         if self._command and callable(self._command):
             program_path = os.path.splitext(os.path.splitext(str(target[0]))[0])[0]
+            summary = short_run_summary( getattr( self._command, "__name__", "callable" ) )
+            self._note_terse_command( summary, source, env, target=target )
             monitor = Monitor( program_path, env )
             monitor.start()
 
@@ -286,6 +372,12 @@ class RunProcessAction(object):
                     working_dir = self._working_dir and self._working_dir or self._final_dir
 
             suppress_output = env['suppress_process_output']
+            # Under terse, live process echo fights the status row and duplicates
+            # the durable ``[ok] · run|test`` line — keep logs on disk only.
+            if _env_terse( env ):
+                suppress_output = True
+            if _env_terse( env ) and command:
+                self._note_terse_command( command, source, env, target=target )
             retry_count = self._retry_count
 
             while retry_count >= 0:
@@ -321,16 +413,26 @@ class RunProcessAction(object):
         process_stdout = ProcessStdout( not suppress_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( not suppress_output, stderr_file_name_from( program_path ) )
 
-        return_code = IncrementalSubProcess.Popen2( process_stdout,
-                                                    process_stderr,
-                                                    shlex.split( command ),
-                                                    cwd=working_dir,
-                                                    scons_env=env,
-                                                    inherit_process_env=self._inherit_process_env)
+        return_code = IncrementalSubProcess.Popen2(
+                process_stdout,
+                process_stderr,
+                shlex.split( command ),
+                cwd=working_dir,
+                scons_env=env,
+                inherit_process_env=self._inherit_process_env,
+                # ``Popen2`` echoes argv when not suppressed — under terse that
+                # duplicated the durable ``[ok] · test · docker …`` file cell.
+                suppress_output=suppress_output,
+        )
         return return_code
 
 
     def __write_file_to_stderr( self, file_name ):
+        try:
+            from cuppa.utility.heartbeat import clear as clear_status
+            clear_status()
+        except Exception:
+            pass
         error_file = open( file_name, "r" )
         for line in error_file:
             sys.stderr.write( line + '\n' )
@@ -339,5 +441,3 @@ class RunProcessAction(object):
 
 def runner( final_dir, **kwargs ):
     return RunProcessAction( final_dir, **kwargs ), RunProcessEmitter( final_dir, **kwargs )
-
-

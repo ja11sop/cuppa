@@ -24,32 +24,11 @@ import textwrap
 import time
 from collections import namedtuple
 
-from cuppa.utility.preprocess import AnsiEscape
+from cuppa.utility.terminal import pad_visible, visible_len
 
 
 class StorageError( Exception ):
     pass
-
-
-# CSI / OSC sequences inflate len(); table padding and rule widths must ignore them.
-_ANSI_ESCAPE_RE = AnsiEscape.ansi_escape_re
-# HtmlColouriser placeholders (cuppa/colourise_html.py); keep in sync with that token.
-_HTML_COLOUR_TOKEN_RE = re.compile( r'\x00cuppa-html-\d+\x00' )
-
-
-def visible_len( text ):
-    """Display width of ``text`` with ANSI and HTML colouriser tokens removed."""
-    text = _ANSI_ESCAPE_RE.sub( '', str( text ) )
-    return len( _HTML_COLOUR_TOKEN_RE.sub( '', text ) )
-
-
-def pad_visible( text, width ):
-    """Left-justify ``text`` to a visible width of ``width`` columns."""
-    text = str( text )
-    pad = width - visible_len( text )
-    if pad <= 0:
-        return text
-    return text + ( ' ' * pad )
 
 
 # tee, elbow, and the two continuations that sit under them, each the same width.

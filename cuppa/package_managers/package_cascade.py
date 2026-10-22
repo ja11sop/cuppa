@@ -2661,7 +2661,7 @@ def _run_nested_cuppa( argv, cwd, env ) -> int:
 
     popen_kwargs = dict( child_popen_kwargs() )
     try:
-        from cuppa.utility.download import progress_tty_popen_kwargs
+        from cuppa.utility.terminal import progress_tty_popen_kwargs
         tty_kwargs, env = progress_tty_popen_kwargs( env )
         popen_kwargs.update( tty_kwargs )
     except Exception:
@@ -4433,7 +4433,7 @@ def _nested_session_env( env ) -> dict:
     # fd in the env; ``_run_nested_cuppa`` also ``pass_fds`` the open tip
     # progress descriptor (path reopen alone is unreliable without a CTTY).
     try:
-        from cuppa.utility.download import progress_tty_popen_kwargs
+        from cuppa.utility.terminal import progress_tty_popen_kwargs
         _kwargs, nested_env = progress_tty_popen_kwargs( nested_env )
     except Exception:
         pass

@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Under ``--terse-output``, ``env.Run`` / process actions label the durable
+  status line as action **``run``** (even under ``--test``; fixtures are not
+  tests), with wall **duration** and a **command summary** (or callable name)
+  instead of a ``.success`` stamp basename. The summary stays full-length by
+  default (terminal wrap); ellipsis fit is opt-in only. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
+- Under ``--terse-output`` on a TTY, in-flight toolchain / process actions show
+  a sticky muted ``[....]`` caption on the shared heartbeat status row (six
+  columns so fields line up under ``[ok]``), with progressive action words
+  (``compiling``, ``copying``, ``running-test``, …). Script / variant / sources use
+  durable colours; the in-flight verb and the not-yet-written product leaf are
+  muted+bold (no success/info green). Hyphenated progressives follow the verb
+  (``test-indexing``, not ``testing-index``). A single in-flight job keeps
+  ``→ [....]``; under
+  ``-j`` / ``--parallel`` the arrow becomes a muted right-aligned job count and
+  the badge embeds the 1-based display index (``5 [...3]``), rotating across
+  the outstanding set on a short dwell. Terse spawns keep the heartbeat alive
+  for the tool duration. Delegated ``[launch]`` bookends replace the in-flight
+  caption.   Nested ``env.Execute(Copy/…)`` no longer leaks finished actions into
+  that set (they armed ``[....]`` via ``PRINT_CMD_LINE`` but had no SPAWN finish
+  hook). ``[....]`` arms only after a short idle-style delay so fast Copy/Move/…
+  emit the durable line alone. Sticky in-progress captions bypass the transcript
+  idle gate and chase back onto the status row after each durable write, so a
+  stream of quick ``[ok]`` lines cannot starve the display of long armed jobs.
+  Stderr/stdout through the terse interrupt filter clears the status row first
+  so ``scons: ***`` cannot glue onto a live caption. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
+
 - GitLab package **named library groups**: publishers may declare ``lib_groups``
   on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
   ``use_libs`` and traveling-edge ``use_libs`` accept group names and/or leaf
@@ -58,12 +86,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Terse action for the C++ Profiles enforce view is ``cxx-profiles`` (was
+  ``profiles``). The in-flight caption is ``enabling-cxx-profiles``.
+- Interactive console helpers (visible width, column fit, controlling TTY /
+  progress stream, ``CUPPA_STDOUT_IS_TTY`` / ``CUPPA_PROGRESS_*`` nest forward)
+  live in ``cuppa.utility.terminal``. Heartbeat, transfer progress, develop /
+  git status, storage tables, and terse ``Run`` paint import from that module
+  instead of duplicating probes.
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
 
+- ``env.Run`` / process ``Monitor`` no longer writes ``Running Process`` /
+  ``= done =`` straight to ``sys.stdout`` (which glued quiet/terse heartbeat
+  captions onto the banner). Writes go through ``write_transcript``. Under
+  ``--terse-output`` the verbose banner, timing block, live child echo, and
+  ``Popen2`` argv echo are suppressed (logs stay on disk); the durable terse
+  ``[ok]`` / ``[error]`` line remains. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
 - Cascade ``--build-cascade-dependencies`` early nest no longer **drops
   tip package factories whose version is still ``None`` / ``latest``**
   (e.g. ``boost_package`` remembered ``1.92``). Edge seeding now runs the

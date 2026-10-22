@@ -199,7 +199,7 @@ def profiles_enforce_compile_source_node( env, source_node ):
         )
 
     merged = env.Command( merged_path, source_node, merge_action )
-    cuppa.progress.label_terse_action( merged, "profiles" )
+    cuppa.progress.label_terse_action( merged, "cxx-profiles" )
     try:
         env.Clean( env.Dir( env['build_dir'] ), merged_path )
     except Exception:

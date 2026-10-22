@@ -84,7 +84,7 @@ class Git:
         line so a later clear can leave the ACTION table as the only surface.
         """
         from cuppa.colourise import as_subdued
-        from cuppa.utility.storage import pad_visible, visible_len
+        from cuppa.utility.terminal import pad_visible, visible_len
 
         prefix = line_prefix or ""
         width = 0
@@ -179,7 +179,7 @@ class Git:
         that line across several fetches; ``owns_stream`` defaults to whether this
         call opened the stream.
         """
-        from cuppa.utility.download import open_progress_stream
+        from cuppa.utility.terminal import open_progress_stream
 
         command = cls._args_to_command( args_list )
 

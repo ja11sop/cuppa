@@ -9,10 +9,12 @@
 #-------------------------------------------------------------------------------
 
 import atexit
+import itertools
 import os.path
 import signal
 import sys
 import threading
+from collections import OrderedDict
 
 from cuppa.colourise import (
         as_badge, as_colour, as_emphasised, as_emphasised_plain, as_info, as_notice, as_subdued,
@@ -233,7 +235,13 @@ def _is_interrupt_noise( text ):
 
 
 class _TerseInterruptStream:
-    """Drop the per-job ``Error -2`` lines Ctrl-C produces under ``-j``."""
+    """Drop Ctrl-C job noise; clear the status row before other stderr/stdout.
+
+    SCons ``scons: *** [target] Error N`` (and Boost.Test noise) often write
+    straight to stderr — the same TTY the heartbeat paints with ``\\r``. Without
+    a clear, that text concatenates onto the live ``[....]`` caption
+    (``…/pipeline.oscons: *** …``).
+    """
 
     def __init__( self, real ):
         self._real = real
@@ -245,6 +253,13 @@ class _TerseInterruptStream:
             if "Build interrupted." in str( text or "" ):
                 write_terse_interrupt_finish()
             return
+        if text and str( text ).strip():
+            try:
+                from cuppa.utility.heartbeat import clear as clear_status, status_row_active
+                if status_row_active():
+                    clear_status()
+            except Exception:
+                pass
         return self._real.write( text )
 
     def flush( self ):
@@ -490,6 +505,7 @@ def progress_action( label, event, sconscript, variant, env ):
 _terse_command = threading.local()
 _terse_children = threading.local()
 _terse_launch = threading.local()
+_terse_executing = threading.local()
 _pending_lock = threading.Lock()
 # Commands stashed by a job thread and not yet consumed by a spawn. A Python
 # action prints before it runs and never spawns, so the next print on that
@@ -500,6 +516,109 @@ _terse_locations_lock = threading.Lock()
 _terse_prepare_written = False
 _terse_ready_written = False
 _written_sconstruct_maps = set()
+
+# Outstanding terse actions for the sticky ``[....]`` status caption.
+# Keyed independently of the per-thread stash so ``-j`` can cycle the display.
+# Six columns — same width as ``[ok]`` / ``[done]`` so fields line up under the
+# durable transcript badge. Single job: ``→ [....]``. Parallel: muted job count
+# replaces ``→`` and the badge embeds the 1-based display index (``5 [...3]``).
+_EXECUTING_TOKEN = "[....]"
+_outstanding_lock = threading.Lock()
+# Displayed in-flight set (survived the arm delay). Pending keys wait in
+# ``_pending_outstanding`` so fast Copy/Execute never flash on the status row.
+_outstanding = OrderedDict()
+_pending_outstanding = OrderedDict()
+_outstanding_arm_timers = {}
+_outstanding_seq = itertools.count( 1 )
+_outstanding_cycle = 0
+# Key of the caption currently shown (stable across repaints / appends).
+_outstanding_display_key = None
+# Wait this long after PRINT before painting ``[....]`` (same order as the
+# heartbeat idle gate). End before this → durable line only.
+_OUTSTANDING_ARM_S = 0.20
+# Dwell before rotating the displayed outstanding member under ``-j``.
+_OUTSTANDING_DWELL_S = 2.0
+_outstanding_rotate_timer = None
+
+# Base terse action → progressive ("doing") form for the in-flight caption.
+# Full hyphenated labels are listed explicitly so the verb lands on the right
+# segment (``test-index`` → ``test-indexing``, not ``testing-index``).
+# A value equal to the key means "leave the tool / noun unchanged".
+_PROGRESSIVE_ACTIONS = {
+        "amend": "amending",
+        "archive": "archiving",
+        "asciidoc": "asciidoc",
+        "b2": "launching-b2",
+        "benchmark": "running-benchmark",
+        "biber": "biber",
+        "bibtex": "bibtex",
+        "bitten-report": "bitten-reporting",
+        "boost-toolset": "writing-toolset",
+        "build": "building",
+        "build-b2": "building-b2",
+        "chmod": "chmod",
+        "clean": "cleaning",
+        "cmake-build": "launching-cmake-build",
+        "cmake-configure": "launching-cmake-configure",
+        "cmake-install": "launching-cmake-install",
+        "collate": "collating",
+        "collate-coverage": "collating-coverage",
+        "compile": "compiling",
+        "compile-scss": "compiling-scss",
+        "compress": "compressing",
+        "configure": "configuring",
+        "copy": "copying",
+        "coverage": "running-coverage",
+        "coverage-index": "coverage-indexing",
+        "cxx-profiles": "enabling-cxx-profiles",
+        "delete": "deleting",
+        "download": "downloading",
+        "dvipdf": "dvipdf",
+        "dvips": "dvips",
+        "expand": "expanding",
+        "extract": "extracting",
+        "gs": "gs",
+        "index": "indexing",
+        "install": "installing",
+        "jar": "jarring",
+        "javac": "javac",
+        "javah": "javah",
+        "latex": "latex",
+        "lex": "lex",
+        "link": "linking",
+        "link-shared": "linking-shared",
+        "m4": "m4",
+        "makeindex": "makeindex",
+        "map": "mapping",
+        "markdown": "markdown",
+        "mkdir": "mkdir",
+        "module-map": "module-mapping",
+        "move": "moving",
+        "package": "packaging",
+        "pdftex": "pdftex",
+        "pdflatex": "pdflatex",
+        "publish": "publishing",
+        "remove": "removing",
+        "remove-empty": "removing-empty",
+        "render": "rendering",
+        "report": "reporting",
+        "rmic": "rmic",
+        "rpm": "rpm",
+        "rpcgen": "rpcgen",
+        "run": "running",
+        "swig": "swig",
+        "tar": "tarring",
+        "test": "running-test",
+        "test-case": "running-test-case",
+        "test-index": "test-indexing",
+        "test-report": "test-reporting",
+        "tex": "tex",
+        "text": "writing",
+        "upload": "uploading",
+        "version": "versioning",
+        "yacc": "yacc",
+        "zip": "zipping",
+}
 
 
 class _ProgressLedger(object):
@@ -2409,11 +2528,51 @@ def take_terse_status_emitted():
     return done
 
 
-def format_terse_line( status, command, target, source, env, count=True ):
-    """``[status] sconscript · variant · action · file``.
+def _fit_terse_file_field( file_text, head_parts, fields_before_file ):
+    """Optionally truncate a long ``Run`` command cell to remaining columns.
+
+    Opt-in only (see ``format_terse_line(..., truncate_file=True)``). Default
+    terse lines keep the full command and let the terminal wrap. When fitting,
+    measure against the controlling TTY (``terminal.terminal_columns``), not
+    the launcher pipe.
+    """
+    if not file_text:
+        return file_text
+    try:
+        from cuppa.output_processor import strip_ansi
+        from cuppa.utility.terminal import fit_plain, terminal_columns, visible_len
+    except Exception:
+        return file_text
+    sep = " " + as_subdued( "·" ) + " "
+    head = " ".join( head_parts )
+    mid = sep.join( fields_before_file ) if fields_before_file else ""
+    used = visible_len( head )
+    if mid:
+        used += 1 + visible_len( mid )  # space between marker and fields
+    used += visible_len( sep )  # middot before the file cell
+    budget = terminal_columns() - used
+    if budget < 8:
+        budget = 8
+    plain = strip_ansi( file_text )
+    fitted = fit_plain( plain, budget )
+    if fitted == plain:
+        return file_text
+    # Summary cells are subdued; keep that after a plain fit.
+    return as_subdued( fitted )
+
+
+def format_terse_line(
+        status, command, target, source, env, count=True, duration="",
+        truncate_file=False,
+):
+    """``[status] sconscript · variant · action · [duration ·] file``.
 
     ``count=False`` is a line that is not in the action total, such as a
     nested copy or move. It leads with ``→``. The caller is still the action.
+    ``duration`` is optional (``env.Run`` / process helpers stash wall time).
+    Long ``env.Run`` command summaries are kept in full by default (terminal
+    wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell to the
+    controlling TTY width.
     """
     parts = []
     prefix = _account_and_prefix( target, env, count=count, mark=False )
@@ -2433,7 +2592,16 @@ def format_terse_line( status, command, target, source, env, count=True ):
         fields.append( cell )
     action = spell_terse_action( command, target, env )
     fields.append( _action_label( action ) )
+    if duration:
+        fields.append( as_subdued( duration ) )
     file_text = _file_field( action, target, source, env )
+    if (
+            truncate_file
+            and file_text
+            and action in _RUN_FILE_ACTIONS
+            and _explicit_terse_summary( target )
+    ):
+        file_text = _fit_terse_file_field( file_text, parts, fields )
     if file_text:
         fields.append( file_text )
     if fields:
@@ -2455,6 +2623,482 @@ def stash_terse_command( cmd, target, source, env ):
     _terse_command.env = env
     with _pending_lock:
         _pending_commands[ threading.get_ident() ] = ( cmd, target, source, env )
+
+
+_terse_duration = threading.local()
+
+
+def stash_terse_duration( nanos ):
+    """Wall-time nanos for the next durable terse line (``env.Run`` helpers)."""
+    try:
+        _terse_duration.nanos = int( nanos )
+    except ( TypeError, ValueError ):
+        _terse_duration.nanos = None
+
+
+def take_terse_duration():
+    """Return and clear a stashed duration string, or ``\"\"``."""
+    nanos = getattr( _terse_duration, "nanos", None )
+    _terse_duration.nanos = None
+    if nanos is None:
+        return ""
+    return format_terse_duration( nanos )
+
+
+def progressive_terse_action( action ):
+    """Progressive ("doing") form of a terse action word for ``[....]`` captions.
+
+    ``compile`` → ``compiling``. Hyphenated labels progressive the **verb**
+    segment, not whichever piece happens to be a known verb first:
+    ``compile-scss`` → ``compiling-scss`` (verb-object), ``test-index`` →
+    ``test-indexing`` (object-verb). An explicit map entry wins; otherwise a
+    known tail verb wins over a known head verb.
+    """
+    text = str( action or "" ).strip()
+    if not text:
+        return text
+    mapped = _PROGRESSIVE_ACTIONS.get( text )
+    if mapped is not None:
+        return mapped
+    if "-" in text:
+        head, sep, tail = text.rpartition( "-" )
+        # Object-verb (``test-index``, ``cmake-build``) before verb-object
+        # (``compile-scss``), so a verb on both sides does not rewrite the noun.
+        if tail in _PROGRESSIVE_ACTIONS and "-" not in tail:
+            return head + sep + _PROGRESSIVE_ACTIONS[tail]
+        if head in _PROGRESSIVE_ACTIONS and "-" not in head:
+            return _PROGRESSIVE_ACTIONS[head] + sep + tail
+    if text.endswith( "e" ) and not text.endswith( ( "ee", "ie" ) ):
+        return text[ : -1 ] + "ing"
+    if text.endswith( "y" ) and len( text ) > 1 and text[ -2 ].lower() not in "aeiou":
+        return text[ : -1 ] + "ying"
+    return text + "ing"
+
+
+def _muted_bold( text ):
+    """Bold muted ink — same recipe as ``[location]`` / ``[registry]`` badges."""
+    text = str( text or "" )
+    if not text:
+        return ""
+    return as_emphasised( as_subdued( text ) )
+
+
+def _pending_product_end( token, relative, fallback="" ):
+    """Product path that does not exist yet: subdued dirs, muted-bold leaf.
+
+    Durable finish lines use info+bold on the dest basename; in-flight captions
+    use muted+bold instead (no success/info green) because the target is still
+    being written.
+    """
+    relative = str( relative or "" ).replace( "\\", "/" ).strip( "/" )
+    directory, filename = os.path.split( relative ) if relative else ( "", "" )
+    if directory in ( "", "." ):
+        directory = ""
+    prefix = ( "<" + token + ">/" ) if token else ""
+    head = prefix + ( directory + "/" if directory else "" )
+    shown = as_subdued( head ) if head else ""
+    if filename:
+        return shown + _muted_bold( filename )
+    if token:
+        return as_subdued( "<" + token + ">" )
+    if fallback:
+        return _muted_bold( fallback )
+    return shown
+
+
+def _executing_file_field( action, target, source, env ):
+    """File cell for ``[....]``: durable colours on sources; muted-bold targets.
+
+    Compile / transform: ``source → pending_product``. Copy / move: same.
+    ``test`` / ``benchmark`` / binary ``run``: pending product only (no
+    duration or assertion detail). Command-summary ``run`` stays subdued argv.
+    """
+    summary = _explicit_terse_summary( target )
+    if summary and action in _RUN_FILE_ACTIONS and _paths_style( target ) != "file":
+        return as_subdued( str( summary ) )
+
+    if _is_transform_action( action ):
+        directory, filename = _compile_file_parts( source, env )
+        source_text = _coloured_file( directory, filename ) if filename else ""
+        dest_token, dest_path = _locate( _node_path( _first_node( target ) ), env )
+        dest_text = _pending_product_end(
+                dest_token, dest_path, fallback=_node_basename( target ),
+        )
+        if source_text and dest_text:
+            return source_text + " " + as_subdued( "→" ) + " " + dest_text
+        return source_text or dest_text
+
+    if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
+        source_token, source_path = _locate( _node_path( _first_node( source ) ), env )
+        dest_token, dest_path = _locate( _node_path( _first_node( target ) ), env )
+        source_text = _coloured_transfer_end( source_token, source_path, dest=False )
+        dest_text = _pending_product_end(
+                dest_token, dest_path, fallback=_node_basename( target ),
+        )
+        if source_text and dest_text:
+            return source_text + " " + as_subdued( "→" ) + " " + dest_text
+        return source_text or dest_text
+
+    if action in _PATH_ACTIONS:
+        token, relative = _locate( _node_path( _first_node( target ) ), env )
+        return _pending_product_end(
+                token, relative, fallback=_node_basename( target ),
+        )
+
+    if action in _RUN_FILE_ACTIONS:
+        # Binary under test / run / benchmark — product not yet "passed".
+        program = source if _first_node( source ) is not None else target
+        raw = _node_path( _first_node( program ) )
+        token, relative = _locate( raw, env )
+        return _pending_product_end(
+                token, relative, fallback=_node_basename( program ),
+        )
+
+    if summary and _paths_style( target ) == "file":
+        shown = str( summary ).replace( "\\", "/" )
+        directory, filename = os.path.split( shown )
+        if directory in ( "", "." ):
+            directory = ""
+        head = ( directory + "/" ) if directory else ""
+        return ( as_subdued( head ) if head else "" ) + _muted_bold( filename or shown )
+
+    token, relative = _locate( _node_path( _first_node( target ) ), env )
+    return _pending_product_end(
+            token, relative, fallback=_node_basename( target ),
+    )
+
+
+def executing_badge( index=None, total=None ):
+    """Six-column in-flight badge: ``[....]``, or ``[...3]`` when multiplexing.
+
+    ``index`` is 1-based among the current outstanding set. Digits grow left
+    into the dot fill (``[..12]``, ``[.123]``, ``[1234]``).
+    """
+    if total is None or total <= 1 or index is None:
+        return _EXECUTING_TOKEN
+    inner = _STATUS_WIDTH - 2
+    text = str( int( index ) )
+    if len( text ) >= inner:
+        return "[" + text[ -inner: ] + "]"
+    return "[" + ( "." * ( inner - len( text ) ) ) + text + "]"
+
+
+def _executing_fields_text( command, target, source, env ):
+    """Identity fields after the ``[....]`` badge (no leading badge)."""
+    # ``env.Execute(Copy(...))`` prints with empty node lists — paths live in
+    # the command text (same recovery as durable ``_present_executed_command``).
+    use_target, use_source = _executed_paths( command, target, source )
+    fields = []
+    script = _sconscript_label( env )
+    if script:
+        fields.append( _coloured_sconscript( script ) )
+    painted_cell = _coloured_build_cell( env, use_target )
+    if painted_cell:
+        fields.append( painted_cell )
+    action = spell_terse_action( command, use_target, env )
+    # In-flight verb is muted+bold, like the pending product: the work is not
+    # finished yet. Durable ``[ok]`` lines keep plain bold via ``_action_label``.
+    fields.append( _muted_bold( progressive_terse_action( action ) ) )
+    file_text = _executing_file_field( action, use_target, use_source, env )
+    if file_text:
+        fields.append( file_text )
+    if not fields:
+        return ""
+    return ( " " + as_subdued( "·" ) + " " ).join( fields )
+
+
+def format_terse_executing_caption(
+        command, target, source, env, *, index=None, total=None,
+):
+    """Styled sticky caption: ``[....] script · variant · compiling · file``.
+
+    Same identity fields as durable ``format_terse_line`` (normal script /
+    variant colours), without tally, percent, or duration. Badge is six
+    columns (``[....]``, or ``[...k]`` when ``total > 1``). The progressive
+    verb and targets that do not exist yet are muted+bold; sources keep
+    durable colouring. Parallel job count lives on the heartbeat bridge
+    (replacing ``→``), not in this string.
+    """
+    fields = _executing_fields_text( command, target, source, env )
+    marker = as_subdued( executing_badge( index, total ) )
+    if not fields:
+        return marker
+    return marker + " " + fields
+
+
+def _paint_terse_executing( caption ):
+    """Show ``caption`` on the shared status row when a TTY row can be armed."""
+    if not caption:
+        return
+    try:
+        from cuppa.utility.heartbeat import diverting, ensure_status_row, show_info
+    except Exception:
+        return
+    if diverting() or ensure_status_row():
+        show_info( caption, sticky=True, preserve_style=True )
+
+
+def _cancel_outstanding_rotate():
+    global _outstanding_rotate_timer
+    timer = _outstanding_rotate_timer
+    _outstanding_rotate_timer = None
+    if timer is not None:
+        try:
+            timer.cancel()
+        except Exception:
+            pass
+
+
+def _cancel_outstanding_arm( key ):
+    with _outstanding_lock:
+        timer = _outstanding_arm_timers.pop( key, None )
+        _pending_outstanding.pop( key, None )
+    if timer is not None:
+        try:
+            timer.cancel()
+        except Exception:
+            pass
+
+
+def _cancel_all_outstanding_arms():
+    with _outstanding_lock:
+        timers = list( _outstanding_arm_timers.values() )
+        _outstanding_arm_timers.clear()
+        _pending_outstanding.clear()
+    for timer in timers:
+        try:
+            timer.cancel()
+        except Exception:
+            pass
+
+
+def _arm_outstanding_rotate():
+    """Start the dwell carousel when more than one action is outstanding.
+
+    Does **not** restart a timer that is already counting. Repaints and
+    appends must not reset the ~2s dwell, or a stream of fast ``[ok]`` lines
+    keeps the displayed index stuck on the first member.
+    """
+    global _outstanding_rotate_timer
+    fresh = None
+    stale = None
+    with _outstanding_lock:
+        if len( _outstanding ) <= 1:
+            stale = _outstanding_rotate_timer
+            _outstanding_rotate_timer = None
+        elif _outstanding_rotate_timer is None:
+            fresh = threading.Timer( _OUTSTANDING_DWELL_S, _on_outstanding_rotate )
+            fresh.daemon = True
+            _outstanding_rotate_timer = fresh
+    if stale is not None:
+        try:
+            stale.cancel()
+        except Exception:
+            pass
+    if fresh is not None:
+        fresh.start()
+
+
+def _on_outstanding_rotate():
+    """Advance the displayed outstanding member after the dwell."""
+    global _outstanding_rotate_timer
+    _outstanding_rotate_timer = None
+    with _outstanding_lock:
+        if len( _outstanding ) <= 1:
+            return
+    refresh_terse_executing( advance=True )
+
+
+def _promote_outstanding( key ):
+    """Move a pending key into the displayed set after the arm delay.
+
+    Appends without stealing the carousel index — new jobs join the rotation;
+    the dwell timer (not promote) advances the displayed member.
+    """
+    with _outstanding_lock:
+        _outstanding_arm_timers.pop( key, None )
+        fields = _pending_outstanding.pop( key, None )
+        if fields is None:
+            return
+        _outstanding[key] = fields
+    # Repaint so ``N`` / badge update; keep the current display key.
+    _paint_current_outstanding( advance=False )
+
+
+def _schedule_outstanding_arm( key ):
+    """Arm ``[....]`` after :data:`_OUTSTANDING_ARM_S`, or immediately when ``<= 0``."""
+    if _OUTSTANDING_ARM_S <= 0:
+        _promote_outstanding( key )
+        return
+    timer = threading.Timer( _OUTSTANDING_ARM_S, _promote_outstanding, args=( key, ) )
+    timer.daemon = True
+    with _outstanding_lock:
+        if key not in _pending_outstanding:
+            return
+        prior = _outstanding_arm_timers.pop( key, None )
+        _outstanding_arm_timers[key] = timer
+    if prior is not None:
+        try:
+            prior.cancel()
+        except Exception:
+            pass
+    timer.start()
+
+
+def _apply_executing_bridge( total ):
+    """Compact heartbeat bridge: ``→`` alone, or muted job count when ``total > 1``."""
+    try:
+        from cuppa.utility.heartbeat import set_compact_bridge
+    except Exception:
+        return
+    if total > 1:
+        set_compact_bridge( str( total ) )
+    else:
+        set_compact_bridge( None )
+
+
+def _select_outstanding_display( keys, *, advance ):
+    """Choose which outstanding key to show; update cycle / display-key globals.
+
+    Caller holds ``_outstanding_lock``. Retains the current key across
+    repaints and appends. If that job finished, land on the member that slid
+    into its slot (the former next). ``advance`` (dwell timer only) moves to
+    the next key for a steady carousel — not on every durable ``[ok]``.
+    """
+    global _outstanding_cycle, _outstanding_display_key
+    if not keys:
+        _outstanding_display_key = None
+        _outstanding_cycle = 0
+        return None, 0
+
+    if advance:
+        if _outstanding_display_key in keys:
+            index = keys.index( _outstanding_display_key )
+            index = ( index + 1 ) % len( keys )
+        else:
+            # Current job gone — index already points at the successor slot.
+            index = _outstanding_cycle % len( keys )
+        _outstanding_display_key = keys[ index ]
+        _outstanding_cycle = index
+        return _outstanding_display_key, index
+
+    if _outstanding_display_key in keys:
+        index = keys.index( _outstanding_display_key )
+        _outstanding_cycle = index
+        return _outstanding_display_key, index
+
+    # Displayed job removed (or first paint): use the slot index, wrapping
+    # when the last member finished so the carousel continues at the head.
+    index = _outstanding_cycle % len( keys )
+    _outstanding_display_key = keys[ index ]
+    _outstanding_cycle = index
+    return _outstanding_display_key, index
+
+
+def _paint_current_outstanding( *, advance=False ):
+    """Paint one outstanding caption; clear sticky / bridge when the set is empty."""
+    with _outstanding_lock:
+        keys = list( _outstanding.keys() )
+        display_key, index = _select_outstanding_display( keys, advance=advance )
+        if display_key is None:
+            total = 0
+            fields = None
+        else:
+            total = len( keys )
+            fields = _outstanding[ display_key ]
+    if total == 0 or fields is None:
+        _cancel_outstanding_rotate()
+        _apply_executing_bridge( 0 )
+        try:
+            from cuppa.utility.heartbeat import release_sticky_caption
+            release_sticky_caption()
+        except Exception:
+            pass
+        return
+    _apply_executing_bridge( total )
+    display_index = ( index + 1 ) if total > 1 else None
+    badge = as_subdued( executing_badge( display_index, total ) )
+    caption = badge if not fields else badge + " " + fields
+    _paint_terse_executing( caption )
+    if total > 1:
+        _arm_outstanding_rotate()
+    else:
+        _cancel_outstanding_rotate()
+
+
+def begin_terse_executing( command, target, source, env ):
+    """Register an in-flight terse action; paint ``[....]`` after the arm delay.
+
+    Fast actions that finish before :data:`_OUTSTANDING_ARM_S` never appear on
+    the status row — only their durable ``[ok]`` / ``[error]`` line. No-op
+    without ``--terse-output``, when the alive style is ``off``, or when there
+    is no controlling TTY. Returns an opaque key for :func:`end_terse_executing`.
+    """
+    if not _env_get( env, "terse_output" ):
+        return None
+    try:
+        from cuppa.utility.heartbeat import normalize_style, style as heartbeat_style
+        if normalize_style( heartbeat_style() ) == "off":
+            return None
+    except Exception:
+        pass
+    fields = _executing_fields_text( command, target, source, env )
+    key = ( threading.get_ident(), next( _outstanding_seq ) )
+    with _outstanding_lock:
+        _pending_outstanding[key] = fields
+    _terse_executing.key = key
+    _schedule_outstanding_arm( key )
+    return key
+
+
+def end_terse_executing( key=None ):
+    """Drop an outstanding / pending action. Does not paint — call :func:`refresh_terse_executing` after durable transcript."""
+    global _outstanding_cycle, _outstanding_display_key
+    if key is None:
+        key = getattr( _terse_executing, "key", None )
+    _terse_executing.key = None
+    if key is None:
+        return
+    _cancel_outstanding_arm( key )
+    with _outstanding_lock:
+        if key in _outstanding:
+            keys = list( _outstanding.keys() )
+            removed_at = keys.index( key )
+            del _outstanding[key]
+            if _outstanding_display_key == key:
+                # Leave ``_outstanding_cycle`` at ``removed_at`` so the next
+                # repaint shows the member that slid into this slot (or wraps).
+                _outstanding_display_key = None
+                _outstanding_cycle = removed_at
+            elif _outstanding_display_key in _outstanding:
+                _outstanding_cycle = list( _outstanding.keys() ).index(
+                        _outstanding_display_key,
+                )
+            elif removed_at < _outstanding_cycle:
+                _outstanding_cycle -= 1
+
+
+def refresh_terse_executing( advance=False ):
+    """Repaint the outstanding caption, or release sticky when the set is empty.
+
+    Keeps the current carousel member by default so durable ``[ok]`` lines and
+    sticky chase-back do not reset the rotation. Pass ``advance=True`` from the
+    dwell timer to step to the next armed job.
+    """
+    _paint_current_outstanding( advance=advance )
+
+
+def reset_terse_executing():
+    """Clear the outstanding set (tests / process teardown)."""
+    global _outstanding_cycle, _outstanding_display_key
+    _cancel_outstanding_rotate()
+    _cancel_all_outstanding_arms()
+    with _outstanding_lock:
+        _outstanding.clear()
+        _outstanding_cycle = 0
+        _outstanding_display_key = None
+    _terse_executing.key = None
+    _apply_executing_bridge( 0 )
 
 
 def note_terse_child( command, lines, failed=False ):
@@ -2543,6 +3187,9 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
     """Print a delegated launch bookend. No effect unless ``--terse-output``."""
     if not _env_get( env, "terse_output" ):
         return
+    # Launch bookend is the in-progress cue for delegated builders — drop any
+    # stash-time ``[....]`` so we do not double-caption.
+    end_terse_executing()
     _terse_launch.emitted = True
     if command:
         _terse_launch.command = command
@@ -2550,6 +3197,9 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
     note_terse_build_activity()
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
+    # Repaint another outstanding job (or clear the parallel bridge) after the
+    # durable ``[launch]`` line owns the transcript row.
+    refresh_terse_executing( advance=False )
 
 
 def format_terse_muted_child( text, env ):
@@ -2706,7 +3356,11 @@ def flush_unconsumed_terse_command():
             _terse_launch.source = source
             _terse_launch.env = env
         return
+    if cmd:
+        end_terse_executing()
     _write_command( cmd )
+    if cmd:
+        refresh_terse_executing()
 
 def _factory_args( body ):
     """Arguments of a ``Copy("dest", "src")`` style command."""
@@ -2743,20 +3397,25 @@ def _executed_paths( command, target, source ):
     """Nodes for an ``Execute`` action. ``Execute`` itself passes empty lists.
 
     ``Copy("dest", "src")`` and ``Move("dest", "src")`` carry the paths in the
-    command text. Other commands keep the nodes SCons passed in.
+    command text. ``Delete`` / ``Mkdir`` / ``Chmod`` carry a single path.
+    Other commands keep the nodes SCons passed in.
     """
     text = str( command or "" ).strip()
     name, _open, body = text.partition( "(" )
     key = name.strip().lower()
-    if key not in ( "copy", "move" ) or not body.endswith( ")" ):
+    if key in ( "copy", "move" ) and body.endswith( ")" ):
+        args = _factory_args( body[:-1] )
+        dest = args[0] if args else ""
+        src = args[1] if len( args ) > 1 else ""
+        if not _node_path( _first_node( target ) ) and dest:
+            target = [ dest ]
+        if not _node_path( _first_node( source ) ) and src:
+            source = [ src ]
         return target, source
-    args = _factory_args( body[:-1] )
-    dest = args[0] if args else ""
-    src = args[1] if len( args ) > 1 else ""
-    if not _node_path( _first_node( target ) ) and dest:
-        target = [ dest ]
-    if not _node_path( _first_node( source ) ) and src:
-        source = [ src ]
+    if key in ( "delete", "mkdir", "chmod" ):
+        paths = _quoted_args( text )
+        if paths and not _node_path( _first_node( target ) ):
+            return [ paths[0] ], source
     return target, source
 
 
@@ -3660,11 +4319,14 @@ def terse_print_cmd_line( cmd, target, source, env ):
     execute run on the same SCons job thread, so a per-thread stash pairs
     them under ``-j``. A command that never reaches a spawn is written back
     on the next print, or at process exit.
+
+    Also arms the sticky ``[....]`` caption for the in-flight action.
     """
     flush_unconsumed_terse_command()
     if _is_progress_command( cmd ):
         return
     stash_terse_command( cmd, target, source, env )
+    begin_terse_executing( cmd, target, source, env )
 
 
 atexit.register( flush_terse_commands )
@@ -3686,6 +4348,7 @@ def render_terse_spawn( returncode, errors, warnings, buffered_lines, command, t
     prints the command and the processed output first, then the status line
     as the summary.
     """
+    end_terse_executing()
     note_terse_build_activity()
     if not returncode and not errors and not warnings:
         status = "ok"
@@ -3757,21 +4420,25 @@ class _TersePythonCallable( object ):
     def _finish_interrupted_action( self, target, env ):
         note_build_interrupted()
         take_terse_command()
+        end_terse_executing()
         take_terse_children()
         take_terse_launch()
         take_terse_status_emitted()
         if not take_terse_action_accounted():
             _account_and_prefix( target, env, count=True, mark=False )
         note_terse_build_activity()
+        refresh_terse_executing()
 
     def _finish_python_action( self, target, source, env, failed ):
         if take_terse_status_emitted():
             take_terse_command()
+            end_terse_executing()
             take_terse_children()
             take_terse_launch()
             if not take_terse_action_accounted():
                 # Nested copies printed the lines. This action still counts.
                 _account_and_prefix( target, env, count=True, mark=False )
+            refresh_terse_executing()
             return
         _report_python_action( target, source, env, failed=failed )
 
@@ -3795,6 +4462,7 @@ def _report_python_action( target, source, env, failed ):
     Otherwise the SCons description is used. A delegated launch that already
     streamed muted children only reprints argv on failure.
     """
+    end_terse_executing()
     command, stashed_target, stashed_source, stashed_env = take_terse_command()
     children = take_terse_children()
     launched, launch_command = take_terse_launch()
@@ -3822,6 +4490,7 @@ def _report_python_action( target, source, env, failed ):
             use_target,
             use_source,
             use_env,
+            duration=take_terse_duration(),
     )
     if severity not in ( "ok", "done" ):
         if launched and launch_command:
@@ -3836,6 +4505,7 @@ def _report_python_action( target, source, env, failed ):
     note_terse_build_activity()
     _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
+    refresh_terse_executing()
     if severity == "error":
         note_build_failure_draining()
 
@@ -3932,24 +4602,44 @@ def _wrap_execute( env ):
     def execute( action, *args, **kwargs ):
         if not _env_get( env, "terse_output" ):
             return current( action, *args, **kwargs )
+        # Nested ``Execute`` prints via ``PRINT_CMD_LINE_FUNC`` and arms
+        # ``[....]``, then returns without a SPAWN finish hook. Save the
+        # caller's in-flight key so we can drop only the nested entry and
+        # restore the parent — otherwise finished Copy/Move/… stay in the
+        # outstanding set and inflate the parallel job count forever.
         saved = take_terse_command()
+        parent_key = getattr( _terse_executing, "key", None )
+
+        def _drop_nested_executing():
+            nested_key = getattr( _terse_executing, "key", None )
+            if nested_key is not None and nested_key != parent_key:
+                end_terse_executing( nested_key )
+            _terse_executing.key = parent_key
+
         try:
             result = current( action, *args, **kwargs )
         except ( KeyboardInterrupt, SystemExit ):
+            take_terse_command()
+            _drop_nested_executing()
             if saved[0]:
                 stash_terse_command( *saved )
+            refresh_terse_executing( advance=False )
             raise
         except Exception:
             take_terse_command()
+            _drop_nested_executing()
             if saved[0]:
                 stash_terse_command( *saved )
+            refresh_terse_executing( advance=False )
             raise
         nested = take_terse_command()
+        _drop_nested_executing()
         visible = _present_executed_command(
                 nested[0], nested[1], nested[2], env, failed=bool( result ),
         )
         if saved[0] and not visible:
             stash_terse_command( *saved )
+        refresh_terse_executing( advance=False )
         return result
 
     execute._cuppa_terse_execute = True
