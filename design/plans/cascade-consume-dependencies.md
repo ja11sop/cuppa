@@ -1,8 +1,8 @@
 # Plan: Tip consume forest stages without nesting
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (tip bind under `--build-cascade-dependencies`; deferred “second consume flag”); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`../archive/stage-develop-locations.md`](../archive/stage-develop-locations.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md); ROADMAP **1.13.0** related
-- **Updated:** 2026-10-19
+- **Updated:** 2026-10-23
 - **Impact:** minor — new cascade companion; tip bind reuses build-deps tip-consume helpers
 
 ## Problem
@@ -95,6 +95,6 @@ as a rejected alias in this plan so bikeshed does not reopen).
 |------|--------|
 | Soak gap captured | Done — this proposal (**project F**) |
 | Naming | Lean `--consume-cascade-dependencies` |
-| Implementation | Not started |
-| Antora cascade table + examples | With implementation |
-| Unit tests (mutex, tip bind without nest) | With implementation |
+| Implementation | Done — flag, mutex (including amend), tip bind via `consume_build_cascade_package_stage` with no nest-on-miss, `run_build_cascade_stages` stays build-deps only. Consume-only logs “dependencies consume (no nest); tip build only” and skips the graph. `--cascade-plan` still reviews the DAG and does not nest. Blocked-plan closings name consume as a way to execute; the short “pass one of …” run phrase stays the nest companions so the clone-on-the-way line does not wrap |
+| Antora cascade table + examples | Done — `dependencies/publishing/cascade.adoc`, `cli/dependencies-and-develop.adoc` |
+| Unit tests (mutex, tip bind without nest) | Done — `tests/unit/test_package_cascade.py` |

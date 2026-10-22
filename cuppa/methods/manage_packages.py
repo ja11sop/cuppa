@@ -192,7 +192,8 @@ class PublishPackageMethod(object):
                         '--publish-cascade-dependencies (nested publish, tip '
                         'build only), --build-cascade-dependencies (nested '
                         'build, no registry upload, tip build only), '
-                        '--cascade-plan, --collect-cascade, or '
+                        '--consume-cascade-dependencies (bind existing forest '
+                        'stages, no nest), --cascade-plan, --collect-cascade, or '
                         '--update-publishers. Optional --amend-cascade-manifests '
                         'makes nests metadata-amend instead of full-building. '
                         'Not compatible with -n/--no-exec when nested sessions '
@@ -228,7 +229,8 @@ class PublishPackageMethod(object):
                         'resolved GitLab package dependency (leaf-first), '
                         'refresh tip consume caches, then continue with the tip '
                         'build only — do not upload the tip. Cannot be combined '
-                        'with --publish-package or --build-cascade-dependencies. '
+                        'with --publish-package, --build-cascade-dependencies, or '
+                        '--consume-cascade-dependencies. '
                         'Works for consume-only tips and publisher tips.'
                 ),
         )
@@ -241,8 +243,28 @@ class PublishPackageMethod(object):
                         'dependency (leaf-first) without registry upload, then '
                         'continue with the tip build only. Nested sessions do '
                         'not pass --publish-package. Cannot be combined with '
-                        '--publish-package or --publish-cascade-dependencies. '
+                        '--publish-package, --publish-cascade-dependencies, or '
+                        '--consume-cascade-dependencies. '
                         'Works for consume-only tips and publisher tips.'
+                ),
+        )
+        add_option(
+                '--consume-cascade-dependencies',
+                dest='consume-cascade-dependencies',
+                action='store_true',
+                help=(
+                        'With --cascade, bind each tip GitLab dependency to an '
+                        'existing publisher-root final/<package>/<version>/ '
+                        'stage (same toolchain rules as '
+                        '--build-cascade-dependencies) and continue with the '
+                        'tip build only. Does not nest and does not fall back '
+                        'to a registry extract. A missing or wrong-toolchain '
+                        'stage is an error — run --build-cascade-dependencies '
+                        '(or --amend-cascade-manifests) first. Cannot be '
+                        'combined with --publish-package, '
+                        '--publish-cascade-dependencies, '
+                        '--build-cascade-dependencies, or '
+                        '--amend-cascade-manifests. --develop still wins.'
                 ),
         )
         add_option(
