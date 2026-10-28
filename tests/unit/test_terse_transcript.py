@@ -391,33 +391,11 @@ def test_run_without_node_summary_names_the_command():
     assert bare.rstrip().endswith( "· run · set_postgres_env_variables" )
 
 
-def test_post_interrupt_credit_miss_emits_diagnostic( capsys ):
-    """After ``[interrupted]``, failed credit prints ``terse-credit: miss=…``."""
-    env = _terse_env()
-    progress.register_terse_actions( env, [ _ActionNode() ] )
-    progress.note_build_interrupted()
-    progress.write_terse_interrupt_finish()
-    capsys.readouterr()
-    progress.format_terse_line(
-            "ok",
-            "docker stop deadbeef",
-            [ _LabelledNode( "run", "docker-stop.success" ) ],
-            [],
-            env,
-    )
-    out = capsys.readouterr().out
-    assert "terse-credit: miss=missing" in out
-    assert "interrupt=closed" in out
-    assert "docker stop deadbeef" in out
-    assert "docker-stop.success" in out
-
-
 def test_post_interrupt_empty_target_elides_stale_cell_tally( capsys ):
-    """``empty-target`` after close must not reuse the in-flight ``N/M``.
+    """Out-of-band teardown after close must not reuse the in-flight ``N/M``.
 
-    Serial postgres soak: tip ``docker stop`` finished with no nodes and
-    painted the same ``14/34`` as the stopped compile. Elide the cell
-    prefix (nested ``→``) and keep the ``terse-credit`` miss line.
+    Tip ``atexit`` ``docker stop`` finishes with no nodes — nested ``→``,
+    not the stopped compile's cell tally.
     """
     env = _terse_env()
     progress.register_terse_actions( env, [ _ActionNode() ] )
@@ -431,9 +409,7 @@ def test_post_interrupt_empty_target_elides_stale_cell_tally( capsys ):
             [],
             env,
     )
-    out = capsys.readouterr().out
-    assert "terse-credit: miss=empty-target" in out
-    assert "target=<none>" in out
+    assert "terse-credit:" not in capsys.readouterr().out
     assert "→" in line
     assert not line.lstrip()[0].isdigit()
     assert "docker stop" in line
