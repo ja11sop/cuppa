@@ -10,10 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - ``--parallel=N`` — Cuppa CPU affinity plus an explicit SCons / CMake job
-  count (preferred spelling for “affinity but at most N”). Bare ``--parallel``
-  still auto-chooses the affinity-aware CPU count; ``--parallel --jobs=N``
-  remains valid. Combining ``--parallel=N`` with ``--jobs`` / ``-j`` is a
-  ``StopError``. Plan: ``design/plans/parallel-job-count.md``;
+  count (short form of ``--parallel --jobs=N``). ``N`` is the **job count
+  only**; the affinity mask is the same leave-cores-for-OS set as bare
+  ``--parallel`` (not “pin to N cores”). ``N`` may be below or above that
+  size (e.g. ``--parallel=20`` on a 16-core host oversubscribes and warns).
+  Bare ``--parallel`` still auto-chooses the affinity-aware CPU count;
+  combining ``--parallel=N`` with ``--jobs`` / ``-j`` is a ``StopError``.
+  Plan: ``design/plans/parallel-job-count.md``;
   [#298](https://github.com/ja11sop/cuppa/issues/298).
 
 - Recognised Clang toolchain aliases include ``clang23`` / ``clang231`` (LLVM 23.x).

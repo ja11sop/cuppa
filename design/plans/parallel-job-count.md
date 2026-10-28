@@ -95,7 +95,9 @@ Spellings:
   target and still enables auto parallel) — do not document it
 
 `--parallel=N` with `--jobs` / `-j` is a `StopError`. `--parallel --jobs=M` stays
-valid. `N` greater than the affinity-aware CPU count is honoured with a warning.
+valid. `N` is the **job count only** — the affinity mask is still the fixed
+leave-cores-for-OS set (not “pin to N cores”). `N` may be below or above that
+size; above is honoured with a warning (oversubscribe).
 
 ## Semantics (sketch for A)
 
