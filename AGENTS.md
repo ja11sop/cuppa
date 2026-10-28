@@ -562,7 +562,7 @@ for the installed version. Task pages live under `docs/modules/ROOT/pages/cli/` 
 
 - `--offline` — after the first fetch in a session; skips PyPI version check and remote location updates
 - `--develop` — when using configured local develop paths for location/package deps
-- `--parallel` — for compile-only speed; avoid when diagnosing failures or when running tests/coverage collection
+- `--parallel` / `--parallel=N` — for compile-only speed (affinity; optional explicit job count); avoid when diagnosing failures or when running tests/coverage collection
 - `--verbosity=exception` or `--verbosity=debug` — when configure/sconscript load fails
 
 **Coverage:** always pass both `--cov` and `--test` to *collect*. `--cov` alone does not run tests.

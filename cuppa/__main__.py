@@ -129,7 +129,8 @@ def run_scons( args_list ):
         # Token masking of this process's stdout/stderr is the pipe below, not that flag.
         args_list = ['scons'] + args_list + ['--cuppa-mode']
 
-        if '--parallel' in args_list:
+        from cuppa.utility.parallelism import argv_requests_parallel
+        if argv_requests_parallel( args_list ):
             restrict_cpus()
 
         stdout_processor = masker.mask
