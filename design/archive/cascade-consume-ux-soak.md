@@ -172,7 +172,7 @@ a concrete `12.2.0`. No new ranges bug found here — keep tracking on
 | `cascade-n-did-you-mean` | `--cascade` + `-n` → did you mean `--cascade-plan`? | Done — #366 |
 | `cascade-remedy-split` | Finish-line / node errors distinguish no-URL vs URL-needs-clone | Done — #366 |
 | `cascade-nest-rel` | Default nest `--rel`; opt-in `--cascade-variants` | Done — this PR |
-| `skip-resolve` | Explore cheap plan/collect without full location update | Low — design first |
+| `skip-resolve` | Explore cheap plan/collect without full location update | **Done** as `--skip-location-update` on [#379](https://github.com/ja11sop/cuppa/pull/379) — [`../plans/skip-location-update.md`](../plans/skip-location-update.md) |
 
 ## Settled lean: what `--list-dependencies` should say for “missing” packages
 
