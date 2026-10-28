@@ -1,7 +1,7 @@
 # Plan: Optional job count on `--parallel`
 
 - **Status:** done
-- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](../archive/publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below
+- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](../archive/publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below; done on [#378](https://github.com/ja11sop/cuppa/pull/378)
 - **Updated:** 2026-10-28
 - **Impact:** `minor` for `--parallel=N` CLI; **`patch`** for the CMake helper default below (behaviour fix)
 
@@ -128,7 +128,7 @@ notice or honour N (SCons can oversubscribe). Provisional: **honour N**, warn on
 | `par-cmake-serial-default` | `cmake_build_jobs` → `1` without Cuppa `--parallel`; explicit `--parallel N` matching affinity `job_count`; tests + Antora (`patch`) | **Done** — soaked on [#319](https://github.com/ja11sop/cuppa/pull/319) 2026-09-21 |
 | `par-count-plan` | This document + design README / ROADMAP pointer | **Done** |
 | `par-count-settle` | Lock A vs C; `=` vs space; conflict with `--jobs` | **Done** — A; `=` only; conflict is `StopError`; oversubscribe warns |
-| `par-count-impl` | Options + wrapper + construct + tests + docs | **Done** this PR — `nargs='?'` `const='auto'`; `parse_parallel_option` / `resolve_parallel_job_count`; `__main__` affinity on `--parallel=*` |
+| `par-count-impl` | Options + wrapper + construct + tests + docs | **Done** on [#378](https://github.com/ja11sop/cuppa/pull/378) — `nargs='?'` `const='auto'`; `parse_parallel_option` / `resolve_parallel_job_count`; `__main__` affinity on `--parallel=*` |
 
 ## Out of scope
 
