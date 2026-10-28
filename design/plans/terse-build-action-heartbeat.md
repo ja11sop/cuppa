@@ -254,40 +254,33 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
 | `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
-| Progress / location maps after `[interrupted]` | **Done** — under `-j`, Progress begin + location maps that were mid-flight no longer print after the interrupt close; gated on `_interrupt_announced` like sticky `[....]` ([#380](https://github.com/ja11sop/cuppa/pull/380)) |
-| Per-job `[cancelled]` on Ctrl-C | **Done** — notice `[cancelled]` on SIGINT finish (spawn + Python); no argv reprint; paints between interrupt bookends (this PR) |
+| Progress / location maps after `[interrupted]` | **Superseded** — do not hide drain transcript; close waits for `Jobs.run` so mid-flight maps land *above* `[interrupted]` (this PR; was gated in [#380](https://github.com/ja11sop/cuppa/pull/380)) |
+| Per-job `[stopped]` on Ctrl-C | **Done** — notice `[stopped]` on SIGINT finish (spawn + Python); no argv reprint; drain before close (this PR) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
 | Delegated CMake / `b2` extra `[....]` | **Deferred** — `[launch]` already drops the in-flight caption; muted children are the mid-flight cue. Do not add a second `[....]` unless a soak shows a silent gap beside `[launch]` |
 
-## Soak addendum (2026-10-28) — interrupt cancel confirmation
+## Soak addendum (2026-10-28) — interrupt stop confirmation + close ordering
 
 Under `--terse-output` ± `-Q` / `--parallel`, first Ctrl-C `SIGINT`s remembered
-build children. Today a SIGINT exit is **silent** on the durable transcript
-(`_finish_interrupted_action` does not paint `[ok]` / `[error]`); the only
-positive confirmation is the aggregate close:
+build children. Desired drain shape:
 
 ```text
 interrupted — stopping in-flight actions...
+   2/  6 ·  60% [stopped]  test/trades · … · compile · …
+   1/  4 ·  61% [stopped]  test/filters · … · compile · …
+              → [location] …   (mid-flight Progress maps OK here)
+   …
 stopped in-flight actions
-[interrupted] reached 71%: 50/70 · 3 ran · 47 up to date
-```
-
-Empty space between those bookends is **expected** when SIGINT wins. Occasional
-`[ok]` in the gap means a job finished cleanly before the signal landed (drain
-race), not that cancel failed.
-
-**Settled (this PR):** per-job durable confirmation for interrupted actions:
-
-```text
-  4/  4 ·  69% [cancelled]  test/positions · gcc15_dbg_… · link · <final>/position_movement
+[interrupted] reached 61%: 43/70 · 2 ran · 41 up to date
 ```
 
 | Piece | Choice |
 |-------|--------|
-| Badge | `[cancelled]` — notice colour (same family as `[interrupted]`), not error |
+| Badge | `[stopped]` — notice; same verb as `stopping…` / `stopped in-flight actions` |
 | Width | Wider than six columns; pad is a no-op so the word reads in full |
-| When | SIGINT returncode on spawn + Python-action finish (replaces silence) |
-| Where | Naturally between bookends; late lines after `stopped…` OK (no strong mute) |
-| Argv | Not reprinted — cancel is confirmation, not a failure transcript |
+| When | SIGINT returncode on spawn + Python-action finish |
+| Close | **`Jobs.run` finally only** — never on mid-drain SCons `Build interrupted.` |
+| Maps | Allowed during drain; do **not** hide after `[interrupted]` as the fix |
+| Argv | Not reprinted — stop is confirmation, not a failure transcript |

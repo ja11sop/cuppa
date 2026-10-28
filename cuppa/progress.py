@@ -111,11 +111,13 @@ def _drop_executing_after_interrupt():
 
 
 def write_terse_interrupt_finish():
-    """Close a graceful Ctrl-C once signalled in-flight actions have exited.
+    """Close a graceful Ctrl-C once ``Jobs.run`` has drained in-flight work.
 
-    An ``aborted`` build has no closing line. The counts are the same ones a
-    successful build would report. Drops any outstanding ``[....]`` caption so
-    later transcript cannot re-paint it onto the prompt.
+    Owned by ``build_children``'s ``Jobs.run`` finally — not by filtering
+    mid-drain SCons ``Build interrupted.`` lines — so ``[stopped]`` / location
+    maps from the drain print *above* this summary. An ``aborted`` build has
+    no closing line. Drops any outstanding ``[....]`` caption so later
+    transcript cannot re-paint it onto the prompt.
     """
     global _interrupt_finished
     with _interrupt_lock:
@@ -268,9 +270,12 @@ class _TerseInterruptStream:
     def write( self, text ):
         if _is_interrupt_noise( text ):
             note_build_interrupted()
-            # SCons prints this after the jobs already running have returned.
-            if "Build interrupted." in str( text or "" ):
-                write_terse_interrupt_finish()
+            # Do **not** close here. Under ``-j``, SCons can print
+            # ``Build interrupted.`` for each failing task *during* the drain;
+            # closing early sandwiched ``[stopped]`` / location lines after
+            # ``[interrupted]``. ``Jobs.run``'s finally owns the close once
+            # workers have returned (also covers ``-Q``, which never writes
+            # that SCons line).
             return
         if text and str( text ).strip():
             try:
@@ -2172,10 +2177,11 @@ def _status_marker( status ):
     elif status == "error":
         text = "[error]"
         painted = as_colour( "error", text )
-    elif status == "cancelled":
-        # Ctrl-C stop — notice like ``[interrupted]``, not error. Wider than
+    elif status == "stopped":
+        # Ctrl-C stop — notice like ``[interrupted]``, not error. Same verb
+        # family as ``stopping…`` / ``stopped in-flight actions``. Wider than
         # six columns; pad is a no-op so the badge reads in full.
-        text = "[cancelled]"
+        text = "[stopped]"
         painted = as_colour( "notice", text )
     elif status == "done":
         # Clean close of a delegated ``[launch]`` span. Same column width as ``[ok]``.
@@ -2651,18 +2657,19 @@ def format_terse_success( command, target, source, env ):
     return format_terse_line( "ok", command, target, source, env )
 
 
-def write_terse_cancelled_action(
+def write_terse_stopped_action(
         command, target, source, env, count=True, duration="",
 ):
     """Durable per-job confirmation when Ctrl-C stopped an in-flight action.
 
-    Paints between the interrupt bookends when the child returns SIGINT.
-    Does not reprint argv — cancel is not a failure transcript.
+    Paints during the interrupt drain (after ``stopping…``, before the
+    ``stopped in-flight actions`` / ``[interrupted]`` close). Does not reprint
+    argv — stop is confirmation, not a failure transcript.
     """
     end_terse_executing()
     note_terse_build_activity()
     line = format_terse_line(
-            "cancelled",
+            "stopped",
             command,
             target,
             source,
@@ -3703,12 +3710,11 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     The first begin line counts actions SCons already considers up to date,
     so the percent includes that work before the scope's own actions run.
 
-    After Ctrl-C is announced, skip entirely (including location maps). Under
-    ``-j``, Progress begin actions may still be mid-flight when the interrupt
-    close runs; without this gate their ``→ [location]`` lines dump *after*
-    ``[interrupted]``.
+    Mid-flight begin / location maps during a Ctrl-C drain are allowed — the
+    interrupt close waits for ``Jobs.run`` so they land *before*
+    ``[interrupted]``, not hidden after it.
     """
-    if not _env_get( env, "terse_output" ) or _interrupt_announced:
+    if not _env_get( env, "terse_output" ):
         return
     if event in ( "sconstruct_begin", "begin", "started" ):
         credit_terse_up_to_date_lookahead()
@@ -3719,9 +3725,6 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
-            # Ctrl-C can land between the begin line and its maps.
-            if _interrupt_announced:
-                break
             _write_terse_stdout( map_line + "\n" )
     sys.stdout.flush()
 
@@ -4387,8 +4390,6 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
 
 
 def _emit_sconstruct_location_map( token, path, env, kind="" ):
-    if _interrupt_announced:
-        return
     if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )
@@ -4540,7 +4541,7 @@ class _TersePythonCallable( object ):
         use_source = stashed_source
         use_env = env or stashed_env or {}
         already_accounted = take_terse_action_accounted()
-        write_terse_cancelled_action(
+        write_terse_stopped_action(
                 command or "",
                 use_target,
                 use_source,

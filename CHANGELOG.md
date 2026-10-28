@@ -17,11 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Under ``--terse-output``, actions stopped by Ctrl-C (SIGINT) now paint a
-  durable notice ``[cancelled]`` line — same identity fields as ``[ok]``,
-  no argv reprint — between ``interrupted — stopping…`` and
-  ``stopped in-flight actions`` / ``[interrupted]``. Spawn and Python-action
-  finish paths share the helper. Plan:
+- Under ``--terse-output``, actions stopped by Ctrl-C (SIGINT) paint a durable
+  notice ``[stopped]`` line — same identity fields as ``[ok]``, no argv
+  reprint — during the interrupt drain. The ``stopped in-flight actions`` /
+  ``[interrupted]`` close waits for ``Jobs.run`` (no longer fires on mid-drain
+  SCons ``Build interrupted.``), so ``[stopped]`` and mid-flight location maps
+  land *above* the summary rather than being hidden after it. Plan:
   ``design/plans/terse-build-action-heartbeat.md``.
 
 ### Added

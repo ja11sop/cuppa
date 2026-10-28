@@ -34,7 +34,7 @@ from cuppa.progress import (
         refresh_terse_executing,
         render_terse_spawn,
         take_terse_command,
-        write_terse_cancelled_action,
+        write_terse_stopped_action,
 )
 from cuppa.utility.python2to3 import as_str, errno, Queue
 
@@ -453,7 +453,7 @@ class SpawnedProcessor(object):
         if self._terse and is_interrupt_returncode( returncode ):
             command, target, source, env = take_terse_command()
             note_build_interrupted()
-            write_terse_cancelled_action( command, target, source, env )
+            write_terse_stopped_action( command, target, source, env )
             return
         if not self._terse:
             summary = self.summary( returncode )

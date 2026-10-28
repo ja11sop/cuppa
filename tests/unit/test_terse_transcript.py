@@ -537,7 +537,7 @@ def test_python_action_failure_prints_the_description_then_the_summary( capsys )
     )
 
 
-def test_python_action_interrupt_returncode_paints_cancelled( capsys ):
+def test_python_action_interrupt_returncode_paints_stopped( capsys ):
     import signal
 
     progress.reset_build_interrupted()
@@ -554,10 +554,10 @@ def test_python_action_interrupt_returncode_paints_cancelled( capsys ):
     assert wrapped( target=[node], source=[], env=env ) == -signal.SIGINT
     out = capsys.readouterr().out
     assert "[error]" not in out
-    # Cancel confirmation is the status line only — no argv reprint.
+    # Stop confirmation is the status line only — no argv reprint.
     assert "cmake --build" not in out
     assert out.rstrip().endswith(
-            "[cancelled] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · "
+            "[stopped] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · "
             "cmake.build.complete"
     )
 
@@ -854,33 +854,32 @@ def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
     err = captured.err
     assert err.count( "interrupted" ) == 1
     assert "\ninterrupted — stopping in-flight actions...\n" in err
-    assert captured.out == "stopped in-flight actions\n[interrupted]\n"
+    # Mid-drain ``Build interrupted.`` must not close — Jobs.run finally does.
+    assert captured.out == ""
     assert "Error -2" not in err
     assert "Build interrupted" not in err
     assert "building terminated because of errors" not in err
     assert "Error 1" in err
 
-    draining = progress.format_terse_line(
-            "ok", "g++ -c account_rule.cpp", [ "account_rule.o" ], [ "account_rule.cpp" ], _variant_env(),
-    )
-    assert draining.startswith( "[ok]   " )
-    progress.note_build_aborted()
-    progress.note_build_aborted()
-    stopped = progress.format_terse_line(
-            "ok", "g++ -c account_rule.cpp", [ "account_rule.o" ], [ "account_rule.cpp" ], _variant_env(),
-    )
-    assert stopped.startswith( "[ok]   " )
-    assert capsys.readouterr().err == "\naborted\n"
-
     spawned = _spawned( True )
     progress.stash_terse_command( "g++ -c time.cpp", [ "time.o" ], [ "time.cpp" ], _variant_env() )
     spawned.finish( -2 )
-    again = capsys.readouterr()
-    assert "[cancelled]" in again.out
-    assert "[error]" not in again.out
-    assert "g++ -c time.cpp" not in again.out
-    assert "interrupted" not in again.err
-    assert "[error]" not in again.err
+    drained = capsys.readouterr()
+    assert "[stopped]" in drained.out
+    assert "[error]" not in drained.out
+    assert "g++ -c time.cpp" not in drained.out
+    assert "[interrupted]" not in drained.out
+
+    progress.write_terse_interrupt_finish()
+    closed = capsys.readouterr().out
+    assert closed.startswith( "stopped in-flight actions\n[interrupted]" )
+
+    progress.note_build_aborted()
+    progress.note_build_aborted()
+    assert capsys.readouterr().err == "\naborted\n"
+    # Abort skips a second close.
+    progress.write_terse_interrupt_finish()
+    assert capsys.readouterr().out == ""
 
 
 def test_spawn_without_terse_returns_lines_for_immediate_printing(capsys):
