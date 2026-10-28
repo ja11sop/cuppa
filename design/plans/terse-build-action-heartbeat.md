@@ -253,6 +253,7 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Sticky chase vs busy transcript | **Done** — sticky bypasses idle gate; `write_transcript` preserves + restores sticky after each durable line so fast `[ok]` cannot starve armed long jobs |
 | Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
+| `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
