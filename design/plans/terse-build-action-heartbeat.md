@@ -1,7 +1,7 @@
 # Plan: Terse in-progress build action + heartbeat
 
 - **Status:** done
-- **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375)
+- **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375); Ctrl-C `[stopped]` + post-close atexit teardown chrome on [#381](https://github.com/ja11sop/cuppa/pull/381)
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
 - **Updated:** 2026-10-28
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
@@ -288,11 +288,14 @@ stopped in-flight actions
 
 ### Serial soak — post-`[interrupted]` `docker stop` (2026-10-28) — **settled**
 
+Confirmed tip paste (no `terse-credit:`):
+
 ```text
+interrupted — stopping in-flight actions...
   20/ 34 ·  18% [stopped] … · compiling · historical_data_processor.cpp → …
 stopped in-flight actions
 [interrupted] reached 18%: …
-              → [ok]   … · run · docker stop <id>   # nested; no N/M
+              → [ok]   … · run · docker stop <id>
 ```
 
 **Cause:** tip `atexit` → `terminate()` → `env.Execute(Action("docker stop …"))`

@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``stopped in-flight actions`` / ``[interrupted]`` close waits for
   ``Jobs.run`` (no longer fires on mid-drain SCons ``Build interrupted.``).
   ``run`` status lines without a node summary fall back to the stashed
-  command (no more bare ``· run`` ghosts).   Post-interrupt tip teardown
+  command (no more bare ``· run`` ghosts). Post-interrupt tip teardown
   with no finish nodes (``atexit`` / ``env.Execute``, e.g. postgres
   ``docker stop``) no longer reuses a stale cell ``N/M`` — nested ``→``
   instead; ``RunProcessAction`` keeps ``target`` on the terse stash across
