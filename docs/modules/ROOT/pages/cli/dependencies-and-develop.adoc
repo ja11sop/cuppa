@@ -13,6 +13,7 @@ page documents the patterns; `cuppa -D -h` shows the concrete names available in
 
 | `--develop` | Prefer each dependency's configured local develop path
 | `--offline` | Refuse remote updates; compatible with building existing develop copies
+| `--skip-location-update` | Do not fetch, clone, or update location dependency working copies this run; use on-disk trees as-is (missing trees still fail). Package downloads and other network stay allowed. Distinct from `--offline`. Refuses with `--update-develop` / `--clone-develop` / `--checkout-develop-branch` / `--reset-develop-branch`
 | `--location-default-branch=NAME` | Set the published default branch used by offline/relative logic (default `master`)
 | `--location-base-branch=NAME` | Set the develop home branch used to create/reset feature branches; defaults to the published branch
 | `--location-match-current-branch` | For relative locations ending in `@`, try the consumer project's current branch

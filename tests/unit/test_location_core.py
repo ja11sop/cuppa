@@ -169,10 +169,14 @@ def test_expand_secret_registers_mask(monkeypatch):
     assert "s3cr3t-value" not in mask_secrets(expanded)
 
 
-def _location_with_retrieval_options(offline, clean):
+def _location_with_retrieval_options(offline, clean, skip_location_update=False):
     location = Location.__new__(Location)
     location._offline = offline
-    location._cuppa_env = {"clean": clean}
+    location._skip_location_update = skip_location_update
+    location._cuppa_env = {
+            "clean": clean,
+            "skip_location_update": skip_location_update,
+    }
     return location
 
 
@@ -181,6 +185,17 @@ def test_retrieval_disabled_reason_names_the_active_option():
     assert _location_with_retrieval_options(True, False).retrieval_disabled_reason() == "--offline"
     assert _location_with_retrieval_options(False, True).retrieval_disabled_reason() == "--clean"
     assert _location_with_retrieval_options(True, True).retrieval_disabled_reason() == "--offline"
+    assert (
+            _location_with_retrieval_options(False, False, skip_location_update=True)
+            .retrieval_disabled_reason()
+            == "--skip-location-update"
+    )
+    # Offline is the broader knob when both are set.
+    assert (
+            _location_with_retrieval_options(True, False, skip_location_update=True)
+            .retrieval_disabled_reason()
+            == "--offline"
+    )
 
 
 def _repository_location(tmp_path, monkeypatch, offline, clean):

@@ -18,6 +18,7 @@ def test_process_location_options_copies_flags():
             "develop": True,
             "list_develop": True,
             "update_develop": False,
+            "skip-location-update": True,
             "location_default_branch": "main",
             "location_base_branch": "integration",
             "location_match_current_branch": True,
@@ -30,9 +31,26 @@ def test_process_location_options_copies_flags():
     assert env["develop"] is True
     assert env["list_develop"] is True
     assert env["update_develop"] is False
+    assert env["skip_location_update"] is True
     assert env["location_default_branch"] == "main"
     assert env["location_base_branch"] == "integration"
     assert env["location_match_current_branch"] is True
     assert env["location_explicit_default_branch"] is False
     assert env["location_match_branch"] == "feature"
     assert env["location_match_tag"] == "v1.0"
+
+
+def test_process_location_options_refuses_skip_with_update_develop():
+    import SCons.Errors
+
+    env = FakeEnv(
+        {
+            "skip-location-update": True,
+            "update_develop": True,
+            "clone_develop": False,
+            "checkout_develop_branch": None,
+            "reset_develop_branch": None,
+        }
+    )
+    with pytest.raises( SCons.Errors.StopError, match="skip-location-update" ):
+        location_options.process_location_options( env )

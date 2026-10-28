@@ -110,9 +110,19 @@ class Location(object):
 
 
     def retrieval_disabled_reason( self ):
-        """Name why locations are neither retrieved nor updated, or None when they are."""
+        """Name why locations are neither retrieved nor updated, or None when they are.
+
+        ``--offline`` blocks all remote location work. ``--skip-location-update``
+        freezes location working copies for this run only (use on-disk trees;
+        missing trees still fail) while leaving package downloads and other
+        network alone.
+        """
         if self._offline:
             return "--offline"
+        if getattr( self, '_skip_location_update', False ) or self._cuppa_env.get(
+                'skip_location_update'
+        ):
+            return "--skip-location-update"
         if self._cuppa_env['clean']:
             return "--clean"
         if self._cuppa_env.get( 'storage_resolve_only' ):
@@ -988,7 +998,12 @@ class Location(object):
         self._current_branch = self._cuppa_env['current_branch']
         self._current_revision = self._cuppa_env['current_revision']
         self._offline = self.option_set('offline')
-        offline = self._offline
+        self._skip_location_update = bool(
+                self.option_set( 'skip_location_update' )
+                or self._cuppa_env.get( 'skip_location_update' )
+        )
+        # Remote branch/default probes are location updates; freeze them too.
+        remote_ops = not self.retrieval_disabled_reason()
         self._default_branch = self._cuppa_env['location_default_branch']
         self._name_hint = name_hint
 
@@ -1053,7 +1068,7 @@ class Location(object):
                     if self._current_branch:
                         # Try to checkout on the explicit branch but if that fails fall back to
                         # to the default by stripping off the '@' from the end of the path
-                        if not offline and scm_system.remote_branch_exists( repo_location, self._current_branch ):
+                        if remote_ops and scm_system.remote_branch_exists( repo_location, self._current_branch ):
                             scm_location = location + self._current_branch
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
@@ -1061,7 +1076,7 @@ class Location(object):
                     elif self._current_revision:
                         # Try to checkout on the explicit branch but if that fails fall back to
                         # to the default by stripping off the '@' from the end of the path
-                        if not offline and scm_system.remote_branch_exists( repo_location, self._current_revision ):
+                        if remote_ops and scm_system.remote_branch_exists( repo_location, self._current_revision ):
                             scm_location = location + self._current_revision
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
@@ -1082,7 +1097,7 @@ class Location(object):
                     if self.location_match_branch():
                         # Try to checkout on the explicit branch but if that fails fall back to
                         # to the default by stripping off the '@' from the end of the path
-                        if not offline and scm_system.remote_branch_exists( repo_location, self.location_match_branch() ):
+                        if remote_ops and scm_system.remote_branch_exists( repo_location, self.location_match_branch() ):
                             scm_location = location + self.location_match_branch()
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
@@ -1103,13 +1118,13 @@ class Location(object):
                     if self.location_match_tag():
                         # Try to checkout on the explicit branch but if that fails fall back to
                         # to the default by stripping off the '@' from the end of the path
-                        if not offline and scm_system.remote_branch_exists( repo_location, self.location_match_tag() ):
+                        if remote_ops and scm_system.remote_branch_exists( repo_location, self.location_match_tag() ):
                             scm_location = location + self.location_match_tag()
                             logger.trace( "scm_location = [{scm_location}]".format(
                                     scm_location=as_info(str(scm_location))
                             ) )
 
-            elif scm_system and not offline:
+            elif scm_system and remote_ops:
                 try:
                     probed = scm_system.remote_default_branch( repo_location )
                 except Exception as error:
@@ -1129,7 +1144,7 @@ class Location(object):
 
         elif( scm_system
                 and not versioning
-                and not offline
+                and remote_ops
                 and self.option_set('location_explicit_default_branch')
         ):
             try:

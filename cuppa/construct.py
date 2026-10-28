@@ -238,6 +238,7 @@ class Construct(object):
                 'native_output',
                 'terse_output',
                 'offline',
+                'skip_location_update',
                 'ignore_duplicates',
                 'working_dir',
                 'launch_dir',
@@ -479,6 +480,11 @@ class Construct(object):
         cuppa.core.storage_options.process_storage_options( cuppa_env )
         cuppa.core.storage_actions.process_storage_action_options( cuppa_env )
         cuppa.core.location_options.process_location_options( cuppa_env )
+
+        if cuppa_env.get( 'skip_location_update' ) and not cuppa_env.get( 'offline' ):
+            report_mode_banner(
+                    as_info_label( "Running with SKIP LOCATION UPDATE" )
+            )
 
         if not help and not self._configure.handle_conf_only():
             from cuppa.toolchains import toolchain_archive

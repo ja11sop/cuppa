@@ -14,6 +14,20 @@ def add_location_options( add_option ):
                 help="Tell all locations to use their develop location if specified" )
 
     add_option(
+            '--skip-location-update',
+            dest='skip-location-update',
+            action='store_true',
+            help=(
+                    "Do not fetch, clone, or update location dependency working "
+                    "copies this run; use on-disk trees as-is (missing trees "
+                    "still fail). Does not block GitLab package downloads or "
+                    "other network. Distinct from --offline (no remote work). "
+                    "Refuses with --update-develop / --clone-develop / "
+                    "--checkout-develop-branch / --reset-develop-branch."
+            ),
+    )
+
+    add_option(
             '--stage-develop',
             dest='stage-develop',
             action='store_true',
@@ -122,6 +136,9 @@ def add_location_options( add_option ):
 def process_location_options( cuppa_env ):
 
     cuppa_env['develop']                          = cuppa_env.get_option( 'develop' )
+    cuppa_env['skip_location_update']             = bool(
+            cuppa_env.get_option( 'skip-location-update' )
+    )
     cuppa_env['stage_develop']                    = cuppa_env.get_option( 'stage-develop' )
     cuppa_env['stage_develop_plan']               = cuppa_env.get_option( 'stage-develop-plan' )
     if cuppa_env['stage_develop'] and not cuppa_env['develop']:
@@ -141,6 +158,25 @@ def process_location_options( cuppa_env ):
     cuppa_env['checkout_develop_branch']          = cuppa_env.get_option( 'checkout_develop_branch' )
     cuppa_env['reset_develop_branch']             = cuppa_env.get_option( 'reset_develop_branch' )
     cuppa_env['update_develop']                   = cuppa_env.get_option( 'update_develop' )
+
+    if cuppa_env['skip_location_update']:
+        conflict = None
+        if cuppa_env['update_develop']:
+            conflict = "--update-develop"
+        elif cuppa_env['clone_develop']:
+            conflict = "--clone-develop"
+        elif cuppa_env['checkout_develop_branch']:
+            conflict = "--checkout-develop-branch"
+        elif cuppa_env['reset_develop_branch']:
+            conflict = "--reset-develop-branch"
+        if conflict:
+            import SCons.Errors
+            raise SCons.Errors.StopError(
+                    "--skip-location-update freezes location working copies this "
+                    "run; do not combine it with {} (drop one of the flags)".format(
+                            conflict
+                    )
+            )
     cuppa_env['location_default_branch']          = cuppa_env.get_option( 'location_default_branch' )
     cuppa_env['location_base_branch']             = cuppa_env.get_option( 'location_base_branch' )
     cuppa_env['location_match_current_branch']    = cuppa_env.get_option( 'location_match_current_branch' )

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--skip-location-update`` — freeze location dependency working copies for
+  this run (no fetch, clone, or VCS update; missing trees still fail). Package
+  downloads and other network stay allowed. Distinct from ``--offline``.
+  Refuses with ``--update-develop`` / ``--clone-develop`` /
+  ``--checkout-develop-branch`` / ``--reset-develop-branch``. Nest sessions
+  inherit the flag. Mode banner when not offline. Plan:
+  ``design/plans/skip-location-update.md`` (replaces the soak
+  ``skip-resolve`` sketch).
+
 - ``--parallel=N`` — Cuppa CPU affinity plus an explicit SCons / CMake job
   count (short form of ``--parallel --jobs=N``). ``N`` is the **job count
   only**; the affinity mask is the same leave-cores-for-OS set as bare
