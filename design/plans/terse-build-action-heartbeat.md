@@ -284,4 +284,55 @@ stopped in-flight actions
 | Maps | Skip Progress / location after announce — `[stopped]` is the drain value |
 | Argv | Not reprinted — stop is confirmation, not a failure transcript |
 | Bare `· run` | Serial soak showed nameless `[ok] · run` after close — **bug**, not hide. Fall back to stashed command when node summary missing / `.success` only (this PR) |
-| Stale `N/M` on cleanup | Uncredited lines (ledger miss / already spent) use nested `→` instead of reprinting the cell tally — so post-interrupt `docker stop` is not “action 14” again (this PR) |
+| Stale `N/M` on cleanup | **Open** — post-`[interrupted]` `docker stop` often shows the same cell `N/M` as the `[stopped]` compile (credit failed). Do **not** paper over with `→`. See soak note below |
+
+### Serial soak — why `docker stop` reuses `14/34` (2026-10-28)
+
+Observed order:
+
+```text
+  14/ 34 ·  14% [stopped] … · compiling · event_processor.cpp → …
+stopped in-flight actions
+[interrupted] reached 14%: …
+  14/ 34 ·  14% [ok]   … · run · docker stop <id>   # same tally, no bump
+```
+
+**Timing:** `[interrupted]` is printed from `Jobs.run`'s finally
+(`build_children`). Anything after that line is **not** an in-flight BuildTask
+drain — it is post-job teardown (tip `atexit` / `env.Execute` after SCons
+returns / similar). Cuppa still paints a durable `run` line if that teardown
+goes through `Run` / `_TersePythonCallable` / `format_terse_line(..., count=True)`.
+
+**Credit path:** `_account_and_prefix` → `credit_and_prefix` looks up the finish
+`target` (and `_current_action_nodes`) in `_progress_ledger._nodes`. On miss or
+`remaining == 0` it returns `credited=False` but still returns the **current**
+cell prefix (`_prefix_unlocked`) — so the line looks like “another 14/34”
+without bumping `done`.
+
+Likely causes (need tip soak / instrumentation to pick one):
+
+1. **Out-of-band Execute** — cleanup never was a BuildTask; node id not in the
+   ledger (or empty target). Still paints `count=True` with stale prefix.
+2. **Narrowed away** — `NotifyProgress.add` registered the stop `Run` at parse,
+   then `narrow_progress_ledger` dropped it because it was not reachable from
+   the requested roots; teardown still runs it.
+3. **Already spent** — same executor/node credited earlier (unlikely for a
+   distinct AlwaysBuild stop, but check shared executors).
+4. **AlwaysBuild + force_test** — stop `Run` is among the 34, but after
+   interrupt SCons does not schedule it; tip invokes it manually after return.
+
+**Options (do not “hide” the number):**
+
+| Option | Idea | Trade-off |
+|--------|------|-----------|
+| **Diagnose** | Temporary reason on failed credit: `missing` / `spent` / `empty-target` (test or `--info`) | Find which of 1–4 before product change |
+| **Match + credit** | If node is in ledger with `remaining > 0`, ensure finish targets are the registered nodes (AlwaysBuild wrap order, `remember_terse_action_target`) → honest `15/34` | Fixes 3/partial 4 only when it really is a graph action that still runs |
+| **Keep in ledger** | Exclude cleanup `Run`s from narrow, or `Depends` them so they stay reachable | Fixes 2; tip must declare cleanup as part of the graph |
+| **Run cleanups before close** | Tip/cuppa teardown that must paint runs *before* `write_terse_interrupt_finish` | Hard without a registry of cleanups; changes interrupt bookend timing |
+| **Phase-name cleanup** | After `_interrupt_finished`, paint `· cleanup · docker stop` (or keep `run`) **without** build `N/M` — not nested `→`, not a fake tally | Honest if teardown is intentionally out-of-band; does not pretend it was action 15 |
+| **Late-register** | On failed credit after close, `register` + credit so total grows (`15/35`) | Distorts the planned `34`; usually wrong for atexit |
+
+**Rejected:** map failed credit → nested `→` (hides the bug; user soak 2026-10-28).
+
+**Next:** instrument failed credit (option Diagnose) against this tip’s postgres
+stop hook; then choose Match+credit / Keep-in-ledger vs Phase-name cleanup.

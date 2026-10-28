@@ -2635,34 +2635,22 @@ def format_terse_line(
 
     ``count=False`` is a line that is not in the action total, such as a
     nested copy or move. It leads with ``→``. The caller is still the action.
-    ``count=True`` that fails to credit (target not in the ledger, or already
-    spent) also uses ``→`` — otherwise a stale ``N/M`` makes side work such as
-    post-interrupt ``docker stop`` look like another build action at the same
-    tally. ``duration`` is optional (``env.Run`` / process helpers stash wall
-    time). Long ``env.Run`` command summaries are kept in full by default
-    (terminal wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell
-    to the controlling TTY width.
+    ``duration`` is optional (``env.Run`` / process helpers stash wall time).
+    Long ``env.Run`` command summaries are kept in full by default (terminal
+    wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell to the
+    controlling TTY width.
+
+    Note: ``count=True`` that fails to credit still paints the current cell
+    ``N/M`` when one exists (prefix from the ledger, no bump). Post-interrupt
+    ``docker stop`` soaked that way — do **not** paper over with ``→``; fix
+    registration / credit matching instead (see heartbeat plan soak note).
     """
     parts = []
-    counted = bool( count )
-    prefix = ""
-    if counted:
-        credited, text = _progress_ledger.credit_and_prefix(
-                target, _current_action_nodes(), env, True,
-        )
-        if credited:
-            if text:
-                prefix = _colour_counts_prefix( text )
-        elif text:
-            # Cell tally exists but this target did not credit — side work
-            # (post-interrupt ``docker stop``, etc.). Use ``→`` instead of a
-            # stale ``N/M``. Empty ledger (no ``text``) keeps plain ``[ok]``.
-            counted = False
-            note_terse_nested_action()
+    prefix = _account_and_prefix( target, env, count=count, mark=False )
     if prefix:
         parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     marker = _status_marker( status )
-    if not counted:
+    if not count:
         marker = _uncounted_prefix( env, marker )
     parts.append( marker )
 
