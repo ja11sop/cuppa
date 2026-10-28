@@ -1,8 +1,8 @@
 # Plan: Tip consume forest stages without nesting
 
-- **Status:** in progress
-- **Related:** [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (tip bind under `--build-cascade-dependencies`; deferred “second consume flag”); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`../archive/stage-develop-locations.md`](../archive/stage-develop-locations.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md); ROADMAP **1.13.0** related
-- **Updated:** 2026-10-27
+- **Status:** done
+- **Related:** [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (tip bind under `--build-cascade-dependencies`; deferred “second consume flag”); [`../archive/package-build-publish-deps.md`](../archive/package-build-publish-deps.md); [`../archive/stage-develop-locations.md`](../archive/stage-develop-locations.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md); ROADMAP **1.13.0** related; done on [#376](https://github.com/ja11sop/cuppa/pull/376)
+- **Updated:** 2026-10-28
 - **Impact:** minor — new cascade companion; tip bind reuses build-deps tip-consume helpers
 
 ## Problem

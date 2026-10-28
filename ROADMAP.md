@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-23
+**As of:** 2026-10-28
 
 ---
 
@@ -27,8 +27,9 @@ polish and long carry-forwards continue where they do not block that opener.
 | Cascade tip-local options | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — drop tip `cuppa.add_option` flags from nest argv; [`cascade-tip-local-options.md`](design/plans/cascade-tip-local-options.md) |
 | Cascade metadata-only amend | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — `--amend-cascade-manifests` DAG nests; [`cascade-amend-package-manifest.md`](design/plans/cascade-amend-package-manifest.md) |
 | Cascade build-deps tip consume | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — tip links forest stages under `--build-cascade-dependencies`; [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md) |
-| Cascade consume-deps (no nest) | **In progress** ([#376](https://github.com/ja11sop/cuppa/pull/376)) — `--consume-cascade-dependencies` tip forest bind; [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
+| Cascade consume-deps (no nest) | **Done on [#376](https://github.com/ja11sop/cuppa/pull/376)** — `--consume-cascade-dependencies` tip forest bind; [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
 | Terse in-progress compile + heartbeat | **Done on [#375](https://github.com/ja11sop/cuppa/pull/375)** — process `Run` + `[....]` / parallel `N [...k]` dwell rotate; nest compress TTY fixed via `CUPPA_PROGRESS_FD`; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
+| Toolchain version currency | **Candidate** — keep `supported_versions` + family docs (+ optional CI default) current; [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
@@ -561,6 +562,7 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 |----|------|----------|-------|
 | `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Done — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
+| `toolchain-version-currency` | Review / extend GCC·Clang·MSVC `supported_versions`, Antora ceilings, optional CI default | Low | **Candidate** — Clang already behind LLVM 23.x. [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
@@ -618,7 +620,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `cascade-tip-local-options` | Drop tip-only `cuppa.add_option` flags from nest argv (`--tip-local-flag`, …) | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-tip-local-options.md`](design/plans/cascade-tip-local-options.md); optional `--cascade-local-options` allowlist is a follow-on |
 | `cascade-amend-package-manifest` | Cascade nests metadata-amend via tip `--amend-cascade-manifests` (DAG retar, no CMake) | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-amend-package-manifest.md`](design/plans/cascade-amend-package-manifest.md); tip-only amend remains [`package-metadata-amend.md`](design/archive/package-metadata-amend.md) |
 | `cascade-build-deps-tip-consume` | Under `--build-cascade-dependencies`, tip consumes publisher-root stages (not extracts); pre-`BuildWith` nest like `--stage-develop` | Medium | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)**. [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md); develop ranking unchanged; scoped `--develop` later |
-| `cascade-consume-dependencies` | Tip binds publisher-root forest stages **without** nesting (`--consume-cascade-dependencies`) | Medium | **In progress** ([#376](https://github.com/ja11sop/cuppa/pull/376)) — tip bind, no nests, missing stage is a `StopError`. [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
+| `cascade-consume-dependencies` | Tip binds publisher-root forest stages **without** nesting (`--consume-cascade-dependencies`) | Medium | **Done on [#376](https://github.com/ja11sop/cuppa/pull/376)** — tip bind, no nests, missing stage is a `StopError`. [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/plans/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
