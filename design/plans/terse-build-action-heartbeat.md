@@ -341,8 +341,20 @@ stop hook; then choose Match+credit / Keep-in-ledger vs Phase-name cleanup.
 a failed `count=True` credit prints one subdued stdout line:
 
 ```text
-terse-credit: miss=missing · interrupt=closed · ledger=34 · cell=14/34 · 14% · target=… · cmd=docker stop …
+terse-credit: miss=empty-target · interrupt=closed · ledger=119 · cell=14/34 · 14% · target=<none> · cmd=docker stop …
 ```
 
-`miss` is `empty-target` / `missing` / `spent`. Re-soak the serial postgres
-Ctrl-C case and paste that line.
+**Soak 2026-10-28 (serial postgres):** `miss=empty-target` — finish had **no
+nodes** (`target=<none>`). Stale `14/34` was the cell prefix with nothing to
+credit. Causes fixed in-tree:
+
+1. `RunProcessAction._run_command` re-stashed the command **without** `target=`,
+   wiping nodes from the terse stash.
+2. `_report_python_action` used `target or stashed` — empty `[]` is falsy, so a
+   real empty list dropped through to the wiped stash.
+3. `format_terse_line`: if there are still no nodes after that, do **not** paint
+   a cell `N/M` (use nested `→`); empty-target cannot be an honest ledger slot.
+
+If re-soak still shows `missing`/`spent` with a real target path, revisit
+Keep-in-ledger / Match+credit. If it stays empty-target with `→ [ok] · run ·
+docker stop …`, that is honest out-of-band teardown chrome.

@@ -2711,21 +2711,32 @@ def format_terse_line(
     wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell to the
     controlling TTY width.
 
-    Note: ``count=True`` that fails to credit still paints the current cell
-    ``N/M`` when one exists (prefix from the ledger, no bump). Post-interrupt
-    ``docker stop`` soaked that way — do **not** paper over with ``→``; fix
-    registration / credit matching instead (see heartbeat plan soak note).
-    After the interrupt close, a failed credit also emits a one-line
+    Note: ``count=True`` with no finish nodes (``empty-target``) must not
+    reuse a stale cell ``N/M`` — that was the post-interrupt ``docker stop``
+    soak lie. After the interrupt close, a failed credit also emits a one-line
     ``terse-credit: miss=…`` diagnostic for soak pastes.
     """
     parts = []
-    prefix = _account_and_prefix(
-            target, env, count=count, mark=False, command=command,
-    )
+    counted = bool( count )
+    # No nodes → nothing to credit; do not paint the current cell tally.
+    if counted and not _iter_nodes( target ) and not _iter_nodes( _current_action_nodes() ):
+        counted = False
+        if _interrupt_finished:
+            note_terse_nested_action()
+    prefix = ""
+    if counted:
+        prefix = _account_and_prefix(
+                target, env, count=True, mark=False, command=command,
+        )
+    elif count and _interrupt_finished and not _iter_nodes( target ):
+        # Still emit the miss line when we elide the stale tally.
+        _emit_terse_credit_miss(
+                target, _current_action_nodes(), env, command, "",
+        )
     if prefix:
         parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     marker = _status_marker( status )
-    if not count:
+    if not counted:
         marker = _uncounted_prefix( env, marker )
     parts.append( marker )
 
@@ -4669,7 +4680,7 @@ class _TersePythonCallable( object ):
         take_terse_children()
         take_terse_launch()
         take_terse_status_emitted()
-        use_target = target or stashed_target
+        use_target = target if _iter_nodes( target ) else stashed_target
         use_source = stashed_source
         use_env = env or stashed_env or {}
         already_accounted = take_terse_action_accounted()
@@ -4719,8 +4730,10 @@ def _report_python_action( target, source, env, failed ):
     command, stashed_target, stashed_source, stashed_env = take_terse_command()
     children = take_terse_children()
     launched, launch_command = take_terse_launch()
-    use_target = target or stashed_target
-    use_source = source or stashed_source
+    # Empty ``[]`` is falsy — do not drop real SCons targets in favour of a
+    # wiped stash (``_run_command`` used to re-note without ``target=``).
+    use_target = target if _iter_nodes( target ) else stashed_target
+    use_source = source if _iter_nodes( source ) else stashed_source
     use_env = env or stashed_env or {}
     severity = "error" if failed else "ok"
     for _child_command, lines, child_failed in children:

@@ -412,6 +412,33 @@ def test_post_interrupt_credit_miss_emits_diagnostic( capsys ):
     assert "docker-stop.success" in out
 
 
+def test_post_interrupt_empty_target_elides_stale_cell_tally( capsys ):
+    """``empty-target`` after close must not reuse the in-flight ``N/M``.
+
+    Serial postgres soak: tip ``docker stop`` finished with no nodes and
+    painted the same ``14/34`` as the stopped compile. Elide the cell
+    prefix (nested ``→``) and keep the ``terse-credit`` miss line.
+    """
+    env = _terse_env()
+    progress.register_terse_actions( env, [ _ActionNode() ] )
+    progress.note_build_interrupted()
+    progress.write_terse_interrupt_finish()
+    capsys.readouterr()
+    line = progress.format_terse_line(
+            "ok",
+            "docker stop deadbeef",
+            [],
+            [],
+            env,
+    )
+    out = capsys.readouterr().out
+    assert "terse-credit: miss=empty-target" in out
+    assert "target=<none>" in out
+    assert "→" in line
+    assert not line.lstrip()[0].isdigit()
+    assert "docker stop" in line
+
+
 def test_markdown_and_asciidoc_show_source_to_product():
     markdown = progress.format_terse_line(
             "ok",
