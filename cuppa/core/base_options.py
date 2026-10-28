@@ -78,9 +78,14 @@ def add_base_options():
     add_option( '--dump',   dest='dump', action='store_true',
                             help="Dump the default environment and exit" )
 
-    add_option( '--parallel', dest='parallel', action='store_true',
-                            help="Enable parallel builds utilising the available concurrency."
-                                 " Translates to -j N with N chosen based on the current hardware" )
+    add_option( '--parallel', dest='parallel', nargs='?', type='string',
+                            action='store', const='auto', default=None, metavar='N',
+                            help="Enable parallel builds with Cuppa CPU affinity (leaves cores "
+                                 "free for the OS on larger hosts). Bare --parallel chooses -j "
+                                 "from the affinity-aware CPU count. Pass --parallel=N to keep "
+                                 "that same affinity mask and set the job count to N only "
+                                 "(short form of --parallel --jobs=N; N may oversubscribe). "
+                                 "Do not combine --parallel=N with --jobs / -j" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 

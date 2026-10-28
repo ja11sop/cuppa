@@ -719,21 +719,44 @@ class Construct(object):
                         cuppa.core.storage_actions.run( self, cuppa_env )
                 )
 
-            job_count = cuppa_env.get_option( 'num_jobs' )
-            parallel  = cuppa_env.get_option( 'parallel' )
-            parallel_mode = "manually"
+            from cuppa.utility.parallelism import (
+                    effective_cpu_count,
+                    parse_parallel_option,
+                    resolve_parallel_job_count,
+            )
+            try:
+                parallel_request = parse_parallel_option(
+                        cuppa_env.get_option( 'parallel' )
+                )
+            except ValueError as exc:
+                raise SCons.Errors.StopError( str( exc ) )
 
-            if job_count==1 and parallel:
-                from cuppa.utility.parallelism import effective_cpu_count
-                # Honour cuppa-wrapper CPU affinity (leave cores free for the OS),
-                # not raw multiprocessing.cpu_count().
-                job_count = effective_cpu_count()
-                if job_count > 1:
-                    SCons.Script.SetOption( 'num_jobs', job_count )
-                    parallel_mode = "automatically"
+            num_jobs = cuppa_env.get_option( 'num_jobs' )
+            try:
+                job_count, parallel_mode = resolve_parallel_job_count(
+                        parallel_request, num_jobs,
+                )
+            except ValueError as exc:
+                raise SCons.Errors.StopError( str( exc ) )
+
+            parallel = parallel_request.enabled
+            if parallel and job_count != int( num_jobs ):
+                SCons.Script.SetOption( 'num_jobs', job_count )
+            if (
+                    parallel
+                    and parallel_request.jobs is not None
+                    and job_count > effective_cpu_count()
+            ):
+                logger.warn(
+                        "--parallel={} exceeds affinity-aware CPU count [{}]; "
+                        "honouring the requested count (SCons may oversubscribe)".format(
+                                as_info( str( job_count ) ),
+                                as_info( str( effective_cpu_count() ) ),
+                        )
+                )
             cuppa_env['job_count'] = job_count
             cuppa_env['parallel']  = parallel
-            if job_count>1:
+            if job_count > 1:
                 logger.info( "Running in {} with option [{}] set {} as [{}]".format(
                         as_emphasised("parallel mode"),
                         as_info( "jobs" ),

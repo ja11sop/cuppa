@@ -1,8 +1,8 @@
 # Plan: Optional job count on `--parallel`
 
-- **Status:** proposal
-- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](../archive/publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below
-- **Updated:** 2026-09-21
+- **Status:** done
+- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](../archive/publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below; done on [#378](https://github.com/ja11sop/cuppa/pull/378)
+- **Updated:** 2026-10-28
 - **Impact:** `minor` for `--parallel=N` CLI; **`patch`** for the CMake helper default below (behaviour fix)
 
 ## Problem
@@ -84,16 +84,20 @@ without breaking bare `--parallel` or plain `--jobs=N`.
 | **C. Cuppa `--parallel-jobs=N`** | `--parallel-jobs=12` | Clear; implies affinity + count | Third parallel-related flag; easy to forget bare `--parallel` |
 | **D. `--parallel` requires count** | always `--parallel=N` | Unambiguous | Breaks every existing `--parallel` invocation (**refuse**) |
 
-**Provisional preference:** **A** — `--parallel` remains a boolean *presence* for
-affinity; an optional integer sets `num_jobs` (and thus `CMakeBuild --parallel N`).
-Bare `--parallel` keeps today’s auto count.
+**Settled:** **A** — `--parallel` remains a *presence* for affinity; an optional
+`=N` sets `num_jobs` (and thus `CMakeBuild --parallel N`). Bare `--parallel`
+keeps today’s auto count.
 
-Spellings to support if A:
+Spellings:
 
-- `--parallel=12` (preferred in docs)
-- Possibly `--parallel 12` if SCons option parsing allows without eating the next argv token wrongly
+- `--parallel=12` (preferred in docs; the form SCons stores as the value)
+- Space form `--parallel 12` is **not** consumed as `N` (SCons leaves `12` as a
+  target and still enables auto parallel) — do not document it
 
-Refuse shipping `--parallel 12` if it steals a target name; prefer `=` form only.
+`--parallel=N` with `--jobs` / `-j` is a `StopError`. `--parallel --jobs=M` stays
+valid. `N` is the **job count only** — the affinity mask is still the fixed
+leave-cores-for-OS set (not “pin to N cores”). `N` may be below or above that
+size; above is honoured with a warning (oversubscribe).
 
 ## Semantics (sketch for A)
 
@@ -119,14 +123,14 @@ notice or honour N (SCons can oversubscribe). Provisional: **honour N**, warn on
    existing auto path when `num_jobs==1 and parallel`.
 4. Antora `cli/building.adoc` + AGENTS preferred flags; unit tests for parsing.
 
-## Work slices
+## Work slices / Progress
 
-| ID | Deliverable |
-|----|-------------|
-| `par-cmake-serial-default` | `cmake_build_jobs` → `1` without Cuppa `--parallel`; explicit `--parallel N` matching affinity `job_count`; tests + Antora (`patch`) — **soaked** on [#319](https://github.com/ja11sop/cuppa/pull/319) 2026-09-21 |
-| `par-count-plan` | This document + design README / ROADMAP pointer |
-| `par-count-settle` | Lock A vs C; `=` vs space; conflict with `--jobs` |
-| `par-count-impl` | Options + wrapper + construct + tests + docs |
+| ID | Deliverable | Status |
+|----|-------------|--------|
+| `par-cmake-serial-default` | `cmake_build_jobs` → `1` without Cuppa `--parallel`; explicit `--parallel N` matching affinity `job_count`; tests + Antora (`patch`) | **Done** — soaked on [#319](https://github.com/ja11sop/cuppa/pull/319) 2026-09-21 |
+| `par-count-plan` | This document + design README / ROADMAP pointer | **Done** |
+| `par-count-settle` | Lock A vs C; `=` vs space; conflict with `--jobs` | **Done** — A; `=` only; conflict is `StopError`; oversubscribe warns |
+| `par-count-impl` | Options + wrapper + construct + tests + docs | **Done** on [#378](https://github.com/ja11sop/cuppa/pull/378) — `nargs='?'` `const='auto'`; `parse_parallel_option` / `resolve_parallel_job_count`; `__main__` affinity on `--parallel=*` |
 
 ## Out of scope
 
