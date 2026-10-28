@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--consume-cascade-dependencies`` (with ``--cascade``) binds each tip
+  GitLab dependency to an existing publisher-root
+  ``final/<package>/<version>/`` stage and continues with the tip build.
+  It does not nest and does not fall back to a registry extract. A missing
+  or wrong-toolchain stage stops with a hint to run
+  ``--build-cascade-dependencies`` (or ``--amend-cascade-manifests``) first.
+  ``--develop`` still wins. Cannot be combined with ``--publish-package``,
+  ``--publish-cascade-dependencies``, ``--build-cascade-dependencies``, or
+  ``--amend-cascade-manifests``. Under ``--terse-output``, resolve maps show
+  ``<publishers>`` when forest tip consume is in force; bound pins use
+  location kind ``staged_package`` (develop-winning pins use
+  ``develop_package``; registry extracts stay ``package``), and cascade
+  prints a single durable ``[cascade] tip · mode · dependencies consume
+  (no nest) · N staged packages`` line (tip name info-not-bold; summary
+  muted with a plain count like prepare/ready; synthetic ``[==consume]``
+  omitted). Matching ``cuppa: ... [info]`` bind notes and the storage-roots
+  announcement stay for non-terse output only. Ctrl-C under ``--terse-output``
+  drops the outstanding ``[....]`` set and blanks the status row so a later
+  cleanup ``[ok]`` cannot chase the caption onto the shell prompt. Plan:
+  ``design/plans/cascade-consume-dependencies.md``.
+
 - Under ``--terse-output``, ``env.Run`` / process actions label the durable
   status line as action **``run``** (even under ``--test``; fixtures are not
   tests), with wall **duration** and a **command summary** (or callable name)

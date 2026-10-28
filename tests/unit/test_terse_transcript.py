@@ -2067,6 +2067,40 @@ def test_package_location_rhs_uses_build_folder_not_stem( capsys ):
     assert "· package" in out
 
 
+def test_staged_and_develop_package_location_kinds( capsys ):
+    env = _layout_env()
+    env["terse_output"] = True
+    env["default_dependencies"] = [ "google_cloud_cpp", "widget" ]
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+    progress.label_terse_location(
+            env, "publishers", "/home/u/.cuppa/publishers",
+            scope="sconstruct", kind="root",
+    )
+    progress.label_terse_location(
+            env, "google_cloud_cpp",
+            "/home/u/.cuppa/publishers/google_cloud_cpp/_build/gcc/rel/final/google-cloud-cpp/3.9.0",
+            scope="sconstruct",
+            build_folder="google-cloud-cpp/3.9.0",
+            kind="staged_package",
+    )
+    progress.label_terse_location(
+            env, "widget",
+            "/home/u/coding/widget/_build/gcc/rel/final/widget/1.0",
+            scope="sconstruct",
+            build_folder="widget/1.0",
+            kind="develop_package",
+    )
+    out = capsys.readouterr().out
+    assert "<publishers>" in out
+    assert "· root" in out
+    assert "· staged_package" in out
+    assert "· develop_package" in out
+    assert progress.count_terse_package_location_kinds( "staged_package" ) == 1
+    assert progress.count_terse_package_location_kinds( "develop_package" ) == 1
+    assert progress.count_terse_package_location_kinds() == 2
+
+
 def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatch, capsys ):
     env = _layout_env()
     env["terse_output"] = True

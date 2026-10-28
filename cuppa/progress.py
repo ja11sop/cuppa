@@ -95,11 +95,27 @@ def enable_terse_build_summary():
     _summary_enabled = True
 
 
+def _drop_executing_after_interrupt():
+    """Wipe outstanding ``[....]`` and blank the status row after Ctrl-C.
+
+    Post-interrupt durable lines (cleanup ``run``, container stop) must not
+    chase the sticky caption back onto the TTY, or it glues to the shell prompt.
+    """
+    reset_terse_executing()
+    try:
+        from cuppa.utility.heartbeat import clear as clear_status, status_row_active
+        if status_row_active():
+            clear_status()
+    except Exception:
+        pass
+
+
 def write_terse_interrupt_finish():
     """Close a graceful Ctrl-C once signalled in-flight actions have exited.
 
     An ``aborted`` build has no closing line. The counts are the same ones a
-    successful build would report.
+    successful build would report. Drops any outstanding ``[....]`` caption so
+    later transcript cannot re-paint it onto the prompt.
     """
     global _interrupt_finished
     with _interrupt_lock:
@@ -115,6 +131,7 @@ def write_terse_interrupt_finish():
         line += " " + summary
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
+    _drop_executing_after_interrupt()
 
 
 def write_terse_build_completion( env ):
@@ -202,6 +219,8 @@ def note_build_interrupted():
         if _interrupt_announced:
             return
         _interrupt_announced = True
+    # Blank ``[....]`` before the interrupt word so it does not share a row.
+    _drop_executing_after_interrupt()
     _write_interrupt_word( "interrupted — stopping in-flight actions..." )
 
 
@@ -1377,8 +1396,10 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
     dir follows the package tool variant. ``build_folder`` is the first
     segment under ``abs_build_root`` for this tree (usually
     ``Location.local_folder()``). ``kind`` is ``root``, ``repository``,
-    ``archive``, or ``package`` on read-phase maps. Not inferred from
-    ``_download`` folder names.
+    ``archive``, ``package`` (registry extract), ``staged_package``
+    (publisher-forest ``final/``), or ``develop_package`` (develop-winning
+    stage or prefix) on read-phase maps.
+    Not inferred from ``_download`` folder names.
     """
     token = str( name or "" ).strip().strip( "<>" )
     if not token or not path:
@@ -1838,7 +1859,13 @@ def _is_project_root( path, env ):
     return False
 
 
-_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages", "downloads" ) )
+_CATEGORY_LOCATION_TOKENS = frozenset(
+        ( "dependencies", "packages", "downloads", "publishers" )
+)
+# Tip package payload kinds on sconstruct location maps (extract vs forest vs develop).
+_PACKAGE_LOCATION_KINDS = frozenset(
+        ( "package", "staged_package", "develop_package" )
+)
 _written_registries = set()
 
 
@@ -2266,7 +2293,9 @@ def _coloured_location_value( shown, env, kind="" ):
     shown = str( shown or "" ).replace( "\\", "/" )
     if not shown:
         return ""
-    vocabulary = str( kind or "" ) in ( "root", "package" )
+    vocabulary = str( kind or "" ) in ( "root", ) or (
+            str( kind or "" ) in _PACKAGE_LOCATION_KINDS
+    )
     parent = ""
     identity = shown
     if vocabulary:
@@ -2319,7 +2348,7 @@ def _location_map_rhs( token, path, env ):
         return _slash( path ).strip( "/" )
     for item in _author_locations():
         _scope, _script, _cell, other, _root, folder, kind = _unpack_location( item )
-        if other == token and kind == "package" and folder:
+        if other == token and kind in _PACKAGE_LOCATION_KINDS and folder:
             return str( folder ).replace( "\\", "/" ).strip( "/" )
     abs_path = _to_abs( path, env )
     if str( token ) not in ( "working", "final", "artefacts" ):
@@ -2367,7 +2396,8 @@ def format_terse_location_line( token, path, env, scope="variant", kind="" ):
     ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
     Sconstruct-scoped maps omit both identity cells (the ``[prepare]``
     bookend already names the sconstruct). Read-phase kinds are ``root``,
-    ``repository``, ``archive``, and     ``package``. ``transitive`` is info-coloured (declared maps stay unmarked).
+    ``repository``, ``archive``, ``package``, ``staged_package``, and
+    ``develop_package``. ``transitive`` is info-coloured (declared maps stay unmarked).
     """
     shown = _location_map_rhs( token, path, env )
     fields = []
@@ -2913,8 +2943,14 @@ def _promote_outstanding( key ):
     """Move a pending key into the displayed set after the arm delay.
 
     Appends without stealing the carousel index — new jobs join the rotation;
-    the dwell timer (not promote) advances the displayed member.
+    the dwell timer (not promote) advances the displayed member. Dropped when
+    Ctrl-C has already been announced.
     """
+    if _interrupt_announced:
+        with _outstanding_lock:
+            _outstanding_arm_timers.pop( key, None )
+            _pending_outstanding.pop( key, None )
+        return
     with _outstanding_lock:
         _outstanding_arm_timers.pop( key, None )
         fields = _pending_outstanding.pop( key, None )
@@ -3031,10 +3067,11 @@ def begin_terse_executing( command, target, source, env ):
 
     Fast actions that finish before :data:`_OUTSTANDING_ARM_S` never appear on
     the status row — only their durable ``[ok]`` / ``[error]`` line. No-op
-    without ``--terse-output``, when the alive style is ``off``, or when there
-    is no controlling TTY. Returns an opaque key for :func:`end_terse_executing`.
+    without ``--terse-output``, when the alive style is ``off``, when there
+    is no controlling TTY, or after Ctrl-C. Returns an opaque key for
+    :func:`end_terse_executing`.
     """
-    if not _env_get( env, "terse_output" ):
+    if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return None
     try:
         from cuppa.utility.heartbeat import normalize_style, style as heartbeat_style
@@ -3083,8 +3120,11 @@ def refresh_terse_executing( advance=False ):
 
     Keeps the current carousel member by default so durable ``[ok]`` lines and
     sticky chase-back do not reset the rotation. Pass ``advance=True`` from the
-    dwell timer to step to the next armed job.
+    dwell timer to step to the next armed job. No-op after Ctrl-C so cleanup
+    transcript cannot re-paint ``[....]`` onto the shell prompt.
     """
+    if _interrupt_announced:
+        return
     _paint_current_outstanding( advance=advance )
 
 
@@ -3755,14 +3795,16 @@ def _read_checkpoint_summary( env ):
     if extra:
         dep_phrase += _declared_transitive_suffix( len( declared ), len( extra ) )
     parts = [ dep_phrase ]
-    for kind, singular, plural in (
-            ( "repository", "repository", "repositories" ),
-            ( "package", "package", "packages" ),
-            ( "archive", "archive", "archives" ),
+    package_n = sum(
+            counts.get( kind, 0 ) for kind in _PACKAGE_LOCATION_KINDS
+    )
+    for kind, singular, plural, count in (
+            ( "repository", "repository", "repositories", counts.get( "repository", 0 ) ),
+            ( "package", "package", "packages", package_n ),
+            ( "archive", "archive", "archives", counts.get( "archive", 0 ) ),
     ):
-        n = counts.get( kind, 0 )
-        if n:
-            parts.append( _counted_phrase( n, singular, plural ) )
+        if count:
+            parts.append( _counted_phrase( count, singular, plural ) )
     return _join_subdued( parts )
 
 
@@ -3819,18 +3861,24 @@ def write_terse_cascade_checkpoint( env, token, version, verb, path ):
 
 
 def format_terse_cascade_run_checkpoint( env, tip_package, tip_version, verb, summary="" ):
-    """Tip-scoped cascade span: ``[cascade] tip [==ver] · begin|end · summary``.
+    """Tip-scoped cascade span: ``[cascade] tip [==ver] · begin|end|mode · summary``.
 
     Subject is the tip pin (no ``<token>``) so nest enter/exit lines stay
-    visually distinct. ``verb`` is ``begin`` / ``end`` (action-label ink).
+    visually distinct. Tip name and version are info (not bold); ``verb`` is
+    ``begin`` / ``end`` / ``mode`` (action-label ink). Omit ``[==ver]`` when
+    ``tip_version`` is empty (consume tips use a synthetic sentinel elsewhere).
     """
     counts = _progress_ledger.checkpoint_counts( None, None )
     percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
     lead = " " * _progress_ledger.progress_line_indent()
-    tip = "{} [=={}]".format(
-            as_emphasised( as_info( str( tip_package ) ) ),
-            as_emphasised( as_info( str( tip_version ) ) ),
-    )
+    ver = str( tip_version or "" ).strip()
+    if ver:
+        tip = "{} [=={}]".format(
+                as_info( str( tip_package ) ),
+                as_info( ver ),
+        )
+    else:
+        tip = as_info( str( tip_package ) )
     parts = [
             lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
             percent,
@@ -3858,6 +3906,31 @@ def write_terse_cascade_run_checkpoint(
     )
     sys.stdout.flush()
     return True
+
+
+def count_terse_package_location_kinds( *kinds ):
+    """How many sconstruct package maps have one of ``kinds`` (empty = all package kinds)."""
+    wanted = set( kinds ) if kinds else set( _PACKAGE_LOCATION_KINDS )
+    seen = set()
+    count = 0
+    for item in _author_locations():
+        scope, _script, _cell, token, _path, _folder, kind = _unpack_location( item )
+        if scope != "sconstruct" or token in seen:
+            continue
+        if kind not in wanted:
+            continue
+        seen.add( token )
+        count += 1
+    return count
+
+
+def write_terse_cascade_mode_checkpoint(
+        env, tip_package, tip_version, summary="",
+):
+    """Single tip-scoped cascade posture line (``· mode ·``), not a begin/end span."""
+    return write_terse_cascade_run_checkpoint(
+            env, tip_package, tip_version, "mode", summary=summary,
+    )
 
 
 def write_terse_resolve_prepare( env ):

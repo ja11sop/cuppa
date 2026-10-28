@@ -62,6 +62,7 @@ COLLECT_CASCADE_OPTION = "collect-cascade"
 UPDATE_PUBLISHERS_OPTION = "update-publishers"
 PUBLISH_CASCADE_DEPENDENCIES_OPTION = "publish-cascade-dependencies"
 BUILD_CASCADE_DEPENDENCIES_OPTION = "build-cascade-dependencies"
+CONSUME_CASCADE_DEPENDENCIES_OPTION = "consume-cascade-dependencies"
 FORCE_OPTION = "force"
 PUBLISHER_ROOT_OPTION = "publisher-root"
 CLONE_OPTION = "clone-publishers"
@@ -95,6 +96,7 @@ _PLAN_BANNER_EXACT = frozenset( {
         "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + BUILD_CASCADE_DEPENDENCIES_OPTION,
+        "--" + CONSUME_CASCADE_DEPENDENCIES_OPTION,
         "--" + FORCE_OPTION,
         "--" + CLONE_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
@@ -229,6 +231,22 @@ def build_cascade_dependencies_enabled( env ) -> bool:
     return bool( getter( BUILD_CASCADE_DEPENDENCIES_OPTION ) )
 
 
+def consume_cascade_dependencies_enabled( env ) -> bool:
+    """``--consume-cascade-dependencies``: tip-bind forest stages; no nest sessions."""
+    getter = getattr( env, "get_option", None )
+    if not callable( getter ):
+        return False
+    return bool( getter( CONSUME_CASCADE_DEPENDENCIES_OPTION ) )
+
+
+def forest_tip_consume_enabled( env ) -> bool:
+    """Tip should bind publisher-root stages (nest-build or consume-only)."""
+    return (
+            build_cascade_dependencies_enabled( env )
+            or consume_cascade_dependencies_enabled( env )
+    )
+
+
 def cascade_force_enabled( env ) -> bool:
     """``--force``: rebuild+upload every resolved node even when registry-current."""
     getter = getattr( env, "get_option", None )
@@ -344,6 +362,7 @@ def cascade_stop_before_build( env ) -> bool:
             getter( "publish-package" )
             or getter( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
             or getter( BUILD_CASCADE_DEPENDENCIES_OPTION )
+            or getter( CONSUME_CASCADE_DEPENDENCIES_OPTION )
     ):
         return False
     return True
@@ -379,7 +398,13 @@ def refuse_cascade_nest_under_no_exec( env, stop_only=None ) -> None:
                 or publish_cascade_dependencies_enabled( env )
                 or build_cascade_dependencies_enabled( env )
         )
-        stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
+        # Consume binds existing stages; it does not nest, so -n is allowed.
+        stop_only = (
+                plan_only
+                or collect_only
+                or consume_cascade_dependencies_enabled( env )
+                or ( update_publishers and not nest_action )
+        )
     if stop_only or not _no_exec_enabled( env ):
         return
 
@@ -1857,7 +1882,13 @@ def _footer_flag( option: str ) -> str:
 
 
 def _publish_action_phrase( consume_tip: bool ) -> str:
-    """How a plan finish line names the companion nest / tip action(s)."""
+    """How a plan finish line names the companion nest / tip action(s).
+
+    Consume stays off this phrase: the clone-on-the-way sentence is already
+    at the wrap width, and a missing stage is not something plan mode clones
+    its way into. Blocked-plan closings name ``--consume-cascade-dependencies``
+    separately (:func:`_execute_closing_lines`).
+    """
     build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
@@ -2871,19 +2902,21 @@ def _finish_advice_tree( items, *, closing=None, encoding=None ) -> list[str]:
 def _execute_closing_lines( consume_tip: bool ) -> list[str]:
     """Finish elbow: keep ``or`` at the left of the continuation (LTR scan)."""
     then_word = _guide_word( "then" )
-    either_word = _guide_word( "either" )
     or_word = _guide_word( "or" )
+    one_of = _guide_word( "one of" )
     build = _footer_flag( BUILD_CASCADE_DEPENDENCIES_OPTION )
     nest = _footer_flag( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+    bind = _footer_flag( CONSUME_CASCADE_DEPENDENCIES_OPTION )
     if consume_tip:
         return [
-                "{} re-run with {} {}".format( then_word, either_word, build ),
-                "{} {} to execute".format( or_word, nest ),
+                "{} re-run with {} {}, {}".format( then_word, one_of, build, nest ),
+                "{} {} to execute".format( or_word, bind ),
         ]
-    one_of = _guide_word( "one of" )
     publish = _footer_flag( "publish-package" )
     return [
-            "{} re-run with {} {}, {}".format( then_word, one_of, build, nest ),
+            "{} re-run with {} {}, {}, {}".format(
+                    then_word, one_of, build, nest, bind,
+            ),
             "{} {} to execute".format( or_word, publish ),
     ]
 
@@ -3246,6 +3279,7 @@ _NESTED_DROP_EXACT = frozenset( {
         "--" + UPDATE_PUBLISHERS_OPTION,
         "--" + PUBLISH_CASCADE_DEPENDENCIES_OPTION,
         "--" + BUILD_CASCADE_DEPENDENCIES_OPTION,
+        "--" + CONSUME_CASCADE_DEPENDENCIES_OPTION,
         "--" + PUBLISHER_ROOT_OPTION,
         "--" + CLONE_OPTION,
         "--" + MODIFIED_PUBLISH_OPTION,
@@ -5352,17 +5386,24 @@ def consume_build_cascade_package_stage(
         package_source: str | None = None,
         label: str | None = None,
 ) -> str | None:
-    """Resolve (and nest-on-miss) a publisher-root stage for tip build-deps consume.
+    """Resolve a publisher-root stage for tip forest consume.
 
     Develop-winning packages are handled by the caller via
     :func:`consume_develop_package_stage` first. Nested tip sessions return
-    ``None`` so children keep registry download. Missing stage after nest →
-    ``StopError`` (no silent extract fall-back).
+    ``None`` so children keep registry download. Under
+    ``--build-cascade-dependencies`` a missing stage nests once, then
+    ``StopError``. Under ``--consume-cascade-dependencies`` the same miss is
+    a ``StopError`` with no nested ``python -m cuppa`` (no extract fall-back).
     """
     if _is_nested():
         return None
-    if not cascade_enabled( env ) or not build_cascade_dependencies_enabled( env ):
+    if not cascade_enabled( env ) or not forest_tip_consume_enabled( env ):
         return None
+    nest_on_miss = build_cascade_dependencies_enabled( env )
+    bind_option = (
+            BUILD_CASCADE_DEPENDENCIES_OPTION if nest_on_miss
+            else CONSUME_CASCADE_DEPENDENCIES_OPTION
+    )
 
     package = str( package )
     version = str( version )
@@ -5386,7 +5427,7 @@ def consume_build_cascade_package_stage(
         raise SCons.Errors.StopError(
                 "--{}: no publisher tree for [{}]; plant under --publisher-root "
                 "or pass --clone-publishers / package_source"
-                .format( BUILD_CASCADE_DEPENDENCIES_OPTION, label )
+                .format( bind_option, label )
         )
 
     abs_root = os.path.abspath( str( publisher_dir ) )
@@ -5397,10 +5438,27 @@ def consume_build_cascade_package_stage(
             publisher_dir, package, version, env=env, match_toolchain=True,
     )
     if stage:
-        record_build_cascade_staged_root( abs_root )
+        if nest_on_miss:
+            record_build_cascade_staged_root( abs_root )
         return stage
     if cleaning:
         return None
+    if not nest_on_miss:
+        raise SCons.Errors.StopError(
+                "--{}: package [{}] at [{}] has no staged "
+                "_build/.../final/{}/{} for this tip toolchain (need include/ "
+                "and lib/). Run --{} (or --amend-cascade-manifests with a nest "
+                "companion) first; this flag does not nest or fall back to a "
+                "registry extract."
+                .format(
+                        bind_option,
+                        label,
+                        publisher_dir,
+                        package,
+                        version,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                )
+        )
 
     if abs_root not in _build_cascade_staged_roots:
         run_nested_build(
@@ -5418,7 +5476,7 @@ def consume_build_cascade_package_stage(
             "_build/.../final/{}/{} for this tip toolchain (need include/ and "
             "lib/). Nest-build that tree, or fix the publisher stage layout"
             .format(
-                    BUILD_CASCADE_DEPENDENCIES_OPTION,
+                    bind_option,
                     label,
                     publisher_dir,
                     package,
@@ -5496,8 +5554,9 @@ def maybe_run_cascade( env, publisher ) -> None:
     ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
     ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
     (no tip upload). ``--build-cascade-dependencies`` nest-builds the DAG with
-    no registry upload, then tip-builds. ``construct.py`` exits after the
-    sconscript read for stop-before-build modes.
+    no registry upload, then tip-builds. ``--consume-cascade-dependencies``
+    binds existing forest stages and does not nest. ``construct.py`` exits
+    after the sconscript read for stop-before-build modes.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
@@ -5505,6 +5564,7 @@ def maybe_run_cascade( env, publisher ) -> None:
     publish = bool( env.get_option( "publish-package" ) )
     publish_cascade_deps = publish_cascade_dependencies_enabled( env )
     build_cascade_deps = build_cascade_dependencies_enabled( env )
+    consume_deps = consume_cascade_dependencies_enabled( env )
     nest_action = publish or publish_cascade_deps or build_cascade_deps
     # Stop before nested work when plan/collect, or update without a nest action.
     stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
@@ -5544,6 +5604,11 @@ def maybe_run_cascade( env, publisher ) -> None:
                 "--{} requires --{}"
                 .format( BUILD_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
         )
+    if consume_deps and not cascade_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} requires --{}"
+                .format( CONSUME_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
+        )
     if tip_has_amend_cascade_manifests( env=env ) and not cascade_enabled( env ):
         raise SCons.Errors.StopError(
                 "--amend-cascade-manifests requires --{}"
@@ -5570,6 +5635,26 @@ def maybe_run_cascade( env, publisher ) -> None:
                         BUILD_CASCADE_DEPENDENCIES_OPTION,
                 )
         )
+    if consume_deps and ( publish or publish_cascade_deps or build_cascade_deps ):
+        raise SCons.Errors.StopError(
+                "--{} cannot be combined with --publish-package, --{}, or "
+                "--{}; it binds existing forest stages and does not nest"
+                .format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                )
+        )
+    if consume_deps and tip_has_amend_cascade_manifests( env=env ):
+        raise SCons.Errors.StopError(
+                "--{} and --amend-cascade-manifests cannot be combined; amend "
+                "needs nest sessions. Run the amend (or --{}) first, then "
+                "consume the stages."
+                .format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                )
+        )
     if not cascade_enabled( env ):
         return
     if _is_nested():
@@ -5583,17 +5668,18 @@ def maybe_run_cascade( env, publisher ) -> None:
     tip_version = str( getattr( publisher, "_version", "" ) )
     nested_key = _cascade_nested_key( env, publisher )
 
-    # Plan, collect, and update-without-nest do not need a nest action.
+    # Plan, collect, update-without-nest, and consume-only do not nest.
     # Real nest needs --publish-package, --publish-cascade-dependencies, or
     # --build-cascade-dependencies.
-    if not stop_only and not nest_action:
+    if not stop_only and not nest_action and not consume_deps:
         raise SCons.Errors.StopError(
                 "--{} requires --publish-package, --{}, --{}, --{}, --{}, "
-                "or --{}"
+                "--{}, or --{}"
                 .format(
                         CASCADE_OPTION,
                         PUBLISH_CASCADE_DEPENDENCIES_OPTION,
                         BUILD_CASCADE_DEPENDENCIES_OPTION,
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
                         CASCADE_PLAN_OPTION,
                         COLLECT_CASCADE_OPTION,
                         UPDATE_PUBLISHERS_OPTION,
@@ -5614,7 +5700,48 @@ def maybe_run_cascade( env, publisher ) -> None:
     # SCons -n still runs configure in nested sessions; Configure refuses to
     # create .sconf_temp under dry-run, so the nested publish dies before any
     # builder is skipped. Update-only / collect allow -n (like --update-develop).
-    refuse_cascade_nest_under_no_exec( env, stop_only=stop_only )
+    # Consume does not nest, so -n is allowed even though it is not a stop mode.
+    refuse_cascade_nest_under_no_exec(
+            env, stop_only=stop_only or consume_deps,
+    )
+
+    # Consume-only: tip bind happens at package resolve. No graph walk, no nest.
+    # Plan / collect / update still use the paths below (consume + plan reviews
+    # the DAG and does not nest).
+    if (
+            consume_deps
+            and not plan_only
+            and not collect_only
+            and not update_publishers
+    ):
+        from cuppa import progress
+        from cuppa.colourise import as_subdued
+        if env.get( "terse_output" ):
+            bound = progress.count_terse_package_location_kinds( "staged_package" )
+            # Synthetic consume-tip version is not a package pin — omit [==consume].
+            display_version = (
+                    "" if str( tip_version ) == "consume" else tip_version
+            )
+            if bound:
+                # Plain count like prepare/ready; "staged packages" echoes the
+                # location kind (this run binds existing stages, it does not nest-stage).
+                summary = (
+                        as_subdued( "dependencies consume (no nest)" )
+                        + as_subdued( " · " )
+                        + progress._counted_phrase(
+                                bound, "staged package", "staged packages",
+                        )
+                )
+            else:
+                summary = as_subdued( "dependencies consume (no nest)" )
+            progress.write_terse_cascade_mode_checkpoint(
+                    env, tip_package, display_version, summary=summary,
+            )
+        else:
+            logger.info(
+                    "Cascade: dependencies consume (no nest); tip build only"
+            )
+        return
 
     # Plan: tolerant, no clone. Collect/update-stop: tolerant, clone when allowed.
     # Full run: fail-fast, clone when allowed.

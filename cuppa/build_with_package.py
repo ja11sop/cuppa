@@ -231,9 +231,16 @@ class base(object):
         pkg_dir = dir_fn() if callable( dir_fn ) else getattr( package, "_package_dir", None )
         if not pkg_dir:
             return
+        # Bind-time label (forest / develop) already registered the map with the
+        # correct kind and ``package/version`` folder — do not downgrade it.
+        if getattr( package, "_terse_location_kind", None ) in (
+                "staged_package", "develop_package",
+        ):
+            return
         extract_fn = getattr( package, "extraction_dir", None )
         extract = extract_fn() if callable( extract_fn ) else None
         folder = os.path.basename( str( pkg_dir ).rstrip( "\\/" ) )
+        kind = getattr( package, "_terse_location_kind", None ) or "package"
         import cuppa.progress
         if extract:
             try:
@@ -255,7 +262,7 @@ class base(object):
                 pass
         cuppa.progress.label_terse_location(
                 env, name, pkg_dir, scope="sconstruct", build_folder=folder,
-                kind="package",
+                kind=kind,
         )
 
 

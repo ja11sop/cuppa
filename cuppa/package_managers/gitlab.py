@@ -1614,15 +1614,34 @@ class GitlabPackageDependency:
         return { "id": identity, "args": args }
 
 
-    def _label_terse_package( self ):
+    def _label_terse_package( self, kind=None ):
         name = self._dependency_name
         if not name or not getattr( self, "_package_dir", None ):
             return
         import cuppa.progress
         folder = "{}/{}".format( self._package, self.version() )
+        if kind is None:
+            kind = getattr( self, "_terse_location_kind", None ) or "package"
+        self._terse_location_kind = kind
         cuppa.progress.label_terse_location(
                 self._cuppa_env, name, self._package_dir, scope="sconstruct",
-                build_folder=folder, kind="package",
+                build_folder=folder, kind=kind,
+        )
+
+    def _note_local_stage( self, flag_label ):
+        """Info when not terse; location map already covers ``--terse-output``."""
+        if self._clean:
+            return
+        self._label_terse_package()
+        if self._cuppa_env.get( "terse_output" ):
+            return
+        logger.info(
+                "{}: using locally staged package [{}] from [{}]"
+                .format(
+                        flag_label,
+                        as_info( self._package_id ),
+                        as_notice( display_path( self._package_dir ) ),
+                )
         )
 
 
@@ -1837,22 +1856,17 @@ class GitlabPackageDependency:
                     self._pkg_config_dir = os.path.abspath(
                             os.path.join( self._package_dir, pkg_config_dir )
                     )
-                if not self._clean:
-                    logger.info(
-                            "--develop: using locally staged package [{}] from [{}]"
-                            .format(
-                                    as_info( self._package_id ),
-                                    as_notice( display_path( self._package_dir ) )
-                            )
-                    )
+                self._terse_location_kind = "develop_package"
+                self._note_local_stage( "--develop" )
                 return
             if self._clean:
                 return
             # Nested session: fall through to registry download.
 
-        # Build-deps tip consume: forest stage (develop already handled above).
-        # Ranking: active --develop wins; otherwise tip links publisher-root
-        # stages produced by --build-cascade-dependencies (no extract mutate).
+        # Forest tip consume: develop already handled above. Ranking: active
+        # --develop wins; otherwise tip links publisher-root stages
+        # (--build-cascade-dependencies nests on miss;
+        # --consume-cascade-dependencies binds only). No extract mutate.
         if (
                 not self._using_develop
                 and not self._develop_is_publisher_source
@@ -1861,9 +1875,11 @@ class GitlabPackageDependency:
                     build_cascade_dependencies_enabled,
                     cascade_enabled,
                     consume_build_cascade_package_stage,
+                    consume_cascade_dependencies_enabled,
             )
-            if cascade_enabled( cuppa_env ) and build_cascade_dependencies_enabled(
-                    cuppa_env
+            if cascade_enabled( cuppa_env ) and (
+                    build_cascade_dependencies_enabled( cuppa_env )
+                    or consume_cascade_dependencies_enabled( cuppa_env )
             ):
                 stage = consume_build_cascade_package_stage(
                         cuppa_env,
@@ -1882,27 +1898,28 @@ class GitlabPackageDependency:
                         self._pkg_config_dir = os.path.abspath(
                                 os.path.join( self._package_dir, pkg_config_dir )
                         )
-                    if not self._clean:
-                        logger.info(
-                                "--build-cascade-dependencies: using locally "
-                                "staged package [{}] from [{}]"
-                                .format(
-                                        as_info( self._package_id ),
-                                        as_notice( display_path( self._package_dir ) ),
-                                )
-                        )
+                    bind_flag = (
+                            "--build-cascade-dependencies"
+                            if build_cascade_dependencies_enabled( cuppa_env )
+                            else "--consume-cascade-dependencies"
+                    )
+                    self._terse_location_kind = "staged_package"
+                    self._note_local_stage( bind_flag )
                     return
 
         if self._clean:
             return
 
         if self._using_develop:
-            logger.info( "--develop specified so using package [{}] from [{}]".format(
-                    as_info( self._package_id ),
-                    # Anchoring leaves the `..` segments that got here; they are noise
-                    # in a message, and the develop reports already drop them.
-                    as_notice( display_path( self._package_dir ) )
-            ) )
+            self._terse_location_kind = "develop_package"
+            self._label_terse_package()
+            if not cuppa_env.get( "terse_output" ):
+                logger.info( "--develop specified so using package [{}] from [{}]".format(
+                        as_info( self._package_id ),
+                        # Anchoring leaves the `..` segments that got here; they are noise
+                        # in a message, and the develop reports already drop them.
+                        as_notice( display_path( self._package_dir ) )
+                ) )
             return
 
         want_refresh = refresh_downloads_applies(

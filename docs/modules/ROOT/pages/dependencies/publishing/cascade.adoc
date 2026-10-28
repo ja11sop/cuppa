@@ -74,6 +74,10 @@ nest-build vs nest-publish:
 | Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-cascade-manifests``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild). Nests run **before** tip ``BuildWith`` (same timing idea as ``--stage-develop``)
 | Tip **build only**, linking each nest's ``final/<package>/<version>/`` stage under the publisher forest (not the download extract). ``--develop`` still wins for packages with an active develop path. Cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies`` |
 
+| ``--consume-cascade-dependencies``
+| Nothing (no nested ``cuppa``)
+| Tip **build only**, binding each dependency to an existing publisher-root ``final/<package>/<version>/`` (same toolchain rules as build-deps). ``--develop`` still wins. A missing or wrong-toolchain stage is an error — run ``--build-cascade-dependencies`` (or amend) first. No registry-extract fall-back. Under ``--terse-output``, resolve maps ``<publishers>`` and marks bound pins ``staged_package`` (develop-winning pins ``develop_package``), plus a durable ``[cascade] tip · mode · dependencies consume (no nest) · N staged packages`` line. Cannot combine with ``--publish-package``, ``--publish-cascade-dependencies``, ``--build-cascade-dependencies``, or ``--amend-cascade-manifests``
+
 | ``--cascade-plan``
 | Nothing (report only)
 | Exit after the plan
@@ -89,7 +93,9 @@ nest-build vs nest-publish:
 
 Bare ``--cascade`` alone is refused. The nest companions
 (``--publish-package``, ``--publish-cascade-dependencies``,
-``--build-cascade-dependencies``) cannot be combined with each other.
+``--build-cascade-dependencies``) cannot be combined with each other, and
+``--consume-cascade-dependencies`` cannot be combined with any of them (or
+with ``--amend-cascade-manifests``).
 
 IMPORTANT: ``--build-and-publish-dependencies`` is a **deprecated** alias of
 ``--cascade`` and will be removed in Cuppa **2.0**. Prefer ``--cascade``.
@@ -108,6 +114,11 @@ cuppa -D --rel --toolchains=gcc15 \
 # Nest-build deps (no registry upload); tip links forest stages
 cuppa -D --rel --toolchains=gcc15 \
   --build-cascade-dependencies --cascade \
+  --publisher-root=~/coding/packages
+
+# Tip only: bind those forest stages again (no nests)
+cuppa -D --rel --toolchains=gcc15 \
+  --consume-cascade-dependencies --cascade \
   --publisher-root=~/coding/packages
 ----
 
@@ -136,6 +147,7 @@ flowchart TD
   choose -->|--collect-cascade| collect[Resolve or clone trees; exit]
   choose -->|--update-publishers alone| update[Update forest; exit]
   choose -->|--build-cascade-dependencies| nestBuildOnly[Nest-build then tip links forest stages]
+  choose -->|--consume-cascade-dependencies| bindOnly[Bind existing forest stages; tip build; no nests]
   choose -->|--publish-cascade-dependencies| nestPublishBuild[Nest-publish then tip build]
   choose -->|--publish-package| nestUpload[Nest-publish then tip upload]
   choose -->|combined nest companions| refuseBoth[Refuse]

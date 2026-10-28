@@ -53,11 +53,13 @@ def _node( path="a.o" ):
 @pytest.fixture( autouse=True )
 def _reset( monkeypatch ):
     hb.reset()
+    progress.reset_build_interrupted()
     progress.reset_terse_executing()
     # Unit tests expect synchronous captions unless a case sets a delay.
     monkeypatch.setattr( progress, "_OUTSTANDING_ARM_S", 0 )
     yield
     progress.reset_terse_executing()
+    progress.reset_build_interrupted()
     hb.reset()
 
 
@@ -287,6 +289,39 @@ def test_terse_interrupt_stream_clears_status_before_stderr( monkeypatch ):
     wrapper.write( "scons: *** [_build/test/a] Error 1\n" )
     assert written == [ "scons: *** [_build/test/a] Error 1\n" ]
     # Status row cleared so the error cannot glue onto the caption.
+    assert hb._last_line == ""  # noqa: SLF001
+
+
+def test_interrupt_drops_outstanding_and_blocks_refresh( monkeypatch ):
+    """Ctrl-C must not leave ``[....]`` chased back onto the shell prompt."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _arm_status_row( stream, clock, monkeypatch )
+    env = _env()
+    key = progress.begin_terse_executing(
+            "g++ -c a.cpp", [ _node( "a.o" ) ], [ _node( "a.cpp" ) ], env,
+    )
+    assert key is not None
+    assert "[....]" in strip_ansi( stream.getvalue() )
+
+    progress.note_build_interrupted()
+    assert list( progress._outstanding ) == []  # noqa: SLF001
+    assert list( progress._pending_outstanding ) == []  # noqa: SLF001
+    assert hb._last_line == ""  # noqa: SLF001
+
+    # Cleanup durable lines must not re-arm or re-paint.
+    assert progress.begin_terse_executing(
+            "./wait-until-ready", [ _node( "ready" ) ], [], env,
+    ) is None
+    before = stream.getvalue()
+    progress.refresh_terse_executing()
+    assert stream.getvalue() == before
+
+    progress.write_terse_interrupt_finish()
+    after_finish = stream.getvalue()
+    progress.refresh_terse_executing()
+    assert list( progress._outstanding ) == []  # noqa: SLF001
+    assert stream.getvalue() == after_finish
     assert hb._last_line == ""  # noqa: SLF001
 
 

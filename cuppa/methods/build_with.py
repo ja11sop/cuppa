@@ -92,6 +92,17 @@ class BuildWithMethod:
                 cuppa.progress.label_terse_location(
                         env, "downloads", downloads, scope="sconstruct", kind="root",
                 )
+            from cuppa.package_managers import package_cascade
+            if (
+                    package_cascade.cascade_enabled( env )
+                    and package_cascade.forest_tip_consume_enabled( env )
+            ):
+                publishers = package_cascade.publisher_lookup_root( env )
+                if publishers:
+                    cuppa.progress.label_terse_location(
+                            env, "publishers", publishers,
+                            scope="sconstruct", kind="root",
+                    )
         if env['default_dependencies']:
             env['_pre_sconscript_phase_'] = True
             env.BuildWith( env['default_dependencies'] )
