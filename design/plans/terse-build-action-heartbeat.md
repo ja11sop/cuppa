@@ -336,3 +336,13 @@ Likely causes (need tip soak / instrumentation to pick one):
 
 **Next:** instrument failed credit (option Diagnose) against this tip’s postgres
 stop hook; then choose Match+credit / Keep-in-ledger vs Phase-name cleanup.
+
+**Diagnose (this PR):** after the interrupt **close** (`_interrupt_finished`),
+a failed `count=True` credit prints one subdued stdout line:
+
+```text
+terse-credit: miss=missing · interrupt=closed · ledger=34 · cell=14/34 · 14% · target=… · cmd=docker stop …
+```
+
+`miss` is `empty-target` / `missing` / `spent`. Re-soak the serial postgres
+Ctrl-C case and paste that line.

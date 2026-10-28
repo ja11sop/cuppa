@@ -391,6 +391,27 @@ def test_run_without_node_summary_names_the_command():
     assert bare.rstrip().endswith( "· run · set_postgres_env_variables" )
 
 
+def test_post_interrupt_credit_miss_emits_diagnostic( capsys ):
+    """After ``[interrupted]``, failed credit prints ``terse-credit: miss=…``."""
+    env = _terse_env()
+    progress.register_terse_actions( env, [ _ActionNode() ] )
+    progress.note_build_interrupted()
+    progress.write_terse_interrupt_finish()
+    capsys.readouterr()
+    progress.format_terse_line(
+            "ok",
+            "docker stop deadbeef",
+            [ _LabelledNode( "run", "docker-stop.success" ) ],
+            [],
+            env,
+    )
+    out = capsys.readouterr().out
+    assert "terse-credit: miss=missing" in out
+    assert "interrupt=closed" in out
+    assert "docker stop deadbeef" in out
+    assert "docker-stop.success" in out
+
+
 def test_markdown_and_asciidoc_show_source_to_product():
     markdown = progress.format_terse_line(
             "ok",

@@ -934,6 +934,26 @@ class _ProgressLedger(object):
                 return self._credit_entry( entry, count )
         return False
 
+    def explain_credit_miss( self, target, current ):
+        """Why ``credit`` would fail: ``empty-target``, ``missing``, or ``spent``.
+
+        Call under the ledger lock (or only for diagnostics after a failed
+        credit — read-only). ``missing`` = no finish/current node is in the
+        ledger; ``spent`` = every matched entry has ``remaining == 0``.
+        """
+        nodes = list( _iter_nodes( target ) ) + list( _iter_nodes( current ) )
+        if not nodes:
+            return "empty-target"
+        saw_entry = False
+        for node in nodes:
+            entry = self._nodes.get( id( node ) )
+            if entry is None:
+                continue
+            saw_entry = True
+            if entry[ "remaining" ] > 0:
+                return "ok"
+        return "spent" if saw_entry else "missing"
+
     def _credit_entry( self, entry, count ):
         take = entry[ "remaining" ] if count is None else min( int( count ), entry[ "remaining" ] )
         if take <= 0:
@@ -1254,15 +1274,66 @@ def install_terse_progress_hooks():
     main.BuildTask.make_ready = make_ready
 
 
-def _account_and_prefix( target, env, count, mark=False ):
+def _account_and_prefix( target, env, count, mark=False, command=None ):
+    current = _current_action_nodes()
     credited, text = _progress_ledger.credit_and_prefix(
-            target, _current_action_nodes(), env, count,
+            target, current, env, count,
     )
     if credited and mark:
         note_terse_action_accounted()
+    # Only after the interrupt close — that is the docker-stop soak case.
+    # In-flight ``[stopped]`` credits normally and must not spam diagnostics.
+    if count and not credited and _interrupt_finished:
+        _emit_terse_credit_miss( target, current, env, command, text )
     if not count or not text:
         return ""
     return _colour_counts_prefix( text )
+
+
+def _emit_terse_credit_miss( target, current, env, command, cell_prefix ):
+    """One subdued diagnostic when interrupt-phase credit fails (soak aid).
+
+    Printed on stdout so ``-Q`` / tip pastes still show it. Remove or gate
+    once the post-``[interrupted]`` ``docker stop`` tally is settled.
+    """
+    with _progress_ledger._lock:
+        reason = _progress_ledger.explain_credit_miss( target, current )
+        ledger_n = len( {
+                id( entry )
+                for entry in _progress_ledger._nodes.values()
+        } )
+    paths = []
+    for node in list( _iter_nodes( target ) )[ :3 ]:
+        path = _node_path( node )
+        paths.append( path or repr( node ) )
+    current_paths = []
+    for node in list( _iter_nodes( current ) )[ :2 ]:
+        path = _node_path( node )
+        current_paths.append( path or repr( node ) )
+    phase = "closed" if _interrupt_finished else "draining"
+    cmd = " ".join( str( command or "" ).split() )
+    if len( cmd ) > 96:
+        cmd = cmd[ :93 ] + "..."
+    parts = [
+            "terse-credit: miss=" + reason,
+            "interrupt=" + phase,
+            "ledger=" + str( ledger_n ),
+    ]
+    if cell_prefix:
+        parts.append( "cell=" + str( cell_prefix ).strip() )
+    if paths:
+        parts.append( "target=" + ",".join( paths ) )
+    else:
+        parts.append( "target=<none>" )
+    if current_paths:
+        parts.append( "current=" + ",".join( current_paths ) )
+    if cmd:
+        parts.append( "cmd=" + cmd )
+    _write_terse_stdout( as_subdued( " · ".join( parts ) ) + "\n", dwell=False )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def _colour_counts_prefix( text ):
@@ -2644,9 +2715,13 @@ def format_terse_line(
     ``N/M`` when one exists (prefix from the ledger, no bump). Post-interrupt
     ``docker stop`` soaked that way — do **not** paper over with ``→``; fix
     registration / credit matching instead (see heartbeat plan soak note).
+    After the interrupt close, a failed credit also emits a one-line
+    ``terse-credit: miss=…`` diagnostic for soak pastes.
     """
     parts = []
-    prefix = _account_and_prefix( target, env, count=count, mark=False )
+    prefix = _account_and_prefix(
+            target, env, count=count, mark=False, command=command,
+    )
     if prefix:
         parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     marker = _status_marker( status )
