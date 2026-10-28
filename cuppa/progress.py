@@ -2172,6 +2172,11 @@ def _status_marker( status ):
     elif status == "error":
         text = "[error]"
         painted = as_colour( "error", text )
+    elif status == "cancelled":
+        # Ctrl-C stop — notice like ``[interrupted]``, not error. Wider than
+        # six columns; pad is a no-op so the badge reads in full.
+        text = "[cancelled]"
+        painted = as_colour( "notice", text )
     elif status == "done":
         # Clean close of a delegated ``[launch]`` span. Same column width as ``[ok]``.
         text = "[done]"
@@ -2644,6 +2649,31 @@ def format_terse_line(
 
 def format_terse_success( command, target, source, env ):
     return format_terse_line( "ok", command, target, source, env )
+
+
+def write_terse_cancelled_action(
+        command, target, source, env, count=True, duration="",
+):
+    """Durable per-job confirmation when Ctrl-C stopped an in-flight action.
+
+    Paints between the interrupt bookends when the child returns SIGINT.
+    Does not reprint argv — cancel is not a failure transcript.
+    """
+    end_terse_executing()
+    note_terse_build_activity()
+    line = format_terse_line(
+            "cancelled",
+            command,
+            target,
+            source,
+            env,
+            count=count,
+            duration=duration,
+    )
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    note_terse_status_emitted()
+    refresh_terse_executing()
 
 
 def stash_terse_command( cmd, target, source, env ):
@@ -4502,15 +4532,22 @@ class _TersePythonCallable( object ):
 
     def _finish_interrupted_action( self, target, env ):
         note_build_interrupted()
-        take_terse_command()
-        end_terse_executing()
+        command, stashed_target, stashed_source, stashed_env = take_terse_command()
         take_terse_children()
         take_terse_launch()
         take_terse_status_emitted()
-        if not take_terse_action_accounted():
-            _account_and_prefix( target, env, count=True, mark=False )
-        note_terse_build_activity()
-        refresh_terse_executing()
+        use_target = target or stashed_target
+        use_source = stashed_source
+        use_env = env or stashed_env or {}
+        already_accounted = take_terse_action_accounted()
+        write_terse_cancelled_action(
+                command or "",
+                use_target,
+                use_source,
+                use_env,
+                count=not already_accounted,
+                duration=take_terse_duration(),
+        )
 
     def _finish_python_action( self, target, source, env, failed ):
         if take_terse_status_emitted():

@@ -537,7 +537,7 @@ def test_python_action_failure_prints_the_description_then_the_summary( capsys )
     )
 
 
-def test_python_action_interrupt_returncode_skips_error_status( capsys ):
+def test_python_action_interrupt_returncode_paints_cancelled( capsys ):
     import signal
 
     progress.reset_build_interrupted()
@@ -554,7 +554,12 @@ def test_python_action_interrupt_returncode_skips_error_status( capsys ):
     assert wrapped( target=[node], source=[], env=env ) == -signal.SIGINT
     out = capsys.readouterr().out
     assert "[error]" not in out
+    # Cancel confirmation is the status line only — no argv reprint.
     assert "cmake --build" not in out
+    assert out.rstrip().endswith(
+            "[cancelled] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · "
+            "cmake.build.complete"
+    )
 
 
 def test_python_action_exception_is_reported_and_reraised( capsys ):
@@ -871,7 +876,9 @@ def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
     progress.stash_terse_command( "g++ -c time.cpp", [ "time.o" ], [ "time.cpp" ], _variant_env() )
     spawned.finish( -2 )
     again = capsys.readouterr()
-    assert again.out == ""
+    assert "[cancelled]" in again.out
+    assert "[error]" not in again.out
+    assert "g++ -c time.cpp" not in again.out
     assert "interrupted" not in again.err
     assert "[error]" not in again.err
 

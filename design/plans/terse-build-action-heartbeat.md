@@ -255,7 +255,7 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
 | `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
 | Progress / location maps after `[interrupted]` | **Done** — under `-j`, Progress begin + location maps that were mid-flight no longer print after the interrupt close; gated on `_interrupt_announced` like sticky `[....]` ([#380](https://github.com/ja11sop/cuppa/pull/380)) |
-| Per-job `[cancelled]` on Ctrl-C | **Open** — see soak addendum below; not required to merge [#380](https://github.com/ja11sop/cuppa/pull/380) |
+| Per-job `[cancelled]` on Ctrl-C | **Done** — notice `[cancelled]` on SIGINT finish (spawn + Python); no argv reprint; paints between interrupt bookends (this PR) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
@@ -278,14 +278,16 @@ Empty space between those bookends is **expected** when SIGINT wins. Occasional
 `[ok]` in the gap means a job finished cleanly before the signal landed (drain
 race), not that cancel failed.
 
-**Follow-on (do not forget):** per-job durable confirmation for interrupted
-actions, e.g.
+**Settled (this PR):** per-job durable confirmation for interrupted actions:
 
 ```text
   4/  4 ·  69% [cancelled]  test/positions · gcc15_dbg_… · link · <final>/position_movement
 ```
 
-Settle in that slice: badge colour / six-column width vs `[ok]` / `[error]`;
-paint on interrupt returncode instead of silence; whether lines may appear only
-before `stopped in-flight actions` or also after. Do **not** require strong
-global silence after announce — clarity that cancel worked is the goal.
+| Piece | Choice |
+|-------|--------|
+| Badge | `[cancelled]` — notice colour (same family as `[interrupted]`), not error |
+| Width | Wider than six columns; pad is a no-op so the word reads in full |
+| When | SIGINT returncode on spawn + Python-action finish (replaces silence) |
+| Where | Naturally between bookends; late lines after `stopped…` OK (no strong mute) |
+| Argv | Not reprinted — cancel is confirmation, not a failure transcript |

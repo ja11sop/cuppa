@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   progress / location transcript now refuses the same way once interrupt
   is announced (including maps mid-flight after a begin line).
 
+### Changed
+
+- Under ``--terse-output``, actions stopped by Ctrl-C (SIGINT) now paint a
+  durable notice ``[cancelled]`` line — same identity fields as ``[ok]``,
+  no argv reprint — between ``interrupted — stopping…`` and
+  ``stopped in-flight actions`` / ``[interrupted]``. Spawn and Python-action
+  finish paths share the helper. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
+
 ### Added
 
 - ``--skip-location-update`` — freeze location dependency working copies for
