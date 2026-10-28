@@ -1,13 +1,14 @@
 # Plan: Supported toolchain version currency
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains; [`list-toolchains.md`](../archive/list-toolchains.md);
   [`list-toolchains-verbose.md`](list-toolchains-verbose.md); Antora
   [`toolchains/gcc.adoc`](../../docs/modules/ROOT/pages/toolchains/gcc.adoc) /
   [`clang.adoc`](../../docs/modules/ROOT/pages/toolchains/clang.adoc) /
   [`msvc.adoc`](../../docs/modules/ROOT/pages/toolchains/msvc.adoc);
   `cuppa/toolchains/{gcc,clang,cl}.py` `supported_versions`; CI
-  [`.github/workflows/test.yml`](../../.github/workflows/test.yml)
+  [`.github/workflows/test.yml`](../../.github/workflows/test.yml);
+  done on [#377](https://github.com/ja11sop/cuppa/pull/377)
 - **Updated:** 2026-10-28
 - **Impact:** patch — register new aliases / refresh docs ceilings; CI default
   bump is optional and called out separately (may be minor if runners change)
@@ -63,6 +64,6 @@ actually soaks on tip machines.
 | Gap captured | Done — this proposal |
 | Add Clang 23 aliases + Antora ceiling | **Done** — `clang23` / `clang231`; family page through **clang23**; modern point-release digit parse aligned with GCC |
 | GCC point-release check (16.3+ / 17 when present) | **Done** for this pass — ceiling still `gcc16` / `gcc162` (upstream 16.2.0); no 16.3 / 17 yet |
-| MSVC / VS alias smoke on Windows CI host | Open — still SCons `_VCVER`; no Cuppa list drift this pass |
-| CI gcc default bump decision | Deferred — keep Actions on g++-15 until PPA/`ubuntu-latest` makes 16 easy |
+| MSVC / VS alias smoke on Windows CI host | **Done** — no Cuppa-owned list; aliases from SCons `_VCVER` (4.10.1 already has `14.5` → `vc145`); Antora documents VS 2026+; modules-dir walk already includes `18` |
+| CI gcc default bump decision | Deferred — keep Actions on g++-15 until PPA/`ubuntu-latest` makes 16 easy; reopen as a separate patch when ready |
 | Fold post-#376 consume plan → `done` | Done — this housekeeping change |

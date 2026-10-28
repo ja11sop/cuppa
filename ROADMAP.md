@@ -29,7 +29,7 @@ polish and long carry-forwards continue where they do not block that opener.
 | Cascade build-deps tip consume | **Done on [#373](https://github.com/ja11sop/cuppa/pull/373)** — tip links forest stages under `--build-cascade-dependencies`; [`cascade-build-deps-tip-consume.md`](design/plans/cascade-build-deps-tip-consume.md) |
 | Cascade consume-deps (no nest) | **Done on [#376](https://github.com/ja11sop/cuppa/pull/376)** — `--consume-cascade-dependencies` tip forest bind; [`cascade-consume-dependencies.md`](design/plans/cascade-consume-dependencies.md) |
 | Terse in-progress compile + heartbeat | **Done on [#375](https://github.com/ja11sop/cuppa/pull/375)** — process `Run` + `[....]` / parallel `N [...k]` dwell rotate; nest compress TTY fixed via `CUPPA_PROGRESS_FD`; [`terse-build-action-heartbeat.md`](design/plans/terse-build-action-heartbeat.md) |
-| Toolchain version currency | **In progress** — Clang 23 aliases + point-release parse; GCC 16.2 current; CI gcc15 bump deferred; [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
+| Toolchain version currency | **Done on [#377](https://github.com/ja11sop/cuppa/pull/377)** — Clang 23 aliases + point-release parse; GCC 16.2 / MSVC via SCons `_VCVER` current; CI gcc15 bump deferred; [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
 | Cascade option-compat / early refuse | **Related** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | Cascade `--skip-resolve` (cheap plan) | **Later** — design first; [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
@@ -562,7 +562,7 @@ C++ Profiles are a separate roadmap section — see [C++ Profiles](#c-profiles).
 |----|------|----------|-------|
 | `list-toolchains` | `--list-toolchains` inventory; Discovered vs Registered; driver + storage paths; JSON; verbose `describe()` | High | Done — [#172](https://github.com/ja11sop/cuppa/issues/172) / [#170](https://github.com/ja11sop/cuppa/pull/170) |
 | `list-tc-flag-tables` | Table-driven GCC/Clang/Cl init shared with `describe()` | Low | Deferred; see [`list-toolchains-verbose.md`](design/plans/list-toolchains-verbose.md) |
-| `toolchain-version-currency` | Review / extend GCC·Clang·MSVC `supported_versions`, Antora ceilings, optional CI default | Low | **In progress** — `clang23`/`clang231` + Clang point-release parse; GCC still through 16.2; CI default deferred. [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
+| `toolchain-version-currency` | Review / extend GCC·Clang·MSVC `supported_versions`, Antora ceilings, optional CI default | Low | **Done on [#377](https://github.com/ja11sop/cuppa/pull/377)** — `clang23`/`clang231` + Clang point-release parse; GCC through 16.2; MSVC via SCons `_VCVER` (`14.5`/`vc145`); CI gcc default deferred. [`toolchain-version-currency.md`](design/plans/toolchain-version-currency.md) |
 | `tc-dep-url-sugar` | Optional URL token in `--toolchains=` | Low | Keep `--toolchain-archive=` as explicit supply |
 | `tc-dep-actions` | Authenticated Actions artifact URLs | Low | After public HTTPS / file path is solid |
 | `tc-dep-msvc` | MSVC archive / layout as toolchain dep | Low | Separate driver; not gcc-snapshot |
