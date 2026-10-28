@@ -375,9 +375,9 @@ def test_maybe_run_cascade_consume_writes_terse_mode_line( capsys ):
     assert "[cascade]" in visible
     assert "mode" in visible
     assert "dependencies consume (no nest)" in visible
-    assert "2 packages bound" in visible
-    assert "; 2 packages" not in visible
-    assert "· 2 packages bound" in visible
+    assert "2 staged packages" in visible
+    assert "; 2" not in visible
+    assert "· 2 staged packages" in visible
 
 
 def test_maybe_run_cascade_refuses_consume_with_build_cascade():

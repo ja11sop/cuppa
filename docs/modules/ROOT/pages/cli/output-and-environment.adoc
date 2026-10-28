@@ -193,8 +193,8 @@ the extract dir for this cell and prints on variant begin as
 map kinds are `package` (registry extract), `staged_package` (publisher-forest
 `final/`), and `develop_package` (develop-winning stage or prefix). Consume
 prints one durable `[cascade] tip · mode · dependencies consume (no nest) · N
-packages bound` line (not a begin/end nest span; tip name is info, summary muted
-except the bound count). Each later `[progress] ... · begin` prints
+staged packages` line (not a begin/end nest span; tip name is info; summary muted
+with a plain count). Each later `[progress] ... · begin` prints
 location maps for that scope. They lead with `→ [location]` (bold muted grey, not notice yellow, not
 bold plain action ink, not the info+bold `[progress]` badge) and repeat sconscript · variant so `--parallel` can split them from the
 begin line. Variant maps are `<packages>` (when a package extract exists),

@@ -22,10 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   location kind ``staged_package`` (develop-winning pins use
   ``develop_package``; registry extracts stay ``package``), and cascade
   prints a single durable ``[cascade] tip · mode · dependencies consume
-  (no nest) · N packages bound`` line (tip name info-not-bold; summary
-  muted except the bound count; synthetic ``[==consume]`` omitted). Matching
-  ``cuppa: ... [info]`` bind notes and the storage-roots announcement stay
-  for non-terse output only. Plan:
+  (no nest) · N staged packages`` line (tip name info-not-bold; summary
+  muted with a plain count like prepare/ready; synthetic ``[==consume]``
+  omitted). Matching ``cuppa: ... [info]`` bind notes and the storage-roots
+  announcement stay for non-terse output only. Plan:
   ``design/plans/cascade-consume-dependencies.md``.
 
 - Under ``--terse-output``, ``env.Run`` / process actions label the durable

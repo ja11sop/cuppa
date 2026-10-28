@@ -5715,7 +5715,7 @@ def maybe_run_cascade( env, publisher ) -> None:
             and not update_publishers
     ):
         from cuppa import progress
-        from cuppa.colourise import as_emphasised, as_subdued
+        from cuppa.colourise import as_subdued
         if env.get( "terse_output" ):
             bound = progress.count_terse_package_location_kinds( "staged_package" )
             # Synthetic consume-tip version is not a package pin — omit [==consume].
@@ -5723,12 +5723,14 @@ def maybe_run_cascade( env, publisher ) -> None:
                     "" if str( tip_version ) == "consume" else tip_version
             )
             if bound:
-                word = "package bound" if bound == 1 else "packages bound"
+                # Plain count like prepare/ready; "staged packages" echoes the
+                # location kind (this run binds existing stages, it does not nest-stage).
                 summary = (
                         as_subdued( "dependencies consume (no nest)" )
                         + as_subdued( " · " )
-                        + as_emphasised( str( bound ) )
-                        + as_subdued( " " + word )
+                        + progress._counted_phrase(
+                                bound, "staged package", "staged packages",
+                        )
                 )
             else:
                 summary = as_subdued( "dependencies consume (no nest)" )
