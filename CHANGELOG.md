@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (no nest) · N staged packages`` line (tip name info-not-bold; summary
   muted with a plain count like prepare/ready; synthetic ``[==consume]``
   omitted). Matching ``cuppa: ... [info]`` bind notes and the storage-roots
-  announcement stay for non-terse output only. Plan:
+  announcement stay for non-terse output only. Ctrl-C under ``--terse-output``
+  drops the outstanding ``[....]`` set and blanks the status row so a later
+  cleanup ``[ok]`` cannot chase the caption onto the shell prompt. Plan:
   ``design/plans/cascade-consume-dependencies.md``.
 
 - Under ``--terse-output``, ``env.Run`` / process actions label the durable

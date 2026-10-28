@@ -95,11 +95,27 @@ def enable_terse_build_summary():
     _summary_enabled = True
 
 
+def _drop_executing_after_interrupt():
+    """Wipe outstanding ``[....]`` and blank the status row after Ctrl-C.
+
+    Post-interrupt durable lines (cleanup ``run``, container stop) must not
+    chase the sticky caption back onto the TTY, or it glues to the shell prompt.
+    """
+    reset_terse_executing()
+    try:
+        from cuppa.utility.heartbeat import clear as clear_status, status_row_active
+        if status_row_active():
+            clear_status()
+    except Exception:
+        pass
+
+
 def write_terse_interrupt_finish():
     """Close a graceful Ctrl-C once signalled in-flight actions have exited.
 
     An ``aborted`` build has no closing line. The counts are the same ones a
-    successful build would report.
+    successful build would report. Drops any outstanding ``[....]`` caption so
+    later transcript cannot re-paint it onto the prompt.
     """
     global _interrupt_finished
     with _interrupt_lock:
@@ -115,6 +131,7 @@ def write_terse_interrupt_finish():
         line += " " + summary
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
+    _drop_executing_after_interrupt()
 
 
 def write_terse_build_completion( env ):
@@ -202,6 +219,8 @@ def note_build_interrupted():
         if _interrupt_announced:
             return
         _interrupt_announced = True
+    # Blank ``[....]`` before the interrupt word so it does not share a row.
+    _drop_executing_after_interrupt()
     _write_interrupt_word( "interrupted — stopping in-flight actions..." )
 
 
@@ -2924,8 +2943,14 @@ def _promote_outstanding( key ):
     """Move a pending key into the displayed set after the arm delay.
 
     Appends without stealing the carousel index — new jobs join the rotation;
-    the dwell timer (not promote) advances the displayed member.
+    the dwell timer (not promote) advances the displayed member. Dropped when
+    Ctrl-C has already been announced.
     """
+    if _interrupt_announced:
+        with _outstanding_lock:
+            _outstanding_arm_timers.pop( key, None )
+            _pending_outstanding.pop( key, None )
+        return
     with _outstanding_lock:
         _outstanding_arm_timers.pop( key, None )
         fields = _pending_outstanding.pop( key, None )
@@ -3042,10 +3067,11 @@ def begin_terse_executing( command, target, source, env ):
 
     Fast actions that finish before :data:`_OUTSTANDING_ARM_S` never appear on
     the status row — only their durable ``[ok]`` / ``[error]`` line. No-op
-    without ``--terse-output``, when the alive style is ``off``, or when there
-    is no controlling TTY. Returns an opaque key for :func:`end_terse_executing`.
+    without ``--terse-output``, when the alive style is ``off``, when there
+    is no controlling TTY, or after Ctrl-C. Returns an opaque key for
+    :func:`end_terse_executing`.
     """
-    if not _env_get( env, "terse_output" ):
+    if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return None
     try:
         from cuppa.utility.heartbeat import normalize_style, style as heartbeat_style
@@ -3094,8 +3120,11 @@ def refresh_terse_executing( advance=False ):
 
     Keeps the current carousel member by default so durable ``[ok]`` lines and
     sticky chase-back do not reset the rotation. Pass ``advance=True`` from the
-    dwell timer to step to the next armed job.
+    dwell timer to step to the next armed job. No-op after Ctrl-C so cleanup
+    transcript cannot re-paint ``[....]`` onto the shell prompt.
     """
+    if _interrupt_announced:
+        return
     _paint_current_outstanding( advance=advance )
 
 
