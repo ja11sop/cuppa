@@ -5715,19 +5715,25 @@ def maybe_run_cascade( env, publisher ) -> None:
             and not update_publishers
     ):
         from cuppa import progress
+        from cuppa.colourise import as_emphasised, as_subdued
         if env.get( "terse_output" ):
             bound = progress.count_terse_package_location_kinds( "staged_package" )
-            if bound == 1:
-                summary = "dependencies consume (no nest); 1 package bound"
-            elif bound:
+            # Synthetic consume-tip version is not a package pin — omit [==consume].
+            display_version = (
+                    "" if str( tip_version ) == "consume" else tip_version
+            )
+            if bound:
+                word = "package bound" if bound == 1 else "packages bound"
                 summary = (
-                        "dependencies consume (no nest); "
-                        "{} packages bound".format( bound )
+                        as_subdued( "dependencies consume (no nest)" )
+                        + as_subdued( " · " )
+                        + as_emphasised( str( bound ) )
+                        + as_subdued( " " + word )
                 )
             else:
-                summary = "dependencies consume (no nest)"
+                summary = as_subdued( "dependencies consume (no nest)" )
             progress.write_terse_cascade_mode_checkpoint(
-                    env, tip_package, tip_version, summary=summary,
+                    env, tip_package, display_version, summary=summary,
             )
         else:
             logger.info(

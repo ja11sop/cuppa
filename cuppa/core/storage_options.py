@@ -245,6 +245,7 @@ def process_storage_options( cuppa_env ):
     cuppa_env['cache_root']        = downloads.path
 
     cuppa_env['storage_roots_reported'] = False
+    reset_roots_reported()
 
     if not os.path.exists( cuppa_env['downloads_root'] ):
         try:
@@ -255,17 +256,35 @@ def process_storage_options( cuppa_env ):
             raise
 
 
+# Process-wide once-guard: Gitlab and Location each call report_roots with
+# possibly distinct env wrappers, so an env-only flag can fire twice.
+_roots_reported = False
+
+
+def reset_roots_reported():
+    """Clear the once-guard (tests / process_storage_options)."""
+    global _roots_reported
+    _roots_reported = False
+
+
 def report_roots( cuppa_env ):
     """Name the roots the first time a run reaches for one.
 
     They are shared between projects and hidden by default, so where they are needs to be visible
     in build output rather than only in documentation. Saying it on the first retrieval, rather
-    than on every run, keeps it where it means something.
+    than on every run, keeps it where it means something. Under ``--terse-output`` the
+    ``[location]`` maps already name ``<dependencies>`` / ``<downloads>``, so skip the info
+    log (same quieting as cascade consume bind notes).
     """
-    if cuppa_env.get( 'storage_roots_reported' ):
+    global _roots_reported
+    if cuppa_env.get( 'storage_roots_reported' ) or _roots_reported:
         return
 
     cuppa_env['storage_roots_reported'] = True
+    _roots_reported = True
+
+    if cuppa_env.get( 'terse_output' ):
+        return
 
     logger.info( "Using [{}] for dependencies and [{}] for downloads".format(
             as_info( os.path.abspath( os.path.expanduser( cuppa_env['dependencies_root'] ) ) ),

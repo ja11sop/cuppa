@@ -3832,18 +3832,24 @@ def write_terse_cascade_checkpoint( env, token, version, verb, path ):
 
 
 def format_terse_cascade_run_checkpoint( env, tip_package, tip_version, verb, summary="" ):
-    """Tip-scoped cascade span: ``[cascade] tip [==ver] · begin|end · summary``.
+    """Tip-scoped cascade span: ``[cascade] tip [==ver] · begin|end|mode · summary``.
 
     Subject is the tip pin (no ``<token>``) so nest enter/exit lines stay
-    visually distinct. ``verb`` is ``begin`` / ``end`` (action-label ink).
+    visually distinct. Tip name and version are info (not bold); ``verb`` is
+    ``begin`` / ``end`` / ``mode`` (action-label ink). Omit ``[==ver]`` when
+    ``tip_version`` is empty (consume tips use a synthetic sentinel elsewhere).
     """
     counts = _progress_ledger.checkpoint_counts( None, None )
     percent = "{:>{}}%".format( 0, counts[ "percent_digits" ] )
     lead = " " * _progress_ledger.progress_line_indent()
-    tip = "{} [=={}]".format(
-            as_emphasised( as_info( str( tip_package ) ) ),
-            as_emphasised( as_info( str( tip_version ) ) ),
-    )
+    ver = str( tip_version or "" ).strip()
+    if ver:
+        tip = "{} [=={}]".format(
+                as_info( str( tip_package ) ),
+                as_info( ver ),
+        )
+    else:
+        tip = as_info( str( tip_package ) )
     parts = [
             lead + as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) ),
             percent,

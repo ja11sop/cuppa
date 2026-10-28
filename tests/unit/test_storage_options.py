@@ -324,5 +324,22 @@ def test_the_roots_are_named_once_however_many_dependencies_are_retrieved(elsewh
     with caplog.at_level("INFO"):
         storage_options.report_roots(env)
         storage_options.report_roots(env)
+        # Distinct env wrapper (Gitlab vs Location) must not re-announce.
+        other = env_for(project)
+        other["dependencies_root"] = env["dependencies_root"]
+        other["downloads_root"] = env["downloads_root"]
+        storage_options.report_roots(other)
 
     assert caplog.text.count("for dependencies and") == 1
+
+
+def test_report_roots_is_quiet_under_terse_output(elsewhere, caplog):
+    home, project = elsewhere
+    env = env_for(project)
+    storage_options.process_storage_options(env)
+    env["terse_output"] = True
+
+    with caplog.at_level("INFO"):
+        storage_options.report_roots(env)
+
+    assert "for dependencies and" not in caplog.text
