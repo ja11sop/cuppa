@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.13.0] - unreleased
 
+### Fixed
+
+- Under ``--terse-output`` ± ``-Q`` / ``--parallel``, Ctrl-C no longer lets
+  late Progress begin checkpoints and their ``→ [location]`` maps dump
+  *after* ``[interrupted]``. Announce already dropped sticky ``[....]``;
+  progress / location transcript now refuses the same way once interrupt
+  is announced (including maps mid-flight after a begin line).
+
 ### Added
 
 - ``--skip-location-update`` — freeze location dependency working copies for

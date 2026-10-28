@@ -3,7 +3,7 @@
 - **Status:** done
 - **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375)
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
-- **Updated:** 2026-10-23
+- **Updated:** 2026-10-28
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
 - **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
@@ -254,7 +254,38 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
 | `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
+| Progress / location maps after `[interrupted]` | **Done** — under `-j`, Progress begin + location maps that were mid-flight no longer print after the interrupt close; gated on `_interrupt_announced` like sticky `[....]` ([#380](https://github.com/ja11sop/cuppa/pull/380)) |
+| Per-job `[cancelled]` on Ctrl-C | **Open** — see soak addendum below; not required to merge [#380](https://github.com/ja11sop/cuppa/pull/380) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
 | Delegated CMake / `b2` extra `[....]` | **Deferred** — `[launch]` already drops the in-flight caption; muted children are the mid-flight cue. Do not add a second `[....]` unless a soak shows a silent gap beside `[launch]` |
+
+## Soak addendum (2026-10-28) — interrupt cancel confirmation
+
+Under `--terse-output` ± `-Q` / `--parallel`, first Ctrl-C `SIGINT`s remembered
+build children. Today a SIGINT exit is **silent** on the durable transcript
+(`_finish_interrupted_action` does not paint `[ok]` / `[error]`); the only
+positive confirmation is the aggregate close:
+
+```text
+interrupted — stopping in-flight actions...
+stopped in-flight actions
+[interrupted] reached 71%: 50/70 · 3 ran · 47 up to date
+```
+
+Empty space between those bookends is **expected** when SIGINT wins. Occasional
+`[ok]` in the gap means a job finished cleanly before the signal landed (drain
+race), not that cancel failed.
+
+**Follow-on (do not forget):** per-job durable confirmation for interrupted
+actions, e.g.
+
+```text
+  4/  4 ·  69% [cancelled]  test/positions · gcc15_dbg_… · link · <final>/position_movement
+```
+
+Settle in that slice: badge colour / six-column width vs `[ok]` / `[error]`;
+paint on interrupt returncode instead of silence; whether lines may appear only
+before `stopped in-flight actions` or also after. Do **not** require strong
+global silence after announce — clarity that cancel worked is the goal.
