@@ -4,6 +4,7 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 import os
+import re
 import sys
 from types import SimpleNamespace
 
@@ -389,6 +390,38 @@ def test_run_without_node_summary_names_the_command():
             _variant_env(),
     )
     assert bare.rstrip().endswith( "· run · set_postgres_env_variables" )
+
+
+def test_uncredited_run_uses_nested_arrow_not_stale_tally():
+    """Side work outside the ledger must not reuse the current ``N/M``.
+
+    Post-interrupt ``docker stop`` soaked as ``14/34 [ok] · run`` matching the
+    ``[stopped]`` compile — credit failed, prefix still showed the cell tally.
+    """
+    env = _terse_env()
+    compile_node = _ActionNode()
+    progress.register_terse_actions( env, [ compile_node ] )
+    stopped = progress.format_terse_line(
+            "stopped",
+            "g++ -c event_processor.cpp",
+            [ compile_node ],
+            [ "event_processor.cpp" ],
+            env,
+    )
+    assert re.search( r"\d+/\s*\d+", stopped )
+    assert "[stopped]" in stopped
+
+    cleanup = progress.format_terse_line(
+            "ok",
+            "docker stop deadbeef",
+            [ _LabelledNode( "run", "docker-stop.success" ) ],
+            [],
+            env,
+            count=True,
+    )
+    assert cleanup.lstrip().startswith( "→" )
+    assert "docker stop" in cleanup
+    assert not re.match( r"\s*\d+/", cleanup )
 
 
 def test_markdown_and_asciidoc_show_source_to_product():
@@ -1204,9 +1237,12 @@ def test_a_progress_checkpoint_names_the_scope_and_does_not_count( monkeypatch, 
     assert opened == (
             "variant      0% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · begin · 0/2 actions"
     )
-    assert opened.index( "[progress]" ) == _compile_line( env, first, "hello.cpp" ).index( "[ok]" )
+    first_line = _compile_line( env, first, "hello.cpp" )
+    assert opened.index( "[progress]" ) == first_line.index( "[ok]" )
     assert "1 variant" not in opened
-    assert _compile_line( env, first, "hello.cpp" ).startswith( "   1/  2 ·  50% [ok]   " )
+    assert first_line.startswith( "   1/  2 ·  50% [ok]   " )
+    # Same node already credited — must not reprint a stale ``1/2`` tally.
+    assert _compile_line( env, first, "hello.cpp" ).lstrip().startswith( "→" )
     closed = progress.format_terse_progress_checkpoint( "finished", None, None, env )
     assert closed == (
             "variant     50% [progress] test/orders/gcc16_dbg_x86_64_cxx2c · end · 1/2 actions"

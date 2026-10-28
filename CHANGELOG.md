@@ -25,7 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``stopped in-flight actions`` / ``[interrupted]`` close waits for
   ``Jobs.run`` (no longer fires on mid-drain SCons ``Build interrupted.``).
   ``run`` status lines without a node summary fall back to the stashed
-  command (no more bare ``· run`` ghosts). Plan:
+  command (no more bare ``· run`` ghosts). Status lines that do not credit
+  the action ledger (e.g. post-interrupt ``docker stop``) use nested ``→``
+  chrome instead of a stale ``N/M`` tally. Plan:
   ``design/plans/terse-build-action-heartbeat.md``.
 
 ### Added

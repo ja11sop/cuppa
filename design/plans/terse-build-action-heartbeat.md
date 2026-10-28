@@ -283,4 +283,5 @@ stopped in-flight actions
 | Close | **`Jobs.run` finally only** — never on mid-drain SCons `Build interrupted.` |
 | Maps | Skip Progress / location after announce — `[stopped]` is the drain value |
 | Argv | Not reprinted — stop is confirmation, not a failure transcript |
-| Bare `· run` | Serial soak showed nameless `[ok] · run` after close — **bug**, not hide. Fall back to stashed command when node summary missing / `.success` only (this PR); re-soak to tell real cleanup from ghost |
+| Bare `· run` | Serial soak showed nameless `[ok] · run` after close — **bug**, not hide. Fall back to stashed command when node summary missing / `.success` only (this PR) |
+| Stale `N/M` on cleanup | Uncredited lines (ledger miss / already spent) use nested `→` instead of reprinting the cell tally — so post-interrupt `docker stop` is not “action 14” again (this PR) |
