@@ -325,11 +325,11 @@ def test_interrupt_drops_outstanding_and_blocks_refresh( monkeypatch ):
     assert hb._last_line == ""  # noqa: SLF001
 
 
-def test_interrupt_drain_keeps_progress_maps_before_close( monkeypatch, capsys ):
-    """Mid-drain Progress begin / location maps stay visible before the close.
+def test_interrupt_drain_skips_progress_keeps_stopped_chrome( monkeypatch, capsys ):
+    """After announce, Progress / location maps are noise; ``[stopped]`` is not.
 
-    Ordering fix: do not hide drain transcript; ``Jobs.run`` finally prints
-    ``[interrupted]`` after workers return so maps land above the summary.
+    Close still waits for ``Jobs.run``. Mid-drain scope chrome without a
+    stopped action adds nothing beside progressive ``[stopped]`` lines.
     """
     stream = io.StringIO()
     clock = FakeClock()
@@ -347,10 +347,15 @@ def test_interrupt_drain_keeps_progress_maps_before_close( monkeypatch, capsys )
     progress.write_terse_progress_checkpoint(
             "started", "test/orders/sconscript", "gcc15_dbg_x86_64_cxx2c", env,
     )
-    during = strip_ansi( capsys.readouterr().out )
-    assert "[progress]" in during
-    assert "[location]" in during
-    assert "[interrupted]" not in during
+    assert strip_ansi( capsys.readouterr().out ) == ""
+
+    progress.write_terse_stopped_action(
+            "g++ -c order.cpp", [ "order.o" ], [ "order.cpp" ], env,
+    )
+    stopped = strip_ansi( capsys.readouterr().out )
+    assert "[stopped]" in stopped
+    assert " · compiling · " in stopped
+    assert "[interrupted]" not in stopped
 
     progress.write_terse_interrupt_finish()
     closed = strip_ansi( capsys.readouterr().out )

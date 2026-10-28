@@ -18,12 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Under ``--terse-output``, actions stopped by Ctrl-C (SIGINT) paint a durable
-  notice ``[stopped]`` line — same identity fields as ``[ok]``, no argv
-  reprint — during the interrupt drain. The ``stopped in-flight actions`` /
-  ``[interrupted]`` close waits for ``Jobs.run`` (no longer fires on mid-drain
-  SCons ``Build interrupted.``), so ``[stopped]`` and mid-flight location maps
-  land *above* the summary rather than being hidden after it. Plan:
-  ``design/plans/terse-build-action-heartbeat.md``.
+  notice ``[stopped]`` line during the interrupt drain — progressive in-flight
+  chrome (``compiling``, muted-bold pending product), not the done-form
+  ``compile`` on ``[ok]``. No argv reprint. Progress / location maps after
+  announce are skipped (noise beside ``[stopped]``). The
+  ``stopped in-flight actions`` / ``[interrupted]`` close waits for
+  ``Jobs.run`` (no longer fires on mid-drain SCons ``Build interrupted.``).
+  Plan: ``design/plans/terse-build-action-heartbeat.md``.
 
 ### Added
 

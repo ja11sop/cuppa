@@ -254,8 +254,8 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
 | `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
-| Progress / location maps after `[interrupted]` | **Superseded** — do not hide drain transcript; close waits for `Jobs.run` so mid-flight maps land *above* `[interrupted]` (this PR; was gated in [#380](https://github.com/ja11sop/cuppa/pull/380)) |
-| Per-job `[stopped]` on Ctrl-C | **Done** — notice `[stopped]` on SIGINT finish (spawn + Python); no argv reprint; drain before close (this PR) |
+| Progress / location maps after `[interrupted]` | **Done** — close waits for `Jobs.run`; Progress / location after announce skipped (noise beside `[stopped]`) (this PR; ordering supersedes hide-after-close from [#380](https://github.com/ja11sop/cuppa/pull/380)) |
+| Per-job `[stopped]` on Ctrl-C | **Done** — notice `[stopped]` with in-flight progressive chrome (`compiling`); drain before close (this PR) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
@@ -268,10 +268,8 @@ build children. Desired drain shape:
 
 ```text
 interrupted — stopping in-flight actions...
-   2/  6 ·  60% [stopped]  test/trades · … · compile · …
-   1/  4 ·  61% [stopped]  test/filters · … · compile · …
-              → [location] …   (mid-flight Progress maps OK here)
-   …
+   2/  6 ·  60% [stopped]  test/trades · … · compiling · …
+   1/  4 ·  61% [stopped]  test/filters · … · compiling · …
 stopped in-flight actions
 [interrupted] reached 61%: 43/70 · 2 ran · 41 up to date
 ```
@@ -279,8 +277,9 @@ stopped in-flight actions
 | Piece | Choice |
 |-------|--------|
 | Badge | `[stopped]` — notice; same verb as `stopping…` / `stopped in-flight actions` |
+| Verb / file | In-flight progressive chrome (`compiling`, muted-bold pending product) — not done-form `compile` |
 | Width | Wider than six columns; pad is a no-op so the word reads in full |
 | When | SIGINT returncode on spawn + Python-action finish |
 | Close | **`Jobs.run` finally only** — never on mid-drain SCons `Build interrupted.` |
-| Maps | Allowed during drain; do **not** hide after `[interrupted]` as the fix |
+| Maps | Skip Progress / location after announce — `[stopped]` is the drain value |
 | Argv | Not reprinted — stop is confirmation, not a failure transcript |

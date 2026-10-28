@@ -2632,17 +2632,23 @@ def format_terse_line(
     if cell:
         fields.append( cell )
     action = spell_terse_action( command, target, env )
-    fields.append( _action_label( action ) )
-    if duration:
-        fields.append( as_subdued( duration ) )
-    file_text = _file_field( action, target, source, env )
-    if (
-            truncate_file
-            and file_text
-            and action in _RUN_FILE_ACTIONS
-            and _explicit_terse_summary( target )
-    ):
-        file_text = _fit_terse_file_field( file_text, parts, fields )
+    # ``[stopped]`` is mid-flight cut short — progressive verb + pending-product
+    # chrome like ``[....]``, not the durable done-form ``compile``.
+    if status == "stopped":
+        fields.append( _muted_bold( progressive_terse_action( action ) ) )
+        file_text = _executing_file_field( action, target, source, env )
+    else:
+        fields.append( _action_label( action ) )
+        file_text = _file_field( action, target, source, env )
+        if duration:
+            fields.append( as_subdued( duration ) )
+        if (
+                truncate_file
+                and file_text
+                and action in _RUN_FILE_ACTIONS
+                and _explicit_terse_summary( target )
+        ):
+            file_text = _fit_terse_file_field( file_text, parts, fields )
     if file_text:
         fields.append( file_text )
     if fields:
@@ -2663,8 +2669,10 @@ def write_terse_stopped_action(
     """Durable per-job confirmation when Ctrl-C stopped an in-flight action.
 
     Paints during the interrupt drain (after ``stopping…``, before the
-    ``stopped in-flight actions`` / ``[interrupted]`` close). Does not reprint
-    argv — stop is confirmation, not a failure transcript.
+    ``stopped in-flight actions`` / ``[interrupted]`` close). Verb and file
+    chrome match the in-flight ``[....]`` caption (``compiling``, muted-bold
+    pending product) — the action did not finish, so it is not promoted to
+    the durable done-form. Does not reprint argv.
     """
     end_terse_executing()
     note_terse_build_activity()
@@ -2675,7 +2683,8 @@ def write_terse_stopped_action(
             source,
             env,
             count=count,
-            duration=duration,
+            # Wall time is for completed work; a stop has no done duration.
+            duration="",
     )
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
@@ -3710,11 +3719,11 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     The first begin line counts actions SCons already considers up to date,
     so the percent includes that work before the scope's own actions run.
 
-    Mid-flight begin / location maps during a Ctrl-C drain are allowed — the
-    interrupt close waits for ``Jobs.run`` so they land *before*
-    ``[interrupted]``, not hidden after it.
+    After Ctrl-C is announced, skip Progress begin/end and their location
+    maps — the drain's value is ``[stopped]`` action lines; empty scope
+    chrome adds nothing. The interrupt close still waits for ``Jobs.run``.
     """
-    if not _env_get( env, "terse_output" ):
+    if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return
     if event in ( "sconstruct_begin", "begin", "started" ):
         credit_terse_up_to_date_lookahead()
@@ -3725,6 +3734,8 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
+            if _interrupt_announced:
+                break
             _write_terse_stdout( map_line + "\n" )
     sys.stdout.flush()
 
@@ -4390,6 +4401,8 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
 
 
 def _emit_sconstruct_location_map( token, path, env, kind="" ):
+    if _interrupt_announced:
+        return
     if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )

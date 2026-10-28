@@ -368,9 +368,11 @@ outside the terminal session so the broadcast SIGINT does not hit them directly;
 forwards `SIGINT` to those process trees and **waits** for the current action to exit
 cleanly — so a long delegated build is told to stop rather than continuing its graph.
 As each in-flight action exits with SIGINT it paints a durable notice
-`[stopped]` line (same identity fields as `[ok]`, no argv reprint). Mid-flight
-Progress location maps that finish during the drain may also appear. When workers
-have returned, one line says `stopped in-flight actions`, then
+`[stopped]` line — same identity fields as the in-flight `[....]` caption
+(`compiling`, muted-bold pending product), not the done-form `compile` on
+`[ok]`. No argv reprint. Mid-flight Progress / location maps during the drain
+are skipped; the useful chrome is the `[stopped]` lines. When workers have
+returned, one line says `stopped in-flight actions`, then
 `[interrupted] reached 57%: 1280/2245 · 80 ran · 1200 up to date`. The fraction is
 actions completed against the actions that were going to run, including those already up
 to date. `[stopped]` and `[interrupted]` are notice, not error. A second Ctrl-C prints

@@ -557,7 +557,7 @@ def test_python_action_interrupt_returncode_paints_stopped( capsys ):
     # Stop confirmation is the status line only — no argv reprint.
     assert "cmake --build" not in out
     assert out.rstrip().endswith(
-            "[stopped] test/orders · gcc16_dbg_x86_64_cxx2c · cmake-build · "
+            "[stopped] test/orders · gcc16_dbg_x86_64_cxx2c · launching-cmake-build · "
             "cmake.build.complete"
     )
 
