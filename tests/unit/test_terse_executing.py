@@ -325,6 +325,44 @@ def test_interrupt_drops_outstanding_and_blocks_refresh( monkeypatch ):
     assert hb._last_line == ""  # noqa: SLF001
 
 
+def test_interrupt_suppresses_progress_checkpoints_and_location_maps(
+        monkeypatch, capsys,
+):
+    """Late Progress begin / location maps must not dump after ``[interrupted]``.
+
+    Under ``-j``, variant begin actions may still be running when the interrupt
+    close prints; without a gate their ``→ [location]`` lines trail the summary.
+    """
+    stream = io.StringIO()
+    clock = FakeClock()
+    _arm_status_row( stream, clock, monkeypatch )
+    env = _env()
+    env["abs_build_root"] = "/tmp/cuppa-build"
+    env["abs_final_dir"] = "/tmp/cuppa-build/final"
+    env["abs_working_dir"] = "/tmp/cuppa-build/working"
+    env["sconscript_file"] = "./test/orders/sconscript"
+    env["variant"] = "gcc15_dbg_x86_64_cxx2c"
+    env["toolchain_variant"] = "gcc15"
+    env["variant_dir"] = "gcc15_dbg_x86_64_cxx2c"
+
+    progress.note_build_interrupted()
+    progress.write_terse_interrupt_finish()
+    closed = strip_ansi( capsys.readouterr().out )
+    assert "[interrupted]" in closed
+    assert "stopped in-flight actions" in closed
+
+    progress.write_terse_progress_checkpoint(
+            "started", "test/orders/sconscript", "gcc15_dbg_x86_64_cxx2c", env,
+    )
+    progress.write_terse_progress_checkpoint(
+            "finished", "test/orders/sconscript", "gcc15_dbg_x86_64_cxx2c", env,
+    )
+    leaked = strip_ansi( capsys.readouterr().out )
+    assert leaked == ""
+    assert "[location]" not in strip_ansi( stream.getvalue() )
+    assert "[progress]" not in strip_ansi( stream.getvalue() )
+
+
 def test_format_terse_executing_caption_test_product_is_muted_bold():
     from cuppa.colourise import as_emphasised, as_info, as_subdued, colouriser
 

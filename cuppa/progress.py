@@ -3672,8 +3672,13 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
 
     The first begin line counts actions SCons already considers up to date,
     so the percent includes that work before the scope's own actions run.
+
+    After Ctrl-C is announced, skip entirely (including location maps). Under
+    ``-j``, Progress begin actions may still be mid-flight when the interrupt
+    close runs; without this gate their ``→ [location]`` lines dump *after*
+    ``[interrupted]``.
     """
-    if not _env_get( env, "terse_output" ):
+    if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return
     if event in ( "sconstruct_begin", "begin", "started" ):
         credit_terse_up_to_date_lookahead()
@@ -3684,6 +3689,9 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
+            # Ctrl-C can land between the begin line and its maps.
+            if _interrupt_announced:
+                break
             _write_terse_stdout( map_line + "\n" )
     sys.stdout.flush()
 
@@ -4349,6 +4357,8 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
 
 
 def _emit_sconstruct_location_map( token, path, env, kind="" ):
+    if _interrupt_announced:
+        return
     if token == "packages" or token in _written_sconstruct_maps:
         return
     _written_sconstruct_maps.add( token )
