@@ -115,6 +115,7 @@ class Clang(object):
     def supported_versions( cls ):
         return [
             "clang",
+            "clang23", "clang231",
             "clang22", "clang221",
             "clang21", "clang211",
             "clang20",
@@ -152,16 +153,21 @@ class Clang(object):
                 major = None
                 minor = None
 
-                version_string = matches.group('version')
+                version_string = matches.group('version') or ""
 
-                if len(version_string):
-                    if int(version_string) <= 30:
-                        major = int(version_string)
-                    elif len(version_string) == 2:
-                        major = int(version_string[0])
-                        minor = int(version_string[1])
-                    else:
-                        major = int(version_string)
+                # Same digit rules as Gcc.available_versions: old 3.x–9.x aliases are
+                # one-digit major (+ optional minor), modern majors are two digits
+                # (+ optional point), e.g. clang37 → 3.7, clang231 → 23.1.
+                if len(version_string) and len(version_string) <= 2 and int(version_string[0]) >= 3:
+                    parts = re.match( r'(?P<major>(\d))?(?P<minor>(\d))?', version_string )
+                    if parts:
+                        major = parts.group('major')
+                        minor = parts.group('minor')
+                elif len(version_string) >= 2:
+                    parts = re.match( r'(?P<major>(\d\d))?(?P<minor>(\d))?', version_string )
+                    if parts:
+                        major = parts.group('major')
+                        minor = parts.group('minor')
 
                 if not major and not minor:
                     default_ver, default_cxx = cls.default_version()

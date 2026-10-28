@@ -81,6 +81,46 @@ def test_resolve_driver_prefers_absolute_path(tmp_path):
 
 
 @pytest.mark.unit
+def test_supported_versions_include_clang23():
+    versions = Clang.supported_versions()
+    assert "clang23" in versions
+    assert "clang231" in versions
+    assert versions.index("clang23") < versions.index("clang22")
+
+
+@pytest.mark.unit
+@patch("cuppa.toolchains.clang.cuppa.build_platform.where_is", return_value="/usr/bin/clang++-23.1")
+@patch.object(Clang, "version_from_command")
+def test_available_versions_parses_modern_point_release(mock_version, _where):
+    """clang231 must probe clang++-23.1 (same digit rules as gcc162 → g++-16.2)."""
+    if hasattr(Clang, "_available_versions"):
+        delattr(Clang, "_available_versions")
+
+    mock_version.return_value = {
+        "toolchain": "clang",
+        "name": "clang231",
+        "major": 23,
+        "minor": 1,
+        "version": "23.1",
+        "short_version": "231",
+        "apple": False,
+    }
+
+    # Restrict the scan so we do not walk every historical alias.
+    with patch.object(
+            Clang,
+            "supported_versions",
+            return_value=["clang231"],
+    ):
+        available = Clang.available_versions()
+
+    assert "clang231" in available
+    mock_version.assert_called_with("clang++-23.1")
+    if hasattr(Clang, "_available_versions"):
+        delattr(Clang, "_available_versions")
+
+
+@pytest.mark.unit
 def test_apple_clang_does_not_support_modules():
     toolchain = Clang.__new__(Clang)
     toolchain._reported_version = {

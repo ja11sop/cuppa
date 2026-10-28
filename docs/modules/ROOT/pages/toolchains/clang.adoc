@@ -12,8 +12,8 @@ modules-capable in Cuppa — see xref:cxx-modules.adoc#macos-apple-clang[macOS n
 Upstream project: https://clang.llvm.org/[clang.llvm.org] ·
 Command-line reference: https://clang.llvm.org/docs/ClangCommandLineReference.html[Clang Command Line Reference].
 
-In Cuppa, supported aliases include `clang` plus versioned names through **clang22**
-(for example `clang22`, `clang221`, `clang21`, <...>).
+In Cuppa, supported aliases include `clang` plus versioned names through **clang23**
+(for example `clang23`, `clang231`, `clang22`, <...>).
 
 [source,sh]
 ----
