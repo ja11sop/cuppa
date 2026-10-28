@@ -17,7 +17,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--build-cascade-dependencies`` (or ``--amend-cascade-manifests``) first.
   ``--develop`` still wins. Cannot be combined with ``--publish-package``,
   ``--publish-cascade-dependencies``, ``--build-cascade-dependencies``, or
-  ``--amend-cascade-manifests``. Plan:
+  ``--amend-cascade-manifests``. Under ``--terse-output``, resolve maps show
+  ``<publishers>`` when forest tip consume is in force; bound pins use
+  location kind ``staged_package`` (develop-winning pins use
+  ``develop_package``; registry extracts stay ``package``), and cascade
+  prints a single durable ``[cascade] tip [==ver] · mode · dependencies
+  consume (no nest); N packages bound`` line (the matching
+  ``cuppa: ... [info]`` lines stay for non-terse output). Plan:
   ``design/plans/cascade-consume-dependencies.md``.
 
 - Under ``--terse-output``, ``env.Run`` / process actions label the durable

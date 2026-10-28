@@ -1377,8 +1377,10 @@ def label_terse_location( env, name, path, scope="sconscript", build_folder=None
     dir follows the package tool variant. ``build_folder`` is the first
     segment under ``abs_build_root`` for this tree (usually
     ``Location.local_folder()``). ``kind`` is ``root``, ``repository``,
-    ``archive``, or ``package`` on read-phase maps. Not inferred from
-    ``_download`` folder names.
+    ``archive``, ``package`` (registry extract), ``staged_package``
+    (publisher-forest ``final/``), or ``develop_package`` (develop-winning
+    stage or prefix) on read-phase maps.
+    Not inferred from ``_download`` folder names.
     """
     token = str( name or "" ).strip().strip( "<>" )
     if not token or not path:
@@ -1838,7 +1840,13 @@ def _is_project_root( path, env ):
     return False
 
 
-_CATEGORY_LOCATION_TOKENS = frozenset( ( "dependencies", "packages", "downloads" ) )
+_CATEGORY_LOCATION_TOKENS = frozenset(
+        ( "dependencies", "packages", "downloads", "publishers" )
+)
+# Tip package payload kinds on sconstruct location maps (extract vs forest vs develop).
+_PACKAGE_LOCATION_KINDS = frozenset(
+        ( "package", "staged_package", "develop_package" )
+)
 _written_registries = set()
 
 
@@ -2266,7 +2274,9 @@ def _coloured_location_value( shown, env, kind="" ):
     shown = str( shown or "" ).replace( "\\", "/" )
     if not shown:
         return ""
-    vocabulary = str( kind or "" ) in ( "root", "package" )
+    vocabulary = str( kind or "" ) in ( "root", ) or (
+            str( kind or "" ) in _PACKAGE_LOCATION_KINDS
+    )
     parent = ""
     identity = shown
     if vocabulary:
@@ -2319,7 +2329,7 @@ def _location_map_rhs( token, path, env ):
         return _slash( path ).strip( "/" )
     for item in _author_locations():
         _scope, _script, _cell, other, _root, folder, kind = _unpack_location( item )
-        if other == token and kind == "package" and folder:
+        if other == token and kind in _PACKAGE_LOCATION_KINDS and folder:
             return str( folder ).replace( "\\", "/" ).strip( "/" )
     abs_path = _to_abs( path, env )
     if str( token ) not in ( "working", "final", "artefacts" ):
@@ -2367,7 +2377,8 @@ def format_terse_location_line( token, path, env, scope="variant", kind="" ):
     ``[progress]`` begin. Sconscript-scoped maps omit the variant cell.
     Sconstruct-scoped maps omit both identity cells (the ``[prepare]``
     bookend already names the sconstruct). Read-phase kinds are ``root``,
-    ``repository``, ``archive``, and     ``package``. ``transitive`` is info-coloured (declared maps stay unmarked).
+    ``repository``, ``archive``, ``package``, ``staged_package``, and
+    ``develop_package``. ``transitive`` is info-coloured (declared maps stay unmarked).
     """
     shown = _location_map_rhs( token, path, env )
     fields = []
@@ -3755,14 +3766,16 @@ def _read_checkpoint_summary( env ):
     if extra:
         dep_phrase += _declared_transitive_suffix( len( declared ), len( extra ) )
     parts = [ dep_phrase ]
-    for kind, singular, plural in (
-            ( "repository", "repository", "repositories" ),
-            ( "package", "package", "packages" ),
-            ( "archive", "archive", "archives" ),
+    package_n = sum(
+            counts.get( kind, 0 ) for kind in _PACKAGE_LOCATION_KINDS
+    )
+    for kind, singular, plural, count in (
+            ( "repository", "repository", "repositories", counts.get( "repository", 0 ) ),
+            ( "package", "package", "packages", package_n ),
+            ( "archive", "archive", "archives", counts.get( "archive", 0 ) ),
     ):
-        n = counts.get( kind, 0 )
-        if n:
-            parts.append( _counted_phrase( n, singular, plural ) )
+        if count:
+            parts.append( _counted_phrase( count, singular, plural ) )
     return _join_subdued( parts )
 
 
@@ -3858,6 +3871,31 @@ def write_terse_cascade_run_checkpoint(
     )
     sys.stdout.flush()
     return True
+
+
+def count_terse_package_location_kinds( *kinds ):
+    """How many sconstruct package maps have one of ``kinds`` (empty = all package kinds)."""
+    wanted = set( kinds ) if kinds else set( _PACKAGE_LOCATION_KINDS )
+    seen = set()
+    count = 0
+    for item in _author_locations():
+        scope, _script, _cell, token, _path, _folder, kind = _unpack_location( item )
+        if scope != "sconstruct" or token in seen:
+            continue
+        if kind not in wanted:
+            continue
+        seen.add( token )
+        count += 1
+    return count
+
+
+def write_terse_cascade_mode_checkpoint(
+        env, tip_package, tip_version, summary="",
+):
+    """Single tip-scoped cascade posture line (``· mode ·``), not a begin/end span."""
+    return write_terse_cascade_run_checkpoint(
+            env, tip_package, tip_version, "mode", summary=summary,
+    )
 
 
 def write_terse_resolve_prepare( env ):

@@ -76,7 +76,7 @@ nest-build vs nest-publish:
 
 | ``--consume-cascade-dependencies``
 | Nothing (no nested ``cuppa``)
-| Tip **build only**, binding each dependency to an existing publisher-root ``final/<package>/<version>/`` (same toolchain rules as build-deps). ``--develop`` still wins. A missing or wrong-toolchain stage is an error — run ``--build-cascade-dependencies`` (or amend) first. No registry-extract fall-back. Cannot combine with ``--publish-package``, ``--publish-cascade-dependencies``, ``--build-cascade-dependencies``, or ``--amend-cascade-manifests``
+| Tip **build only**, binding each dependency to an existing publisher-root ``final/<package>/<version>/`` (same toolchain rules as build-deps). ``--develop`` still wins. A missing or wrong-toolchain stage is an error — run ``--build-cascade-dependencies`` (or amend) first. No registry-extract fall-back. Under ``--terse-output``, resolve maps ``<publishers>`` and marks bound pins ``staged_package`` (develop-winning pins ``develop_package``), plus a durable ``[cascade] tip [==ver] · mode · dependencies consume (no nest)`` line. Cannot combine with ``--publish-package``, ``--publish-cascade-dependencies``, ``--build-cascade-dependencies``, or ``--amend-cascade-manifests``
 
 | ``--cascade-plan``
 | Nothing (report only)

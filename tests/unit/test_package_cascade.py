@@ -342,6 +342,42 @@ def test_maybe_run_cascade_accepts_consume_without_nesting( monkeypatch ):
     assert calls == []
 
 
+def test_maybe_run_cascade_consume_writes_terse_mode_line( capsys ):
+    import re
+
+    class _Env( dict ):
+        def get_option( self, name, default=None ):
+            return name in ( "cascade", "consume-cascade-dependencies" ) or default
+
+        def get( self, name, default=None ):
+            return dict.get( self, name, default )
+
+    env = _Env( terse_output=True, sconstruct_dir="/tip" )
+    tip = cascade.make_consume_tip_publisher( env, edges=[] )
+    tip._package = "widget"
+    tip._version = "1.0"
+
+    from cuppa import progress
+    progress.reset_progress_ledger()
+    progress.label_terse_location(
+            env, "abseil_cpp", "/pubs/abseil/_build/final/abseil-cpp/1",
+            scope="sconstruct", build_folder="abseil-cpp/1",
+            kind="staged_package",
+    )
+    progress.label_terse_location(
+            env, "protobuf", "/pubs/protobuf/_build/final/protobuf/1",
+            scope="sconstruct", build_folder="protobuf/1",
+            kind="staged_package",
+    )
+
+    cascade.maybe_run_cascade( env, tip )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "[cascade]" in visible
+    assert "mode" in visible
+    assert "dependencies consume (no nest)" in visible
+    assert "2 packages bound" in visible
+
+
 def test_maybe_run_cascade_refuses_consume_with_build_cascade():
     class _Env:
         def get_option( self, name, default=None ):

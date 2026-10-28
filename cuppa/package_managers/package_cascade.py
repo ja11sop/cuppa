@@ -5714,9 +5714,25 @@ def maybe_run_cascade( env, publisher ) -> None:
             and not collect_only
             and not update_publishers
     ):
-        logger.info(
-                "Cascade: dependencies consume (no nest); tip build only"
-        )
+        from cuppa import progress
+        if env.get( "terse_output" ):
+            bound = progress.count_terse_package_location_kinds( "staged_package" )
+            if bound == 1:
+                summary = "dependencies consume (no nest); 1 package bound"
+            elif bound:
+                summary = (
+                        "dependencies consume (no nest); "
+                        "{} packages bound".format( bound )
+                )
+            else:
+                summary = "dependencies consume (no nest)"
+            progress.write_terse_cascade_mode_checkpoint(
+                    env, tip_package, tip_version, summary=summary,
+            )
+        else:
+            logger.info(
+                    "Cascade: dependencies consume (no nest); tip build only"
+            )
         return
 
     # Plan: tolerant, no clone. Collect/update-stop: tolerant, clone when allowed.

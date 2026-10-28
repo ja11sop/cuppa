@@ -71,6 +71,9 @@ def define( patched=True, **kwargs ):
                 env.MergeFlags( '-DBOOST_TEST_USE_QUALIFIED_COMMANDLINE_ARGUMENTS' )
 
             self._package.initialise_build_variant( env, toolchain, variant )
+            # Same as package_dependency.__call__: forest/develop bind already
+            # labeled; extract paths still need a location map here.
+            self._register_terse_location( env )
 
 
         def use_libs( self, libs ):
