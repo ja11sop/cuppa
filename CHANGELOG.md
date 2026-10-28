@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Recognised Clang toolchain aliases include ``clang23`` / ``clang231`` (LLVM 23.x).
+  Point-release name parsing for modern Clang majors now matches GCC (e.g.
+  ``clang231`` → ``clang++-23.1``). Antora Clang family page ceiling updated.
+  Plan: ``design/plans/toolchain-version-currency.md``.
+
 - ``--consume-cascade-dependencies`` (with ``--cascade``) binds each tip
   GitLab dependency to an existing publisher-root
   ``final/<package>/<version>/`` stage and continues with the tip build.
