@@ -359,6 +359,38 @@ def test_a_program_run_stays_a_single_name():
     assert "→" not in line
 
 
+def test_run_without_node_summary_names_the_command():
+    """Missing ``cuppa_terse_summary`` must not paint a bare ``· run``.
+
+    Interrupt-soak ghost lines had only the verb — stashed argv is the name.
+    Prefer that over a ``.success`` stamp leaf.
+    """
+    stamp = _LabelledNode( "run", "docker-run-postgres.success" )
+    line = progress.format_terse_line(
+            "ok",
+            'docker stop "pg-cuppa-xyz"',
+            [ stamp ],
+            [],
+            _variant_env(),
+    )
+    assert "· run · " in line
+    assert "docker stop" in line
+    assert ".success" not in line
+
+    empty = SimpleNamespace(
+            path="",
+            attributes=SimpleNamespace( cuppa_terse_action="run" ),
+    )
+    bare = progress.format_terse_line(
+            "ok",
+            "set_postgres_env_variables",
+            [ empty ],
+            [],
+            _variant_env(),
+    )
+    assert bare.rstrip().endswith( "· run · set_postgres_env_variables" )
+
+
 def test_markdown_and_asciidoc_show_source_to_product():
     markdown = progress.format_terse_line(
             "ok",

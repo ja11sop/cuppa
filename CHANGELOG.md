@@ -24,7 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   announce are skipped (noise beside ``[stopped]``). The
   ``stopped in-flight actions`` / ``[interrupted]`` close waits for
   ``Jobs.run`` (no longer fires on mid-drain SCons ``Build interrupted.``).
-  Plan: ``design/plans/terse-build-action-heartbeat.md``.
+  ``run`` status lines without a node summary fall back to the stashed
+  command (no more bare ``· run`` ghosts). Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
 
 ### Added
 

@@ -1309,9 +1309,11 @@ def _first_node( nodes ):
 def _node_path( node ):
     if node is None:
         return ""
-    path = getattr( node, "path", None )
-    if path:
-        return str( path )
+    # Prefer ``.path`` even when empty — ``str(node)`` on a SimpleNamespace
+    # is noise in a ``run`` file cell, not an identity.
+    if hasattr( node, "path" ):
+        path = getattr( node, "path", None )
+        return "" if path is None else str( path )
     return str( node )
 
 
@@ -2126,7 +2128,18 @@ def _located_product_field( target, env, require_map=True ):
     return shown or _coloured_file( "", _node_basename( target ) )
 
 
-def _file_field( action, target, source, env ):
+def _run_command_summary( command ):
+    """Normalised argv / callable name for a ``run`` file cell, or empty."""
+    if not command:
+        return ""
+    try:
+        from cuppa.method_helpers.run_process import short_run_summary
+        return short_run_summary( command ) or ""
+    except Exception:
+        return " ".join( str( command ).split() )
+
+
+def _file_field( action, target, source, env, command=None ):
     if _paths_style( target ) == "product" and action not in _TRANSFER_ACTIONS:
         return _located_product_field( target, env, require_map=False )
     summary = _explicit_terse_summary( target )
@@ -2145,8 +2158,20 @@ def _file_field( action, target, source, env ):
     if _is_transform_action( action ):
         return _transform_field( target, source, env )
     if action in _RUN_FILE_ACTIONS:
+        # Node summary missing (format-hole labeled later, or finish used
+        # different nodes) — name the line from stashed argv when the product
+        # cell is empty or only a ``.success`` stamp.
         program = source if _first_node( source ) is not None else target
-        return _located_product_field( program, env )
+        product = _located_product_field( program, env )
+        cmd_summary = _run_command_summary( command )
+        if cmd_summary:
+            if not product:
+                return as_subdued( cmd_summary )
+            from cuppa.output_processor import strip_ansi
+            plain = strip_ansi( product ).strip()
+            if not plain or plain.endswith( ".success" ):
+                return as_subdued( cmd_summary )
+        return product
     return _located_product_field( target, env )
 
 _STATUS_WIDTH = 6
@@ -2639,14 +2664,14 @@ def format_terse_line(
         file_text = _executing_file_field( action, target, source, env )
     else:
         fields.append( _action_label( action ) )
-        file_text = _file_field( action, target, source, env )
+        file_text = _file_field( action, target, source, env, command=command )
         if duration:
             fields.append( as_subdued( duration ) )
         if (
                 truncate_file
                 and file_text
                 and action in _RUN_FILE_ACTIONS
-                and _explicit_terse_summary( target )
+                and ( _explicit_terse_summary( target ) or _run_command_summary( command ) )
         ):
             file_text = _fit_terse_file_field( file_text, parts, fields )
     if file_text:
@@ -2782,7 +2807,7 @@ def _pending_product_end( token, relative, fallback="" ):
     return shown
 
 
-def _executing_file_field( action, target, source, env ):
+def _executing_file_field( action, target, source, env, command=None ):
     """File cell for ``[....]``: durable colours on sources; muted-bold targets.
 
     Compile / transform: ``source → pending_product``. Copy / move: same.
@@ -2823,12 +2848,24 @@ def _executing_file_field( action, target, source, env ):
 
     if action in _RUN_FILE_ACTIONS:
         # Binary under test / run / benchmark — product not yet "passed".
+        # Prefer stashed argv only when there is no real pending product (same
+        # rule as durable ``_file_field``), so ``[....] · running-test ·`` keeps
+        # muted-bold leaf chrome for a program path.
         program = source if _first_node( source ) is not None else target
         raw = _node_path( _first_node( program ) )
         token, relative = _locate( raw, env )
-        return _pending_product_end(
+        pending = _pending_product_end(
                 token, relative, fallback=_node_basename( program ),
         )
+        cmd_summary = _run_command_summary( command )
+        if cmd_summary:
+            if not pending:
+                return as_subdued( cmd_summary )
+            from cuppa.output_processor import strip_ansi
+            plain = strip_ansi( pending ).strip()
+            if not plain or plain.endswith( ".success" ):
+                return as_subdued( cmd_summary )
+        return pending
 
     if summary and _paths_style( target ) == "file":
         shown = str( summary ).replace( "\\", "/" )
@@ -2875,7 +2912,9 @@ def _executing_fields_text( command, target, source, env ):
     # In-flight verb is muted+bold, like the pending product: the work is not
     # finished yet. Durable ``[ok]`` lines keep plain bold via ``_action_label``.
     fields.append( _muted_bold( progressive_terse_action( action ) ) )
-    file_text = _executing_file_field( action, use_target, use_source, env )
+    file_text = _executing_file_field(
+            action, use_target, use_source, env, command=command,
+    )
     if file_text:
         fields.append( file_text )
     if not fields:
