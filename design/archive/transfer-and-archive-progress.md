@@ -1,7 +1,7 @@
 # Plan: Uniform transfer and archive progress (terse-aware)
 
 - **Status:** shipped
-- **Related:** [`download-progress.md`](download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`console-channels.md`](../plans/console-channels.md); [`console-write-ownership.md`](console-write-ownership.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
+- **Related:** [`download-progress.md`](download-progress.md) (shipped HTTP / extract / git / Conan progress); [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md) (surfaced need: silent multi-minute package `tar`); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md) / [`terse-delegated-output.md`](terse-delegated-output.md); [`../plans/console-channels.md`](../plans/console-channels.md); [`console-write-ownership.md`](console-write-ownership.md); `cuppa.utility.heartbeat`; `cuppa.utility.download.ProgressReporter`; `create_package_archive` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py)
 - **Updated:** 2026-10-11
 - **Impact:** minor — UX / shared progress channel; no package format change
 - **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)

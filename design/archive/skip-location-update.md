@@ -1,14 +1,14 @@
 # Plan: `--skip-location-update`
 
-- **Status:** done
-- **Related:** [`../archive/cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md)
+- **Status:** shipped
+- **Related:** [`cascade-consume-ux-soak.md`](cascade-consume-ux-soak.md)
   (`skip-resolve` sketch); [`ROADMAP.md`](../../ROADMAP.md) — was
   `cascade-skip-resolve` / cheap plan; [`cuppa/location.py`](../../cuppa/location.py)
   `retrieval_disabled_reason`; Antora
   [`cli/dependencies-and-develop.adoc`](../../docs/modules/ROOT/pages/cli/dependencies-and-develop.adoc);
   [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc);
   done on [#379](https://github.com/ja11sop/cuppa/pull/379)
-- **Updated:** 2026-10-28
+- **Updated:** 2026-10-29
 - **Impact:** minor — new global flag; location retrieve/update path only
 
 ## Problem

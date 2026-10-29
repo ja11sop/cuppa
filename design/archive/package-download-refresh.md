@@ -77,10 +77,10 @@ before the named release — cheap while ``.dev``.
 ```mermaid
 flowchart TD
   start[Configure package dep]
-  refresh{"--refresh-downloads applies?"}
-  dry{"-n / no-exec?"}
-  offline{"--offline?"}
-  develop{"develop / local stage?"}
+  refresh{{"--refresh-downloads applies?"}}
+  dry{{"-n / no-exec?"}}
+  offline{{"--offline?"}}
+  develop{{"develop / local stage?"}}
   drop[Remove archive + extract for selection]
   fetch[Download + extract as today]
   reuse[Reuse existing cache]

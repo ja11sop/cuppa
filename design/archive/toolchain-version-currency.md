@@ -1,15 +1,15 @@
 # Plan: Supported toolchain version currency
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains; [`list-toolchains.md`](../archive/list-toolchains.md);
-  [`list-toolchains-verbose.md`](list-toolchains-verbose.md); Antora
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Toolchains; [`list-toolchains.md`](list-toolchains.md);
+  [`../plans/list-toolchains-verbose.md`](../plans/list-toolchains-verbose.md); Antora
   [`toolchains/gcc.adoc`](../../docs/modules/ROOT/pages/toolchains/gcc.adoc) /
   [`clang.adoc`](../../docs/modules/ROOT/pages/toolchains/clang.adoc) /
   [`msvc.adoc`](../../docs/modules/ROOT/pages/toolchains/msvc.adoc);
   `cuppa/toolchains/{gcc,clang,cl}.py` `supported_versions`; CI
   [`.github/workflows/test.yml`](../../.github/workflows/test.yml);
   done on [#377](https://github.com/ja11sop/cuppa/pull/377)
-- **Updated:** 2026-10-28
+- **Updated:** 2026-10-29
 - **Impact:** patch — register new aliases / refresh docs ceilings; CI default
   bump is optional and called out separately (may be minor if runners change)
 

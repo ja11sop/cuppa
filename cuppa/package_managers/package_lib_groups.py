@@ -5,7 +5,7 @@
 
 """Named library groups for GitLab package ``use_libs`` tokens.
 
-See ``design/plans/gitlab-package-lib-groups.md``. Authors declare groups that
+See ``design/archive/gitlab-package-lib-groups.md``. Authors declare groups that
 expand to concrete library stems. Consumer ``use_libs`` tokens and traveling
 manifest edge ``use_libs`` share the same vocabulary (leaves and/or groups).
 """

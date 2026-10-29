@@ -1,7 +1,7 @@
 # Plan: Mode banners as report surface (survive quiet)
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); [`console-channels.md`](../plans/console-channels.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); cascade mode chips in [`construct.py`](../../cuppa/construct.py); Antora packages cascade plan docs
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) (console / quiet follow-ons); [`../plans/console-channels.md`](../plans/console-channels.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); cascade mode chips in [`construct.py`](../../cuppa/construct.py); Antora packages cascade plan docs
 - **Updated:** 2026-10-11
 - **Impact:** `patch` (presentation); possibly `minor` if a shared “always print” banner API becomes operator-facing
 
@@ -66,5 +66,5 @@ package "Using …", location "Updating …", and the GitLab missing-archive
 
 | Item | Status |
 |------|--------|
-| Problem / inventory | Settled — see above, and the channel map in [`console-channels.md`](../plans/console-channels.md) |
+| Problem / inventory | Settled — see above, and the channel map in [`../plans/console-channels.md`](../plans/console-channels.md) |
 | Implementation | **Done on master** — [#351](https://github.com/ja11sop/cuppa/pull/351) |

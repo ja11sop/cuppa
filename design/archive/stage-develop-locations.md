@@ -330,10 +330,10 @@ Example H (docs assets) remains a follow-on.
 ```mermaid
 flowchart TD
   tip[Tip with --develop]
-  nest{"--stage-develop?"}
+  nest{{"--stage-develop?"}}
   nestBuild[Nest location projects leaf-first]
   resolve[Resolve final/name/ver under develop]
-  hasStage{include/ and lib/ present?}
+  hasStage{{include/ and lib/ present?}}
   consume[Tip INCPATH LIBPATH LIBS optional BMIs]
   pathSwap[Classic path-swap]
   tip --> nest

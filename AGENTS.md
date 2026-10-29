@@ -703,7 +703,7 @@ Release checklist: see `release.txt` (Actions **prepare** → merge → **publis
   `line-height: 1`.
 - Integration test scenarios: Antora **Integration tests** section (`docs/modules/ROOT/pages/integration/`)
 
-**Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time).
+**Diagrams:** Antora 3 uses Asciidoctor.js, so the Ruby gem `asciidoctor-diagram` cannot be registered as an Antora AsciiDoc extension. Use `@sntke/antora-mermaid-extension` (`docs/playbook.yml`) so `[mermaid]` listing blocks render client-side with Mermaid.js (no Kroki network fetch at build time). In flowcharts, prefer **hexagon** decision nodes (`id{{Question?}}`) over rhombus/diamond (`id{Question?}`) — hexagons render more clearly and use less vertical space.
 
 When docs and code disagree, **code is authoritative** (especially storage defaults, toolchain version lists, default compiler flags, and whether `--cov` implies `--test`).
 

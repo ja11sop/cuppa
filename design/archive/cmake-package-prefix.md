@@ -48,11 +48,11 @@ Clearpool groups/repos/variables use snake_case; GitLab package slugs often use 
 ```mermaid
 flowchart TD
   call["env.CMakeConfigure(...)"]
-  gen{"generator arg"}
+  gen{{"generator arg"}}
   call --> gen
   gen -->|"string"| exact["-G that string"]
   gen -->|"False"| omit["no -G"]
-  gen -->|"None / omitted"| auto{"ninja on PATH?"}
+  gen -->|"None / omitted"| auto{{"ninja on PATH?"}}
   auto -->|yes| ninja["-G Ninja"]
   auto -->|no| omit
 ```

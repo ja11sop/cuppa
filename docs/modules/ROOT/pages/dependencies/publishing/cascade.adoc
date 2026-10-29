@@ -72,7 +72,7 @@ nest-build vs nest-publish:
 
 | ``--build-cascade-dependencies``
 | Leaf-first nested **build** (no ``--publish-package`` / no registry upload). With tip ``--amend-cascade-manifests``, nests **stage+amend** instead (metadata retar, no upload / no CMake rebuild). Nests run **before** tip ``BuildWith`` (same timing idea as ``--stage-develop``)
-| Tip **build only**, linking each nest's ``final/<package>/<version>/`` stage under the publisher forest (not the download extract). ``--develop`` still wins for packages with an active develop path. Cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies`` |
+| Tip **build only**, linking each nest's ``final/<package>/<version>/`` stage under the publisher forest (not the download extract). ``--develop`` still wins for packages with an active develop path. Cannot combine with ``--publish-package`` or ``--publish-cascade-dependencies``
 
 | ``--consume-cascade-dependencies``
 | Nothing (no nested ``cuppa``)
@@ -141,7 +141,7 @@ drops tip dependency-scoped flags and tip-local ``cuppa.add_option`` helpers
 ....
 flowchart TD
   enable["--cascade"]
-  enable --> choose{Companion action?}
+  enable --> choose{{Companion action?}}
   choose -->|none| refuse[Refuse]
   choose -->|--cascade-plan| plan[Print plan and exit]
   choose -->|--collect-cascade| collect[Resolve or clone trees; exit]
@@ -643,9 +643,9 @@ tip ``--rel`` / ``--dbg`` / ``--cov`` into nest package sessions). Location
 ....
 flowchart TD
   nestDone[Nested session finished]
-  nestDone --> uploaded{Registry upload?}
+  nestDone --> uploaded{{Registry upload?}}
   uploaded -->|no and not --force| leave[Leave tip consume cache]
-  uploaded -->|yes or --force| hashCmp{payload_sha256 matches tip?}
+  uploaded -->|yes or --force| hashCmp{{payload_sha256 matches tip?}}
   hashCmp -->|yes| overlay[Overlay JSON and tip archive only]
   hashCmp -->|no or missing| full[Invalidate tip extract; install nested archive; extract]
 ....

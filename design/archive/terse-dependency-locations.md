@@ -5,7 +5,7 @@
   companions [`terse-build-output.md`](terse-build-output.md) /
   [`terse-delegated-output.md`](terse-delegated-output.md) (done on master
   [#353](https://github.com/ja11sop/cuppa/pull/353)); channel map
-  [`console-channels.md`](../plans/console-channels.md); native modifier
+  [`../plans/console-channels.md`](../plans/console-channels.md); native modifier
   [`native-toolchain-output.md`](native-toolchain-output.md) (done on master
   [#354](https://github.com/ja11sop/cuppa/pull/354)); landed on
   [#355](https://github.com/ja11sop/cuppa/pull/355). Promote to **shipped**
@@ -355,5 +355,5 @@ dependency's resolved tree.
 
 - Location map grammar: [`terse-delegated-output.md`](terse-delegated-output.md)
 - Terse status lines: [`terse-build-output.md`](terse-build-output.md)
-- Channel map: [`console-channels.md`](../plans/console-channels.md)
+- Channel map: [`../plans/console-channels.md`](../plans/console-channels.md)
 - Boost `-c` / extract `b2`: [`deep-clean.md`](../plans/deep-clean.md)

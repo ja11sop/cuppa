@@ -1,9 +1,9 @@
 # Plan: Terse in-progress build action + heartbeat
 
-- **Status:** done
+- **Status:** shipped
 - **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375); Ctrl-C `[stopped]` + post-close atexit teardown chrome on [#381](https://github.com/ja11sop/cuppa/pull/381)
-- **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
-- **Updated:** 2026-10-28
+- **Related:** [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-output.md`](terse-build-output.md); [`terse-delegated-output.md`](terse-delegated-output.md); [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`../plans/console-channels.md`](../plans/console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
+- **Updated:** 2026-10-29
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
 - **Also related:** tip `env.Run` / process monitors; cascade tip-local options → [`cascade-tip-local-options.md`](cascade-tip-local-options.md); package `create_package_archive` / nest amend compress
 
@@ -64,7 +64,7 @@ Rules of thumb:
    airtime — not “stuck forever on the last-started job.”
 5. When the set is empty, clear the sticky caption (idle / between waves).
 
-Quiet+TTY heartbeat ([`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md))
+Quiet+TTY heartbeat ([`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md))
 already keeps the console alive for **diverted INFO** and for **location /
 retrieve** waits via `operation_status`. It does **not** arm an in-progress
 caption for ordinary SCons toolchain actions (compile / link / …), which emit
@@ -214,7 +214,7 @@ the whole compress — same “is it hung?” feel the transfer plan was meant t
 kill.
 
 That work was explicitly scoped and marked **done** in
-[`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md)
+[`transfer-and-archive-progress.md`](transfer-and-archive-progress.md)
 ([#360](https://github.com/ja11sop/cuppa/pull/360)): enrol
 `create_package_archive` on the shared `ProgressReporter` + heartbeat engine
 (muted bar under `--terse-output` ± `-Q`, overwrite on completion, then durable
