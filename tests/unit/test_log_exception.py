@@ -51,3 +51,19 @@ def test_build_error_critical_line_stays_info( colour_on, caplog ):
     text = caplog.records[0].getMessage()
     assert as_info( "BuildError" ) in text
     assert as_info( message ) in text
+
+
+def test_mask_and_colour_operator_error_does_not_paint_csi_reset_as_value( colour_on ):
+    """Pre-coloured args must not leave a literal ``0m`` on the SCons re-raise line."""
+    from cuppa import _mask_and_colour_operator_error
+
+    precoloured = "Package [{}]: missing [{}]".format(
+            as_error( "pkg/1.0/rel" ),
+            as_error( "pkg_libs.pc" ),
+    )
+    error = SCons.Errors.StopError( precoloured )
+    _mask_and_colour_operator_error( error )
+    text = error.args[0]
+    assert "0m" not in text.replace( "\x1b[0m", "" )
+    assert as_error( "pkg/1.0/rel" ) in text
+    assert as_error( "pkg_libs.pc" ) in text

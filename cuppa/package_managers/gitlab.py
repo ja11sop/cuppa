@@ -2388,6 +2388,9 @@ class GitlabPackageDependency:
                     if not os.path.isfile( pc_path ):
                         missing_pc.append( pc_name )
                 if missing_pc:
+                    # Plain prose only — ``cuppa.run`` colours ``[values]`` /
+                    # ``--flags`` via ``highlight_values``. Pre-coloured text
+                    # leaves CSI resets that match as ``[0m]`` and print as ``0m``.
                     hint = ""
                     if not groups:
                         hint = (
@@ -2395,17 +2398,17 @@ class GitlabPackageDependency:
                                 "lib_groups; if these names were groups, tip "
                                 "--build-cascade-dependencies should bind the "
                                 "forest stage (or use --develop / republish)."
-                                .format( as_notice( self._package_dir ) )
+                                .format( self._package_dir )
                         )
                     raise SCons.Errors.StopError(
                             "Package [{}]: no pkg-config file(s) {} under [{}].{}"
                             .format(
-                                    as_error( self._package_id ),
+                                    self._package_id,
                                     ", ".join(
-                                            "[{}]".format( as_error( name ) )
+                                            "[{}]".format( name )
                                             for name in missing_pc
                                     ),
-                                    as_notice( self._pkg_config_dir ),
+                                    self._pkg_config_dir,
                                     hint,
                             )
                     )

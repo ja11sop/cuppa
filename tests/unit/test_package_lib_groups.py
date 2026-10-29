@@ -244,5 +244,9 @@ def test_gitlab_use_libs_pkg_config_missing_pc_hints_lib_groups( tmp_path: Path 
     dep.include_dir = lambda: str( package_dir / "include" )
     dep.use_libs = gitlab_module.GitlabPackageDependency.use_libs.__get__( dep )
 
-    with pytest.raises( SCons.Errors.StopError, match="lib_groups" ):
+    with pytest.raises( SCons.Errors.StopError, match="lib_groups" ) as raised:
         dep.use_libs( [ "widget_libs" ] )
+    message = str( raised.value )
+    assert "\x1b" not in message
+    assert "0m" not in message
+    assert "widget_libs.pc" in message
