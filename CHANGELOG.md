@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``docker stop``) no longer reuses a stale cell ``N/M`` — nested ``→``
   instead; ``RunProcessAction`` keeps ``target`` on the terse stash across
   ``_run_command``. Plan:
-  ``design/plans/terse-build-action-heartbeat.md``.
+  ``design/archive/terse-build-action-heartbeat.md``.
 
 ### Added
 
@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Refuses with ``--update-develop`` / ``--clone-develop`` /
   ``--checkout-develop-branch`` / ``--reset-develop-branch``. Nest sessions
   inherit the flag. Mode banner when not offline. Plan:
-  ``design/plans/skip-location-update.md`` (replaces the soak
+  ``design/archive/skip-location-update.md`` (replaces the soak
   ``skip-resolve`` sketch).
 
 - ``--parallel=N`` — Cuppa CPU affinity plus an explicit SCons / CMake job
@@ -55,13 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   size (e.g. ``--parallel=20`` on a 16-core host oversubscribes and warns).
   Bare ``--parallel`` still auto-chooses the affinity-aware CPU count;
   combining ``--parallel=N`` with ``--jobs`` / ``-j`` is a ``StopError``.
-  Plan: ``design/plans/parallel-job-count.md``;
+  Plan: ``design/archive/parallel-job-count.md``;
   [#298](https://github.com/ja11sop/cuppa/issues/298).
 
 - Recognised Clang toolchain aliases include ``clang23`` / ``clang231`` (LLVM 23.x).
   Point-release name parsing for modern Clang majors now matches GCC (e.g.
   ``clang231`` → ``clang++-23.1``). Antora Clang family page ceiling updated.
-  Plan: ``design/plans/toolchain-version-currency.md``.
+  Plan: ``design/archive/toolchain-version-currency.md``.
 
 - ``--consume-cascade-dependencies`` (with ``--cascade``) binds each tip
   GitLab dependency to an existing publisher-root
@@ -82,14 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   announcement stay for non-terse output only. Ctrl-C under ``--terse-output``
   drops the outstanding ``[....]`` set and blanks the status row so a later
   cleanup ``[ok]`` cannot chase the caption onto the shell prompt. Plan:
-  ``design/plans/cascade-consume-dependencies.md``.
+  ``design/archive/cascade-consume-dependencies.md``.
 
 - Under ``--terse-output``, ``env.Run`` / process actions label the durable
   status line as action **``run``** (even under ``--test``; fixtures are not
   tests), with wall **duration** and a **command summary** (or callable name)
   instead of a ``.success`` stamp basename. The summary stays full-length by
   default (terminal wrap); ellipsis fit is opt-in only. Plan:
-  ``design/plans/terse-build-action-heartbeat.md``.
+  ``design/archive/terse-build-action-heartbeat.md``.
 - Under ``--terse-output`` on a TTY, in-flight toolchain / process actions show
   a sticky muted ``[....]`` caption on the shared heartbeat status row (six
   columns so fields line up under ``[ok]``), with progressive action words
@@ -110,7 +110,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stream of quick ``[ok]`` lines cannot starve the display of long armed jobs.
   Stderr/stdout through the terse interrupt filter clears the status row first
   so ``scons: ***`` cannot glue onto a live caption. Plan:
-  ``design/plans/terse-build-action-heartbeat.md``.
+  ``design/archive/terse-build-action-heartbeat.md``.
 
 - GitLab package **named library groups**: publishers may declare ``lib_groups``
   on ``GitlabPackagePublisher`` (travels in ``cuppa-publish.json``). Consumer
@@ -119,14 +119,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   win over same-named leaf stems; a group may still list its same-named primary
   stem as a member (e.g. ``kms`` → ``[kms, kms_protos, …]``).
   ``show_libs_for`` / ``show_all_libs`` report expansions at configure time.
-  Plan: ``design/plans/gitlab-package-lib-groups.md``.
+  Plan: ``design/archive/gitlab-package-lib-groups.md``.
 - Toolchain **opt-in link append policy**: ``cuppa.toolchains.link_append``
   helpers (``append_static_libs`` / ``append_shared_libs`` / ``append_libpath``)
   call through a toolchain method when present, otherwise keep today's
   ``AppendUnique``. gcc and clang implement ``append_static_libs`` with
   ``Append`` so static-archive order and repeats survive across packages
   (GNU ld). Package link apply, Boost, Quince, and related call sites use the
-  helpers. Plan: ``design/plans/gitlab-package-lib-groups.md``.
+  helpers. Plan: ``design/archive/gitlab-package-lib-groups.md``.
 - Cascade **metadata-only amend nests**: tip ``--amend-cascade-manifests`` with
   ``--cascade`` and a nest companion drives nest argv (nests receive
   ``--amend-package-manifest``). ``--build-cascade-dependencies`` nests become
@@ -134,11 +134,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--publish-package`` + amend. Tip-only ``--amend-package-manifest`` stays
   single-publisher and no longer enables nest amend. Location
   ``--stage-develop`` project nests still drop amend. Plan:
-  ``design/plans/cascade-amend-package-manifest.md``.
+  ``design/archive/cascade-amend-package-manifest.md``.
 - Cascade nest argv **drops tip-local ``cuppa.add_option`` flags** (and their
   values) so nests are not failed by tip-only helpers such as
   ``--tip-local-flag``. Dependency-scoped tip flags were already dropped.
-  Plan: ``design/plans/cascade-tip-local-options.md``.
+  Plan: ``design/archive/cascade-tip-local-options.md``.
 - ``--amend-package-manifest`` always rebuilds the package stamp
   (``AlwaysBuild``): empty-source amend no longer no-ops when a prior
   ``.packaged`` stamp exists (cascade soak: nests finished ``up to date``
@@ -154,7 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   registry extracts. Nesting runs before tip ``BuildWith`` (stage-develop
   timing); develop still wins when ``--develop`` is active. Missing stage
   after nest → ``StopError`` (no extract fall-back / no download-store mutate).
-  Plan: ``design/plans/cascade-build-deps-tip-consume.md``.
+  Plan: ``design/archive/cascade-build-deps-tip-consume.md``.
 - Missing pkg-config leaf names after ``use_libs`` expansion raise
   ``StopError`` with a ``lib_groups`` / forest-stage hint instead of a bare
   pkg-config ``OSError``.
@@ -181,7 +181,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--terse-output`` the verbose banner, timing block, live child echo, and
   ``Popen2`` argv echo are suppressed (logs stay on disk); the durable terse
   ``[ok]`` / ``[error]`` line remains. Plan:
-  ``design/plans/terse-build-action-heartbeat.md``.
+  ``design/archive/terse-build-action-heartbeat.md``.
 - Cascade ``--build-cascade-dependencies`` early nest no longer **drops
   tip package factories whose version is still ``None`` / ``latest``**
   (e.g. ``boost_package`` remembered ``1.92``). Edge seeding now runs the
@@ -192,7 +192,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``gcc15`` tip no longer silently binds a ``gcc16/…`` forest stage
   (ABI/link mismatch). Nest-default ``rel`` for a ``dbg`` tip of the
   **same** toolchain remains expected and preferred. Plan:
-  ``design/plans/cascade-build-deps-tip-consume.md``.
+  ``design/archive/cascade-build-deps-tip-consume.md``.
 - Tip ``--dbg`` forest-stage bind now **prefers nest-default ``rel``** over
   a same-toolchain stale ``dbg`` stage when both exist (soak bound Oct-old
   abseil ``dbg`` while nest amended ``rel``).

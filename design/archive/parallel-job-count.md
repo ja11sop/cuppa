@@ -1,8 +1,8 @@
 # Plan: Optional job count on `--parallel`
 
-- **Status:** done
-- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](../archive/publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below; done on [#378](https://github.com/ja11sop/cuppa/pull/378)
-- **Updated:** 2026-10-28
+- **Status:** shipped
+- **Related:** [#298](https://github.com/ja11sop/cuppa/issues/298); [#318](https://github.com/ja11sop/cuppa/issues/318) (CMake serial default); [`ROADMAP.md`](../../ROADMAP.md) — CLI / build; [`cuppa/__main__.py`](../../cuppa/__main__.py) `restrict_cpus`; [`cuppa/construct.py`](../../cuppa/construct.py) parallel/`num_jobs`; [`cuppa/utility/parallelism.py`](../../cuppa/utility/parallelism.py); Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); publish+parallel race is separate — [`publish-package-parallel-side-effect.md`](publish-package-parallel-side-effect.md) ([#317](https://github.com/ja11sop/cuppa/issues/317)); CMake/Ninja default jobs below; done on [#378](https://github.com/ja11sop/cuppa/pull/378)
+- **Updated:** 2026-10-29
 - **Impact:** `minor` for `--parallel=N` CLI; **`patch`** for the CMake helper default below (behaviour fix)
 
 ## Problem
@@ -136,5 +136,5 @@ notice or honour N (SCons can oversubscribe). Provisional: **honour N**, warn on
 
 - Changing the leave-N-cores-for-OS affinity table itself
 - Making `--jobs` apply Cuppa affinity (keep SCons-native meaning)
-- Coverage `--parallel` collection policy ([`coverage-parallel.md`](coverage-parallel.md))
+- Coverage `--parallel` collection policy ([`../plans/coverage-parallel.md`](../plans/coverage-parallel.md))
 - Forcing `CMakeInstall` onto `--parallel 1` (keeps `jobs=False` omit unless a soak shows install pegging cores)

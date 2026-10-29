@@ -10,7 +10,7 @@ Call sites resolve what to put on the link line; they should not hard-code
 ``append_static_libs`` / ``append_shared_libs`` / ``append_libpath``. When a
 hook is absent, behaviour matches today's defaults (``AppendUnique``).
 
-See ``design/plans/gitlab-package-lib-groups.md`` (link append policy).
+See ``design/archive/gitlab-package-lib-groups.md`` (link append policy).
 """
 
 from __future__ import annotations

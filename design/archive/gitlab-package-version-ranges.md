@@ -80,7 +80,7 @@ Supported MVP spellings:
 
 ```mermaid
 flowchart TD
-  A["Edge version token"] --> B{"parse"}
+  A["Edge version token"] --> B{{"parse"}}
   B -->|"1.28.0 / ==1.28.0"| E[exact bound]
   B -->|">=1.28.0"| M[minimum bound]
   B -->|"latest"| L[named float → concrete]
@@ -88,7 +88,7 @@ flowchart TD
   E --> I[Intersect into env pin table]
   M --> I
   L --> I
-  I --> S{"candidates"}
+  I --> S{{"candidates"}}
   S -->|cache satisfies| C[keep / use cached concrete]
   S -->|online + refresh or miss| H[highest satisfying from registry list]
   S -->|none| F[StopError no candidate]

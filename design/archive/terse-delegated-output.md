@@ -2,7 +2,7 @@
 
 - **Status:** shipped
 - **Related:** [`terse-build-output.md`](terse-build-output.md) (Phase 1, done for 1.12.0);
-  [`native-toolchain-output.md`](native-toolchain-output.md); [`console-channels.md`](../plans/console-channels.md);
+  [`native-toolchain-output.md`](native-toolchain-output.md); [`../plans/console-channels.md`](../plans/console-channels.md);
   [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md); Boost `b2` via
   `cuppa/dependencies/boost/boost_builder.py`; ROADMAP `console-terse-delegated`;
   Boost `-c` follow-up [`deep-clean.md`](../plans/deep-clean.md)
@@ -448,7 +448,7 @@ folders make the latter risky. Leave `NoClean(b2)` until that follow-up.
 ## Related
 
 - Phase 1 terse grammar and checkpoints: [`terse-build-output.md`](terse-build-output.md)
-- Channel map: [`console-channels.md`](../plans/console-channels.md)
+- Channel map: [`../plans/console-channels.md`](../plans/console-channels.md)
 - Native diagnostic modifier: [`native-toolchain-output.md`](native-toolchain-output.md)
 - Dependency location maps: [`terse-dependency-locations.md`](terse-dependency-locations.md)
 - CMake drive / package staging: [`cmake-drive-and-package-staging.md`](../plans/cmake-drive-and-package-staging.md)

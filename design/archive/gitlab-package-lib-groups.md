@@ -1,8 +1,8 @@
 # Plan: GitLab package named library groups
 
-- **Status:** done
-- **Related:** [`gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); ROADMAP Dependencies / packages — **1.13.0** opener; [#279](https://github.com/ja11sop/cuppa/issues/279)
-- **Updated:** 2026-10-19
+- **Status:** shipped
+- **Related:** [`gitlab-package-transitive.md`](gitlab-package-transitive.md) (MVP `use_libs` tokens + `use_all_libs()`; was remainder of `gl-dep-lib-api`); [`archive/package-use-libs-defaults.md`](package-use-libs-defaults.md); ROADMAP Dependencies / packages — **1.13.0** opener; [#279](https://github.com/ja11sop/cuppa/issues/279)
+- **Updated:** 2026-10-29
 - **Impact:** minor — package author/consumer API for large multi-lib archives; leaf `use_libs` stays valid
 - **Status note:** done on [#373](https://github.com/ja11sop/cuppa/pull/373); Boost / manifest-handler / flags follow-ons below (not blocking). Archive after merge to master.
 
@@ -36,7 +36,7 @@ discovery helpers.
 
 - Changing transitive apply timing (`BuildWith` = includes; link on
   `use_libs` / `use_all_libs`).
-- Version ranges (see [`gitlab-package-version-ranges.md`](../archive/gitlab-package-version-ranges.md)).
+- Version ranges (see [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)).
 - Requiring every existing package to sprout groups.
 
 ## Direction (from parent settled API)
@@ -142,8 +142,8 @@ or a small registry of well-known handlers (`"consume_handler": "boost"`).
 On apply: prefer a registered factory for that handler; fall back to generic
 GitLab package. Tip and transitive paths share one rule — the archive says how
 it wants to be consumed. Related: resolve / Quince selector gaps in
-[`boost-updates.md`](boost-updates.md) and
-[`../archive/dependency-resolve.md`](../archive/dependency-resolve.md).
+[`../plans/boost-updates.md`](../plans/boost-updates.md) and
+[`dependency-resolve.md`](dependency-resolve.md).
 
 **Status:** open follow-on (not this PR). Does not remove the need for the
 handler implementation; it **binds** archive → handler instead of relying on

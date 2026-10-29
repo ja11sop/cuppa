@@ -1,7 +1,7 @@
 # Plan: one console write path (TTY ownership)
 
 - **Status:** shipped
-- **Related:** [`console-channels.md`](../plans/console-channels.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); [`terse-delegated-output.md`](terse-delegated-output.md); `cuppa/__main__.py` launcher; `cuppa.utility.heartbeat`
+- **Related:** [`../plans/console-channels.md`](../plans/console-channels.md); [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md); [`terse-delegated-output.md`](terse-delegated-output.md); `cuppa/__main__.py` launcher; `cuppa.utility.heartbeat`
 - **Updated:** 2026-10-11
 - **Impact:** minor — UX / console ownership; no package format change
 - **PR:** [#360](https://github.com/ja11sop/cuppa/pull/360)

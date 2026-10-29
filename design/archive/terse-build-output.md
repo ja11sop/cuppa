@@ -1,7 +1,7 @@
 # Plan: terse build output with coloured progress (`--terse-output`)
 
 - **Status:** shipped
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`console-channels.md`](../plans/console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); follow-on [`terse-delegated-output.md`](terse-delegated-output.md) (file fields + CMake/`b2`); `cuppa/progress.py`; [`console-report-patterns.md`](console-report-patterns.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output (`console-terse-output`); channel map [`../plans/console-channels.md`](../plans/console-channels.md); companion [`native-toolchain-output.md`](native-toolchain-output.md); follow-on [`terse-delegated-output.md`](terse-delegated-output.md) (file fields + CMake/`b2`); `cuppa/progress.py`; [`console-report-patterns.md`](console-report-patterns.md)
 - **Updated:** 2026-10-11
 - **Impact:** minor — new opt-in CLI flag; default build output unchanged
 
