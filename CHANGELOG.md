@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.13.0] - unreleased
+## [1.13.0] - 2026-10-29
 
 ### Fixed
 
@@ -169,10 +169,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   git status, storage tables, and terse ``Run`` paint import from that module
   instead of duplicating probes.
 
-### Deprecated
-
-### Removed
-
 ### Fixed
 
 - ``env.Run`` / process ``Monitor`` no longer writes ``Running Process`` /
@@ -218,8 +214,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Normal ``-Q``/``-s`` transfer progress now shows the **same alive widget**
   as the quiet heartbeat row (muted bar was previously alive-less, so some
   quiet transient lines pulsed and compress/download did not).
-
-### Security
 
 ## [1.12.0] - 2026-10-13
 
@@ -2562,7 +2556,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...HEAD
+[1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...v1.11.0
 [1.10.0]: https://github.com/ja11sop/cuppa/compare/v1.9.1...v1.10.0
