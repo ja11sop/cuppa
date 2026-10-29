@@ -1,7 +1,7 @@
 # Plan: Terse in-progress build action + heartbeat
 
 - **Status:** done
-- **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375)
+- **Status note:** shipped on [#375](https://github.com/ja11sop/cuppa/pull/375); Ctrl-C `[stopped]` + post-close atexit teardown chrome on [#381](https://github.com/ja11sop/cuppa/pull/381)
 - **Related:** [`../archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`../archive/terse-build-output.md`](../archive/terse-build-output.md); [`../archive/terse-delegated-output.md`](../archive/terse-delegated-output.md); [`../archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md) (package compress claimed shipped in [#360](https://github.com/ja11sop/cuppa/pull/360)); [`console-channels.md`](console-channels.md); `cuppa.utility.heartbeat.operation_status`; ROADMAP Build console / **1.13.0** related polish
 - **Updated:** 2026-10-28
 - **Impact:** patch — TTY liveness during long toolchain actions under `--terse-output` (± `-Q`); no change to durable `[ok]` / `[error]` semantics
@@ -254,38 +254,55 @@ compress/upload progress”). Re-soak amend compress under `--terse-output` ±
 | Stable carousel index | **Done** — retain display key across repaint/append; removal lands on successor slot; dwell timer alone advances, and repaint does **not** restart that ~2s timer |
 | Status glued to `scons: ***` | **Done** — terse stdout/stderr filter clears the status row before non-interrupt writes |
 | `[....]` glued to shell prompt on Ctrl-C | **Done** — interrupt announce drops the outstanding set and blanks the status row; begin/refresh/promote refuse afterward so cleanup `[ok]` cannot chase the caption onto the prompt ([#376](https://github.com/ja11sop/cuppa/pull/376)) |
-| Progress / location maps after `[interrupted]` | **Done** — under `-j`, Progress begin + location maps that were mid-flight no longer print after the interrupt close; gated on `_interrupt_announced` like sticky `[....]` ([#380](https://github.com/ja11sop/cuppa/pull/380)) |
-| Per-job `[cancelled]` on Ctrl-C | **Open** — see soak addendum below; not required to merge [#380](https://github.com/ja11sop/cuppa/pull/380) |
+| Progress / location maps after `[interrupted]` | **Done** — close waits for `Jobs.run`; Progress / location after announce skipped (noise beside `[stopped]`) (this PR; ordering supersedes hide-after-close from [#380](https://github.com/ja11sop/cuppa/pull/380)) |
+| Per-job `[stopped]` on Ctrl-C | **Done** — notice `[stopped]` with in-flight progressive chrome (`compiling`); drain before close (this PR) |
 | Package compress / tar liveness gap | **Same root cause as nest TTY** — fixed via tip `CUPPA_PROGRESS_FD` + `pass_fds` (cascade tip-consume / [#373](https://github.com/ja11sop/cuppa/pull/373) CHANGELOG); path-only `CUPPA_PROGRESS_TTY` reopen was insufficient after nest `start_new_session`. Re-soak only if muted Compressing bar still missing |
 | Hook design / cycle cadence | Done — start/finish + dwell timer |
 | Antora note (terse + long actions) | Done — `cli/output-and-environment.adoc` |
 | Delegated CMake / `b2` extra `[....]` | **Deferred** — `[launch]` already drops the in-flight caption; muted children are the mid-flight cue. Do not add a second `[....]` unless a soak shows a silent gap beside `[launch]` |
 
-## Soak addendum (2026-10-28) — interrupt cancel confirmation
+## Soak addendum (2026-10-28) — interrupt stop confirmation + close ordering
 
 Under `--terse-output` ± `-Q` / `--parallel`, first Ctrl-C `SIGINT`s remembered
-build children. Today a SIGINT exit is **silent** on the durable transcript
-(`_finish_interrupted_action` does not paint `[ok]` / `[error]`); the only
-positive confirmation is the aggregate close:
+build children. Desired drain shape:
 
 ```text
 interrupted — stopping in-flight actions...
+   2/  6 ·  60% [stopped]  test/trades · … · compiling · …
+   1/  4 ·  61% [stopped]  test/filters · … · compiling · …
 stopped in-flight actions
-[interrupted] reached 71%: 50/70 · 3 ran · 47 up to date
+[interrupted] reached 61%: 43/70 · 2 ran · 41 up to date
 ```
 
-Empty space between those bookends is **expected** when SIGINT wins. Occasional
-`[ok]` in the gap means a job finished cleanly before the signal landed (drain
-race), not that cancel failed.
+| Piece | Choice |
+|-------|--------|
+| Badge | `[stopped]` — notice; same verb as `stopping…` / `stopped in-flight actions` |
+| Verb / file | In-flight progressive chrome (`compiling`, muted-bold pending product) — not done-form `compile` |
+| Width | Wider than six columns; pad is a no-op so the word reads in full |
+| When | SIGINT returncode on spawn + Python-action finish |
+| Close | **`Jobs.run` finally only** — never on mid-drain SCons `Build interrupted.` |
+| Maps | Skip Progress / location after announce — `[stopped]` is the drain value |
+| Argv | Not reprinted — stop is confirmation, not a failure transcript |
+| Bare `· run` | Serial soak showed nameless `[ok] · run` after close — **bug**, not hide. Fall back to stashed command when node summary missing / `.success` only (this PR) |
+| Stale `N/M` on cleanup | **Done** — tip `atexit` `Execute(docker stop)` is out-of-band (no DAG nodes); nested `→`, not a fake cell tally. See soak note below |
 
-**Follow-on (do not forget):** per-job durable confirmation for interrupted
-actions, e.g.
+### Serial soak — post-`[interrupted]` `docker stop` (2026-10-28) — **settled**
+
+Confirmed tip paste (no `terse-credit:`):
 
 ```text
-  4/  4 ·  69% [cancelled]  test/positions · gcc15_dbg_… · link · <final>/position_movement
+interrupted — stopping in-flight actions...
+  20/ 34 ·  18% [stopped] … · compiling · historical_data_processor.cpp → …
+stopped in-flight actions
+[interrupted] reached 18%: …
+              → [ok]   … · run · docker stop <id>
 ```
 
-Settle in that slice: badge colour / six-column width vs `[ok]` / `[error]`;
-paint on interrupt returncode instead of silence; whether lines may appear only
-before `stopped in-flight actions` or also after. Do **not** require strong
-global silence after announce — clarity that cancel worked is the goal.
+**Cause:** tip `atexit` → `terminate()` → `env.Execute(Action("docker stop …"))`
+has **no target nodes** — never a ledger slot. Stale `N/M` was the env cell
+prefix with nothing to credit. Also fixed: stash wipe in `_run_command` and
+falsy `[] or stash` merge (would have forced empty-target even for real Runs).
+
+**Product:** empty finish nodes after interrupt close → nested `→` (honest
+out-of-band teardown). Temporary `terse-credit:` diagnose line **removed**.
+A graph `Run(docker stop)` that SCons actually schedules still credits normally.

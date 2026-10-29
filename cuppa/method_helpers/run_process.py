@@ -265,13 +265,17 @@ class RunProcessAction(object):
                 pass
 
 
-    def _run_command( self, source, suppress_output, program_path, command, working_dir, env, retry ):
+    def _run_command(
+            self, source, suppress_output, program_path, command, working_dir, env, retry,
+            target=None,
+    ):
 
         log_failure = retry and logger.warn or logger.error
         success = False
 
-        # ``target`` is unavailable here; ``__call__`` re-labels when it has nodes.
-        self._note_terse_command( command, source, env )
+        # Keep ``target`` on the terse stash — overwriting with ``target=None``
+        # made post-finish credit see ``empty-target`` and reuse a stale ``N/M``.
+        self._note_terse_command( command, source, env, target=target )
         monitor = Monitor( program_path, env )
         monitor.start()
 
@@ -384,7 +388,10 @@ class RunProcessAction(object):
 
                 retry = ( retry_count > 0 )
 
-                success = self._run_command( source, suppress_output, program_path, command, working_dir, env, retry )
+                success = self._run_command(
+                        source, suppress_output, program_path, command, working_dir, env, retry,
+                        target=target,
+                )
 
                 if not success and retry:
                     logger.info( "Retrying [{}]...".format( as_notice(command) ) )

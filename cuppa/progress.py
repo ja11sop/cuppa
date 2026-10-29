@@ -111,11 +111,13 @@ def _drop_executing_after_interrupt():
 
 
 def write_terse_interrupt_finish():
-    """Close a graceful Ctrl-C once signalled in-flight actions have exited.
+    """Close a graceful Ctrl-C once ``Jobs.run`` has drained in-flight work.
 
-    An ``aborted`` build has no closing line. The counts are the same ones a
-    successful build would report. Drops any outstanding ``[....]`` caption so
-    later transcript cannot re-paint it onto the prompt.
+    Owned by ``build_children``'s ``Jobs.run`` finally — not by filtering
+    mid-drain SCons ``Build interrupted.`` lines — so ``[stopped]`` / location
+    maps from the drain print *above* this summary. An ``aborted`` build has
+    no closing line. Drops any outstanding ``[....]`` caption so later
+    transcript cannot re-paint it onto the prompt.
     """
     global _interrupt_finished
     with _interrupt_lock:
@@ -268,9 +270,12 @@ class _TerseInterruptStream:
     def write( self, text ):
         if _is_interrupt_noise( text ):
             note_build_interrupted()
-            # SCons prints this after the jobs already running have returned.
-            if "Build interrupted." in str( text or "" ):
-                write_terse_interrupt_finish()
+            # Do **not** close here. Under ``-j``, SCons can print
+            # ``Build interrupted.`` for each failing task *during* the drain;
+            # closing early sandwiched ``[stopped]`` / location lines after
+            # ``[interrupted]``. ``Jobs.run``'s finally owns the close once
+            # workers have returned (also covers ``-Q``, which never writes
+            # that SCons line).
             return
         if text and str( text ).strip():
             try:
@@ -1250,8 +1255,9 @@ def install_terse_progress_hooks():
 
 
 def _account_and_prefix( target, env, count, mark=False ):
+    current = _current_action_nodes()
     credited, text = _progress_ledger.credit_and_prefix(
-            target, _current_action_nodes(), env, count,
+            target, current, env, count,
     )
     if credited and mark:
         note_terse_action_accounted()
@@ -1304,9 +1310,11 @@ def _first_node( nodes ):
 def _node_path( node ):
     if node is None:
         return ""
-    path = getattr( node, "path", None )
-    if path:
-        return str( path )
+    # Prefer ``.path`` even when empty — ``str(node)`` on a SimpleNamespace
+    # is noise in a ``run`` file cell, not an identity.
+    if hasattr( node, "path" ):
+        path = getattr( node, "path", None )
+        return "" if path is None else str( path )
     return str( node )
 
 
@@ -2121,7 +2129,18 @@ def _located_product_field( target, env, require_map=True ):
     return shown or _coloured_file( "", _node_basename( target ) )
 
 
-def _file_field( action, target, source, env ):
+def _run_command_summary( command ):
+    """Normalised argv / callable name for a ``run`` file cell, or empty."""
+    if not command:
+        return ""
+    try:
+        from cuppa.method_helpers.run_process import short_run_summary
+        return short_run_summary( command ) or ""
+    except Exception:
+        return " ".join( str( command ).split() )
+
+
+def _file_field( action, target, source, env, command=None ):
     if _paths_style( target ) == "product" and action not in _TRANSFER_ACTIONS:
         return _located_product_field( target, env, require_map=False )
     summary = _explicit_terse_summary( target )
@@ -2140,8 +2159,20 @@ def _file_field( action, target, source, env ):
     if _is_transform_action( action ):
         return _transform_field( target, source, env )
     if action in _RUN_FILE_ACTIONS:
+        # Node summary missing (format-hole labeled later, or finish used
+        # different nodes) — name the line from stashed argv when the product
+        # cell is empty or only a ``.success`` stamp.
         program = source if _first_node( source ) is not None else target
-        return _located_product_field( program, env )
+        product = _located_product_field( program, env )
+        cmd_summary = _run_command_summary( command )
+        if cmd_summary:
+            if not product:
+                return as_subdued( cmd_summary )
+            from cuppa.output_processor import strip_ansi
+            plain = strip_ansi( product ).strip()
+            if not plain or plain.endswith( ".success" ):
+                return as_subdued( cmd_summary )
+        return product
     return _located_product_field( target, env )
 
 _STATUS_WIDTH = 6
@@ -2172,6 +2203,12 @@ def _status_marker( status ):
     elif status == "error":
         text = "[error]"
         painted = as_colour( "error", text )
+    elif status == "stopped":
+        # Ctrl-C stop — notice like ``[interrupted]``, not error. Same verb
+        # family as ``stopping…`` / ``stopped in-flight actions``. Wider than
+        # six columns; pad is a no-op so the badge reads in full.
+        text = "[stopped]"
+        painted = as_colour( "notice", text )
     elif status == "done":
         # Clean close of a delegated ``[launch]`` span. Same column width as ``[ok]``.
         text = "[done]"
@@ -2603,13 +2640,25 @@ def format_terse_line(
     Long ``env.Run`` command summaries are kept in full by default (terminal
     wrap). Pass ``truncate_file=True`` to ellipsis-fit the file cell to the
     controlling TTY width.
+
+    Note: ``count=True`` with no finish nodes must not reuse a stale cell
+    ``N/M`` — tip ``atexit`` / ``env.Execute`` teardown (e.g. postgres
+    ``docker stop``) is out-of-band and paints nested ``→`` instead.
     """
     parts = []
-    prefix = _account_and_prefix( target, env, count=count, mark=False )
+    counted = bool( count )
+    # No nodes → nothing to credit; do not paint the current cell tally.
+    if counted and not _iter_nodes( target ) and not _iter_nodes( _current_action_nodes() ):
+        counted = False
+        if _interrupt_finished:
+            note_terse_nested_action()
+    prefix = ""
+    if counted:
+        prefix = _account_and_prefix( target, env, count=True, mark=False )
     if prefix:
         parts.append( ( " " * _progress_ledger.action_line_indent() ) + prefix )
     marker = _status_marker( status )
-    if not count:
+    if not counted:
         marker = _uncounted_prefix( env, marker )
     parts.append( marker )
 
@@ -2621,17 +2670,23 @@ def format_terse_line(
     if cell:
         fields.append( cell )
     action = spell_terse_action( command, target, env )
-    fields.append( _action_label( action ) )
-    if duration:
-        fields.append( as_subdued( duration ) )
-    file_text = _file_field( action, target, source, env )
-    if (
-            truncate_file
-            and file_text
-            and action in _RUN_FILE_ACTIONS
-            and _explicit_terse_summary( target )
-    ):
-        file_text = _fit_terse_file_field( file_text, parts, fields )
+    # ``[stopped]`` is mid-flight cut short — progressive verb + pending-product
+    # chrome like ``[....]``, not the durable done-form ``compile``.
+    if status == "stopped":
+        fields.append( _muted_bold( progressive_terse_action( action ) ) )
+        file_text = _executing_file_field( action, target, source, env )
+    else:
+        fields.append( _action_label( action ) )
+        file_text = _file_field( action, target, source, env, command=command )
+        if duration:
+            fields.append( as_subdued( duration ) )
+        if (
+                truncate_file
+                and file_text
+                and action in _RUN_FILE_ACTIONS
+                and ( _explicit_terse_summary( target ) or _run_command_summary( command ) )
+        ):
+            file_text = _fit_terse_file_field( file_text, parts, fields )
     if file_text:
         fields.append( file_text )
     if fields:
@@ -2644,6 +2699,35 @@ def format_terse_line(
 
 def format_terse_success( command, target, source, env ):
     return format_terse_line( "ok", command, target, source, env )
+
+
+def write_terse_stopped_action(
+        command, target, source, env, count=True, duration="",
+):
+    """Durable per-job confirmation when Ctrl-C stopped an in-flight action.
+
+    Paints during the interrupt drain (after ``stopping…``, before the
+    ``stopped in-flight actions`` / ``[interrupted]`` close). Verb and file
+    chrome match the in-flight ``[....]`` caption (``compiling``, muted-bold
+    pending product) — the action did not finish, so it is not promoted to
+    the durable done-form. Does not reprint argv.
+    """
+    end_terse_executing()
+    note_terse_build_activity()
+    line = format_terse_line(
+            "stopped",
+            command,
+            target,
+            source,
+            env,
+            count=count,
+            # Wall time is for completed work; a stop has no done duration.
+            duration="",
+    )
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    note_terse_status_emitted()
+    refresh_terse_executing()
 
 
 def stash_terse_command( cmd, target, source, env ):
@@ -2736,7 +2820,7 @@ def _pending_product_end( token, relative, fallback="" ):
     return shown
 
 
-def _executing_file_field( action, target, source, env ):
+def _executing_file_field( action, target, source, env, command=None ):
     """File cell for ``[....]``: durable colours on sources; muted-bold targets.
 
     Compile / transform: ``source → pending_product``. Copy / move: same.
@@ -2777,12 +2861,24 @@ def _executing_file_field( action, target, source, env ):
 
     if action in _RUN_FILE_ACTIONS:
         # Binary under test / run / benchmark — product not yet "passed".
+        # Prefer stashed argv only when there is no real pending product (same
+        # rule as durable ``_file_field``), so ``[....] · running-test ·`` keeps
+        # muted-bold leaf chrome for a program path.
         program = source if _first_node( source ) is not None else target
         raw = _node_path( _first_node( program ) )
         token, relative = _locate( raw, env )
-        return _pending_product_end(
+        pending = _pending_product_end(
                 token, relative, fallback=_node_basename( program ),
         )
+        cmd_summary = _run_command_summary( command )
+        if cmd_summary:
+            if not pending:
+                return as_subdued( cmd_summary )
+            from cuppa.output_processor import strip_ansi
+            plain = strip_ansi( pending ).strip()
+            if not plain or plain.endswith( ".success" ):
+                return as_subdued( cmd_summary )
+        return pending
 
     if summary and _paths_style( target ) == "file":
         shown = str( summary ).replace( "\\", "/" )
@@ -2829,7 +2925,9 @@ def _executing_fields_text( command, target, source, env ):
     # In-flight verb is muted+bold, like the pending product: the work is not
     # finished yet. Durable ``[ok]`` lines keep plain bold via ``_action_label``.
     fields.append( _muted_bold( progressive_terse_action( action ) ) )
-    file_text = _executing_file_field( action, use_target, use_source, env )
+    file_text = _executing_file_field(
+            action, use_target, use_source, env, command=command,
+    )
     if file_text:
         fields.append( file_text )
     if not fields:
@@ -3673,10 +3771,9 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     The first begin line counts actions SCons already considers up to date,
     so the percent includes that work before the scope's own actions run.
 
-    After Ctrl-C is announced, skip entirely (including location maps). Under
-    ``-j``, Progress begin actions may still be mid-flight when the interrupt
-    close runs; without this gate their ``→ [location]`` lines dump *after*
-    ``[interrupted]``.
+    After Ctrl-C is announced, skip Progress begin/end and their location
+    maps — the drain's value is ``[stopped]`` action lines; empty scope
+    chrome adds nothing. The interrupt close still waits for ``Jobs.run``.
     """
     if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return
@@ -3689,7 +3786,6 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
     phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
-            # Ctrl-C can land between the begin line and its maps.
             if _interrupt_announced:
                 break
             _write_terse_stdout( map_line + "\n" )
@@ -4502,15 +4598,22 @@ class _TersePythonCallable( object ):
 
     def _finish_interrupted_action( self, target, env ):
         note_build_interrupted()
-        take_terse_command()
-        end_terse_executing()
+        command, stashed_target, stashed_source, stashed_env = take_terse_command()
         take_terse_children()
         take_terse_launch()
         take_terse_status_emitted()
-        if not take_terse_action_accounted():
-            _account_and_prefix( target, env, count=True, mark=False )
-        note_terse_build_activity()
-        refresh_terse_executing()
+        use_target = target if _iter_nodes( target ) else stashed_target
+        use_source = stashed_source
+        use_env = env or stashed_env or {}
+        already_accounted = take_terse_action_accounted()
+        write_terse_stopped_action(
+                command or "",
+                use_target,
+                use_source,
+                use_env,
+                count=not already_accounted,
+                duration=take_terse_duration(),
+        )
 
     def _finish_python_action( self, target, source, env, failed ):
         if take_terse_status_emitted():
@@ -4549,8 +4652,10 @@ def _report_python_action( target, source, env, failed ):
     command, stashed_target, stashed_source, stashed_env = take_terse_command()
     children = take_terse_children()
     launched, launch_command = take_terse_launch()
-    use_target = target or stashed_target
-    use_source = source or stashed_source
+    # Empty ``[]`` is falsy — do not drop real SCons targets in favour of a
+    # wiped stash (``_run_command`` used to re-note without ``target=``).
+    use_target = target if _iter_nodes( target ) else stashed_target
+    use_source = source if _iter_nodes( source ) else stashed_source
     use_env = env or stashed_env or {}
     severity = "error" if failed else "ok"
     for _child_command, lines, child_failed in children:

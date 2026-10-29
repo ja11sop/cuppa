@@ -325,13 +325,11 @@ def test_interrupt_drops_outstanding_and_blocks_refresh( monkeypatch ):
     assert hb._last_line == ""  # noqa: SLF001
 
 
-def test_interrupt_suppresses_progress_checkpoints_and_location_maps(
-        monkeypatch, capsys,
-):
-    """Late Progress begin / location maps must not dump after ``[interrupted]``.
+def test_interrupt_drain_skips_progress_keeps_stopped_chrome( monkeypatch, capsys ):
+    """After announce, Progress / location maps are noise; ``[stopped]`` is not.
 
-    Under ``-j``, variant begin actions may still be running when the interrupt
-    close prints; without a gate their ``→ [location]`` lines trail the summary.
+    Close still waits for ``Jobs.run``. Mid-drain scope chrome without a
+    stopped action adds nothing beside progressive ``[stopped]`` lines.
     """
     stream = io.StringIO()
     clock = FakeClock()
@@ -346,21 +344,23 @@ def test_interrupt_suppresses_progress_checkpoints_and_location_maps(
     env["variant_dir"] = "gcc15_dbg_x86_64_cxx2c"
 
     progress.note_build_interrupted()
-    progress.write_terse_interrupt_finish()
-    closed = strip_ansi( capsys.readouterr().out )
-    assert "[interrupted]" in closed
-    assert "stopped in-flight actions" in closed
-
     progress.write_terse_progress_checkpoint(
             "started", "test/orders/sconscript", "gcc15_dbg_x86_64_cxx2c", env,
     )
-    progress.write_terse_progress_checkpoint(
-            "finished", "test/orders/sconscript", "gcc15_dbg_x86_64_cxx2c", env,
+    assert strip_ansi( capsys.readouterr().out ) == ""
+
+    progress.write_terse_stopped_action(
+            "g++ -c order.cpp", [ "order.o" ], [ "order.cpp" ], env,
     )
-    leaked = strip_ansi( capsys.readouterr().out )
-    assert leaked == ""
-    assert "[location]" not in strip_ansi( stream.getvalue() )
-    assert "[progress]" not in strip_ansi( stream.getvalue() )
+    stopped = strip_ansi( capsys.readouterr().out )
+    assert "[stopped]" in stopped
+    assert " · compiling · " in stopped
+    assert "[interrupted]" not in stopped
+
+    progress.write_terse_interrupt_finish()
+    closed = strip_ansi( capsys.readouterr().out )
+    assert closed.startswith( "stopped in-flight actions" )
+    assert "[interrupted]" in closed
 
 
 def test_format_terse_executing_caption_test_product_is_muted_bold():

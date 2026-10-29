@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   progress / location transcript now refuses the same way once interrupt
   is announced (including maps mid-flight after a begin line).
 
+### Changed
+
+- Under ``--terse-output``, actions stopped by Ctrl-C (SIGINT) paint a durable
+  notice ``[stopped]`` line during the interrupt drain — progressive in-flight
+  chrome (``compiling``, muted-bold pending product), not the done-form
+  ``compile`` on ``[ok]``. No argv reprint. Progress / location maps after
+  announce are skipped (noise beside ``[stopped]``). The
+  ``stopped in-flight actions`` / ``[interrupted]`` close waits for
+  ``Jobs.run`` (no longer fires on mid-drain SCons ``Build interrupted.``).
+  ``run`` status lines without a node summary fall back to the stashed
+  command (no more bare ``· run`` ghosts). Post-interrupt tip teardown
+  with no finish nodes (``atexit`` / ``env.Execute``, e.g. postgres
+  ``docker stop``) no longer reuses a stale cell ``N/M`` — nested ``→``
+  instead; ``RunProcessAction`` keeps ``target`` on the terse stash across
+  ``_run_command``. Plan:
+  ``design/plans/terse-build-action-heartbeat.md``.
+
 ### Added
 
 - ``--skip-location-update`` — freeze location dependency working copies for
