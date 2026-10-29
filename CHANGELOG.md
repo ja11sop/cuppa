@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- StopError / SCons refusal lines no longer show a trailing ``0m`` after
+  coloured package paths (e.g. missing pkg-config / ``lib_groups`` hints).
+  ``highlight_values`` strips ANSI before matching ``[placeholders]``, and
+  the GitLab missing-``.pc`` refusal keeps plain prose for that pipeline.
+
 - Under ``--terse-output`` ± ``-Q`` / ``--parallel``, Ctrl-C no longer lets
   late Progress begin checkpoints and their ``→ [location]`` maps dump
   *after* ``[interrupted]``. Announce already dropped sticky ``[....]``;

@@ -291,6 +291,30 @@ def test_highlight_values_colours_bare_flags_without_inventing_brackets():
     )
 
 
+def test_highlight_values_strips_ansi_so_csi_reset_is_not_a_placeholder():
+    """Pre-coloured StopError text ends spans with ``\\x1b[0m]`` — that must not
+    become a highlighted ``[0m]`` (soak: ``rel0m`` / ``.pc0m`` on SCons lines).
+    """
+    from cuppa.colourise import as_error, as_notice, colouriser
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        precoloured = "Package [{}]: missing [{}] under [{}]".format(
+                as_error( "google-cloud-cpp/3.9.0/rel" ),
+                as_error( "google_cloud_cpp_kms_libs.pc" ),
+                as_notice( "/pkg/lib/pkgconfig" ),
+        )
+        coloured = highlight_values( precoloured, as_error )
+    finally:
+        colouriser.use_colour = was
+
+    assert "0m" not in coloured.replace( "\x1b[0m", "" )
+    assert as_error( "google-cloud-cpp/3.9.0/rel" ) in coloured
+    assert as_error( "google_cloud_cpp_kms_libs.pc" ) in coloured
+    assert as_error( "/pkg/lib/pkgconfig" ) in coloured
+
+
 def test_judgements_hang_from_the_summary_as_one_tree_worst_first():
     """Reading down the tree is reading a work list: what stops the build, then what needs a
     decision, then what is only worth knowing, all of it one tree rooted on the summary."""

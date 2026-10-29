@@ -257,12 +257,18 @@ def highlight_values( text, colour ):
     Bracketed values keep their brackets; flags are coloured without inventing brackets
     around them. A flag written as ``[--develop]`` is treated as one bracketed value
     (brackets stay), so authors should prefer the bare form when the token is a flag.
+
+    Strip any existing ANSI first. CSI resets end in ``[0m]``, which would otherwise
+    match as a placeholder and paint a literal ``0m`` into StopError / SCons lines.
     """
+    from cuppa.output_processor import strip_ansi
+
+    plain = strip_ansi( text if text is not None else "" )
     def replace( match ):
         if match.group( 1 ) is not None:
             return "[" + colour( match.group( 1 ) ) + "]"
         return colour( match.group( 2 ) )
-    return _HIGHLIGHT.sub( replace, text )
+    return _HIGHLIGHT.sub( replace, plain )
 
 
 def format_severity_count_brackets( errors=0, warnings=0, notes=0 ):
