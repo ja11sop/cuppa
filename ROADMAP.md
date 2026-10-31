@@ -11,34 +11,45 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-29
+**As of:** 2026-10-30
 
 ---
 
-## 1.13.0 cycle focus (ready to cut)
+## 1.14.0 cycle focus (open)
+
+Minor cycle after **1.13.0**. No single opener locked yet — pick up the
+1.13.0 carry-forwards and long-deferred artefact work as capacity allows.
+
+| Area | Status in 1.14.0 |
+|------|------------------|
+| Cascade option-compat / early refuse | **Carry-forward** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Candidate** — [`deep-clean.md`](design/plans/deep-clean.md); removal Phase 6 |
+| Coverage parallel (`GCOV_PREFIX`) | **Candidate** — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+---
+
+## 1.13.0 cycle focus (shipped 2026-10-29)
 
 Minor cycle after **1.12.0**. GitLab package named library groups, cascade
 consume/build/amend/tip-local, terse `[....]` / Ctrl-C `[stopped]`,
-`--skip-location-update`, `--parallel=N`, and Clang 23 currency are on master
-and promoted to `design/archive/` (`shipped`) in this housekeeping pass. Next:
-Actions **release → prepare** (`finish_release`), then **publish**.
+`--skip-location-update`, `--parallel=N`, and Clang 23 currency shipped;
+design plans under `design/archive/`.
 
 | Area | Status in 1.13.0 |
 |------|------------------|
 | GitLab package named lib groups | **Shipped** — [`gitlab-package-lib-groups.md`](design/archive/gitlab-package-lib-groups.md); [#373](https://github.com/ja11sop/cuppa/pull/373); [#279](https://github.com/ja11sop/cuppa/issues/279) |
-| Cascade tip-local options | **Shipped** — [`cascade-tip-local-options.md`](design/archive/cascade-tip-local-options.md); [#373](https://github.com/ja11sop/cuppa/pull/373) |
-| Cascade metadata-only amend | **Shipped** — [`cascade-amend-package-manifest.md`](design/archive/cascade-amend-package-manifest.md); [#373](https://github.com/ja11sop/cuppa/pull/373) |
-| Cascade build-deps tip consume | **Shipped** — [`cascade-build-deps-tip-consume.md`](design/archive/cascade-build-deps-tip-consume.md); [#373](https://github.com/ja11sop/cuppa/pull/373) |
-| Cascade consume-deps (no nest) | **Shipped** — [`cascade-consume-dependencies.md`](design/archive/cascade-consume-dependencies.md); [#376](https://github.com/ja11sop/cuppa/pull/376) |
-| Terse in-progress compile + heartbeat | **Shipped** — [`terse-build-action-heartbeat.md`](design/archive/terse-build-action-heartbeat.md); [#375](https://github.com/ja11sop/cuppa/pull/375) / [#381](https://github.com/ja11sop/cuppa/pull/381) |
-| Toolchain version currency | **Shipped** — [`toolchain-version-currency.md`](design/archive/toolchain-version-currency.md); [#377](https://github.com/ja11sop/cuppa/pull/377) |
-| `--skip-location-update` | **Shipped** — [`skip-location-update.md`](design/archive/skip-location-update.md); [#379](https://github.com/ja11sop/cuppa/pull/379) |
-| `--parallel=N` CLI | **Shipped** — [`parallel-job-count.md`](design/archive/parallel-job-count.md); [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298) |
-| Cascade option-compat / early refuse | **Carry-forward** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
-| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
-| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
-| Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Deferred** |
-| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+| Cascade tip-local / amend / build-deps / consume | **Shipped** — [#373](https://github.com/ja11sop/cuppa/pull/373) / [#376](https://github.com/ja11sop/cuppa/pull/376); plans under [`design/archive/`](design/archive/) |
+| Terse in-progress compile + heartbeat / Ctrl-C `[stopped]` | **Shipped** — [#375](https://github.com/ja11sop/cuppa/pull/375) / [#381](https://github.com/ja11sop/cuppa/pull/381); [`terse-build-action-heartbeat.md`](design/archive/terse-build-action-heartbeat.md) |
+| Toolchain version currency | **Shipped** — [#377](https://github.com/ja11sop/cuppa/pull/377); [`toolchain-version-currency.md`](design/archive/toolchain-version-currency.md) |
+| `--skip-location-update` | **Shipped** — [#379](https://github.com/ja11sop/cuppa/pull/379); [`skip-location-update.md`](design/archive/skip-location-update.md) |
+| `--parallel=N` CLI | **Shipped** — [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298); [`parallel-job-count.md`](design/archive/parallel-job-count.md) |
+| StopError `0m` ANSI highlight leak | **Shipped** — [#383](https://github.com/ja11sop/cuppa/pull/383) |
+| Cascade option-compat / early refuse | **Carry-forward** → **1.14.0** |
+| GitLab CMake staging / drive CMake | **Partial** — carry-forward to 1.14.0 (E inplace + publish-cli) |
+| Boost / `deep-clean` / `Import`/`/Fd` | **Deferred** (still) |
 
 ---
 
