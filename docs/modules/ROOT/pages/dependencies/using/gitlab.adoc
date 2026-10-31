@@ -127,16 +127,21 @@ With `--offline`:
   fails later with the usual offline missing-archive error. Cuppa does **not** silently fall
   back to an older on-disk version; that would change the pin.
 
-Online, Cuppa still queries the registry. If that probe fails because the network is
-unreachable (DNS, connection) **and** a remembered version exists, configure **warns** and
-reuses the pin — the same version `--offline` would have used. Pass `--offline` to skip the
-probe. Under `--terse-output` that is a `[version]` child:
-`· latest · retrieve failed, using remembered 1.92` (warn). A live list prints
-`· latest · retrieved as 1.92`. No pin and no package is
+Online, Cuppa still queries the registry. If that check cannot run — the host is
+unreachable (DNS, connection), or the response is HTTP 401, 403, or 5xx — **and** a
+remembered version exists **and** that version's extract is on disk, configure **warns**
+once and reuses the pin. The pin is not updated. The warning names the dependency, the
+error (`HTTP 401 - unauthorized`, or that the registry was unreachable), and the
+remembered version. `--offline` is a different mode: it does not try the network at all.
+Under `--terse-output` that same decision is the durable `[version]` child
+`· latest · unverified · using remembered 1.92`. The mid-dots stay muted.
+`unverified` uses the warning background and the terminal's own foreground.
+`using remembered 1.92` is warning-coloured text.
+The logger warning is not repeated. A live list prints `· latest · retrieved as 1.92`. No pin, an empty extract,
+HTTP 404, an empty
+registry, or a check that cannot run with nothing to reuse is
 `· latest · error: retrieve failed, no version available` and still stops configure.
-Empty registry, HTTP errors, or a network failure with **no** remembered pin still
-fail at configure time. Publishing `version="latest"` does not reuse the pin on a network
-error; it still needs a live registry list.
+Publishing `version="latest"` does not reuse the pin; it still needs a live registry list.
 
 So the remembered value is “what registry latest resolved to,” not “proof the archive is on
 disk.”
@@ -407,6 +412,9 @@ Unsupported spellings (``~=``, ``^``, comma lists, exclusions, wildcards) fail c
 publish normalise or consume apply. Diamond parents **intersect** bounds; empty
 intersection names both parents. Selection prefers a satisfying on-disk / remembered
 version; ``--refresh-downloads`` may move to a higher satisfying registry version.
+If that refresh cannot run (unreachable host, HTTP 401/403/5xx) and a local version
+already satisfies the bound, configure warns and keeps it, the same way an unverified
+``latest`` reuses its pin. HTTP 404 on the refresh is a hard stop.
 ``--list-dependencies`` shows soft edges as ``bound → concrete`` when a resolved extract
 is known.
 

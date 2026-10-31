@@ -1,6 +1,6 @@
 # Plan: registry `latest` when the check cannot run
 
-- **Status:** proposal
+- **Status:** done
 - **Related:** [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md); `cuppa/package_managers/gitlab_latest.py`; `cuppa/package_managers/package_version_bound.py`; [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cxx-profiles-report.md`](cxx-profiles-report.md) (end-of-build diagnostics — different pattern, see below)
 - **Updated:** 2026-10-31
 - **Impact:** `patch` if consume reuses a remembered pin; no flag required for the recommended option
@@ -38,9 +38,11 @@ The Boost test abort in the offline transcript (`funding_rate_table`, error 201)
 
 HTTP 401 is not that class. `BuildWithPackage.default_version` logs it as an error and raises `StopError`. Construct then prints the critical "terminated by exception" line. One refusal, two severities. The critical wrapper is how every `StopError` is shown ([`console-stop-error-reporting.md`](console-stop-error-reporting.md)). Softening that wrapper would not let this build run.
 
-## What already happens in the nearby cases
+## What already happened in the nearby cases
 
-| Situation | Today |
+Option A below is what shipped. This table is the behaviour before that change.
+
+| Situation | Before |
 |-----------|--------|
 | `latest`, `--offline`, remembered pin | Info, use the pin. No registry call |
 | `latest`, `--offline`, no pin | Hard error |
@@ -54,11 +56,13 @@ HTTP 401 is not that class. `BuildWithPackage.default_version` logs it as an err
 | `cuppa` PyPI version probe | Fails open (`None`). Never stops the build |
 | Source Boost scrape (`boost_latest_version`) | Different probe (upstream page, not the GitLab token). Already falls back to stored then compiled-in. Leave it alone |
 
-So an expired token is stricter than a DNS failure for `latest`, and stricter than a forced refresh of a `>=` bound, which already continues and does not even warn.
+Before this change an expired token was stricter than a DNS failure for `latest`, and stricter than a forced refresh of a `>=` bound, which already continued and did not even warn. DNS reuse now also requires the extract to be on disk, and a 404 on the `>=` refresh is a hard stop.
 
 ## Options
 
-### A. Warn now, continue, remind at the end (recommended for consume)
+### A. Warn now, continue (what shipped)
+
+The first draft also printed a second line after the build. The first real terse run showed that line between `[ready]` and the build, because it ran when the SConstruct returned, and it repeated the durable `[version]` row. That second line is not printed. `--terse-output` keeps `unverified · using remembered 1.92` on the version row (`unverified` is the warning background with normal foreground; `using remembered 1.92` is warning-coloured text; the mid-dot is muted). Normal output warns once at the decision.
 
 Treat **401 and 403** as "could not verify", the same outcome as a network failure, when all of these hold:
 
@@ -67,9 +71,7 @@ Treat **401 and 403** as "could not verify", the same outcome as a network failu
 - The package tree for that pin is actually on disk. A conf string whose extract was wiped is not "I have it cached". No tree → keep the hard stop.
 - The status is auth (401, 403), or the host was unreachable (`URLError`, and 5xx if we want the server-is-down case in the same bucket). **404 stays a hard error** even with a pin: wrong registry or wrong package name, and the pin would hide it.
 
-At the decision, warn with the package name, the HTTP status, and the pin being used. Do not write a new pin; we did not learn a version.
-
-After the build finishes (success or a later build failure), print one reminder: you asked for latest, the registry was not verified, this build used the remembered version, so it might not be the registry tip. The configure warn is the decision. The closing line is so a long `--cov --test` does not leave that fact only in the scrollback above the build.
+At the decision, normal output warns with the dependency name, the error (`HTTP 401 - unauthorized`, or that the registry was unreachable), and the pin. Those three are the warning-coloured placeholders. Do not write a new pin; we did not learn a version. `--terse-output` does not also print that logger warning.
 
 No new flag. `--offline` remains "do not try the network at all", which also skips location updates and other fetches. The operator in this case was online; only the token was dead. DNS-failure already continues without a flag, and this is the same kind of miss.
 
@@ -81,19 +83,17 @@ This is the right shape if an unverified tip must never be the default. It is a 
 
 ### C. Warn and continue with no closing reminder
 
-Same as A at configure, nothing at the end. Enough for a short command. Not enough for the coverage run that prompted this: the warn is above a long transcript. Prefer A.
+This is A as shipped. The terse `[version]` row is already durable, so a second line does not add a fact.
 
 ## Severity
 
 This is a warn, not an error that becomes a critical. If we continue, there is no `StopError` and the critical line goes away on its own. Do not demote every `StopError` to a warning. No pin, no tree, 404, and publish stay hard stops, and those still print error then critical until the stop-error plan changes the wrapper.
 
-## End reminder is not the Profiles collector
+## No second line, and not the Profiles collector
 
-`ProfilesDiagnosticCollector` holds compiler diagnostics during a build and writes them at the end, because the lines arrive while compiling and the session index is the report. That is "collect during, show at the end".
+`ProfilesDiagnosticCollector` holds compiler diagnostics during a build and writes them at the end. This fact is known at configure. Say it there. Do not record it for a later print, and do not put it in the Profiles report.
 
-Here the fact is known at configure. Warn at the decision, then say it again when the build that used the pin has finished. Do not put package warnings into the Profiles report, and do not build a general deferred-diagnostic store for one closing line. A short list recorded at resolve time and printed from the construct exit path is enough.
-
-The `>=` forced-refresh fallback should use that same warn and the same reminder. Today it continues and says nothing, so a refresh that could not verify is quieter than `latest`.
+The `>=` forced-refresh fallback uses the same warn. Before this change it continued and said nothing.
 
 ## Out of scope
 

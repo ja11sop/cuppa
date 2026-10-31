@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Online consume of registry ``latest`` continues when the registry check
+  cannot run (DNS, connection, HTTP 401/403/5xx) and the remembered version's
+  extract is on disk. Normal output warns once, naming the dependency, the
+  error, and the remembered version, and does not update the pin.
+  ``--terse-output`` keeps that on the ``[version]`` row as
+  ``unverified · using remembered <version>`` (``unverified`` is the warning
+  background with normal foreground; ``using remembered <version>`` is
+  warning-coloured text; the mid-dot is muted) and does not print
+  the warning again. HTTP 404, a missing extract, and publish stay hard stops. A
+  ``>=`` refresh that cannot run uses the same warn when a local version
+  already satisfies the bound; a 404 on that path is now a hard stop.
+  Plan: ``design/plans/unverified-latest.md``.
+
 - Terse action lines no longer wait out a full heartbeat cycle before they
   replace a visible caption. A run of short actions (coverage, collate, copy)
   was paying that cycle on every line. The parallel outstanding-action

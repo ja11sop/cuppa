@@ -2202,6 +2202,21 @@ def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatc
     assert "<warning>[version]</warning>" in version
     assert "latest" in version
     assert "<warning>retrieve failed, using remembered 1.92</warning>" in version
+    monkeypatch.setattr(
+            progress, "as_subdued",
+            lambda text: "<muted>{}</muted>".format( text ),
+    )
+    split = progress.format_terse_resolve_child(
+            env, "version", "boost_package", "latest",
+            "<badge warning>unverified</badge>",
+            "<warning>using remembered 1.92</warning>",
+            status="warn",
+    )
+    assert "<muted>·</muted>" in split
+    assert "<badge warning>unverified</badge>" in split
+    assert "<warning>using remembered 1.92</warning>" in split
+    assert "<warning>unverified</warning>" not in split
+    assert "unverified, using" not in split
 
 
 def test_location_source_kind_for_archive_and_repository():
