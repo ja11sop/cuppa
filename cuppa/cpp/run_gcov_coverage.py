@@ -84,12 +84,13 @@ class WriteToString(object):
 
 
 
-def run_command( command, working_dir, env ):
+def run_command( command, working_dir, env, gcov_notes_prefix=None ):
     process_output = WriteToString()
     return_code = IncrementalSubProcess.Popen( process_output,
                                                shlex.split( command ),
                                                cwd=working_dir,
-                                               scons_env=env )
+                                               scons_env=env,
+                                               gcov_notes_prefix=gcov_notes_prefix )
     return return_code, process_output.string()
 
 
@@ -182,7 +183,12 @@ class CoverageSuite(object):
             json_args = ( gcovr_version['major'] >= 4 and ( " --json " + html_base_name + ".json" ) or "" ),
         )
 
-        return_code, output = run_command( command, working_dir, self._scons_env )
+        return_code, output = run_command(
+                command,
+                working_dir,
+                self._scons_env,
+                gcov_notes_prefix=getattr( self, "_notes_prefix", None ),
+        )
 
         # Strip out any GCOVR logging from the output as this is not part of the
         # simple text summary and breaks the coverage entry regex later on.
@@ -266,6 +272,10 @@ class RunGcovCoverageEmitter(object):
             gcda_file = os.path.splitext( source_file )[0] + '.gcda'
             logger.trace( "gcov data paths = [{}] and [{}]".format( as_notice(gcno_file), as_notice(gcda_file) ) )
             env.Clean( source_file, [gcno_file, gcda_file] )
+            from cuppa.cpp.gcov_notes import coverage_notes_prefix
+            notes_prefix = coverage_notes_prefix( env, self._program )
+            if notes_prefix:
+                env.Clean( source_file, notes_prefix )
 
             gcov_log = source_file + self._program_id + '_gcov.log'
             logger.trace( "Adding target gcov_log = [{}]".format( as_notice(gcov_log) ) )
@@ -376,17 +386,48 @@ class RunGcovCoverage(object):
         if self._coverage_tool.startswith( "llvm-cov" ):
             relative_only = ""
 
-        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=gcov_path, relative=relative_only, source=source_path )
+        from cuppa.cpp.gcov_notes import (
+                coverage_notes_prefix,
+                gcov_text_dir,
+                stage_gcov_object,
+                stage_gcov_source,
+        )
+        notes_prefix = coverage_notes_prefix( env, self._program )
+        coverage_suite._notes_prefix = notes_prefix
+        text_dir = gcov_text_dir( notes_prefix ) or working_dir
+        # ``gcov`` writes ``*.gcov`` into cwd and opens ``.gcda`` next to ``-o``.
+        # It does not consult ``GCOV_PREFIX``. A private cwd stops parallel jobs
+        # sharing one intermediate ``*.gcov``; a private ``-o`` stem points at
+        # this binary's relocated ``.gcda``. The source argument stays relative
+        # so ``-r`` and the ``#`` rename keep their existing names.
+        source_for_gcov = source_path
+        object_for_gcov = gcov_path
+        if os.path.abspath( text_dir ) != os.path.abspath( working_dir ):
+            source_for_gcov = stage_gcov_source( text_dir, source_path )
+            object_for_gcov = stage_gcov_object( text_dir, gcov_path, notes_prefix )
+        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format(
+                gcov=self._coverage_tool,
+                path=object_for_gcov,
+                relative=relative_only,
+                source=source_for_gcov,
+        )
 
-        return_code, output = run_command( command, working_dir, env )
+        return_code, output = run_command(
+                command, text_dir, env, gcov_notes_prefix=notes_prefix,
+        )
 
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )
-            gcov_files = glob.glob( gcov_source_path + '*gcov' )
+            gcov_files = glob.glob( os.path.join( text_dir, gcov_source_path + '*gcov' ) )
+            if not gcov_files:
+                gcov_files = glob.glob( gcov_source_path + '*gcov' )
 
             for gcov_file in gcov_files:
 
-                filename, ext = os.path.splitext( str(gcov_file) )
+                # Globbing inside ``text_dir`` returns a path. The ``#`` name
+                # gcov wrote is the basename; the qualified-base strip expects that.
+                leaf = os.path.basename( str(gcov_file) )
+                filename, ext = os.path.splitext( leaf )
                 filename = filename + self._program_id + ext
                 new_filename = filename[len(qualified_base)+1:]
 

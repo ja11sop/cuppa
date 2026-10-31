@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -190,6 +191,69 @@ def test_coverage_parallel_collection_warns(tmp_path):
         assert PARALLEL_COVERAGE_COLLECTION_WARNING in result.stdout
     else:
         assert PARALLEL_COVERAGE_COLLECTION_WARNING not in result.stdout
+
+
+def test_coverage_parallel_shared_library_keeps_separate_notes(tmp_path):
+    """Two tests linking one static library must not share a ``.gcda``.
+
+    This is the fixture for the Cuppa-owned half of parallel coverage: note
+    isolation (``GCOV_PREFIX``) and collection that reads those notes. A
+    database or fixed port is a different problem and is not what this checks.
+    """
+    _skip_if_no_gcov_coverage()
+
+    project = copy_dummy_project(tmp_path)
+    lib_dir = Path(project) / "lib"
+    lib_dir.mkdir()
+    (lib_dir / "shared.cpp").write_text(
+        "int covered() { return 7; }\n",
+        encoding="utf-8",
+    )
+    tests_dir = Path(project) / "tests"
+    tests_dir.mkdir(exist_ok=True)
+    for name in ("alpha_cov", "beta_cov"):
+        (tests_dir / (name + ".cpp")).write_text(
+            '#include "../lib/shared.hpp"\n'
+            "int main() { return covered() == 7 ? 0 : 1; }\n",
+            encoding="utf-8",
+        )
+    (lib_dir / "shared.hpp").write_text("int covered();\n", encoding="utf-8")
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "lib = env.BuildStaticLib('shared_cov', 'lib/shared.cpp')\n"
+        "env.BuildTest('alpha_cov', 'tests/alpha_cov.cpp', LIBS=lib)\n"
+        "env.BuildTest('beta_cov', 'tests/beta_cov.cpp', LIBS=lib)\n",
+    )
+    result = run_cuppa(project, "--cov", "--test", "--parallel", timeout=300)
+    assert_success(result)
+    notes = list(Path(project).glob("_build/**/gcov-notes/**/*.gcda"))
+    alpha = [path for path in notes if f"{os.sep}alpha_cov{os.sep}" in str(path)]
+    beta = [path for path in notes if f"{os.sep}beta_cov{os.sep}" in str(path)]
+    assert alpha, notes
+    assert beta, notes
+    assert any(path.name == "shared.gcda" for path in alpha), alpha
+    assert any(path.name == "shared.gcda" for path in beta), beta
+
+    def lines_hit(program):
+        reports = list(Path(project).glob("_build/**/*{}*.json".format(program)))
+        assert reports, program
+        total = 0
+        for report in reports:
+            payload = json.loads(report.read_text(encoding="utf-8"))
+            files = payload.get("files", []) if isinstance(payload, dict) else payload
+            if not isinstance(files, list):
+                continue
+            for item in files:
+                if not isinstance(item, dict):
+                    continue
+                for line in item.get("lines", []):
+                    if isinstance(line, dict):
+                        total += int(line.get("count") or 0)
+        return total
+
+    assert lines_hit("alpha_cov") > 0
+    assert lines_hit("beta_cov") > 0
 
 
 def test_coverage_parallel_compile_only_does_not_warn(tmp_path):

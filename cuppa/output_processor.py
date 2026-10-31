@@ -158,6 +158,7 @@ class IncrementalSubProcess:
             suppress_output = kwargs['suppress_output']
             del kwargs['suppress_output']
         keep_heartbeat = bool( kwargs.pop( 'keep_heartbeat', False ) )
+        gcov_notes_prefix = kwargs.pop( 'gcov_notes_prefix', None )
 
         use_shell = False
         inherit_process_env = kwargs.pop( 'inherit_process_env', None )
@@ -175,6 +176,14 @@ class IncrementalSubProcess:
                         scons_env=scons_env,
                         inherit_process_env=inherit_process_env,
                     )
+
+        if gcov_notes_prefix:
+            from cuppa.cpp.gcov_notes import apply_gcov_prefix
+            child_env = kwargs.get( 'env' )
+            if child_env is None:
+                child_env = os.environ.copy()
+                kwargs['env'] = child_env
+            apply_gcov_prefix( child_env, gcov_notes_prefix )
 
         held_heartbeat = False
         try:

@@ -410,7 +410,8 @@ class RunProcessTest(object):
                     program_path,
                     test_command,
                     working_dir,
-                    env
+                    env,
+                    source[0],
             )
 
             if return_code == self._expected_exit_code:
@@ -459,7 +460,9 @@ class RunProcessTest(object):
             pass
 
 
-    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env ):
+    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env, program=None ):
+        from cuppa.cpp.gcov_notes import coverage_notes_prefix
+
         process_stdout = ProcessStdout( test_case, show_test_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( test_case, show_test_output, stderr_file_name_from( program_path ) )
 
@@ -469,7 +472,9 @@ class RunProcessTest(object):
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ))
+                                                    suppress_output=terse_tests( env ),
+                                                    gcov_notes_prefix=coverage_notes_prefix( env, program ),
+                                                    )
         return return_code
 
 

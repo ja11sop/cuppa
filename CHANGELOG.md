@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--cov`` test and benchmark runs set ``GCOV_PREFIX`` per binary so parallel
+  tests that link the same objects do not share one ``.gcda``. ``gcov`` does not
+  read that variable, so collection points ``-o`` at a private ``.gcno`` /
+  ``.gcda`` pair and writes ``*.gcov`` into a private directory for that binary.
+  Plan: ``design/plans/coverage-parallel.md``.
+
 ### Changed
 
 ### Deprecated

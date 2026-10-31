@@ -764,7 +764,8 @@ class RunBoostTest:
                                                   working_dir,
                                                   notifier,
                                                   preprocess,
-                                                  env )
+                                                  env,
+                                                  source[0] )
             if terse_tests( env ):
                 from cuppa.cpp.terse_test_report import write_boost_rollup
                 write_boost_rollup( env, program_path, notifier._finished )
@@ -797,7 +798,9 @@ class RunBoostTest:
             raise BuildError( node=source[0], errstr=str( e ) )
 
 
-    def __run_test( self, program_path, test_command, working_dir, notifier, preprocess, env ):
+    def __run_test( self, program_path, test_command, working_dir, notifier, preprocess, env, program=None ):
+        from cuppa.cpp.gcov_notes import coverage_notes_prefix
+
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), notifier, preprocess )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
@@ -807,7 +810,9 @@ class RunBoostTest:
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ) )
+                                                    suppress_output=terse_tests( env ),
+                                                    gcov_notes_prefix=coverage_notes_prefix( env, program ),
+                                                    )
 
         return return_code, process_stdout.tests()
 
