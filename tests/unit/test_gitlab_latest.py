@@ -278,13 +278,18 @@ def test_resolve_latest_unverified_terse_does_not_also_warn(
         return True
 
     monkeypatch.setattr( gl, '_terse_version_row', row )
+    # CI has no registry token. Listing still logs that before the opener runs.
+    # The contract is that the terse row is not followed by the logger warning.
+    monkeypatch.delenv( 'GITLAB_REGISTRY_TOKEN', raising=False )
+    monkeypatch.delenv( 'CI_JOB_TOKEN', raising=False )
     env = FakeEnv( offline=False, dependencies_root=str( deps ) )
     with caplog.at_level( 'WARNING', logger='cuppa' ):
         assert gl.resolve_latest_package_version(
                 env, registry=registry, package='boost',
                 opener=_http_opener( 401, 'Unauthorized' ),
         ) == '1.92'
-        assert caplog.text == ''
+        assert 'was not verified' not in caplog.text
+        assert 'using the remembered version' not in caplog.text
     assert seen["status"] == "warn"
     assert seen["remark"] == ""
     assert seen["fields"] == (
