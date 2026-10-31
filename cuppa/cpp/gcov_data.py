@@ -24,7 +24,12 @@ import re
 import shutil
 
 _ANSI = re.compile( r"\x1b\[[0-9;]*m" )
+# GCC: "Cannot open source file include/widget.hpp"
+# Older llvm-cov gcov: "include/widget.hpp:cannot open source file"
+# LLVM 21 llvm-cov gcov: "include/widget.hpp: No such file or directory"
 _CANNOT_OPEN_SOURCE = re.compile( r"^Cannot open source file (.+)$" )
+_LLVM_CANNOT_OPEN = re.compile( r"^(.+):cannot open source file\b" )
+_LLVM_NO_SUCH_FILE = re.compile( r"^(.+): No such file or directory$" )
 
 
 def coverage_active( env ):
@@ -110,21 +115,28 @@ def stage_gcov_source( run_dir, source_path ):
     return source_path
 
 
-def missing_gcov_sources( output ):
-    """Relative paths from ``Cannot open source file`` lines.
+def _unopened_source_path( line ):
+    for pattern in ( _CANNOT_OPEN_SOURCE, _LLVM_CANNOT_OPEN, _LLVM_NO_SUCH_FILE ):
+        match = pattern.match( line )
+        if match:
+            return match.group( 1 ).strip()
+    return None
 
-    ``gcov`` prints that when a path stored in the notes is not under its
-    working directory. Absolute paths are omitted: ``gcov -r`` does not report
-    them, and a private directory cannot stand in for a path opened as-is.
+
+def missing_gcov_sources( output ):
+    """Relative paths ``gcov`` could not open.
+
+    GCC prints ``Cannot open source file PATH``. ``llvm-cov gcov`` (clang)
+    prints ``PATH: No such file or directory``, or on older LLVM
+    ``PATH:cannot open source file``. Absolute paths are omitted: ``gcov -r``
+    does not report them, and a private directory cannot stand in for a path
+    opened as-is.
     """
     found = []
     seen = set()
     for line in ( output or "" ).splitlines():
         plain = _ANSI.sub( "", line ).strip()
-        match = _CANNOT_OPEN_SOURCE.match( plain )
-        if not match:
-            continue
-        path = match.group( 1 ).strip()
+        path = _unopened_source_path( plain )
         if not path or os.path.isabs( path ) or path in seen:
             continue
         seen.add( path )

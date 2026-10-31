@@ -46,7 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   call ``Install`` while it runs, so those pages are not extra progress
   actions. A project header ``gcov`` cannot open from ``gcov-run`` is copied
   there and ``gcov`` is run again, so the report contains that header's
-  lines. Under
+  lines. ``llvm-cov gcov`` reports a missing source as
+  ``path: No such file or directory`` rather than GCC's
+  ``Cannot open source file`` line; those paths are staged the same way, so
+  a clang report contains the header's lines. Under
   ``--terse-output`` the gcov and gcovr command lines and the
   ``lines:`` / ``functions:`` / ``branches:`` summary stay off the transcript
   unless that step fails.

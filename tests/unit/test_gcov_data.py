@@ -100,11 +100,19 @@ def test_reported_sources_are_copied_into_gcov_run( tmp_path, monkeypatch ):
             "Cannot open source file include/widget.hpp",
             "Cannot open source file include/widget.hpp",
             "Cannot open source file /usr/include/stdlib.h",
+            "include/other.hpp:cannot open source file",
+            "include/dummy/hello.hpp: No such file or directory",
+            "/tmp/build/widget.gcno: No such file or directory",
             "Cannot open source file include/missing.hpp",
             "File 'tests/widget_test.cpp'",
     ] )
 
-    assert missing_gcov_sources( output ) == [ "include/widget.hpp", "include/missing.hpp" ]
+    assert missing_gcov_sources( output ) == [
+            "include/widget.hpp",
+            "include/other.hpp",
+            "include/dummy/hello.hpp",
+            "include/missing.hpp",
+    ]
     assert stage_reported_gcov_sources( run_dir, output ) is True
 
     copied = os.path.join( run_dir, "include", "widget.hpp" )
