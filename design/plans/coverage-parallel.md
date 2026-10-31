@@ -18,7 +18,7 @@ It is **not** a performance plan (that remains [`coverage-performance.md`](cover
 | `BuildTest` / `BuildBenchmark` graph | Coverage **Depends** on the Test/Benchmark node only — see [Appendix A](#appendix-a-coverage-depends) |
 | `Coverage(program, sources)` | `program` is the executable from `Build()`, not the flattened `BuildTest` return list — [Appendix A](#appendix-a-coverage-depends) |
 | Isolate `.gcda` per test (`GCOV_PREFIX`) | **Done** — test/benchmark spawn sets a per-binary prefix; `gcov` reads the `.gcda` there with the `.gcno` linked beside it (it does not honour `GCOV_PREFIX`) |
-| gcovr HTML in the shared sconscript directory | **Done** — each program writes under `gcov-data/{program}/gcovr`, the detail glob is `name.*.html` so `lim` does not match `lim_table`, and gcovr runs once per program. A failed move fails the action. Collation publishes `{program}/` beside the sconscript index and does not `Install` from inside the action. `gcovr -j` is not used: Cuppa passes `-g`, so gcovr is not running `gcov`, and another job pool would only oversubscribe under `--parallel` |
+| gcovr HTML in the shared sconscript directory | **Done** — each program writes under `gcov-data/{program}/gcovr`, the detail glob is `name.*.html` so `lim` does not match `lim_table`, and gcovr runs once per program. A failed move fails the action. Collation publishes `{program}/` beside the sconscript index and does not `Install` from inside the action. `gcovr -j` will not be added: Cuppa passes `-g`, so gcovr is not running `gcov`, and another job pool would only oversubscribe under `--parallel` |
 
 ## How coverage runs today
 
@@ -138,7 +138,7 @@ would also make `--parallel` pointless for the collect step.
 `gcovr -j` is a thread pool for the part of gcovr that shells out to `gcov`. Cuppa passes
 `-g`, so that work is already done. The flag does not isolate notes or HTML, and under
 `--parallel` it would only add another job pool inside actions SCons is already running
-together. It is not part of this slice.
+together. It will not be added.
 
 ## 1.9.1 product behaviour
 
@@ -172,7 +172,6 @@ can never happen elsewhere.
 | ID | Work |
 |----|------|
 | `cov-gcov-prefix` | **This slice** — test/benchmark spawn sets `GCOV_PREFIX` to `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`. gcovr runs once per program. Collation publishes `{program}/`. The configure warning is removed |
-| `cov-parallel-gcovr` | Not used. `gcovr -j` does not apply to the `-g` path Cuppa runs, and it is not a correctness fix |
 | `console-terse-heartbeat-chase` | **Not this work.** Terse lines no longer wait out a full cycle; the animation still restarts. The note is [`terse-heartbeat-chase.md`](terse-heartbeat-chase.md) |
 
 ## Reference

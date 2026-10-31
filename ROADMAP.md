@@ -484,6 +484,7 @@ another project is unconfirmed.
 | ID | Item | Reason |
 |----|------|--------|
 | `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
+| `cov-parallel-gcovr` | Pass `gcovr -j` | Will not do. Cuppa runs `gcovr -g`, so `-j` is not running `gcov`, and under `--parallel` it only oversubscribes |
 | `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
 
 ---
