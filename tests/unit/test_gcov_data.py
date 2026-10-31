@@ -11,9 +11,12 @@ from cuppa.cpp.gcov_data import (
         coverage_data_dir,
         coverage_env_step,
         gcov_run_dir,
+        gcovr_output_dir,
         relocated_gcda_path,
+        missing_gcov_sources,
         stage_gcno,
         stage_gcov_source,
+        stage_reported_gcov_sources,
 )
 
 pytestmark = pytest.mark.unit
@@ -48,6 +51,16 @@ def test_env_step_adds_prefix_with_no_strip_and_keeps_the_rest( tmp_path ):
     }
 
 
+def test_gcovr_output_dir_is_per_program_under_its_notes( tmp_path ):
+    env = _env( tmp_path, { "cov": True } )
+    data_dir = coverage_data_dir( env, "final/lim" )
+    out = gcovr_output_dir( str( tmp_path / "_build" ), "lim", data_dir )
+    assert out == os.path.join( data_dir, "gcovr" )
+    assert os.path.isdir( out )
+    other = gcovr_output_dir( str( tmp_path / "_build" ), "lim_table", os.path.join( str( tmp_path / "_build" ), "gcov-data", "lim_table" ) )
+    assert os.path.dirname( out ) != os.path.dirname( other )
+
+
 def test_relocated_gcda_keeps_prefix_for_absolute_stem( tmp_path ):
     stem = str( tmp_path / "working" / "lib" / "shared" )
     data_dir = str( tmp_path / "gcov-data" / "alpha" )
@@ -74,6 +87,33 @@ def test_stage_gcov_source_leaves_absolute_source_alone( tmp_path ):
     run_dir = gcov_run_dir( str( tmp_path / "gcov-data" / "alpha" ) )
     assert stage_gcov_source( run_dir, absolute ) == absolute
     assert os.listdir( run_dir ) == []
+
+
+def test_reported_sources_are_copied_into_gcov_run( tmp_path, monkeypatch ):
+    project = tmp_path / "proj"
+    header = project / "include" / "widget.hpp"
+    header.parent.mkdir( parents=True )
+    header.write_text( "inline int widget_value() { return 7; }\n", encoding="utf-8" )
+    monkeypatch.chdir( project )
+    run_dir = gcov_run_dir( str( tmp_path / "gcov-data" / "widget" ) )
+    output = "\n".join( [
+            "Cannot open source file include/widget.hpp",
+            "Cannot open source file include/widget.hpp",
+            "Cannot open source file /usr/include/stdlib.h",
+            "Cannot open source file include/missing.hpp",
+            "File 'tests/widget_test.cpp'",
+    ] )
+
+    assert missing_gcov_sources( output ) == [ "include/widget.hpp", "include/missing.hpp" ]
+    assert stage_reported_gcov_sources( run_dir, output ) is True
+
+    copied = os.path.join( run_dir, "include", "widget.hpp" )
+    assert os.path.isfile( copied )
+    assert not os.path.islink( copied )
+    assert open( copied, encoding="utf-8" ).read() == header.read_text( encoding="utf-8" )
+    assert not os.path.exists( os.path.join( run_dir, "usr" ) )
+    assert not os.path.exists( os.path.join( run_dir, "include", "missing.hpp" ) )
+    assert stage_reported_gcov_sources( run_dir, "File 'tests/widget_test.cpp'\n" ) is False
 
 
 def _object( tmp_path ):

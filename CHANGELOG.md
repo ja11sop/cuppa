@@ -17,11 +17,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Terse action lines no longer wait out a full heartbeat cycle before they
+  replace a visible caption. A run of short actions (coverage, collate, copy)
+  was paying that cycle on every line. The parallel outstanding-action
+  carousel is unchanged.
+
 ### Deprecated
 
 ### Removed
 
+- Cuppa no longer warns when ``--cov`` is combined with ``--test`` or
+  ``--benchmark`` under ``--parallel``. Per-test ``.gcda`` files and
+  per-program reports make that a normal run. A test that shares a port, a
+  database, or another fixture is still not safe under ``--parallel``; the
+  coverage docs say so.
+
 ### Fixed
+
+- Parallel coverage reports no longer share one gcovr output directory.
+  Each program's HTML and JSON are written under ``gcov-data/{program}/gcovr``
+  and moved with a detail pattern that does not treat a shorter program name
+  as a prefix of a longer one (``lim`` versus ``lim_table``). gcovr runs once
+  per program. A failed move fails the coverage action. The per-program gcovr
+  index (``coverage--{program}.html``) and its detail pages are written into
+  one directory per program (``{program}/`` under the collated coverage tree).
+  That directory is a side effect of the collation target and ``-c`` removes
+  it. The by-sconscript link points into the directory. Collation does not
+  call ``Install`` while it runs, so those pages are not extra progress
+  actions. A project header ``gcov`` cannot open from ``gcov-run`` is copied
+  there and ``gcov`` is run again, so the report contains that header's
+  lines. Under
+  ``--terse-output`` the gcov and gcovr command lines and the
+  ``lines:`` / ``functions:`` / ``branches:`` summary stay off the transcript
+  unless that step fails.
 
 ### Security
 

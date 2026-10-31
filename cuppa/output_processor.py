@@ -77,11 +77,16 @@ def _allow_heartbeat():
         pass
 
 
-def _emit_transcript( line ):
-    """Print one build-transcript line; clear the quiet heartbeat first."""
+def _emit_transcript( line, *, dwell=True ):
+    """Print one build-transcript line; clear the quiet heartbeat first.
+
+    ``dwell=False`` for a terse action line. A single short action must not
+    wait out the heartbeat cycle before its ``[ok]`` line. Non-terse tool
+    text still holds a visible caption for one cycle.
+    """
     try:
         from cuppa.utility.heartbeat import write_transcript
-        write_transcript( line + "\n" )
+        write_transcript( line + "\n", dwell=dwell )
         return
     except Exception:
         pass
@@ -480,7 +485,7 @@ class SpawnedProcessor(object):
                 env,
                 self.summary( returncode ),
         ):
-            _emit_transcript( line )
+            _emit_transcript( line, dwell=False )
         refresh_terse_executing()
         if returncode or self._processor.errors:
             note_build_failure_draining()

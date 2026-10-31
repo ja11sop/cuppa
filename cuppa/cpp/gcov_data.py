@@ -14,11 +14,17 @@ Tests that link the same object would otherwise share one ``.gcda``.
 next to ``-o``, and writes ``*.gcov`` into its current directory. Collection
 links the ``.gcno`` beside the ``.gcda`` already written there, and starts
 ``gcov`` in ``gcov-data/{program}/gcov-run`` so two binaries do not write the
-same ``*.gcov`` name.
+same ``*.gcov`` name. Project headers are not on that command line. After the
+first run, each relative source ``gcov`` could not open is copied into
+``gcov-run`` and ``gcov`` is run again so those ``.gcov`` files contain lines.
 """
 
 import os
+import re
 import shutil
+
+_ANSI = re.compile( r"\x1b\[[0-9;]*m" )
+_CANNOT_OPEN_SOURCE = re.compile( r"^Cannot open source file (.+)$" )
 
 
 def coverage_active( env ):
@@ -73,12 +79,28 @@ def gcov_run_dir( data_dir ):
     return path
 
 
+def gcovr_output_dir( build_dir, program_name, data_dir=None ):
+    """Directory where one program's gcovr HTML and JSON are written.
+
+    gcovr puts the index, the detail pages, and the JSON beside ``-o``.
+    Two programs must not share that directory: a glob of ``lim*.html`` also
+    matches ``lim_table``. With ``cov`` active this is ``gcov-data/{program}/gcovr``.
+    """
+    if data_dir:
+        path = os.path.join( data_dir, "gcovr" )
+    else:
+        path = os.path.join( build_dir, "gcovr", program_name )
+    os.makedirs( path, exist_ok=True )
+    return path
+
+
 def stage_gcov_source( run_dir, source_path ):
     """Copy a relative source into ``gcov``'s working directory.
 
     ``gcov -r`` drops absolute sources and names ``*.gcov`` after the source
     argument, so the argument has to stay relative. The copy is Cuppa's: the
-    build tree does not point back at the real source.
+    build tree does not point back at the real source. An absolute path is
+    returned unchanged and nothing is copied.
     """
     if os.path.isabs( source_path ):
         return source_path
@@ -86,6 +108,44 @@ def stage_gcov_source( run_dir, source_path ):
     os.makedirs( os.path.dirname( dest ) or run_dir, exist_ok=True )
     shutil.copy2( os.path.abspath( source_path ), dest )
     return source_path
+
+
+def missing_gcov_sources( output ):
+    """Relative paths from ``Cannot open source file`` lines.
+
+    ``gcov`` prints that when a path stored in the notes is not under its
+    working directory. Absolute paths are omitted: ``gcov -r`` does not report
+    them, and a private directory cannot stand in for a path opened as-is.
+    """
+    found = []
+    seen = set()
+    for line in ( output or "" ).splitlines():
+        plain = _ANSI.sub( "", line ).strip()
+        match = _CANNOT_OPEN_SOURCE.match( plain )
+        if not match:
+            continue
+        path = match.group( 1 ).strip()
+        if not path or os.path.isabs( path ) or path in seen:
+            continue
+        seen.add( path )
+        found.append( path )
+    return found
+
+
+def stage_reported_gcov_sources( run_dir, output ):
+    """Copy sources ``gcov`` could not open into its working directory.
+
+    Returns true when at least one file was copied, so ``gcov`` can be run
+    again and the regenerated ``.gcov`` files contain those source lines. A
+    relative path that is not a file on disk is skipped.
+    """
+    staged = False
+    for path in missing_gcov_sources( output ):
+        if not os.path.isfile( os.path.abspath( path ) ):
+            continue
+        stage_gcov_source( run_dir, path )
+        staged = True
+    return staged
 
 
 def _link_or_copy( source, dest ):

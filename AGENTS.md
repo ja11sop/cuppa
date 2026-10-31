@@ -562,11 +562,10 @@ for the installed version. Task pages live under `docs/modules/ROOT/pages/cli/` 
 
 - `--offline` — after the first fetch in a session; skips PyPI version check and remote location updates
 - `--develop` — when using configured local develop paths for location/package deps
-- `--parallel` / `--parallel=N` — for compile-only speed (affinity; optional explicit job count); avoid when diagnosing failures or when running tests/coverage collection
+- `--parallel` / `--parallel=N` — affinity and job count, including `--cov --test`; avoid when diagnosing failures
 - `--verbosity=exception` or `--verbosity=debug` — when configure/sconscript load fails
 
-**Coverage:** always pass both `--cov` and `--test` to *collect*. `--cov` alone does not run tests.
-Supported large-project recipe: `cuppa -D --cov --parallel` then `cuppa -D --cov --test` (no `--parallel` on the second step). Cuppa warns if `--parallel` / `-j` > 1 is combined with `--cov --test`. See [#236](https://github.com/ja11sop/cuppa/issues/236).
+**Coverage:** pass both `--cov` and `--test` to collect. `--cov` alone does not run tests. `--cov --test --parallel` is supported: each binary writes `.gcda` under `gcov-data/{program}`. A test that shares a port, a database, or another fixture is not safe under `--parallel`, with or without `--cov`.
 
 ## Where to change behaviour in this repo
 

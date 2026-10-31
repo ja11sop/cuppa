@@ -23,14 +23,17 @@ from cuppa.colourise import (
 from SCons.Script import Action
 
 
-def _write_terse_stdout( text, *, dwell=True ):
+def _write_terse_stdout( text, *, dwell=False ):
     """Write a terse transcript fragment; serialize under ``-j`` / ``--parallel``.
 
     Clears the status row first when armed. A process-wide transcript lock
     prevents interleaved lines such as ``format.ovariant``.
 
-    ``dwell=False`` for uncounted resolve children (location / update / …)
-    so the alive cue is not seized for a full ECG cycle between each line.
+    A visible heartbeat caption is cleared immediately. Waiting out the
+    animation cycle made a run of short actions (coverage, collate, copy)
+    pay about 1.5s per line. The parallel outstanding carousel is a separate
+    timer and is not this flag. Pass ``dwell=True`` only when a line must
+    hold the caption for a full cycle before it is replaced.
     """
     try:
         from cuppa.utility.heartbeat import write_transcript

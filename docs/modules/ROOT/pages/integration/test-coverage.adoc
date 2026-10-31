@@ -8,7 +8,7 @@ With `--cov --test`:
 
 * `Coverage` runs gcov-based coverage for a `BuildTest` binary.
 * `CollateCoverageFiles` / `CollateCoverageIndex` collate per-test coverage into a shared `#_artefacts/coverage/` tree from two sibling sconscripts (regression for mid-action `Install` clashes on `by-source` pages).
-* Two independent `BuildTest` binaries under `--cov --test --parallel` still succeed, and Cuppa warns when that invocation actually uses `-j` > 1; `--cov --parallel` without `--test` does not warn.
+* Two independent `BuildTest` binaries under `--cov --test --parallel` succeed and do not print the old parallel-collection warning. `--cov --parallel` without `--test` builds the instrumented tree and does not collect.
 
 Skipped (with log) if `gcov` / `gcovr` are not on PATH, or when `CUPPA_TEST_TOOLCHAIN` is MSVC (`vc` / `cl` / `msvc`).
 
@@ -60,7 +60,7 @@ Parallel collection (two independent single-file tests, no shared library):
 cuppa -D --offline --toolchains=gcc --cov --test --parallel
 ----
 
-Instrumented compile only (must not warn about coverage collection):
+Instrumented compile only (no tests, no collection):
 
 [source,sh]
 ----
@@ -71,9 +71,9 @@ cuppa -D --offline --toolchains=gcc --cov --parallel
 
 * Exit 0; coverage artifacts under `_build` and/or `COVERAGE` in stdout for the `Coverage` scenario.
 * For the collate scenario: `coverage-index--*.html` under `_artefacts/coverage/`, with by-source pages namespaced as `by-source/<index-stem>/...html` so sibling sconscripts can share the destination safely.
-* Two independent tests under `--cov --test --parallel` still exit 0 (this does not prove shared-library `.gcda` safety).
-* If that run enters Cuppa parallel mode (`-j` > 1), stdout contains `Collecting coverage with SCons -j is not reliable`.
-* `--cov --parallel` without `--test` does not emit that warning.
+* Two independent tests under `--cov --test --parallel` exit 0 and do not print `Collecting coverage with SCons -j is not reliable`.
+* The shared-library fixture (serial and parallel) checks that each test has its own `shared.gcda` under `gcov-data/{program}`.
+* `--cov --parallel` without `--test` exits 0 and does not print that sentence either.
 
 '''
 

@@ -25,7 +25,10 @@ Minor cycle after **1.13.0**. No single opener locked yet — pick up the
 | Cascade option-compat / early refuse | **Carry-forward** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Candidate** — [`deep-clean.md`](design/plans/deep-clean.md); removal Phase 6 |
-| Coverage parallel (`GCOV_PREFIX`) | **In progress** — per-test notes and private `*.gcov` dir; warning remains — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| Coverage parallel (`GCOV_PREFIX`) | **This slice** — `--cov --test --parallel` is supported; per-test notes and per-program reports; the configure warning is removed — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| Terse heartbeat chase | **Noted** — full-cycle wait is off; animation still restarts instead of chasing — [`terse-heartbeat-chase.md`](design/plans/terse-heartbeat-chase.md) |
+| Unverified registry `latest` | **Noted** — expired token + cached pin is a hard stop — [`unverified-latest.md`](design/plans/unverified-latest.md) |
+| Package public compile defines | **Noted** — `BuildWith` links the library and does not apply its public `-D` — [`package-public-defines.md`](design/plans/package-public-defines.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
@@ -334,6 +337,7 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `boost-latest-persist` | Persist higher downloaded latest; offline reads stored then compiled-in; unpinned online scrape ([#201](https://github.com/ja11sop/cuppa/issues/201)) | High | Done — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) / [#201](https://github.com/ja11sop/cuppa/issues/201) |
+| `gitlab-latest-unverified` | Consume `latest` when the registry check cannot run (expired token) but the remembered package is on disk | Medium | Noted 2026-10-31. Warn, reuse the pin, remind at the end. Not a new flag. 404 and publish stay hard stops. [`unverified-latest.md`](design/plans/unverified-latest.md) |
 | `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
@@ -466,14 +470,14 @@ another project is unconfirmed.
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `cov-timing` | Opt-in per-phase timing (gcov, gcovr, union, page writing, collation) | High | Nothing else should be optimised before this exists |
-| `cov-once-per-test` | Run gcovr once per test binary instead of once per source file | High | `run_suite` is called inside the per-source loop in `_run_gcov`; an N× multiplier on multi-source tests |
+| `cov-once-per-test` | Run gcovr once per test binary instead of once per source file | Done in the `GCOV_PREFIX` slice | gcovr runs after the per-source `gcov` loop. HTML goes to `gcov-data/{program}/gcovr` so a shorter name cannot take a longer one's pages |
 | `cov-version-cache` | Cache the gcovr version instead of probing per report | Low | One subprocess per report today |
 | `cov-union-once` | Share one union per toolchain between sconscript indexes and the master index | Medium | Same JSON is parsed at least twice per build |
 | `cov-html-optional` | Make gcovr `--html-details` opt-in, with by-source as the browsing UI | Medium | Detail pages scale with tests × covered files and embed CSS each |
 | `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
 | `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
 | `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
-| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | In progress | Test/benchmark spawn sets `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`; warning not dropped yet — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | This slice | Test/benchmark spawn sets `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`. The configure warning is removed — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 
 ### Out of scope (coverage)
 
@@ -481,7 +485,6 @@ another project is unconfirmed.
 |----|------|--------|
 | `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
 | `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
-| `cov-parallel-collect` | Treat `--cov --test --parallel` as a supported correct mode | Warning remains ([#236](https://github.com/ja11sop/cuppa/issues/236)); `GCOV_PREFIX` is in progress, sconscript fixtures and gcovr overlap are not |
 
 ---
 
@@ -630,6 +633,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 |----|------|----------|-------|
 | `console-terse-output` | `--terse-output`: coloured one-line success; commands on failure/warning | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-build-output.md`](design/archive/terse-build-output.md) |
 | `console-terse-action-heartbeat` | Muted in-progress caption + pulse during long terse toolchain actions (compile/link); clear before durable `[ok]`; process `Run` terse shape | Medium | **Shipped in 1.13.0** [#375](https://github.com/ja11sop/cuppa/pull/375) / [#381](https://github.com/ja11sop/cuppa/pull/381) — process `Run` shape + `[....]` / progressive verbs + outstanding set; Ctrl-C `[stopped]` + atexit `→` teardown. Extra `[....]` beside CMake/`b2` `[launch]` stays deferred. [`terse-build-action-heartbeat.md`](design/archive/terse-build-action-heartbeat.md); builds on [`quiet-tty-heartbeat.md`](design/archive/quiet-tty-heartbeat.md) `operation_status` |
+| `console-terse-heartbeat-chase` | Fast successive terse lines should chase the heartbeat. The full-cycle wait is off; the animation still restarts | Low | Noted 2026-10-31. [`terse-heartbeat-chase.md`](design/plans/terse-heartbeat-chase.md). Not part of coverage-parallel |
 | `cascade-tip-local-options` | Drop tip-only `cuppa.add_option` flags from nest argv (`--tip-local-flag`, …) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-tip-local-options.md`](design/archive/cascade-tip-local-options.md); optional `--cascade-local-options` allowlist is a follow-on |
 | `cascade-amend-package-manifest` | Cascade nests metadata-amend via tip `--amend-cascade-manifests` (DAG retar, no CMake) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-amend-package-manifest.md`](design/archive/cascade-amend-package-manifest.md); tip-only amend remains [`package-metadata-amend.md`](design/archive/package-metadata-amend.md) |
 | `cascade-build-deps-tip-consume` | Under `--build-cascade-dependencies`, tip consumes publisher-root stages (not extracts); pre-`BuildWith` nest like `--stage-develop` | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-build-deps-tip-consume.md`](design/archive/cascade-build-deps-tip-consume.md); develop ranking unchanged; scoped `--develop` later |
