@@ -65,24 +65,14 @@ flowchart TD
 * `--test` (or `--force-test`) runs test actions so executed coverage data exists for
   `BuildTest` targets.
 
-That split lets you build a large instrumented tree with `--parallel`, then collect coverage
-**serially**:
+`--cov --test --parallel` is supported. Each test writes `.gcda` under `gcov-data/{program}`, and `gcov` / `gcovr` run on that program's files. Parallel compile of `--cov` without `--test` is also fine: it does not run tests.
 
-[source,sh]
-----
-cuppa -D --cov --parallel --offline
-cuppa -D --cov --test --offline
-----
+See xref:methods/coverage.adoc[Coverage methods].
+====
 
-Do **not** pass `--parallel` (or SCons `-j` greater than 1) on the `--cov --test` step.
-
-Cuppa warns when those are combined. Coverage notes (`.gcda`) live beside object files and are
-shared whenever tests link the same library; `gcov` / `gcovr` are not isolated per test.
-`BuildTest` waits for that test to finish before collecting, but that does not make concurrent
-tests safe. Parallel *compile* of `--cov` without `--test` is fine.
-
-See xref:methods/coverage.adoc[Coverage methods] and
-https://github.com/ja11sop/cuppa/issues/236[#236].
+[NOTE]
+====
+`--parallel` runs tests at the same time. A test that shares a port, a database, or another fixture with another test is not safe under `--parallel`, with or without `--cov`. That is the sconscript's concern.
 ====
 
 Cuppa uses toolchain gcov support plus https://gcovr.com/[gcovr] to emit HTML/JSON beside the variant output (and optionally collated destinations).

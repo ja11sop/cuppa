@@ -13,7 +13,10 @@ from cuppa.cpp.run_gcov_coverage import (
     CoverageIndexBuilder,
     _copy_coverage_artifact,
     _copy_coverage_artifacts_relative,
+    _publish_coverage_report,
+    coverage_report_dir_name,
     lines_of_code_format,
+    link_coverage_report,
 )
 
 
@@ -105,3 +108,55 @@ def test_generate_by_source_uses_index_subdir_and_copies_independently(tmp_path)
     assert (
         destination / "by-source" / "coverage-index--suite.beta" / "lib--widget.hpp.html"
     ).is_file()
+
+
+class _Href(object):
+    def __init__( self, coverage_file ):
+        self.coverage_file = coverage_file
+
+
+def test_report_directory_name_is_the_program():
+    assert coverage_report_dir_name("coverage--account_table.html") == "account_table"
+    assert coverage_report_dir_name("coverage-index--gcc15.test.html") is None
+    assert coverage_report_dir_name("coverage--.html") is None
+    assert coverage_report_dir_name("coverage--../x.html") is None
+    assert coverage_report_dir_name("coverage--a/b.html") is None
+
+
+def test_link_coverage_report_points_into_the_program_directory():
+    entry = _Href("coverage--lim_table.html")
+    link_coverage_report(entry)
+    assert entry.coverage_file == "lim_table/coverage--lim_table.html"
+
+    index = _Href("coverage-index--gcc15.test.sconscript.html")
+    link_coverage_report(index)
+    assert index.coverage_file == "coverage-index--gcc15.test.sconscript.html"
+
+
+def test_publish_coverage_report_replaces_its_directory_and_drops_flat_copies(tmp_path):
+    source = tmp_path / "final"
+    source.mkdir()
+    index = source / "coverage--lim.html"
+    detail = source / "test.gcc15.coverage.lim.lim.cpp.abc.html"
+    index.write_text("index", encoding="utf-8")
+    detail.write_text("detail", encoding="utf-8")
+
+    destination = tmp_path / "artifacts"
+    destination.mkdir()
+    stale = destination / "coverage--lim.html"
+    stale.write_text("old", encoding="utf-8")
+    report_dir = destination / "lim"
+    report_dir.mkdir()
+    (report_dir / "obsolete.html").write_text("gone", encoding="utf-8")
+
+    published = _publish_coverage_report(
+        str(destination),
+        "coverage--lim.html",
+        [str(index), str(detail)],
+    )
+
+    assert published == [str(index), str(detail)]
+    assert (destination / "lim" / "coverage--lim.html").read_text(encoding="utf-8") == "index"
+    assert (destination / "lim" / "test.gcc15.coverage.lim.lim.cpp.abc.html").is_file()
+    assert not (destination / "lim" / "obsolete.html").exists()
+    assert not stale.exists()

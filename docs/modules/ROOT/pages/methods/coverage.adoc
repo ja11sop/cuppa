@@ -28,7 +28,7 @@ xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 | Run coverage tooling for a binary (active with `--cov` / related actions)
 
 | `env.CollateCoverageFiles(sources, destination=<...>)`
-| Collate coverage HTML/JSON for one test (or node list)
+| Collate one test's HTML and JSON into a directory named after that test. The directory belongs to that collation target and is removed by `-c`
 
 | `env.CollateCoverageIndex(<...>)`
 | Master coverage index across tests (and, in the site layout, toolchains)
@@ -41,24 +41,9 @@ xref:methods/test-run.adoc[Test and run] for the everyday pattern.
 * `--cov` selects the coverage *variant* (instrumented compile/link). It does **not** run tests.
 * `--test` runs test actions and lets coverage collection / collation run after those binaries execute.
 
-That split lets you build a large instrumented tree in parallel, then collect coverage serially:
+`--cov --test --parallel` is supported. Each test writes its `.gcda` under `gcov-data/{program}`, and that program's HTML and JSON are produced on their own. `BuildTest` still runs coverage after that test finishes.
 
-[source,sh]
-----
-# 1) Long instrumented compile (parallel OK)
-cuppa -D --cov --parallel --offline
-
-# 2) Run tests and collate coverage (no --parallel)
-cuppa -D --cov --test --offline --toolchains=gcc
-----
-
-`--cov --test` together with `--parallel` (or SCons `-j` > 1) is **not a supported way to
-collect coverage**. Cuppa warns at configure. Notes sit beside objects and are shared across
-binaries that link the same library; concurrent tests corrupt `.gcda`, and gcov/gcovr can race
-the processes that write them. `BuildTest` orders Coverage after that test's run; it does not
-isolate notes between tests. See https://github.com/ja11sop/cuppa/issues/236[#236].
-
-For a small tree where you do not need `--parallel`, a single serial command is fine:
+For a small tree where you do not need `--parallel`, a single command is fine:
 
 [source,sh]
 ----
@@ -66,11 +51,17 @@ cuppa -D --cov --test --toolchains=gcc
 ----
 ====
 
+[NOTE]
+====
+`--parallel` runs tests at the same time. A test that shares a port, a database, or another fixture with another test is not safe under `--parallel`, with or without `--cov`. That is the sconscript's concern.
+====
+
 Coverage instrumentation is supported for GCC and Clang; MSVC does not participate.
 
 Object files for instrumented sources live under the mirrored `working/` tree (same layout as
-`Compile()`). Coverage runners locate `.gcda` / `.gcno` beside those objects, so nested
-same-basename sources stay distinct under `--cov` as well.
+`Compile()`). The `.gcno` notes stay beside those objects. When coverage is active the test
+writes `.gcda` under `gcov-data/{program}`, and `gcov` reads it there. Nested same-basename
+sources stay distinct under `--cov` as well.
 
 After `BuildTest()`, projects commonly append:
 

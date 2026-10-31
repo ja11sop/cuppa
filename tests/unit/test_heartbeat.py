@@ -1038,6 +1038,39 @@ def test_operation_status_terse_without_quiet_uses_shared_status_row( monkeypatc
     hb.reset()
 
 
+def test_terse_action_line_does_not_dwell_full_cycle( monkeypatch ):
+    """A single terse ``[ok]`` replaces a visible caption without waiting the cycle.
+
+    The parallel outstanding carousel is a different timer and is not this path.
+    """
+    from cuppa.progress import _write_terse_stdout
+    from cuppa import output_processor as op
+
+    hb.reset()
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    sleeps = []
+
+    def sleep( seconds ):
+        sleeps.append( seconds )
+        clock.advance( seconds )
+
+    _configure( stream, clock )
+    monkeypatch.setattr( hb, '_sleep', sleep )
+    hb.show_info( 'coverage funding_rate_table', sticky=True )
+    assert 'coverage funding_rate_table' in _status_body( stream )
+    assert hb._visible_since == 1000.0
+
+    _write_terse_stdout( '  [ok] · coverage\n' )
+    op._emit_transcript( '  [ok] · copy', dwell=False )
+
+    assert sleeps == []
+    assert clock.now == 1000.0
+    assert '[ok] · coverage' in stream.getvalue()
+    assert '[ok] · copy' in stream.getvalue()
+    hb.reset()
+
+
 def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monkeypatch ):
     """Uncounted resolve children must not seize one ECG cycle each."""
     from cuppa.progress import _write_terse_stdout

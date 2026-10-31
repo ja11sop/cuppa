@@ -175,13 +175,17 @@ the order of everything below.
 | `cov-union-incremental` | Cache the union keyed on the JSON files' mtimes and sizes; skip regeneration when unchanged | Large on repeat runs where only some tests reran | Medium; cache invalidation |
 | `cov-branch-index` | Group branches by line once instead of scanning the branch map per line | Removes an O(lines × branches) scan | Very low |
 | `cov-source-cache` | Cache the `os.walk` used by `resolve_source_path` | Removes repeated tree walks | Very low |
-| `cov-parallel-gcovr` | Pass gcovr `-j` where safe | Uses idle cores during report generation | Medium; interacts with SCons `--parallel` |
 
-### 4.3 Explicit non-goal
+### 4.3 Explicit non-goals
 
 Do **not** ship a permanent flag to disable by-source. The measurement does not support it, and
 a flag that turns off part of the report is a worse answer than making the report cheap. The
 temporary `--cov-by-source` existed only to run the experiment above and has been reverted.
+
+Do **not** pass `gcovr -j`. Cuppa runs `gcovr -g`, which reads `.gcov` files already written
+and does not shell out to `gcov`. That is the only work `-j` parallelises. Under `--parallel`
+it would also stack another job pool inside actions SCons is already running. It is not a
+correctness fix and it is not a performance candidate.
 
 ---
 

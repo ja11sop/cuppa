@@ -241,9 +241,9 @@ See also xref:cxx-modules.adoc[{cpp} Modules] and xref:cxx-profiles.adoc[{cpp} P
 
 Detailed tutorials: xref:methods/coverage.adoc[Coverage methods].
 
-IMPORTANT: `--cov` does not imply `--test`. Prefer a parallel instrumented build, then a serial
-`--cov --test` collect step (Cuppa warns if you combine `--parallel` with coverage collection) —
-see the Coverage page and https://github.com/ja11sop/cuppa/issues/236[#236].
+IMPORTANT: `--cov` does not imply `--test`. `--cov --test --parallel` is supported.
+A test that shares a port, a database, or another fixture is not safe under `--parallel` —
+see the Coverage page.
 
 == Packages
 

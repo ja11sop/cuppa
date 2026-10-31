@@ -35,6 +35,14 @@ import cuppa.path
 
 from cuppa.utility.python2to3 import Pattern
 from cuppa.cpp.coverage_by_source import generate_by_source_coverage, sanitized_toolchain_dirname
+from cuppa.cpp.gcov_data import (
+        coverage_data_dir,
+        gcov_run_dir,
+        gcovr_output_dir,
+        stage_gcno,
+        stage_gcov_source,
+        stage_reported_gcov_sources,
+)
 from six.moves import zip_longest
 
 url_block_sep = '--'
@@ -84,13 +92,58 @@ class WriteToString(object):
 
 
 
+def detail_html_pattern( html_base_name ):
+    """Glob for one program's gcovr detail pages.
+
+    The program name is followed by a dot. ``lim*.html`` also matches
+    ``lim_table``; ``lim.*.html`` does not. The index is ``lim.html`` and is
+    renamed on its own, so it is not part of this pattern.
+    """
+    return html_base_name + ".*.html"
+
+
 def run_command( command, working_dir, env ):
+    """Run gcov or gcovr. Terse keeps the command and its summary off stdout.
+
+    A clean ``--terse-output`` coverage step is the one ``[ok]`` line for the
+    action. The command and the tool's text come back only when that step
+    fails. ``keep_heartbeat`` leaves the in-progress caption pulsing for a
+    long report.
+    """
+    terse = bool( env.get( "terse_output" ) )
     process_output = WriteToString()
     return_code = IncrementalSubProcess.Popen( process_output,
                                                shlex.split( command ),
                                                cwd=working_dir,
-                                               scons_env=env )
-    return return_code, process_output.string()
+                                               scons_env=env,
+                                               suppress_output=terse,
+                                               keep_heartbeat=terse )
+    output = process_output.string()
+    if terse:
+        from cuppa.progress import note_terse_child
+        lines = [ line for line in output.splitlines() if line ]
+        note_terse_child( command, lines, failed=bool( return_code ) )
+    return return_code, output
+
+
+def emit_tool_summary( output, env ):
+    """Print a tool's text summary when terse is not owning the transcript."""
+    if env.get( "terse_output" ):
+        return
+    if output:
+        sys.stdout.write( output + "\n" )
+
+
+def _rename_coverage_file( source, dest ):
+    try:
+        os.rename( source, dest )
+    except OSError as error:
+        logger.error( "Failed moving coverage file from [{}] to [{}] with error: {}".format(
+                as_notice( source ),
+                as_notice( dest ),
+                as_error( str( error ) )
+        ) )
+        raise
 
 
 class CoverageSuite(object):
@@ -144,7 +197,7 @@ class CoverageSuite(object):
 
     def run_suite( self, target ):
         env = self._scons_env
-        self._run_gcovr( target, env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
+        return self._run_gcovr( target, env['build_dir'], self._final_dir, env['working_dir'], env['sconscript_toolchain_build_dir'], self._include_regexes, self._exclude_regexes )
 
 
     def _run_gcovr( self, target, build_dir, output_dir, working_dir, sconscript_id, include_regexes, exclude_regexes ):
@@ -157,8 +210,12 @@ class CoverageSuite(object):
             return
 
         html_base_name = url_coverage_base_name( sconscript_id ) + "." + self._program_id[2:]
+        program_name = self._program_id[2:]
+        data_dir = coverage_data_dir( self._scons_env, program_name )
+        out_dir = gcovr_output_dir( build_dir, program_name, data_dir )
 
-        index_file = html_base_name + ".html"
+        index_file = os.path.join( out_dir, html_base_name + ".html" )
+        json_file = os.path.join( out_dir, html_base_name + ".json" )
         regex_filter = re.escape( os.path.join( build_dir, "" ) ).replace( r"\_", r"_" ).replace( r"\#", r"#" )
         regex_filter = r".*" + regex_filter + r".*" + self._program_id + r"\.gcov"
 
@@ -178,8 +235,8 @@ class CoverageSuite(object):
             gcov_excludes = gcov_excludes,
             self_contained_html = gcovr_version['major'] >= 5 and "--html-self-contained" or "",
             html_theme = gcovr_version['major'] >= 5 and "--html-theme green" or "",
-            index_file=index_file,
-            json_args = ( gcovr_version['major'] >= 4 and ( " --json " + html_base_name + ".json" ) or "" ),
+            index_file = shlex.quote( index_file ),
+            json_args = ( gcovr_version['major'] >= 4 and ( " --json " + shlex.quote( json_file ) ) or "" ),
         )
 
         return_code, output = run_command( command, working_dir, self._scons_env )
@@ -187,58 +244,43 @@ class CoverageSuite(object):
         # Strip out any GCOVR logging from the output as this is not part of the
         # simple text summary and breaks the coverage entry regex later on.
         output = strip_gcovr_log_noise( output )
+        if return_code:
+            emit_tool_summary( output, self._scons_env )
+            return return_code
 
         coverage_index_basename = "coverage" + self._url_program_id + ".html"
         new_index_file = os.path.join( output_dir, coverage_index_basename )
-        try:
-            os.rename( index_file, new_index_file )
-        except OSError as e:
-            logger.error( "Failed moving coverage file from [{}] to [{}] with error: {}".format(
-                        as_notice( index_file ),
-                        as_notice( new_index_file ),
-                        as_error( str(e) )
-            ) )
+        if not os.path.isfile( index_file ):
+            logger.error( "gcovr did not write [{}]".format( as_notice( index_file ) ) )
+            return 1
+        _rename_coverage_file( index_file, new_index_file )
 
         coverage_json_basename = "coverage" + self._url_program_id + ".json"
-        json_file = html_base_name + ".json"
         new_json_file = os.path.join( output_dir, coverage_json_basename )
-        if os.path.exists( json_file ):
-            try:
-                os.rename( json_file, new_json_file )
-            except OSError as e:
-                logger.error( "Failed moving coverage JSON from [{}] to [{}] with error: {}".format(
-                            as_notice( json_file ),
-                            as_notice( new_json_file ),
-                            as_error( str(e) )
-                ) )
-            else:
-                target.append( new_json_file )
+        if os.path.isfile( json_file ):
+            _rename_coverage_file( json_file, new_json_file )
+            target.append( new_json_file )
+
+        detail_pattern = detail_html_pattern( html_base_name )
+        logger.trace( "gcovr HTML file filter = [{}]".format( as_notice( detail_pattern ) ) )
+        coverage_files = sorted( glob.glob( os.path.join( out_dir, detail_pattern ) ) )
+
+        for coverage_file in coverage_files:
+            new_coverage_file = os.path.join( output_dir, os.path.basename( coverage_file ) )
+            target.append( new_coverage_file )
+            _rename_coverage_file( coverage_file, new_coverage_file )
 
         coverage_summary_path = os.path.splitext( new_index_file )[0] + ".log"
         with open( coverage_summary_path, 'w', encoding='utf-8' ) as coverage_summary_file:
             coverage_summary_file.write( coverage_index_basename + "\n" + output )
 
-        logger.trace( "gcovr HTML file filter = [{}]".format( as_notice(html_base_name) ) )
-        coverage_files = Glob( html_base_name + '*.html' )
-
-        for coverage_file in coverage_files:
-            new_coverage_file = os.path.join( output_dir, str( coverage_file ) )
-            target.append( new_coverage_file )
-            try:
-                os.rename( str( coverage_file ), new_coverage_file )
-            except OSError as e:
-                logger.error( "Failed moving coverage file from [{}] to [{}] with error: {}".format(
-                        as_notice( str( coverage_file ) ),
-                        as_notice( new_coverage_file ),
-                        as_error( str(e) )
-                ) )
-
         coverage_filter_path = os.path.join( output_dir, "coverage" + self._url_program_id + ".cov_filter" )
         with open( coverage_filter_path, 'w', encoding='utf-8' ) as coverage_filter_file:
-            coverage_filter_file.write( html_base_name + '*.html\n' )
+            coverage_filter_file.write( detail_pattern + '\n' )
             coverage_filter_file.write( coverage_json_basename + '\n' )
 
-        sys.stdout.write( output + "\n" )
+        emit_tool_summary( output, self._scons_env )
+        return 0
 
 
 def gcov_program_id( program ):
@@ -266,6 +308,9 @@ class RunGcovCoverageEmitter(object):
             gcda_file = os.path.splitext( source_file )[0] + '.gcda'
             logger.trace( "gcov data paths = [{}] and [{}]".format( as_notice(gcno_file), as_notice(gcda_file) ) )
             env.Clean( source_file, [gcno_file, gcda_file] )
+            data_dir = coverage_data_dir( env, self._program[0] )
+            if data_dir:
+                env.Clean( source_file, data_dir )
 
             gcov_log = source_file + self._program_id + '_gcov.log'
             logger.trace( "Adding target gcov_log = [{}]".format( as_notice(gcov_log) ) )
@@ -296,7 +341,13 @@ class RunGcovCoverageEmitter(object):
             logger.trace( "Adding target gcovr filter file =[{}]".format( as_notice(coverage_filter_file) ) )
             target.append( coverage_filter_file )
 
-            coverage_filter = os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + self._program_id[2:] + '*.html' )
+            coverage_filter = os.path.join(
+                    self._final_dir,
+                    detail_html_pattern(
+                            url_coverage_base_name( env['sconscript_toolchain_build_dir'] )
+                            + "." + self._program_id[2:]
+                    ),
+            )
 
             logger.trace( "coverage filter = [{}]".format( as_notice(coverage_filter) ) )
 
@@ -308,7 +359,12 @@ class RunGcovCoverageEmitter(object):
 
     def html_filter( self, env, coverage_targets ):
         source = os.path.splitext( os.path.split( str(coverage_targets[1]) )[1] )[0].replace( 'coverage' + url_block_sep, '' )
-        return os.path.join( self._final_dir, url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + source + '*.html' )
+        return os.path.join(
+                self._final_dir,
+                detail_html_pattern(
+                        url_coverage_base_name( env['sconscript_toolchain_build_dir'] ) + "." + source
+                ),
+        )
 
 
 def iter_grouped( items, step=2, fillvalue=None ):
@@ -338,15 +394,24 @@ class RunGcovCoverage(object):
         self._target = target
 
         # Each source will result in one or more targets so we need to slice the targets to pick up
-        # the gcov target (the first one) before we perform the zip iteration
-        for s, t in zip( source, itertools.islice( target, 0, None, len(target)//len(source) ) ):
+        # the gcov target (the first one) before we perform the zip iteration.
+        # gcovr runs once after every source has been collected. Running it
+        # inside this loop rewrites the same HTML names once per source.
+        failed = False
+        if source:
+            for s, t in zip( source, itertools.islice( target, 0, None, len(target)//len(source) ) ):
 
-            gcov_path = os.path.splitext( os.path.splitext( t.path )[0] )[0]
-            gcov_log = t.path
-            logger.trace( "gcov_path = [{}]".format( as_notice( str(gcov_path) ) ) )
-            self._run_gcov( env, s.path, gcov_path, gcov_log )
+                gcov_path = os.path.splitext( os.path.splitext( t.path )[0] )[0]
+                gcov_log = t.path
+                logger.trace( "gcov_path = [{}]".format( as_notice( str(gcov_path) ) ) )
+                if not self._run_gcov( env, s.path, gcov_path, gcov_log ):
+                    failed = True
 
-        target = self._target
+        if failed:
+            return 1
+
+        if source:
+            return self._coverage_suite( env ).run_suite( self._target ) or None
 
         return None
 
@@ -354,10 +419,25 @@ class RunGcovCoverage(object):
     # gcov-8 -o _build/include/xstd/property_tree/properties_parser/gcc82/cov/x86_64/c++2a/working/properties_parser_test -l -p -r -c -b include/xstd/property_tree/properties_parser_test.cpp
     # gcov-8 -o _build/include/xstd/application/main_test/gcc82/cov/x86_64/c++2a/working/main_test -l -p -r -c -b _build/include/xstd/application/main_test/gcc82/cov/x86_64/c++2a/working/main_test.o
 
+    def _coverage_suite( self, env ):
+        build_dir = env['build_dir']
+        final_dir = self._final_dir
+        if not os.path.isabs( self._final_dir ):
+            final_dir = os.path.normpath( os.path.join( build_dir, self._final_dir ) )
+        suite_name = env['working_dir'] + self._program_id
+        return CoverageSuite.create(
+                self._program_id,
+                suite_name,
+                env,
+                final_dir,
+                include_patterns=self._include_patterns,
+                exclude_patterns=self._exclude_patterns,
+        )
+
+
     def _run_gcov( self, env, source_path, gcov_path, gcov_log_path ):
         working_dir       = env['working_dir']
         build_dir         = env['build_dir']
-        final_dir         = self._final_dir
 
         qualified_base = source_path.startswith( env['build_dir'] ) and env['build_dir'] or env['offset_dir']
         if qualified_base.startswith( "./" ):
@@ -366,27 +446,32 @@ class RunGcovCoverage(object):
 
         logger.trace( "Qualified base = [{}]".format( as_notice(str(qualified_base)) ) )
 
-        if not os.path.isabs( self._final_dir ):
-            final_dir = os.path.normpath( os.path.join( build_dir, self._final_dir ) )
-
-        suite_name = working_dir + self._program_id
-        coverage_suite = CoverageSuite.create( self._program_id, suite_name, env, final_dir, include_patterns=self._include_patterns, exclude_patterns=self._exclude_patterns )
-
         relative_only = "-r"
         if self._coverage_tool.startswith( "llvm-cov" ):
             relative_only = ""
 
-        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=gcov_path, relative=relative_only, source=source_path )
+        gcov_cwd = working_dir
+        gcov_output_dir = ""
+        object_path = gcov_path
+        data_dir = coverage_data_dir( env, self._program[0] )
+        if data_dir:
+            gcov_cwd = gcov_output_dir = gcov_run_dir( data_dir )
+            stage_gcov_source( gcov_cwd, source_path )
+            object_path = stage_gcno( gcov_path, data_dir )
 
-        return_code, output = run_command( command, working_dir, env )
+        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=object_path, relative=relative_only, source=source_path )
+
+        return_code, output = run_command( command, gcov_cwd, env )
+        if return_code == 0 and data_dir and stage_reported_gcov_sources( gcov_cwd, output ):
+            return_code, output = run_command( command, gcov_cwd, env )
 
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )
-            gcov_files = glob.glob( gcov_source_path + '*gcov' )
+            gcov_files = glob.glob( os.path.join( gcov_output_dir, gcov_source_path + '*gcov' ) )
 
             for gcov_file in gcov_files:
 
-                filename, ext = os.path.splitext( str(gcov_file) )
+                filename, ext = os.path.splitext( os.path.basename( str(gcov_file) ) )
                 filename = filename + self._program_id + ext
                 new_filename = filename[len(qualified_base)+1:]
 
@@ -395,24 +480,86 @@ class RunGcovCoverage(object):
                 new_gcov_file = os.path.join( build_dir, new_filename )
                 try:
                     os.rename( str(gcov_file), new_gcov_file )
-                except OSError as e:
+                except OSError as error:
                     logger.error( "Failed moving gcov file [{}] to [{}] with error: {}".format(
                             as_notice( str(gcov_file) ),
                             as_notice( new_gcov_file ),
-                            as_error( str(e) )
+                            as_error( str( error ) )
                     ) )
+                    raise
 
             with open( gcov_log_path, 'w', encoding='utf-8' ) as summary_file:
                 summary_file.write( output )
+            return True
 
-                coverage_suite.run_suite( self._target )
-        else:
-            sys.stdout.write( output + "\n" )
-            os.remove( gcov_log_path )
+        emit_tool_summary( output, env )
+        os.remove( gcov_log_path )
+        return False
 
 
 def destination_subdir( env ):
     return env['flat_tool_variant_dir_offset']
+
+
+def coverage_report_dir_name( report_basename ):
+    """Directory name for one program's collated gcovr report.
+
+    ``coverage--account_table.html`` becomes ``account_table``. Other names,
+    including the sconscript ``coverage-index--`` page, are not report directories.
+    """
+    filename = os.path.basename( report_basename or "" )
+    stem, ext = os.path.splitext( filename )
+    if ext.lower() != ".html" or not stem.startswith( coverage_marker ):
+        return None
+    name = stem[ len( coverage_marker ): ]
+    if not name or name in ( ".", ".." ) or "/" in name or "\\" in name:
+        return None
+    return name
+
+
+def link_coverage_report( entry ):
+    """Point a per-program index row at the directory that holds its pages."""
+    filename = os.path.basename( entry.coverage_file or "" )
+    directory = coverage_report_dir_name( filename )
+    if not directory:
+        return entry
+    entry.coverage_file = directory + "/" + filename
+    return entry
+
+
+def _publish_coverage_report( destination_root, report_basename, source_paths ):
+    """Copy one program's pages into its report directory.
+
+    The directory is the side effect of the collation target. Replacing it
+    drops detail pages whose hashed names changed. Flat copies left by the
+    previous layout are removed so they do not sit beside the sconscript index.
+    """
+    directory_name = coverage_report_dir_name( report_basename )
+    if not directory_name:
+        return []
+    report_dir = os.path.join( destination_root, directory_name )
+    if os.path.isdir( report_dir ):
+        shutil.rmtree( report_dir )
+    elif os.path.lexists( report_dir ):
+        os.remove( report_dir )
+    os.makedirs( report_dir )
+
+    published = []
+    seen = set()
+    for source_path in source_paths:
+        source_path = str( source_path )
+        if not os.path.isfile( source_path ):
+            continue
+        basename = os.path.basename( source_path )
+        if basename in seen:
+            continue
+        seen.add( basename )
+        _copy_coverage_artifact( source_path, os.path.join( report_dir, basename ) )
+        published.append( source_path )
+        stale = os.path.join( destination_root, basename )
+        if os.path.isfile( stale ):
+            os.remove( stale )
+    return published
 
 
 def get_toolchain_variant_dir( env ):
@@ -449,13 +596,21 @@ class CollateCoverageFilesEmitter(object):
             output_summary = os.path.splitext(str(filter_node))[0] + ".cov_files"
             target.append( output_summary )
 
-            env.Clean( source, os.path.join( self._destination, os.path.split(str(report_node))[1] ) )
+            # One directory per program. Clean is hung off the coverage
+            # targets SCons already removes; the stamp path alone is not
+            # the same node -c walks.
+            report_basename = os.path.basename( str( report_node ) )
+            report_dir_name = coverage_report_dir_name( report_basename )
+            clean_owners = [ report_node, filter_node, output_summary ]
+            if report_dir_name:
+                env.Clean( clean_owners, os.path.join( self._destination, report_dir_name ) )
+            env.Clean( clean_owners, os.path.join( self._destination, report_basename ) )
 
-            report_json = os.path.splitext( os.path.split(str(report_node))[1] )[0] + ".json"
-            env.Clean( source, os.path.join( self._destination, report_json ) )
+            report_json = os.path.splitext( report_basename )[0] + ".json"
+            env.Clean( clean_owners, os.path.join( self._destination, report_json ) )
 
-            if filter_node and os.path.exists( str(filter_node) ):
-                with open( str(filter_node), 'r', encoding='utf-8' ) as filter_file:
+            if os.path.exists( str( filter_node ) ):
+                with open( str( filter_node ), 'r', encoding='utf-8' ) as filter_file:
                     for raw_line in filter_file:
                         clean_pattern = raw_line.strip()
                         if not clean_pattern:
@@ -464,7 +619,7 @@ class CollateCoverageFilesEmitter(object):
                         if clean_pattern.startswith('#'):
                             clean_pattern = os.path.join( env['sconstruct_dir'], clean_pattern[1:] )
                         logger.trace( "Clean pattern = [{}]".format( as_notice(clean_pattern) ) )
-                        env.Clean( source, Glob( clean_pattern ) )
+                        env.Clean( clean_owners, Glob( clean_pattern ) )
 
         return target, source
 
@@ -488,31 +643,37 @@ class CollateCoverageFilesAction(object):
 
         if report_node and filter_node:
 
-            env.CopyFiles( self._destination, report_node )
-
-            report_json = os.path.splitext( str(report_node) )[0] + ".json"
-            if os.path.exists( report_json ):
-                env.CopyFiles( self._destination, report_json )
+            # This action's only SCons target is the .cov_files stamp. The
+            # report directory is its side effect and is registered with Clean.
+            # Do not env.Install from here: those nodes are created after the
+            # build has been counted, so progress gains actions it never finishes.
+            destination_root = str( Dir( self._destination ) )
+            report_path = str( report_node )
+            source_paths = []
+            if os.path.isfile( report_path ):
+                source_paths.append( report_path )
+            report_json = os.path.splitext( report_path )[0] + ".json"
+            if os.path.isfile( report_json ):
+                source_paths.append( report_json )
 
             final_dir = os.path.split( str(filter_node) )[0]
-            output_files = []
-
             if os.path.exists( str(filter_node) ):
                 with open( str(filter_node), 'r', encoding='utf-8' ) as filter_file:
                     for raw_line in filter_file:
                         filter_pattern = raw_line.strip()
                         if not filter_pattern:
                             continue
-                        matched = env.Glob( os.path.join( final_dir, filter_pattern ) )
-                        if matched:
-                            env.CopyFiles( self._destination, matched )
-                            output_files.extend( matched )
+                        source_paths.extend( env.Glob( os.path.join( final_dir, filter_pattern ) ) )
+
+            published = _publish_coverage_report(
+                    destination_root,
+                    os.path.basename( report_path ),
+                    source_paths,
+            )
 
             with open( str(target[0]), 'w', encoding='utf-8' ) as summary_file:
-                for f in output_files:
-                    summary_file.write( str(f) + "\n" )
-                if os.path.exists( report_json ):
-                    summary_file.write( report_json + "\n" )
+                for path in published:
+                    summary_file.write( path + "\n" )
         return None
 
 
@@ -926,13 +1087,13 @@ class CollateCoverageIndexAction(object):
 
                         contents = summary_file.read()
 
-                        coverage.append(
-                            coverage_entry.create_from_summary(
+                        entry = coverage_entry.create_from_summary(
                                 contents,
                                 get_toolchain_variant_dir( env ),
                                 get_offset_dir( env ),
                                 self._destination
-                        ) )
+                        )
+                        coverage.append( link_coverage_report( entry ) )
 
                 template = CoverageIndexBuilder.get_template()
                 index_basename = os.path.split( variant_index_path )[1]

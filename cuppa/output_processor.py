@@ -77,11 +77,16 @@ def _allow_heartbeat():
         pass
 
 
-def _emit_transcript( line ):
-    """Print one build-transcript line; clear the quiet heartbeat first."""
+def _emit_transcript( line, *, dwell=True ):
+    """Print one build-transcript line; clear the quiet heartbeat first.
+
+    ``dwell=False`` for a terse action line. A single short action must not
+    wait out the heartbeat cycle before its ``[ok]`` line. Non-terse tool
+    text still holds a visible caption for one cycle.
+    """
     try:
         from cuppa.utility.heartbeat import write_transcript
-        write_transcript( line + "\n" )
+        write_transcript( line + "\n", dwell=dwell )
         return
     except Exception:
         pass
@@ -158,6 +163,7 @@ class IncrementalSubProcess:
             suppress_output = kwargs['suppress_output']
             del kwargs['suppress_output']
         keep_heartbeat = bool( kwargs.pop( 'keep_heartbeat', False ) )
+        prepare_env = kwargs.pop( 'prepare_env', None )
 
         use_shell = False
         inherit_process_env = kwargs.pop( 'inherit_process_env', None )
@@ -175,6 +181,12 @@ class IncrementalSubProcess:
                         scons_env=scons_env,
                         inherit_process_env=inherit_process_env,
                     )
+
+        # A caller step over the environment chosen above (construction ENV,
+        # inherit policy, or an explicit env=). It sees a copy and never widens
+        # the choice: with no env dict the subprocess default is left alone.
+        if prepare_env and kwargs.get( 'env' ) is not None:
+            kwargs['env'] = prepare_env( dict( kwargs['env'] ) )
 
         held_heartbeat = False
         try:
@@ -473,7 +485,7 @@ class SpawnedProcessor(object):
                 env,
                 self.summary( returncode ),
         ):
-            _emit_transcript( line )
+            _emit_transcript( line, dwell=False )
         refresh_terse_executing()
         if returncode or self._processor.errors:
             note_build_failure_draining()
