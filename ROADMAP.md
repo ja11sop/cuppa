@@ -473,7 +473,7 @@ another project is unconfirmed.
 | `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
 | `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
 | `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
-| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | In progress | Test/benchmark spawn sets the prefix; gcov reads it via a private `-o` stem; warning not dropped yet — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | In progress | Test/benchmark spawn sets `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`; warning not dropped yet — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 
 ### Out of scope (coverage)
 

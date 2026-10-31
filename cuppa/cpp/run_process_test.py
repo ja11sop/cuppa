@@ -19,6 +19,7 @@ import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.cpp.terse_test_report import enabled as terse_tests
+from cuppa.cpp.gcov_data import coverage_env_step
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
 from cuppa.log import logger
@@ -410,8 +411,7 @@ class RunProcessTest(object):
                     program_path,
                     test_command,
                     working_dir,
-                    env,
-                    source[0],
+                    env
             )
 
             if return_code == self._expected_exit_code:
@@ -460,9 +460,7 @@ class RunProcessTest(object):
             pass
 
 
-    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env, program=None ):
-        from cuppa.cpp.gcov_notes import coverage_notes_prefix
-
+    def _run_test( self, test_case, show_test_output, program_path, test_command, working_dir, env ):
         process_stdout = ProcessStdout( test_case, show_test_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( test_case, show_test_output, stderr_file_name_from( program_path ) )
 
@@ -473,8 +471,7 @@ class RunProcessTest(object):
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
                                                     suppress_output=terse_tests( env ),
-                                                    gcov_notes_prefix=coverage_notes_prefix( env, program ),
-                                                    )
+                                                    prepare_env=coverage_env_step( env, program_path ) )
         return return_code
 
 

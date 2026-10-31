@@ -158,7 +158,7 @@ class IncrementalSubProcess:
             suppress_output = kwargs['suppress_output']
             del kwargs['suppress_output']
         keep_heartbeat = bool( kwargs.pop( 'keep_heartbeat', False ) )
-        gcov_notes_prefix = kwargs.pop( 'gcov_notes_prefix', None )
+        prepare_env = kwargs.pop( 'prepare_env', None )
 
         use_shell = False
         inherit_process_env = kwargs.pop( 'inherit_process_env', None )
@@ -177,13 +177,11 @@ class IncrementalSubProcess:
                         inherit_process_env=inherit_process_env,
                     )
 
-        if gcov_notes_prefix:
-            from cuppa.cpp.gcov_notes import apply_gcov_prefix
-            child_env = kwargs.get( 'env' )
-            if child_env is None:
-                child_env = os.environ.copy()
-                kwargs['env'] = child_env
-            apply_gcov_prefix( child_env, gcov_notes_prefix )
+        # A caller step over the environment chosen above (construction ENV,
+        # inherit policy, or an explicit env=). It sees a copy and never widens
+        # the choice: with no env dict the subprocess default is left alone.
+        if prepare_env and kwargs.get( 'env' ) is not None:
+            kwargs['env'] = prepare_env( dict( kwargs['env'] ) )
 
         held_heartbeat = False
         try:

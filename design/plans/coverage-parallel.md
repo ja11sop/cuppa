@@ -19,7 +19,7 @@ plan (that remains [`coverage-performance.md`](coverage-performance.md)).
 | Operator signal in 1.9.1 | **Warn** (do not fail the build). A hard refuse would break trees that currently “get lucky” |
 | `BuildTest` / `BuildBenchmark` graph | Coverage **Depends** on the Test/Benchmark node only — see [Appendix A](#appendix-a-coverage-depends) |
 | `Coverage(program, sources)` | `program` is the executable from `Build()`, not the flattened `BuildTest` return list — [Appendix A](#appendix-a-coverage-depends) |
-| Isolate `.gcda` per test (`GCOV_PREFIX`) | **In progress** — test/benchmark spawn sets a per-binary prefix; gcov reads those notes via a private `-o` stem (it does not honour `GCOV_PREFIX`). Warning stays until the shared-lib fixture is stable in CI |
+| Isolate `.gcda` per test (`GCOV_PREFIX`) | **In progress** — test/benchmark spawn sets a per-binary prefix; `gcov` reads the `.gcda` there with the `.gcno` linked beside it (it does not honour `GCOV_PREFIX`). Warning stays until the shared-lib fixture is stable in CI |
 | gcovr `-j` during report generation | **Deferred** — independent of test-process races; see `cov-parallel-gcovr` in the performance plan |
 
 ## How coverage runs today
@@ -54,17 +54,25 @@ GCC/Clang `--coverage` writes:
 - `.gcda` at **process exit** of the instrumented binary
 
 When `cov` is active, the test or benchmark process sets `GCOV_PREFIX` to
-`{build}/gcov-notes/{sconscript}/{program}` and `GCOV_PREFIX_STRIP=0`. The `.gcda` path is
+`{abs_build_dir}/gcov-data/{program}` and `GCOV_PREFIX_STRIP=0`. The `.gcda` path is
 that prefix plus the absolute object path, so two tests that link one static library do not
-share a note file. Serial `--cov --test` uses the same path.
+share a data file. Serial `--cov --test` uses the same path. The test keeps the working
+directory the sconscript gave it.
+
+The runners (`RunProcessTest`, `RunBoostTest`, `RunPatchedBoostTest`) own that decision:
+they ask `cuppa/cpp/gcov_data.py` for `coverage_env_step()` and pass it as `prepare_env`
+to `IncrementalSubProcess.Popen2`. `Popen2` runs that step on a copy of the environment it
+already chose (construction `ENV`, the `inherit_process_env` policy, or an explicit `env=`)
+and knows nothing about coverage. The step only adds the two variables. It never widens what
+the child inherits, and when no environment was chosen it is not run.
 
 `RunGcovCoverage` then:
 
-1. Invokes `gcov` / `llvm-cov gcov` in `{prefix}/gcov-text`. `gcov` opens `.gcda` next to
-   `-o` and does **not** read `GCOV_PREFIX`, so `-o` is a private stem whose `.gcno` and
-   `.gcda` are symlinks (the `.gcda` symlink targets the relocated note). The source
-   argument stays relative (`-r`); a symlink under that directory keeps the `#` filename
-   the rename step already expects.
+1. Invokes `gcov` / `llvm-cov gcov` in `{prefix}/gcov-run`. `gcov` opens `.gcda` next to
+   `-o` and does **not** read `GCOV_PREFIX`, so `-o` is the relocated `.gcda` stem with the
+   `.gcno` linked beside it (copied if a symlink cannot be created). The `.gcda` itself is
+   not linked or moved. The source argument stays relative (`-r`); a copy under `gcov-run`
+   keeps the `#` filename the rename step already expects.
 2. Globs `*.gcov` in that private directory and **renames** them, with a program-id suffix,
    into the build dir.
 3. Calls `gcovr` (`-g`, HTML details, JSON) on those renamed files — historically **inside**
@@ -97,7 +105,7 @@ and coverage actions are in the graph.
 | Combination | Why |
 |-------------|-----|
 | `--cov --test --parallel` (or `-j` > 1) | (1) **Shared `.gcda`** and (3) **gcov glob/rename** are what `GCOV_PREFIX` plus a private `*.gcov` directory address. The configure warning stays until that fixture is stable in CI. Still open: (4) gcovr/collation overlap, (5) interleaved stdout, and any fixture the sconscript itself shares (port, database). (2) Coverage vs Test ordering was fixed for `BuildTest` in 1.9.1 |
-| Parallel tests that share a static/shared lib, even after `Depends(coverage, test)` | Ordering is per binary. Note isolation is per binary too (`gcov-notes/…/{program}`), which is what the shared-lib fixture checks |
+| Parallel tests that share a static/shared lib, even after `Depends(coverage, test)` | Ordering is per binary. Data isolation is per binary too (`gcov-data/{program}`), which is what the shared-lib fixture checks |
 
 Independent single-file tests with **no shared instrumented library** can appear to work under
 `-j` (the integration suite checks that this still exits 0). That is not a correctness
@@ -109,8 +117,8 @@ The usual GCC approach is **per-test note isolation**:
 
 1. Set `GCOV_PREFIX` (and often `GCOV_PREFIX_STRIP`) uniquely for each test process.
 2. Point `gcov` at that binary's relocated `.gcda`. `gcov` does not read `GCOV_PREFIX`;
-   Cuppa symlinks the note next to a private `-o` stem. `gcovr -g` then reads the
-   `.gcov` text that produced.
+   Cuppa links the `.gcno` beside the `.gcda` and starts `gcov` in `gcov-run` so the
+   `*.gcov` files are per binary. `gcovr -g` then reads the `.gcov` text that produced.
 3. Merge JSON (Cuppa already unions `coverage--*.json` for by-source) rather than merging
    `.gcda` in place.
 
@@ -141,16 +149,20 @@ test-process races.
 | `tests/unit/test_coverage_workflow.py` | Warn predicate: compile-only `--cov --parallel` is silent; collect + `-j` warns |
 | `tests/integration/methods/test_coverage.py` (`test_coverage_parallel_independent_tests`) | Two single-file tests under `--cov --test --parallel` still succeed (no shared lib) |
 | Same module (`test_coverage_parallel_collection_warns`) | Warning text appears when the run actually enters parallel mode |
-| Same module (`test_coverage_parallel_shared_library_keeps_separate_notes`) | Two tests, one static lib, `--cov --test --parallel`: each prefix has `shared.gcda`, and each coverage JSON reports lines hit |
+| Same module (`test_coverage_shared_library_notes_are_per_test`, serial and parallel) | Two tests, one static lib, one lib function per test: each prefix has its own `shared.gcda`, none is written beside the object, and each report shows only its own lib function executed |
+| Same module (`test_coverage_build_benchmark_uses_per_binary_notes`) | `--cov --benchmark` gets the same per-binary notes and a non-zero report |
+| `tests/unit/test_prepare_env_spawn.py` | `Popen2` `prepare_env` runs on a copy of the chosen env, keeps parent-only variables out unless `inherit_process_env` allows them, and is skipped when no env was chosen; all three runners pass the step only under `cov` |
+| `tests/unit/test_gcov_data.py` | `gcov-data` layout, relocated `.gcda` path, source copy into `gcov-run`, `.gcno` link beside the `.gcda` and its copy fallback |
 
-The shared-lib check is one successful run, not a stress loop. It locks the layout (separate
-notes, non-zero reports), not that a race can never happen.
+The shared-lib check is one successful run, not a stress loop. It proves the notes are per
+test (a shared `.gcda` would show both functions executed in both reports), not that a race
+can never happen elsewhere.
 
 ## Follow-ons (not this cycle)
 
 | ID | Work |
 |----|------|
-| `cov-gcov-prefix` | **In progress** — test/benchmark spawn sets `GCOV_PREFIX`; gcov uses a private `-o` stem (symlinked `.gcno`/`.gcda`) and a private `*.gcov` directory. Shared-library integration fixture checks separate `shared.gcda` and non-zero JSON. Warning stays until that fixture is stable in CI |
+| `cov-gcov-prefix` | **In progress** — test/benchmark spawn sets `GCOV_PREFIX` to `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`. Shared-library integration fixture checks separate `shared.gcda` and non-zero JSON. Warning stays until that fixture is stable in CI |
 | `cov-once-per-test` | Hoist gcovr out of the per-source loop ([`coverage-performance.md`](coverage-performance.md)) |
 | `cov-parallel-gcovr` | gcovr `-j` after notes are isolated or after a serial test pass |
 

@@ -19,6 +19,7 @@ from SCons.Errors import BuildError
 import cuppa.timer
 import cuppa.test_report.cuppa_json
 from cuppa.cpp.terse_test_report import enabled as terse_tests
+from cuppa.cpp.gcov_data import coverage_env_step
 import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
@@ -817,8 +818,7 @@ class RunPatchedBoostTest:
                     env['branch_root'],
                     notifier,
                     preprocess,
-                    env,
-                    source[0],
+                    env
             )
             if terse_tests( env ):
                 from cuppa.cpp.terse_test_report import write_boost_rollup
@@ -852,9 +852,7 @@ class RunPatchedBoostTest:
             raise BuildError( node=source[0], errstr=str( e ) )
 
 
-    def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess, env, program=None ):
-        from cuppa.cpp.gcov_notes import coverage_notes_prefix
-
+    def _run_test( self, program_path, test_command, working_dir, branch_root, notifier, preprocess, env ):
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier, preprocess )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
@@ -865,8 +863,7 @@ class RunPatchedBoostTest:
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
                                                     suppress_output=terse_tests( env ),
-                                                    gcov_notes_prefix=coverage_notes_prefix( env, program ),
-                                                    )
+                                                    prepare_env=coverage_env_step( env, program_path ) )
 
         return return_code, process_stdout.tests()
 
