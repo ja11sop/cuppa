@@ -243,6 +243,68 @@ def test_resolve_minimum_refresh_picks_registry_highest( tmp_path: Path, monkeyp
     assert remembered["widget-core"] == "1.29.1"
 
 
+def test_resolve_minimum_refresh_unverified_reuses_cache( tmp_path, monkeypatch, caplog ):
+    from cuppa.package_managers import gitlab_latest as gl
+
+    pkg = tmp_path / "packages" / "widget-core" / "1.28.0"
+    pkg.mkdir( parents=True )
+    env = { "offline": False, "downloads_root": str( tmp_path ) }
+
+    def boom( *args, **kwargs ):
+        raise gl.GitlabLatestError( "HTTP 401", status=401, reason="Unauthorized" )
+
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab_latest.list_generic_package_versions",
+            boom,
+    )
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab_latest.stored_registry_latest",
+            lambda *a, **k: None,
+    )
+    remembered = []
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab_latest.remember_registry_latest",
+            lambda *a, **k: remembered.append( a ),
+    )
+    with caplog.at_level( "WARNING", logger="cuppa" ):
+        assert resolve_bound_to_concrete(
+                env,
+                parse_version_bound( ">=1.28.0" ),
+                registry="https://gitlab.example/api/v4/projects/1",
+                package="widget-core",
+                dependency_name="widget_package",
+                force_refresh=True,
+        ) == "1.28.0"
+        assert remembered == []
+        assert "widget_package" in caplog.text
+        assert "HTTP 401 - unauthorized" in caplog.text
+        assert "1.28.0" in caplog.text
+
+
+def test_resolve_minimum_refresh_not_found_does_not_reuse_cache( tmp_path, monkeypatch ):
+    from cuppa.package_managers import gitlab_latest as gl
+
+    pkg = tmp_path / "packages" / "widget-core" / "1.28.0"
+    pkg.mkdir( parents=True )
+    env = { "offline": False, "downloads_root": str( tmp_path ) }
+
+    def boom( *args, **kwargs ):
+        raise gl.GitlabLatestError( "HTTP 404", status=404 )
+
+    monkeypatch.setattr(
+            "cuppa.package_managers.gitlab_latest.list_generic_package_versions",
+            boom,
+    )
+    with pytest.raises( SCons.Errors.StopError ):
+        resolve_bound_to_concrete(
+                env,
+                parse_version_bound( ">=1.28.0" ),
+                registry="https://gitlab.example/api/v4/projects/1",
+                package="widget-core",
+                force_refresh=True,
+        )
+
+
 def test_resolve_exact_returns_pin_without_list( monkeypatch ):
     env = { "offline": False }
 

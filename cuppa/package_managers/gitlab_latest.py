@@ -17,8 +17,9 @@ under ``gitlab_package_latest_*`` (key suffix hashes ``registry|package``). Conf
 follows downloads-root scoping — project ``configure.conf`` when downloads live under the
 project, else ``~/.cuppaconfig`` — same model as source Boost ``boost_latest_version``.
 Offline replays that pin; missing archive fails (no silent older fallback).
-Online consume: a network failure with a remembered pin warns and reuses it
-instead of stopping configure.
+Online consume: a failed check (DNS, connection, HTTP 401/403/5xx) with a
+remembered pin whose extract is on disk warns and reuses that pin. The pin
+is not updated. 404, a missing extract, and publish stay hard stops.
 """
 
 from __future__ import print_function
@@ -36,7 +37,7 @@ except ImportError:  # pragma: no cover - Python 2
     from urllib import urlencode
     from urllib2 import Request, urlopen, HTTPError, URLError
 
-from cuppa.colourise import as_info, as_notice, as_warning
+from cuppa.colourise import as_info, as_notice, as_warning, colouriser
 from cuppa.configure import global_config_path, read_setting, upsert_setting
 from cuppa.log import logger
 from cuppa.package_managers.gitlab import registry_auth_headers
@@ -45,14 +46,35 @@ from cuppa.package_managers.gitlab import registry_auth_headers
 class GitlabLatestError( Exception ):
     """Configure-time failure resolving registry latest."""
 
-    def __init__( self, message ):
+    def __init__( self, message, status=None, reason=None ):
         Exception.__init__( self, message )
         self.parameter = message
+        self.status = status
+        self.reason = reason
 
 
 class GitlabLatestNetworkError( GitlabLatestError ):
     """Registry list failed because the network was unreachable."""
     pass
+
+
+def registry_failure_is_unverified( error ):
+    """True when the list did not run, as opposed to a definite registry answer.
+
+    401 and 403 are an expired or under-scoped token. 5xx and a connection
+    failure are the host. 404 is a real answer (wrong project or package name)
+    and is not unverified.
+    """
+    if isinstance( error, GitlabLatestNetworkError ):
+        return True
+    status = getattr( error, "status", None )
+    try:
+        status = int( status )
+    except ( TypeError, ValueError ):
+        return False
+    if status in ( 401, 403 ):
+        return True
+    return status >= 500
 
 
 def package_version_sort_key( version ):
@@ -232,12 +254,16 @@ def list_generic_package_versions( registry, package_name, custom_token=None, op
         try:
             payload = fetch( url, headers )
         except HTTPError as error:
+            status = getattr( error, 'code', None )
+            reason = getattr( error, 'msg', None ) or getattr( error, 'reason', None )
             raise GitlabLatestError(
                     "GitLab Packages API failed for [{}] (HTTP {}): {}".format(
                             package_name,
-                            getattr( error, 'code', '?' ),
+                            status if status is not None else '?',
                             error,
-                    )
+                    ),
+                    status=status,
+                    reason=reason,
             )
         except URLError as error:
             raise GitlabLatestNetworkError(
@@ -281,13 +307,112 @@ def list_generic_package_versions( registry, package_name, custom_token=None, op
     return versions
 
 
-def _terse_version_row( env, token, remark, status="ok" ):
+def package_pin_tree_exists( env, package, version ):
+    """True when an extract of this pin exists under the dependencies root.
+
+    Extracts are ``<dependencies>/<toolchain_variant>/<package>/<version>``.
+    Latest is often resolved before a variant env exists, so any toolchain's
+    non-empty extract of that pin counts. A conf pin whose directory was
+    removed does not.
+    """
+    root = None
+    if hasattr( env, "get" ):
+        root = env.get( "dependencies_root" )
+    if not root or not package or not version:
+        return False
+    root = os.path.abspath( str( root ) )
+    if not os.path.isdir( root ):
+        return False
+    package = str( package )
+    version = str( version )
+    downloads = env.get( "downloads_root" )
+    downloads = os.path.abspath( str( downloads ) ) if downloads else None
+    try:
+        names = os.listdir( root )
+    except OSError:
+        return False
+    for name in names:
+        if name in ( "packages", ".", ".." ):
+            continue
+        candidate = os.path.join( root, name, package, version )
+        if not os.path.isdir( candidate ):
+            continue
+        if downloads and _path_within( candidate, downloads ):
+            continue
+        try:
+            if os.listdir( candidate ):
+                return True
+        except OSError:
+            continue
+    return False
+
+
+def _path_within( path, root ):
+    try:
+        return os.path.commonpath( [ os.path.abspath( path ), root ] ) == root
+    except ValueError:
+        return False
+
+
+def _unverified_detail( error ):
+    status = getattr( error, "status", None )
+    if not status:
+        return "registry unreachable"
+    reason = getattr( error, "reason", None )
+    if reason is not None:
+        text = str( reason ).strip().lower()
+        if text and not text.isdigit():
+            return "HTTP {} - {}".format( status, text )
+    return "HTTP {}".format( status )
+
+
+def _unverified_label():
+    """``unverified`` on the warning background, in the terminal's own ink.
+
+    Not a bold chip: no bright style, and no forced white foreground.
+    """
+    text = "unverified"
+    if not colouriser.use_colour:
+        return text
+    import colorama
+    return colorama.Back.MAGENTA + text + colorama.Style.RESET_ALL
+
+
+def reuse_unverified_pin( env, token, package, stored, error ):
+    """Warn and reuse ``stored``. Does not write a new pin.
+
+    ``--terse-output`` already prints a durable ``[version]`` row. The logger
+    warning is the normal-output form of that same decision, not a second note.
+    """
+    detail = _unverified_detail( error )
+    if not _terse_version_row(
+            env, token, "",
+            status="warn",
+            fields=(
+                    _unverified_label(),
+                    as_warning( "using remembered {}".format( stored ) ),
+            ),
+    ):
+        logger.warn(
+                "Asked for latest version for [{}] but the registry was not verified: "
+                "error was [{}]. This build is using the remembered version [{}], "
+                "which might not be the latest.".format(
+                        as_warning( str( token ) ),
+                        as_warning( detail ),
+                        as_warning( str( stored ) ),
+                )
+        )
+    return str( stored )
+
+
+def _terse_version_row( env, token, remark, status="ok", fields=() ):
     """``→ [version]  <boost_package> · latest · retrieved as 1.92``."""
     if not token:
         return False
     import cuppa.progress
     return cuppa.progress.write_terse_resolve_child(
-            env, "version", token, "latest", status=status, remark=remark,
+            env, "version", token, "latest", *fields,
+            status=status, remark=remark,
     )
 
 
@@ -297,9 +422,11 @@ def resolve_latest_package_version(
 ):
     """Resolve registry latest for ``package``; remember on success; offline uses cache.
 
-    Raises :class:`GitlabLatestError` when no version can be chosen. A network
-    failure (DNS, connection) with a remembered pin warns and reuses that pin
-    unless ``allow_remembered_on_network_error`` is false (publish).
+    Raises :class:`GitlabLatestError` when no version can be chosen. A failed
+    check (DNS, connection, HTTP 401/403/5xx) warns and reuses a remembered pin
+    when that pin's extract is on disk, unless
+    ``allow_remembered_on_network_error`` is false (publish). The pin is not
+    updated. HTTP 404 stays a hard error.
     """
     token = dependency_name or package
     offline = bool( env[ 'offline' ] ) if hasattr( env, '__contains__' ) and 'offline' in env else False
@@ -332,24 +459,15 @@ def resolve_latest_package_version(
         versions = list_generic_package_versions(
                 registry, package, custom_token=custom_token, opener=opener
         )
-    except GitlabLatestNetworkError as error:
+    except GitlabLatestError as error:
         stored = stored_registry_latest( env, registry, package )
-        if allow_remembered_on_network_error and stored:
-            if not _terse_version_row(
-                    env, token,
-                    "retrieve failed, using remembered {}".format( stored ),
-                    status="warn",
-            ):
-                logger.warn(
-                        "Could not reach the GitLab registry for package [{}]: {}. "
-                        "Using remembered registry latest [{}]. "
-                        "Pass --offline to skip the probe.".format(
-                                as_warning( str( package ) ),
-                                as_warning( str( error ) ),
-                                as_info( str( stored ) ),
-                        )
-                )
-            return str( stored )
+        if (
+                allow_remembered_on_network_error
+                and registry_failure_is_unverified( error )
+                and stored
+                and package_pin_tree_exists( env, package, stored )
+        ):
+            return reuse_unverified_pin( env, token, package, stored, error )
         _terse_version_row(
                 env, token, "error: retrieve failed, no version available",
                 status="error",

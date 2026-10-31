@@ -302,8 +302,9 @@ def resolve_bound_to_concrete(
     import SCons.Errors
     from cuppa.package_managers.gitlab_latest import (
             GitlabLatestError,
-            GitlabLatestNetworkError,
+            reuse_unverified_pin,
             list_generic_package_versions,
+            registry_failure_is_unverified,
             remember_registry_latest,
             stored_registry_latest,
     )
@@ -362,15 +363,16 @@ def resolve_bound_to_concrete(
         versions = list_generic_package_versions(
                 registry, package, custom_token=custom_token, opener=opener
         )
-    except GitlabLatestNetworkError as error:
-        if local_pick:
-            return local_pick
-        raise SCons.Errors.StopError(
-                "Cannot list registry versions for package [{}] to satisfy "
-                "[{}]: {}".format( package, bound.display(), error )
-        ) from error
     except GitlabLatestError as error:
-        if local_pick:
+        if local_pick and registry_failure_is_unverified( error ):
+            return reuse_unverified_pin(
+                    env,
+                    dependency_name or package,
+                    package,
+                    local_pick,
+                    error,
+            )
+        if local_pick and getattr( error, "status", None ) != 404:
             return local_pick
         raise SCons.Errors.StopError(
                 "Cannot list registry versions for package [{}] to satisfy "

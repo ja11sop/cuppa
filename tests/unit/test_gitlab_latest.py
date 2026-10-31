@@ -161,20 +161,220 @@ def test_resolve_latest_offline_without_memory_fails():
         )
 
 
-def test_resolve_latest_network_failure_uses_remembered( tmp_path, monkeypatch ):
+def _plant_extract( root, package, version ):
+    path = root / 'gcc15_rel_x86_64_cxx2c' / package / version
+    path.mkdir( parents=True )
+    ( path / 'payload.hpp' ).write_text( 'ok', encoding='utf-8' )
+    return path
+
+
+def test_package_pin_tree_ignores_download_cache( tmp_path ):
+    deps = tmp_path / 'dependencies'
+    archive = deps / 'packages' / 'boost' / '1.92'
+    archive.mkdir( parents=True )
+    ( archive / 'boost.tar.gz' ).write_bytes( b'x' )
+    env = FakeEnv( dependencies_root=str( deps ), downloads_root=str( deps ) )
+    assert gl.package_pin_tree_exists( env, 'boost', '1.92' ) is False
+
+
+def test_resolve_latest_network_failure_uses_remembered( tmp_path, monkeypatch, caplog ):
     conf = str( tmp_path / 'configure.conf' )
     monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
     registry = 'https://gitlab.example/api/v4/projects/1'
     key = gl.registry_latest_conf_key( registry, 'widget' )
     gl.upsert_setting( conf, key, repr( '1.10' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'widget', '1.10' )
+    remembered = []
+    monkeypatch.setattr(
+            gl, 'remember_registry_latest',
+            lambda *args, **kwargs: remembered.append( args ),
+    )
 
     def opener( url, headers ):
         raise gl.URLError( 'Temporary failure in name resolution' )
 
-    env = FakeEnv( offline=False )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with caplog.at_level( 'WARNING', logger='cuppa' ):
+        assert gl.resolve_latest_package_version(
+                env, registry=registry, package='widget',
+                opener=opener, dependency_name='widget_package',
+        ) == '1.10'
+        assert remembered == []
+        assert 'widget_package' in caplog.text
+        assert 'registry unreachable' in caplog.text
+        assert '1.10' in caplog.text
+        assert 'might not be the latest' in caplog.text
+
+
+def test_resolve_latest_network_failure_without_extract_fails( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'widget' )
+    gl.upsert_setting( conf, key, repr( '1.10' ) )
+    deps = tmp_path / 'dependencies'
+    empty = deps / 'gcc15_rel_x86_64_cxx2c' / 'widget' / '1.10'
+    empty.mkdir( parents=True )
+
+    def opener( url, headers ):
+        raise gl.URLError( 'Temporary failure in name resolution' )
+
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with pytest.raises( gl.GitlabLatestNetworkError ):
+        gl.resolve_latest_package_version(
+                env, registry=registry, package='widget', opener=opener,
+        )
+
+
+def _http_opener( code, msg='nope' ):
+    def opener( url, headers ):
+        raise gl.HTTPError( url, code, msg, {}, None )
+    return opener
+
+
+def test_resolve_latest_auth_failure_uses_remembered_extract( tmp_path, monkeypatch, caplog ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'boost', '1.92' )
+    remembered = []
+    monkeypatch.setattr(
+            gl, 'remember_registry_latest',
+            lambda *args, **kwargs: remembered.append( args ),
+    )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with caplog.at_level( 'WARNING', logger='cuppa' ):
+        assert gl.resolve_latest_package_version(
+                env, registry=registry, package='boost',
+                opener=_http_opener( 401, 'Unauthorized' ),
+                dependency_name='boost_package',
+        ) == '1.92'
+        assert remembered == []
+        assert 'boost_package' in caplog.text
+        assert 'HTTP 401 - unauthorized' in caplog.text
+        assert '1.92' in caplog.text
+
+
+def test_resolve_latest_unverified_terse_does_not_also_warn(
+        tmp_path, monkeypatch, caplog,
+):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'boost', '1.92' )
+    seen = {}
+
+    def row( env, token, remark, status="ok", fields=() ):
+        seen["remark"] = remark
+        seen["status"] = status
+        seen["fields"] = fields
+        return True
+
+    monkeypatch.setattr( gl, '_terse_version_row', row )
+    # CI has no registry token. Listing still logs that before the opener runs.
+    # The contract is that the terse row is not followed by the logger warning.
+    monkeypatch.delenv( 'GITLAB_REGISTRY_TOKEN', raising=False )
+    monkeypatch.delenv( 'CI_JOB_TOKEN', raising=False )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with caplog.at_level( 'WARNING', logger='cuppa' ):
+        assert gl.resolve_latest_package_version(
+                env, registry=registry, package='boost',
+                opener=_http_opener( 401, 'Unauthorized' ),
+        ) == '1.92'
+        assert 'was not verified' not in caplog.text
+        assert 'using the remembered version' not in caplog.text
+    assert seen["status"] == "warn"
+    assert seen["remark"] == ""
+    assert seen["fields"] == (
+            gl._unverified_label(),
+            gl.as_warning( "using remembered 1.92" ),
+    )
+
+
+def test_unverified_label_uses_warn_background_and_normal_foreground():
+    import colorama
+
+    was = gl.colouriser.use_colour
+    gl.colouriser.enable()
+    try:
+        label = gl._unverified_label()
+    finally:
+        gl.colouriser.use_colour = was
+    assert label.startswith( colorama.Back.MAGENTA )
+    assert label.endswith( colorama.Style.RESET_ALL )
+    assert "unverified" in label
+    assert colorama.Style.BRIGHT not in label
+    assert colorama.Fore.WHITE not in label
+
+
+def test_resolve_latest_server_error_uses_remembered_extract( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'boost', '1.92' )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
     assert gl.resolve_latest_package_version(
-            env, registry=registry, package='widget', opener=opener,
-    ) == '1.10'
+            env, registry=registry, package='boost', opener=_http_opener( 503 ),
+    ) == '1.92'
+
+
+def test_resolve_latest_not_found_does_not_reuse_extract( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'boost', '1.92' )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with pytest.raises( gl.GitlabLatestError ) as caught:
+        gl.resolve_latest_package_version(
+                env, registry=registry, package='boost', opener=_http_opener( 404 ),
+        )
+    assert caught.value.status == 404
+
+
+def test_resolve_latest_auth_failure_without_extract_fails( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    env = FakeEnv( offline=False, dependencies_root=str( tmp_path / 'dependencies' ) )
+    with pytest.raises( gl.GitlabLatestError ) as caught:
+        gl.resolve_latest_package_version(
+                env, registry=registry, package='boost', opener=_http_opener( 401 ),
+        )
+    assert caught.value.status == 401
+
+
+def test_resolve_latest_auth_failure_does_not_recover_for_publish( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    key = gl.registry_latest_conf_key( registry, 'boost' )
+    gl.upsert_setting( conf, key, repr( '1.92' ) )
+    deps = tmp_path / 'dependencies'
+    _plant_extract( deps, 'boost', '1.92' )
+    env = FakeEnv( offline=False, dependencies_root=str( deps ) )
+    with pytest.raises( gl.GitlabLatestError ):
+        gl.resolve_latest_package_version(
+                env,
+                registry=registry,
+                package='boost',
+                opener=_http_opener( 401 ),
+                allow_remembered_on_network_error=False,
+        )
 
 
 def test_resolve_latest_network_failure_without_memory_fails():
