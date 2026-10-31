@@ -158,6 +158,7 @@ class IncrementalSubProcess:
             suppress_output = kwargs['suppress_output']
             del kwargs['suppress_output']
         keep_heartbeat = bool( kwargs.pop( 'keep_heartbeat', False ) )
+        prepare_env = kwargs.pop( 'prepare_env', None )
 
         use_shell = False
         inherit_process_env = kwargs.pop( 'inherit_process_env', None )
@@ -175,6 +176,12 @@ class IncrementalSubProcess:
                         scons_env=scons_env,
                         inherit_process_env=inherit_process_env,
                     )
+
+        # A caller step over the environment chosen above (construction ENV,
+        # inherit policy, or an explicit env=). It sees a copy and never widens
+        # the choice: with no env dict the subprocess default is left alone.
+        if prepare_env and kwargs.get( 'env' ) is not None:
+            kwargs['env'] = prepare_env( dict( kwargs['env'] ) )
 
         held_heartbeat = False
         try:

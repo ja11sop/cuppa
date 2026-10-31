@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -190,6 +191,116 @@ def test_coverage_parallel_collection_warns(tmp_path):
         assert PARALLEL_COVERAGE_COLLECTION_WARNING in result.stdout
     else:
         assert PARALLEL_COVERAGE_COLLECTION_WARNING not in result.stdout
+
+
+def _shared_library_project(tmp_path):
+    """Two tests, one static library, one library function per test.
+
+    Coverage is collected over the library source as well as the test source,
+    so each test's report says which library function that test ran. If the
+    two processes shared one ``.gcda``, both reports would show both functions.
+    """
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    lib_dir = Path(project) / "lib"
+    lib_dir.mkdir()
+    (lib_dir / "shared.hpp").write_text(
+        "int used_by_alpha();\nint used_by_beta();\n",
+        encoding="utf-8",
+    )
+    (lib_dir / "shared.cpp").write_text(
+        "int used_by_alpha()\n{\n    return 1;\n}\n"
+        "int used_by_beta()\n{\n    return 2;\n}\n",
+        encoding="utf-8",
+    )
+    for name, call, value in (("alpha_cov", "used_by_alpha", 1), ("beta_cov", "used_by_beta", 2)):
+        (Path(project) / "tests" / (name + ".cpp")).write_text(
+            '#include "../lib/shared.hpp"\n'
+            "int main() {{ return {}() == {} ? 0 : 1; }}\n".format(call, value),
+            encoding="utf-8",
+        )
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "lib = env.BuildStaticLib('shared_cov', 'lib/shared.cpp')\n"
+        "for name in ('alpha_cov', 'beta_cov'):\n"
+        "    sources = ['tests/{}.cpp'.format(name)]\n"
+        "    prog = env.Build(name, sources, LIBS=lib)\n"
+        "    test = env.Test(prog)\n"
+        "    cov = env.Coverage(prog, sources + ['lib/shared.cpp'])\n"
+        "    env.Depends(cov, test)\n",
+    )
+    return project
+
+
+def _library_function_counts(project, program):
+    reports = list(Path(project).glob("_build/**/final/coverage--{}.json".format(program)))
+    assert len(reports) == 1, reports
+    payload = json.loads(reports[0].read_text(encoding="utf-8"))
+    counts = {}
+    for item in payload["files"]:
+        if item["file"].replace("\\", "/").endswith("lib/shared.cpp"):
+            for function in item["functions"]:
+                for name in ("used_by_alpha", "used_by_beta"):
+                    if name in function["name"]:
+                        counts[name] = function["execution_count"]
+    assert set(counts) == {"used_by_alpha", "used_by_beta"}, payload
+    return counts
+
+
+@pytest.mark.parametrize("parallel", [False, True], ids=["serial", "parallel"])
+def test_coverage_shared_library_notes_are_per_test(tmp_path, parallel):
+    """Each test's ``.gcda`` for a shared library is its own (``GCOV_PREFIX``).
+
+    The prefix is always on under ``--cov``, so serial collection takes the
+    same path. Sconscript-owned fixtures (a port, a database) are out of scope.
+    """
+    _skip_if_no_gcov_coverage()
+
+    project = _shared_library_project(tmp_path)
+    flags = ["--cov", "--test"] + (["--parallel"] if parallel else [])
+    result = run_cuppa(project, *flags, timeout=300)
+    assert_success(result)
+
+    notes = [
+        path for path in Path(project).glob("_build/**/gcov-data/*/**/shared.gcda")
+        if "gcov-run" not in path.parts
+    ]
+    owners = sorted(
+        path.parts[path.parts.index("gcov-data") + 1] for path in notes
+    )
+    assert owners == ["alpha_cov", "beta_cov"], notes
+    beside_object = [
+        path for path in Path(project).glob("_build/**/shared.gcda")
+        if "gcov-data" not in path.parts
+    ]
+    assert beside_object == [], "the library .gcda must not be written beside its object"
+
+    alpha = _library_function_counts(project, "alpha_cov")
+    beta = _library_function_counts(project, "beta_cov")
+    assert alpha["used_by_alpha"] == 1 and alpha["used_by_beta"] == 0, alpha
+    assert beta["used_by_beta"] == 1 and beta["used_by_alpha"] == 0, beta
+
+
+def test_coverage_build_benchmark_uses_per_binary_notes(tmp_path):
+    """Benchmarks share the test runners, so they get the same note isolation."""
+    _skip_if_no_gcov_coverage()
+
+    project = copy_dummy_project(tmp_path)
+    write_sconstruct(project)
+    write_sconscript(
+        project,
+        "Import('env')\n"
+        "env.BuildBenchmark('noop_bench', 'benches/noop_bench.cpp')\n",
+    )
+    result = run_cuppa(project, "--cov", "--benchmark", timeout=300)
+    assert_success(result)
+
+    assert list(Path(project).glob("_build/**/gcov-data/noop_bench/**/noop_bench.gcda"))
+    reports = list(Path(project).glob("_build/**/final/coverage--noop_bench.json"))
+    assert len(reports) == 1, reports
+    payload = json.loads(reports[0].read_text(encoding="utf-8"))
+    assert any(line["count"] > 0 for item in payload["files"] for line in item["lines"]), payload
 
 
 def test_coverage_parallel_compile_only_does_not_warn(tmp_path):

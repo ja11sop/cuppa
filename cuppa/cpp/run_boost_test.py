@@ -18,6 +18,7 @@ from SCons.Errors import BuildError
 import cuppa.timer
 import cuppa.test_report.cuppa_json
 from cuppa.cpp.terse_test_report import enabled as terse_tests
+from cuppa.cpp.gcov_data import coverage_env_step
 import cuppa.build_platform
 import cuppa.utility.preprocess
 from cuppa.output_processor import IncrementalSubProcess
@@ -807,7 +808,8 @@ class RunBoostTest:
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ) )
+                                                    suppress_output=terse_tests( env ),
+                                                    prepare_env=coverage_env_step( env, program_path ) )
 
         return return_code, process_stdout.tests()
 

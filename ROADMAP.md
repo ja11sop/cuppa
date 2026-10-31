@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-30
+**As of:** 2026-10-31
 
 ---
 
@@ -25,7 +25,7 @@ Minor cycle after **1.13.0**. No single opener locked yet — pick up the
 | Cascade option-compat / early refuse | **Carry-forward** — soak leftover `opt-compat-early`; [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Candidate** — [`deep-clean.md`](design/plans/deep-clean.md); removal Phase 6 |
-| Coverage parallel (`GCOV_PREFIX`) | **Candidate** — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| Coverage parallel (`GCOV_PREFIX`) | **In progress** — per-test notes and private `*.gcov` dir; warning remains — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
@@ -473,7 +473,7 @@ another project is unconfirmed.
 | `cov-union-incremental` | Cache the union on JSON mtime / size and skip unchanged work | Medium | Biggest win on repeat runs |
 | `cov-branch-index` | Group branches by line once rather than scanning per line | Low | Removes an O(lines × branches) scan |
 | `cov-second-project-ab` | Repeat the A/B measurement on the project the regression was reported from (**project B**) | High | Fewer, larger test binaries and much longer coverage runs than project A |
-| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | Later | Required before `--cov --test --parallel` can be correct; see [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
+| `cov-gcov-prefix` | Per-test `GCOV_PREFIX` so parallel tests do not share `.gcda` | In progress | Test/benchmark spawn sets `gcov-data/{program}`; `gcov` runs in `gcov-run` with the `.gcno` linked beside that `.gcda`; warning not dropped yet — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 
 ### Out of scope (coverage)
 
@@ -481,7 +481,7 @@ another project is unconfirmed.
 |----|------|--------|
 | `cov-by-source-flag` | A permanent flag to disable by-source reporting | Measurement does not support it; make the report cheap instead. The temporary `--cov-by-source` used for the experiment has been reverted |
 | `cov-msvc` | Coverage on MSVC | gcov-based; GCC and Clang only |
-| `cov-parallel-collect` | Treat `--cov --test --parallel` as a supported correct mode | Shared `.gcda` / gcov races; 1.9.1 warns instead ([#236](https://github.com/ja11sop/cuppa/issues/236)) |
+| `cov-parallel-collect` | Treat `--cov --test --parallel` as a supported correct mode | Warning remains ([#236](https://github.com/ja11sop/cuppa/issues/236)); `GCOV_PREFIX` is in progress, sconscript fixtures and gcovr overlap are not |
 
 ---
 

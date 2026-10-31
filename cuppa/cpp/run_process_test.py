@@ -19,6 +19,7 @@ import cuppa.timer
 import cuppa.progress
 import cuppa.test_report.cuppa_json
 from cuppa.cpp.terse_test_report import enabled as terse_tests
+from cuppa.cpp.gcov_data import coverage_env_step
 from cuppa.output_processor import IncrementalSubProcess
 from cuppa.colourise import as_emphasised, as_highlighted, as_colour, as_error, as_notice
 from cuppa.log import logger
@@ -469,7 +470,8 @@ class RunProcessTest(object):
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ))
+                                                    suppress_output=terse_tests( env ),
+                                                    prepare_env=coverage_env_step( env, program_path ) )
         return return_code
 
 

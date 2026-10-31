@@ -35,6 +35,7 @@ import cuppa.path
 
 from cuppa.utility.python2to3 import Pattern
 from cuppa.cpp.coverage_by_source import generate_by_source_coverage, sanitized_toolchain_dirname
+from cuppa.cpp.gcov_data import coverage_data_dir, gcov_run_dir, stage_gcno, stage_gcov_source
 from six.moves import zip_longest
 
 url_block_sep = '--'
@@ -266,6 +267,9 @@ class RunGcovCoverageEmitter(object):
             gcda_file = os.path.splitext( source_file )[0] + '.gcda'
             logger.trace( "gcov data paths = [{}] and [{}]".format( as_notice(gcno_file), as_notice(gcda_file) ) )
             env.Clean( source_file, [gcno_file, gcda_file] )
+            data_dir = coverage_data_dir( env, self._program[0] )
+            if data_dir:
+                env.Clean( source_file, data_dir )
 
             gcov_log = source_file + self._program_id + '_gcov.log'
             logger.trace( "Adding target gcov_log = [{}]".format( as_notice(gcov_log) ) )
@@ -376,17 +380,26 @@ class RunGcovCoverage(object):
         if self._coverage_tool.startswith( "llvm-cov" ):
             relative_only = ""
 
-        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=gcov_path, relative=relative_only, source=source_path )
+        gcov_cwd = working_dir
+        gcov_output_dir = ""
+        object_path = gcov_path
+        data_dir = coverage_data_dir( env, self._program[0] )
+        if data_dir:
+            gcov_cwd = gcov_output_dir = gcov_run_dir( data_dir )
+            stage_gcov_source( gcov_cwd, source_path )
+            object_path = stage_gcno( gcov_path, data_dir )
 
-        return_code, output = run_command( command, working_dir, env )
+        command = '{gcov} -o {path} -l -p {relative} -c -b {source}'.format( gcov=self._coverage_tool, path=object_path, relative=relative_only, source=source_path )
+
+        return_code, output = run_command( command, gcov_cwd, env )
 
         if return_code == 0:
             gcov_source_path = source_path.replace( os.path.sep, '#' )
-            gcov_files = glob.glob( gcov_source_path + '*gcov' )
+            gcov_files = glob.glob( os.path.join( gcov_output_dir, gcov_source_path + '*gcov' ) )
 
             for gcov_file in gcov_files:
 
-                filename, ext = os.path.splitext( str(gcov_file) )
+                filename, ext = os.path.splitext( os.path.basename( str(gcov_file) ) )
                 filename = filename + self._program_id + ext
                 new_filename = filename[len(qualified_base)+1:]
 
