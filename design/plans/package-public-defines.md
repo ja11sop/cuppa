@@ -1,11 +1,13 @@
 # Note: BuildWith should apply a package's public compile defines
 
-- **Status:** in progress
-- **Related:** [`gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md) (Compile defines / flags — deferred `cppdefines` behind pkg-config); [`package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc) (Pkg-config)
-- **Updated:** 2026-10-31
+- **Status:** done
+- **Related:** [`gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md) (Compile defines / flags — deferred `cppdefines` behind pkg-config); [`package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc) (Pkg-config); [#388](https://github.com/ja11sop/cuppa/pull/388)
+- **Updated:** 2026-11-01
 - **Impact:** `minor` — traveling manifest gains `public_defines`, `library_prefix`, and `pkg_config_dir`
 
-## What already travels
+Done in [#388](https://github.com/ja11sop/cuppa/pull/388). Ships with 1.14.0. The notes below are the record of the gap.
+
+## What already travelled
 
 `BuildWith` on a GitLab package already applies package knowledge:
 
@@ -13,7 +15,7 @@
 - libraries, from `use_libs`, `default_use_libs`, and `lib_groups`
 - link paths and runtime search path
 
-It does **not** apply the package's public compile defines. `cuppa-publish.json` has no such field. The only general path is opt-in: the consumer sets `pkg_config_dir`, and `use_libs` then runs `pkg-config --libs --cflags`. Boost defines (`BOOST_PARAMETER_MAX_ARITY`, patched test, and the rest) are a special case inside `boost_package`, not the generic package.
+It did **not** apply the package's public compile defines. `cuppa-publish.json` had no such field. The only general path was opt-in: the consumer set `pkg_config_dir`, and `use_libs` then ran `pkg-config --libs --cflags`. Boost defines (`BOOST_PARAMETER_MAX_ARITY`, patched test, and the rest) are a special case inside `boost_package`, not the generic package.
 
 The lib-groups plan recorded this and left traveling `cppdefines` as an optional follow-on, with `.pc` files as the supported escape hatch. That note is easy to miss, and the date package shows why `.pc` is not enough.
 
