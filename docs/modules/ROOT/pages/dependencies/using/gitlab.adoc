@@ -259,31 +259,83 @@ When ``default_use_libs`` is omitted, Cuppa may apply a narrow heuristic: a sing
 linkable stem, or one stem matching the package slug / BuildWith name; otherwise it links
 nothing. Prefer publishing explicit metadata.
 
-==== Pkg-config (defines and cflags)
+==== Public compile defines
 
-GitLab packages do **not** carry compile defines in ``cuppa-publish.json``.
-When a package needs extra ``-D`` defines or other cflags alongside linking,
-ship ``.pc`` files in the archive and point the dependency at them:
+The package carries one list of public compile defines. ``BuildWith`` applies
+that list as ``CPPDEFINES`` when it adds the package headers. ``use_libs``
+does not add or remove them, including ``use_libs([])``. A consumer can
+change ``CPPDEFINES`` afterwards.
+
+Write the list on the publisher when the package is not built with CMake:
 
 [source,python]
 ----
-widget = cuppa.package_dependency(
-    'widget',
-    registry       = 'https://gitlab.example.com/api/v4/projects/123',
-    package        = 'widget',
-    version        = '1.2.3',
-    pkg_config_dir = 'lib/pkgconfig',   # relative to the extracted package root
+public_defines = [ 'WIDGET_HAS_TLS=1' ]
+----
+
+When the package is installed with CMake, do not copy the defines into the
+sconscript. Pass the marker and publish asks CMake, after install, for each
+imported target's ``INTERFACE_COMPILE_DEFINITIONS`` (including defines that
+arrive through ``INTERFACE_LINK_LIBRARIES``):
+
+[source,python]
+----
+from cuppa.buildsys.cmake import cmake_public_defines
+
+publisher = GitlabPackagePublisher(
+    env,
+    # ...
+    public_defines = cmake_public_defines(),
 )
 ----
 
-With ``pkg_config_dir`` set, ``use_libs`` / defaults run
-``pkg-config --libs --cflags`` through SCons ``ParseConfig`` for the requested
-stems (including any ``-D`` entries in the ``.pc``). Without it, Cuppa links
-resolved static/shared artefacts under ``lib/`` and adds includes only.
+``[]`` publishes none. Omitting the argument publishes none; it does not
+guess. The answer is stored as a list:
 
-Installed ``.pc`` files that embed an absolute install prefix are an upstream packaging
-issue; Cuppa does not rewrite them. Prefer relocatable ``.pc`` data, or
-``use_libs`` / ``default_use_libs`` when you only need stems and headers.
+[source,json]
+----
+"public_defines": ["USE_OS_TZDB=1", "ONLY_C_LOCALE=0", "HAS_STRING_VIEW=1"]
+----
+
+==== Pkg-config (defines and cflags)
+
+Pkg-config remains valid when a package ships a usable ``.pc``. It is not
+how ``public_defines`` is filled.
+When a package needs other cflags alongside linking, publish the directory
+that holds the ``.pc`` files. The path is relative to the package root, and
+it is written even when that path is ``lib/pkgconfig``. A missing key means
+do not run pkg-config.
+
+[source,python]
+----
+publisher = GitlabPackagePublisher(
+    env,
+    # ...
+    pkg_config_dir = 'lib/pkgconfig',
+)
+----
+
+[source,json]
+----
+"pkg_config_dir": "lib/pkgconfig"
+----
+
+A consumer ``pkg_config_dir`` replaces the published directory. ``""`` turns
+pkg-config off for that dependency. With a directory in force, ``use_libs`` /
+defaults run ``pkg-config --libs --cflags`` through SCons ``ParseConfig`` for
+the requested stems (including any ``-D`` entries in the ``.pc``). Without
+one, Cuppa links resolved static/shared artefacts under ``lib/`` and adds
+includes only.
+
+``CMakeInstall`` rewrites ``*.pc`` files under the install prefix so
+``prefix=${pcfiledir}/...`` and paths under that prefix use ``${prefix}``.
+The extract can move without those files still pointing at the build
+machine. A prefix outside the package tree is left alone. A file that
+already uses ``${pcfiledir}`` is left alone. A tree that was not installed
+by CMake can call ``env.RelocatePkgConfig(source, prefix=...)``.
+Consume does not rewrite: a published ``.pc`` that still has an absolute
+prefix keeps that path. Use ``use_libs`` / ``default_use_libs`` when you
+only need stems and headers.
 
 To link every static or shared library present under a GitLab package's ``lib/`` directory,
 call ``use_all_libs()`` (do not pass an empty ``use_libs([])`` when you mean “all” — empty
@@ -329,7 +381,8 @@ expanded leaves plus any ungrouped linkable stems under ``lib/``.
 
 A published GitLab archive includes ``cuppa-publish.json`` next to ``include/`` and
 ``lib/`` (identity, dependency edges including ``package_source``, optional
-``default_use_libs`` / ``link`` / ``lib_groups``). When you ``BuildWith`` package **A**, Cuppa reads that
+``default_use_libs`` / ``link`` / ``lib_groups`` / ``library_prefix`` /
+``pkg_config_dir`` / ``public_defines``). When you ``BuildWith`` package **A**, Cuppa reads that
 file (if present) and ``BuildWith``s each listed dependency **B** so B's headers (and
 packaged modules) are on the include path. Legacy extracts that only ship
 ``cuppa-dependency.json`` are still read as a fallback. **B**'s ``default_use_libs`` are
@@ -344,6 +397,8 @@ package-level fields on the same publisher / manifest:
 * ``default_use_libs`` — stems (or group tokens) linked on primary BuildWith / auto-enable
 * ``link`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``
 * ``lib_groups`` — mapping of group name → concrete library stems (see above)
+* ``library_prefix`` — prepended to ``use_libs`` stems and ``.pc`` names (``boost_``). A consumer ``library_prefix`` replaces it; ``""`` clears it
+* ``pkg_config_dir`` — directory of ``.pc`` files, relative to the package root (``lib/pkgconfig``, ``share/pkgconfig``). Written whenever the package uses pkg-config. A missing key does not mean ``lib/pkgconfig``. A consumer ``pkg_config_dir`` replaces it; ``""`` turns pkg-config off
 
 Publishers always stage ``cuppa-publish.json`` (at least ``package`` / ``version``).
 Omit ``dependencies`` / ``default_use_libs`` / ``link`` when the package is standalone

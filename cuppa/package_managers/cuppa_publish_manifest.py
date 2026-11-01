@@ -11,7 +11,8 @@
 
 See ``design/archive/package-build-publish-deps.md``. This is the single traveling
 package SoT (identity, dependency edges including ``package_source``,
-optional ``default_use_libs`` / ``link`` / ``lib_groups``, and optional
+optional ``default_use_libs`` / ``link`` / ``lib_groups`` / ``public_defines`` /
+``library_prefix`` / ``pkg_config_dir``, and optional
 ``payload_sha256`` for tip consume refresh). Legacy ``cuppa-dependency.json``
 is read only as a fallback for extracts published before Phase 2d.
 """
@@ -30,7 +31,10 @@ from cuppa.package_managers.cuppa_dependency_manifest import (
         read_manifest as read_legacy_dependency_manifest,
         _normalise_default_use_libs,
         _normalise_lib_groups_field,
+        _normalise_library_prefix,
         _normalise_link,
+        _normalise_pkg_config_dir,
+        _normalise_public_defines_field,
 )
 
 
@@ -94,6 +98,9 @@ def build_publish_document(
         default_use_libs: Any = None,
         link: Any = None,
         lib_groups: Any = None,
+        public_defines: Any = None,
+        library_prefix: Any = None,
+        pkg_config_dir: Any = None,
         payload_sha256: str | None = None,
 ) -> dict:
     """Return a publish document (always includes package identity)."""
@@ -112,12 +119,21 @@ def build_publish_document(
     defaults = _normalise_default_use_libs( default_use_libs )
     link_mode = _normalise_link( link )
     groups = _normalise_lib_groups_field( lib_groups )
+    defines = _normalise_public_defines_field( public_defines )
+    prefix = _normalise_library_prefix( library_prefix )
+    pkg_dir = _normalise_pkg_config_dir( pkg_config_dir )
     if defaults is not None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
         document["link"] = link_mode
     if groups is not None:
         document["lib_groups"] = groups
+    if defines is not None:
+        document["public_defines"] = defines
+    if prefix is not None:
+        document["library_prefix"] = prefix
+    if pkg_dir is not None:
+        document["pkg_config_dir"] = pkg_dir
     if payload_sha256:
         document[PAYLOAD_SHA256_KEY] = str( payload_sha256 )
     return document
@@ -142,6 +158,9 @@ def write_publish_manifest(
         default_use_libs: Any = None,
         link: Any = None,
         lib_groups: Any = None,
+        public_defines: Any = None,
+        library_prefix: Any = None,
+        pkg_config_dir: Any = None,
         payload_sha256: str | None = None,
 ) -> str:
     """Write ``cuppa-publish.json`` under ``package_dir``. Returns the path.
@@ -165,6 +184,9 @@ def write_publish_manifest(
             default_use_libs=default_use_libs,
             link=link,
             lib_groups=lib_groups,
+            public_defines=public_defines,
+            library_prefix=library_prefix,
+            pkg_config_dir=pkg_config_dir,
             payload_sha256=payload_sha256,
     )
     path = publish_manifest_path( package_dir )
@@ -214,6 +236,9 @@ def read_publish_manifest( package_dir: str ) -> dict | None:
     defaults = _normalise_default_use_libs( document.get( "default_use_libs" ) )
     link_mode = _normalise_link( document.get( "link" ) )
     groups = _normalise_lib_groups_field( document.get( "lib_groups" ) )
+    defines = _normalise_public_defines_field( document.get( "public_defines" ) )
+    prefix = _normalise_library_prefix( document.get( "library_prefix" ) )
+    pkg_dir = _normalise_pkg_config_dir( document.get( "pkg_config_dir" ) )
     if defaults is not None:
         document["default_use_libs"] = defaults
     if link_mode is not None:
@@ -222,6 +247,18 @@ def read_publish_manifest( package_dir: str ) -> dict | None:
         document["lib_groups"] = groups
     elif "lib_groups" in document:
         del document["lib_groups"]
+    if defines is not None:
+        document["public_defines"] = defines
+    elif "public_defines" in document:
+        del document["public_defines"]
+    if prefix is not None:
+        document["library_prefix"] = prefix
+    elif "library_prefix" in document:
+        del document["library_prefix"]
+    if pkg_dir is not None:
+        document["pkg_config_dir"] = pkg_dir
+    elif "pkg_config_dir" in document:
+        del document["pkg_config_dir"]
     payload_hash = document.get( PAYLOAD_SHA256_KEY )
     if payload_hash:
         document[PAYLOAD_SHA256_KEY] = str( payload_hash )
@@ -284,3 +321,38 @@ def package_lib_groups( package_dir: str ) -> dict[str, list[str]] | None:
     from cuppa.package_managers.package_lib_groups import normalise_lib_groups
 
     return normalise_lib_groups( document.get( "lib_groups" ) )
+
+
+def package_pkg_config_dir( package_dir: str ) -> str | None:
+    """Return the package ``pkg_config_dir``, or ``None`` if omitted.
+
+    ``None`` means do not run pkg-config. It is not a stand-in for
+    ``lib/pkgconfig``.
+    """
+    document = read_traveling_manifest( package_dir )
+    if not document or "pkg_config_dir" not in document:
+        return None
+    return document.get( "pkg_config_dir" )
+
+
+def package_library_prefix( package_dir: str ) -> str | None:
+    """Return the package ``library_prefix``, or ``None`` if omitted."""
+    document = read_traveling_manifest( package_dir )
+    if not document or "library_prefix" not in document:
+        return None
+    return document.get( "library_prefix" )
+
+
+def package_public_defines( package_dir: str ) -> list[str] | None:
+    """Return the package's public compile defines, or ``None`` if omitted.
+
+    Only the traveling manifest is read. An extract published before the
+    field existed has no defines here; publish asks CMake when the publisher
+    passes ``cmake_public_defines()``.
+    """
+    from cuppa.package_managers.package_public_defines import normalise_public_defines
+
+    document = read_traveling_manifest( package_dir )
+    if not document or "public_defines" not in document:
+        return None
+    return normalise_public_defines( document.get( "public_defines" ) )

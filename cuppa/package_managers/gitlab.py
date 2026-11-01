@@ -802,6 +802,9 @@ class GitlabPackagePublisher:
         default_use_libs=None,
         link=None,
         lib_groups=None,
+        public_defines=None,
+        library_prefix=None,
+        pkg_config_dir=None,
     ):
         from SCons.Script import Flatten
         from cuppa.package_managers.publish_version import (
@@ -831,6 +834,9 @@ class GitlabPackagePublisher:
         self._default_use_libs = default_use_libs
         self._link = link
         self._lib_groups = lib_groups
+        self._public_defines = public_defines
+        self._library_prefix = library_prefix
+        self._pkg_config_dir = pkg_config_dir
         self._registry = registry
         self._package = package
         self._custom_token = custom_token
@@ -876,6 +882,15 @@ class GitlabPackagePublisher:
         # prepare→ready (multi-toolchain BuildWith still reading).
         from cuppa.package_managers.package_cascade import defer_tip_cascade
         defer_tip_cascade( env, self )
+
+
+    def _public_defines_for( self, package_dir, env ):
+        """Author list, or the CMake answer when the publisher passed the marker."""
+        from cuppa.package_managers.package_public_defines import resolve_public_defines
+
+        return resolve_public_defines(
+                getattr( self, '_public_defines', None ), package_dir, env,
+        )
 
 
     def build_package( self, target, source, env ):
@@ -928,6 +943,7 @@ class GitlabPackagePublisher:
                             as_info( package_base )
                     )
             )
+        public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
                 package_base,
                 getattr( self, '_package', None ),
@@ -937,6 +953,9 @@ class GitlabPackagePublisher:
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
                 lib_groups=getattr( self, '_lib_groups', None ),
+                public_defines=public_defines,
+                library_prefix=getattr( self, '_library_prefix', None ),
+                pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
         logger.info( "Wrote [{}] for package [{}]".format(
                 as_info( publish_path_written ),
@@ -962,6 +981,9 @@ class GitlabPackagePublisher:
                     default_use_libs=getattr( self, '_default_use_libs', None ),
                     link=getattr( self, '_link', None ),
                     lib_groups=getattr( self, '_lib_groups', None ),
+                    public_defines=public_defines,
+                    library_prefix=getattr( self, '_library_prefix', None ),
+                    pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
             logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
@@ -1105,6 +1127,7 @@ class GitlabPackagePublisher:
                             as_info( package_base )
                     )
             )
+        public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
                 package_base,
                 getattr( self, '_package', None ),
@@ -1114,6 +1137,9 @@ class GitlabPackagePublisher:
                 default_use_libs=getattr( self, '_default_use_libs', None ),
                 link=getattr( self, '_link', None ),
                 lib_groups=getattr( self, '_lib_groups', None ),
+                public_defines=public_defines,
+                library_prefix=getattr( self, '_library_prefix', None ),
+                pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
         logger.info( "Amended [{}] for package [{}]".format(
                 as_info( publish_path_written ),
@@ -1144,6 +1170,9 @@ class GitlabPackagePublisher:
                     default_use_libs=getattr( self, '_default_use_libs', None ),
                     link=getattr( self, '_link', None ),
                     lib_groups=getattr( self, '_lib_groups', None ),
+                    public_defines=public_defines,
+                    library_prefix=getattr( self, '_library_prefix', None ),
+                    pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
             logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
@@ -1732,9 +1761,10 @@ class GitlabPackageDependency:
         if not self._variant:
             self._variant = "rel"
 
-        self._library_prefix = library_prefix
-        if not self._library_prefix:
-            self._library_prefix = ""
+        # None means "not passed": the traveling manifest supplies the value.
+        # A string, including "", is the consumer override.
+        self._library_prefix_argument = library_prefix
+        self._pkg_config_dir_argument = pkg_config_dir
 
         self._package_id = "/".join( [ package, self.version(), self._variant ] )
 
@@ -1823,14 +1853,6 @@ class GitlabPackageDependency:
         self._include_dir = os.path.join( self._package_dir, 'include' )
         self._lib_dir = os.path.join( self._package_dir, 'lib' )
 
-        self._pkg_config_dir = None
-        if pkg_config_dir:
-            if os.path.isabs(pkg_config_dir):
-                self._pkg_config_dir = pkg_config_dir
-            else:
-                self._pkg_config_dir = os.path.join( self._package_dir, pkg_config_dir )
-            self._pkg_config_dir = os.path.abspath( self._pkg_config_dir )
-
         # dump / storage resolve-only: paths are known; do not download, extract, or nest.
         # --offline still extracts from a cached archive when one is present.
         # -c / --clean: may nest-clean publisher develop trees when --stage-develop is set.
@@ -1852,10 +1874,6 @@ class GitlabPackageDependency:
                 self._package_dir = stage
                 self._include_dir = os.path.join( self._package_dir, 'include' )
                 self._lib_dir = os.path.join( self._package_dir, 'lib' )
-                if pkg_config_dir and not os.path.isabs( pkg_config_dir ):
-                    self._pkg_config_dir = os.path.abspath(
-                            os.path.join( self._package_dir, pkg_config_dir )
-                    )
                 self._terse_location_kind = "develop_package"
                 self._note_local_stage( "--develop" )
                 return
@@ -1894,10 +1912,6 @@ class GitlabPackageDependency:
                     self._package_dir = stage
                     self._include_dir = os.path.join( self._package_dir, 'include' )
                     self._lib_dir = os.path.join( self._package_dir, 'lib' )
-                    if pkg_config_dir and not os.path.isabs( pkg_config_dir ):
-                        self._pkg_config_dir = os.path.abspath(
-                                os.path.join( self._package_dir, pkg_config_dir )
-                        )
                     bind_flag = (
                             "--build-cascade-dependencies"
                             if build_cascade_dependencies_enabled( cuppa_env )
@@ -2191,6 +2205,53 @@ class GitlabPackageDependency:
         return '/'.join( str( part ) for part in parts ) if parts else None
 
 
+    def _resolved_library_prefix( self ):
+        """Consumer argument wins. Otherwise the traveling manifest. Else none."""
+        argument = getattr( self, '_library_prefix_argument', None )
+        if argument is not None:
+            return argument or ""
+        pinned = getattr( self, '_library_prefix', None )
+        if pinned:
+            return pinned
+        from cuppa.package_managers.cuppa_publish_manifest import package_library_prefix
+        package_dir = getattr( self, '_package_dir', None )
+        if not package_dir:
+            return ""
+        return package_library_prefix( package_dir ) or ""
+
+
+    def _resolved_pkg_config_dir( self ):
+        """Absolute pkg-config directory, or ``None`` when pkg-config is off.
+
+        Consumer argument wins, including ``""`` to turn it off. Otherwise the
+        traveling manifest. A missing manifest key does not mean ``lib/pkgconfig``.
+        A path already stored on ``_pkg_config_dir`` (tests, older call sites)
+        is used when the consumer did not pass an argument.
+        """
+        argument = getattr( self, '_pkg_config_dir_argument', None )
+        if argument is not None:
+            spec = str( argument ).strip()
+            if not spec:
+                return None
+        else:
+            pinned = getattr( self, '_pkg_config_dir', None )
+            if pinned:
+                return pinned
+            from cuppa.package_managers.cuppa_publish_manifest import package_pkg_config_dir
+            package_dir = getattr( self, '_package_dir', None )
+            if not package_dir:
+                return None
+            spec = package_pkg_config_dir( package_dir )
+            if not spec:
+                return None
+        if os.path.isabs( spec ):
+            return os.path.abspath( spec )
+        package_dir = getattr( self, '_package_dir', None )
+        if not package_dir:
+            return None
+        return os.path.abspath( os.path.join( package_dir, spec ) )
+
+
     # Package Interface
 
     def initialise_build_variant( self, env, toolchain, variant, dependency_name=None ):
@@ -2202,6 +2263,9 @@ class GitlabPackageDependency:
         ) )
         self._env = env
         env.AppendUnique( SYSINCPATH = self._include_dir )
+        from cuppa.package_managers.package_public_defines import install_cppdefines
+        from cuppa.package_managers.cuppa_publish_manifest import package_public_defines
+        install_cppdefines( env, package_public_defines( self._package_dir ) )
         modules_dir = os.path.join( self._package_dir, 'modules' )
         if os.path.isdir( modules_dir ):
             from cuppa.cpp.cxx_modules import load_packaged_modules
@@ -2268,7 +2332,7 @@ class GitlabPackageDependency:
                 lib_suffix,
                 shlib_prefix,
                 shlib_suffix,
-                library_prefix=getattr( self, '_library_prefix', None ) or "",
+                library_prefix=self._resolved_library_prefix(),
         )
         return heuristic_default_use_libs(
                 stems,
@@ -2305,17 +2369,18 @@ class GitlabPackageDependency:
 
     def parse_pkg_config( self, libs ):
         env = self._env
-        library_prefix = self._library_prefix and self._library_prefix or ""
+        library_prefix = self._resolved_library_prefix()
+        pkg_config_dir = self._resolved_pkg_config_dir()
 
         # Packages are not retrieved when cleaning, so their .pc files are only
         # present if a previous build downloaded them. The flags they provide
         # affect compiling and linking, not the targets to be removed, so
         # skipping them does not leave anything behind.
-        if self._clean and not os.path.isdir( self._pkg_config_dir ):
+        if self._clean and not os.path.isdir( pkg_config_dir or "" ):
             logger.info( "Package [{}] was not retrieved so pkg-config data in [{}] is not available."
                          " Skipping it as it is not needed to clean".format(
                     as_info( self._package_id ),
-                    as_notice( self._pkg_config_dir )
+                    as_notice( pkg_config_dir )
             ) )
             return
 
@@ -2325,7 +2390,7 @@ class GitlabPackageDependency:
             libraries.append( prefix + lib )
 
         command = 'pkg-config --with-path={pkg_config_dir} --libs --cflags {libraries}'.format(
-                pkg_config_dir=self._pkg_config_dir,
+                pkg_config_dir=pkg_config_dir,
                 libraries=" ".join( libraries )
         )
 
@@ -2366,16 +2431,18 @@ class GitlabPackageDependency:
         contrib_key = self._link_contrib_key( dependency_name )
         # Replace this package's prior contribution (defaults or earlier use_libs).
         # pkg-config ParseConfig is not reversible; keep that path append-only.
-        if not self._pkg_config_dir:
+        # Public defines were applied with the headers and stay put.
+        pkg_config_dir = self._resolved_pkg_config_dir()
+        if not pkg_config_dir:
             clear_package_link_contribution( env, contrib_key )
 
-        if self._pkg_config_dir:
+        if pkg_config_dir:
             if libs:
                 # Expand already ran above. If a token never matched a group and
                 # there is no .pc for the leaf name, fail with a lib_groups hint
                 # instead of a bare pkg-config OSError (soak: tip extract lacking
                 # traveling lib_groups left ``widget_libs`` as a fake stem).
-                library_prefix = self._library_prefix and self._library_prefix or ""
+                library_prefix = self._resolved_library_prefix()
                 missing_pc = []
                 for lib in libs:
                     prefix = (
@@ -2384,7 +2451,7 @@ class GitlabPackageDependency:
                             else library_prefix
                     )
                     pc_name = prefix + lib + ".pc"
-                    pc_path = os.path.join( self._pkg_config_dir, pc_name )
+                    pc_path = os.path.join( pkg_config_dir, pc_name )
                     if not os.path.isfile( pc_path ):
                         missing_pc.append( pc_name )
                 if missing_pc:
@@ -2408,7 +2475,7 @@ class GitlabPackageDependency:
                                             "[{}]".format( name )
                                             for name in missing_pc
                                     ),
-                                    self._pkg_config_dir,
+                                    pkg_config_dir,
                                     hint,
                             )
                     )
@@ -2418,7 +2485,7 @@ class GitlabPackageDependency:
                     env,
                     self._lib_dir,
                     libs,
-                    library_prefix=self._library_prefix,
+                    library_prefix=self._resolved_library_prefix(),
                     link=self._package_link_mode(),
                     package_id=self._package_id,
             )
@@ -2455,7 +2522,7 @@ class GitlabPackageDependency:
                 lib_suffix,
                 shlib_prefix,
                 shlib_suffix,
-                library_prefix=self._library_prefix,
+                library_prefix=self._resolved_library_prefix(),
         )
         logger.info( "use_all_libs for package [{}] selected [{}]".format(
                 as_info( self._package_id ),
@@ -2495,7 +2562,7 @@ class GitlabPackageDependency:
                 lib_suffix,
                 shlib_prefix,
                 shlib_suffix,
-                library_prefix=self._library_prefix,
+                library_prefix=self._resolved_library_prefix(),
         )
         catalogue = catalogue_lib_groups( self._resolve_lib_groups(), stems )
         report_show_all_libs( self._package_id, catalogue )
@@ -2510,7 +2577,7 @@ class GitlabPackageDependency:
                 self._env,
                 self._lib_dir,
                 libs,
-                library_prefix=self._library_prefix,
+                library_prefix=self._resolved_library_prefix(),
                 link='static',
                 package_id=self._package_id,
         )

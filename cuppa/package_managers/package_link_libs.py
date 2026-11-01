@@ -312,7 +312,9 @@ def clear_package_link_contribution( env, contrib_key ):
     _remove_from_env_list( env, "LIBPATH", contrib.get( "libpath" ) or [] )
 
 
-def record_package_link_contribution( env, contrib_key, static=None, shared=None, libpath=None ):
+def record_package_link_contribution(
+        env, contrib_key, static=None, shared=None, libpath=None,
+):
     """Remember what this package added so a later ``use_libs`` can replace it."""
     store = env.setdefault( _LINK_CONTRIB_KEY, {} )
     store[contrib_key] = {

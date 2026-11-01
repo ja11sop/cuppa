@@ -186,6 +186,13 @@ def test_cmake_configure_method_sets_terse_summary( silence_progress ):
     assert action._terse_summary == '-B _build/gcc_rel -G Ninja'
 
 
+def _cmake_action( recorded ):
+    action = recorded['action']
+    if isinstance( action, list ):
+        return action[0]
+    return action
+
+
 def test_cmake_install_method_sets_terse_summary( silence_progress ):
     env = _RecordingEnv( _env() )
     CMakeInstallMethod()(
@@ -194,7 +201,10 @@ def test_cmake_install_method_sets_terse_summary( silence_progress ):
             build_dir='_build/x',
             working_dir='/tmp/src',
     )
-    action = env.commands[0]['action']
+    actions = env.commands[0]['action']
+    assert isinstance( actions, list ) and len( actions ) == 2
+    assert callable( actions[1] )
+    action = actions[0]
     assert action._terse_action == 'cmake-install'
     assert action._terse_summary == '-B _build/x --target install'
 
@@ -236,7 +246,7 @@ def test_cmake_install_method_default_omits_parallel( silence_progress ):
             target='/tmp/final/installed',
     )
     assert nodes == [ 'node:/tmp/final/installed' ]
-    assert shlex.split( env.commands[0]['action']._command ) == [
+    assert shlex.split( _cmake_action( env.commands[0] )._command ) == [
             'cmake', '--build', '_build/x', '--target', 'install',
     ]
 

@@ -311,6 +311,21 @@ def cmake_prefix_path_for( env, *package_names ):
     )
 
 
+def cmake_public_defines():
+    """Marker for ``GitlabPackagePublisher(public_defines=...)``.
+
+    Publish asks CMake, after install, for the package's
+    ``INTERFACE_COMPILE_DEFINITIONS``. This call does not run CMake and does
+    not take a list: the installed package is the one copy of the defines.
+    Pass a list instead to set them yourself, or ``[]`` to publish none.
+    """
+    from cuppa.package_managers.package_public_defines import (
+            cmake_public_defines as _marker,
+    )
+
+    return _marker()
+
+
 def cmake_install_rpath_defines(
         install_rpath='$ORIGIN/../lib',
         build_rpath='$ORIGIN',

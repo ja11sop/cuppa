@@ -250,3 +250,67 @@ def test_gitlab_use_libs_pkg_config_missing_pc_hints_lib_groups( tmp_path: Path 
     assert "\x1b" not in message
     assert "0m" not in message
     assert "widget_libs.pc" in message
+
+
+def test_omitted_pkg_config_dir_does_not_mean_lib_pkgconfig( tmp_path: Path, monkeypatch ):
+    from cuppa.package_managers import gitlab as gitlab_module
+
+    package_dir = tmp_path / "pkg"
+    lib_dir = package_dir / "lib"
+    pc_dir = lib_dir / "pkgconfig"
+    pc_dir.mkdir( parents=True )
+    ( pc_dir / "widget.pc" ).write_text( "Name: widget\n", encoding="utf-8" )
+    ( lib_dir / "libwidget.a" ).write_bytes( b"" )
+    write_publish_manifest(
+            str( package_dir ),
+            "widget",
+            "1.0.0",
+            dependencies=[],
+    )
+
+    applied = []
+
+    def fake_apply( env, lib_dir, libs, library_prefix="", link="prefer_static", package_id=None ):
+        applied.append( list( libs ) )
+        return { "static": [], "shared": [], "libpath": [] }
+
+    import cuppa.package_managers.package_link_libs as link_libs
+    import cuppa.package_managers.cuppa_dependency_apply as apply_mod
+
+    monkeypatch.setattr( link_libs, "apply_resolved_libs", fake_apply )
+    monkeypatch.setattr( apply_mod, "apply_transitive_use_libs", lambda *a, **k: None )
+
+    class _Env( dict ):
+        def AppendUnique( self, **kwargs ):
+            return None
+
+        def Depends( self, *args ):
+            return None
+
+        def ParseConfig( self, command ):
+            raise AssertionError( "ParseConfig should not run: " + command )
+
+        def subst( self, text ):
+            return text
+
+    dep = object.__new__( gitlab_module.GitlabPackageDependency )
+    dep._env = _Env( LIBPREFIX="lib", LIBSUFFIX=".a", SHLIBPREFIX="lib", SHLIBSUFFIX=".so" )
+    dep._package_dir = str( package_dir )
+    dep._lib_dir = str( lib_dir )
+    dep._library_prefix = ""
+    dep._pkg_config_dir_argument = None
+    dep._package_id = "widget/1.0.0"
+    dep._package = "widget"
+    dep._registry = object()
+    dep._resolve_lib_groups = gitlab_module.GitlabPackageDependency._resolve_lib_groups.__get__(
+            dep
+    )
+    dep._link_contrib_key = gitlab_module.GitlabPackageDependency._link_contrib_key.__get__(
+            dep
+    )
+    dep._package_link_mode = lambda: "prefer_static"
+    dep.include_dir = lambda: str( package_dir / "include" )
+    dep.use_libs = gitlab_module.GitlabPackageDependency.use_libs.__get__( dep )
+
+    dep.use_libs( [ "widget" ] )
+    assert applied == [ [ "widget" ] ]

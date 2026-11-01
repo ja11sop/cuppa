@@ -28,8 +28,8 @@ Minor cycle after **1.13.0**. No single opener locked yet — pick up the
 | Coverage parallel (`GCOV_PREFIX`) | **Done** — `--cov --test --parallel` is supported; per-test notes and per-program reports; the configure warning is removed — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |
 | Terse heartbeat chase | **Noted** — full-cycle wait is off; animation still restarts instead of chasing — [`terse-heartbeat-chase.md`](design/plans/terse-heartbeat-chase.md) |
 | Quiet heartbeat at exit | **Noted** — `-Q` parks the last INFO on the status row and exit does not finish that row — [`quiet-heartbeat-exit.md`](design/plans/quiet-heartbeat-exit.md) |
-| Unverified registry `latest` | **This slice** — consume reuses a remembered extract when the check cannot run. Terse keeps that on the `[version]` row. Normal output warns once at the decision. 404 and publish stay hard stops — [`unverified-latest.md`](design/plans/unverified-latest.md) |
-| Package public compile defines | **Noted** — `BuildWith` links the library and does not apply its public `-D` — [`package-public-defines.md`](design/plans/package-public-defines.md) |
+| Unverified registry `latest` | **Done** — consume reuses a remembered extract when the check cannot run. Terse keeps that on the `[version]` row. Normal output warns once at the decision. 404 and publish stay hard stops — [`unverified-latest.md`](design/plans/unverified-latest.md) |
+| Package public compile defines | **This slice** — `public_defines` on `BuildWith`, relocatable `.pc` after `CMakeInstall`, traveling `library_prefix` and `pkg_config_dir` — [`package-public-defines.md`](design/plans/package-public-defines.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
@@ -338,7 +338,8 @@ Design: [`design/plans/boost-updates.md`](design/plans/boost-updates.md).
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `boost-latest-persist` | Persist higher downloaded latest; offline reads stored then compiled-in; unpinned online scrape ([#201](https://github.com/ja11sop/cuppa/issues/201)) | High | Done — [#171](https://github.com/ja11sop/cuppa/issues/171) / [#170](https://github.com/ja11sop/cuppa/pull/170) / [#201](https://github.com/ja11sop/cuppa/issues/201) |
-| `gitlab-latest-unverified` | Consume `latest` when the registry check cannot run (expired token) but the remembered package is on disk | Medium | This slice. Warn once at the decision and reuse the pin. Not a new flag. No second line at the end. 404 and publish stay hard stops. [`unverified-latest.md`](design/plans/unverified-latest.md) |
+| `gitlab-latest-unverified` | Consume `latest` when the registry check cannot run (expired token) but the remembered package is on disk | Medium | **Done** (unreleased). Warn once at the decision and reuse the pin. Not a new flag. No second line at the end. 404 and publish stay hard stops. [`unverified-latest.md`](design/plans/unverified-latest.md) |
+| `package-public-defines` | A package carries its public compile defines; `BuildWith` applies them | Medium | This slice. Also rewrite installed `.pc` files so `prefix=${pcfiledir}/...`, and travel `library_prefix` and `pkg_config_dir`. [`package-public-defines.md`](design/plans/package-public-defines.md) |
 | `boost-pkg-version` | Canonical version `{base}-patched` / `{base}-clean`; publisher + resolve + `package_id` | High | Visible qualifier; avoids extract collision |
 | `boost-pkg-compat` | Patched resolve falls back to unadorned `{base}`; clean does not | High | Existing registry tarballs are patched and unnamed |
 | `boost-pkg-use-libs` | Package `use_libs` passes `patched_test=` | High | Parity with source Boost |
