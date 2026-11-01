@@ -70,16 +70,20 @@ def _command_nodes(
         clean_paths=None,
         terse_action=None,
         terse_summary=None,
+        after=None,
 ):
+    action = run(
+            command,
+            working_dir=working_dir,
+            terse_summary=terse_summary,
+            terse_action=terse_action,
+    )
+    if after is not None:
+        action = [ action, after ]
     nodes = env.Command(
             target,
             source,
-            run(
-                    command,
-                    working_dir=working_dir,
-                    terse_summary=terse_summary,
-                    terse_action=terse_action,
-            ),
+            action,
     )
     cuppa.progress.label_terse_action(
             nodes, terse_action, summary=terse_summary,
@@ -209,7 +213,9 @@ class CMakeBuildMethod(object):
 class CMakeInstallMethod(object):
     """``env.CMakeInstall(source, build_dir=…, working_dir=…, target=…)``.
 
-    Runs ``cmake --build <build_dir> --target install`` (or ``cmake_target``).
+    Runs ``cmake --build <build_dir> --target install`` (or ``cmake_target``),
+    then rewrites installed ``*.pc`` files when ``CMAKE_INSTALL_PREFIX`` is
+    inside this package's build tree.
     Default ``jobs=False`` omits ``--parallel``; pass ``jobs=None`` to honour
     Cuppa ``--parallel``, or a positive int to override.
     Also ``Clean``s the CMake ``-B`` tree (same as configure).
@@ -240,16 +246,52 @@ class CMakeInstallMethod(object):
         summary_parts = [ '--target {}'.format( cmake_target ) ]
         if build_dir:
             summary_parts.insert( 0, '-B {}'.format( build_dir ) )
+        build_tree = cmake_build_tree_path( working_dir, build_dir )
+
+        def _relocate_pkgconfig( target, source, env ):
+            from cuppa.buildsys.pkgconfig import relocate_cmake_install
+            relocate_cmake_install( env, build_tree )
+            return None
+
         return _command_nodes(
                 env,
                 target,
                 source,
                 command,
                 working_dir,
-                clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
+                clean_paths=[ build_tree ],
                 terse_action='cmake-install',
                 terse_summary=_terse_summary_parts( *summary_parts ),
+                after=_relocate_pkgconfig,
         )
+
     @classmethod
     def add_to_env( cls, cuppa_env ):
         cuppa_env.add_method( 'CMakeInstall', cls() )
+
+
+class RelocatePkgConfigMethod(object):
+    """``env.RelocatePkgConfig(source, prefix=…)``.
+
+    Rewrites ``*.pc`` under ``prefix`` after ``source`` (usually a CMake
+    install). ``CMakeInstall`` does this itself when the build cache records
+    a prefix inside the package tree. Use this for a tree that was staged
+    some other way.
+    """
+
+    def __call__( self, env, source, prefix ):
+        prefix_path = _node_abspath( prefix )
+        stamp = "relocate-pkgconfig-{}".format(
+                str( prefix_path ).replace( os.sep, "_" ).replace( ":", "_" )
+        )
+
+        def _relocate( target, source, env ):
+            from cuppa.buildsys.pkgconfig import relocate_pkgconfig
+            relocate_pkgconfig( prefix_path )
+            return None
+
+        return env.Command( stamp, source, _relocate )
+
+    @classmethod
+    def add_to_env( cls, cuppa_env ):
+        cuppa_env.add_method( 'RelocatePkgConfig', cls() )

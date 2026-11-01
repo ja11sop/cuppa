@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``CMakeInstall`` rewrites installed ``*.pc`` files so ``prefix`` is
+  ``${pcfiledir}`` relative to the package root. Paths under that prefix
+  (``libdir``, ``includedir``, and raw ``-I`` / ``-L`` paths) follow it.
+  A file that already uses ``${pcfiledir}`` is left alone, as is a prefix
+  outside the package tree. ``env.RelocatePkgConfig`` does the same rewrite
+  for a tree that was not installed by CMake.
+  Plan: ``design/plans/package-public-defines.md``.
+
+- GitLab packages can carry ``pkg_config_dir`` in ``cuppa-publish.json``
+  (``lib/pkgconfig``, ``share/pkgconfig``, and so on). The directory is
+  written whenever the package uses pkg-config. A missing key does not mean
+  ``lib/pkgconfig``. Consume uses it for ``use_libs``. A consumer
+  ``pkg_config_dir`` replaces it, and ``""`` turns pkg-config off.
+
+- GitLab packages can carry ``library_prefix`` in ``cuppa-publish.json``.
+  Consume uses it when resolving ``use_libs`` stems and ``.pc`` names.
+  ``package_dependency(..., library_prefix=...)`` replaces it, including
+  ``""`` to clear a published prefix.
+
+- GitLab packages can carry public compile defines
+  (``public_defines`` in ``cuppa-publish.json``). ``BuildWith`` applies the
+  list as ``CPPDEFINES`` with the headers. ``use_libs`` does not add or
+  remove them. A publisher sets the list directly, or passes
+  ``cmake_public_defines()`` so publish asks CMake for the installed
+  targets' ``INTERFACE_COMPILE_DEFINITIONS`` instead of writing the tokens
+  again. Plan: ``design/plans/package-public-defines.md``.
+
 - ``--cov`` test and benchmark runs set ``GCOV_PREFIX`` per binary
   (``gcov-data/{program}``) so parallel tests that link the same objects do not
   share one ``.gcda``. ``gcov`` does not read that variable: the ``.gcno`` is

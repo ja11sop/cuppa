@@ -214,6 +214,65 @@ def _normalise_lib_groups_field( value: Any ) -> dict[str, list[str]] | None:
     return normalise_lib_groups( value )
 
 
+def _normalise_pkg_config_dir( value: Any ) -> str | None:
+    """Relative pkg-config directory, or ``None`` when omitted or blank.
+
+    The published value is always explicit. A missing key means "do not run
+    pkg-config", not ``lib/pkgconfig``. Absolute paths and ``..`` are rejected
+    so the directory stays inside the package root.
+    """
+    if value is None:
+        return None
+    if not is_string( value ):
+        raise ValueError(
+                "pkg_config_dir must be a string; got [{}]".format(
+                        type( value ).__name__
+                )
+        )
+    text = str( value ).strip().replace( "\\", "/" )
+    if not text or text == ".":
+        return None
+    if os.path.isabs( text ) or text.startswith( "/" ):
+        raise ValueError(
+                "pkg_config_dir must be relative to the package root; got [{}]".format(
+                        value
+                )
+        )
+    parts = [ part for part in text.split( "/" ) if part not in ( "", "." ) ]
+    if not parts or any( part == ".." for part in parts ):
+        raise ValueError(
+                "pkg_config_dir must stay inside the package; got [{}]".format( value )
+        )
+    return "/".join( parts )
+
+
+def _normalise_library_prefix( value: Any ) -> str | None:
+    """Return a library-name prefix, or ``None`` when omitted or blank."""
+    if value is None:
+        return None
+    if not is_string( value ):
+        raise ValueError(
+                "library_prefix must be a string; got [{}]".format(
+                        type( value ).__name__
+                )
+        )
+    text = str( value ).strip()
+    if not text:
+        return None
+    if any( char.isspace() for char in text ):
+        raise ValueError(
+                "library_prefix must be a single token; got [{}]".format( value )
+        )
+    return text
+
+
+def _normalise_public_defines_field( value: Any ) -> list[str] | None:
+    """Delegate to :mod:`package_public_defines` (kept here for manifest callers)."""
+    from cuppa.package_managers.package_public_defines import normalise_public_defines
+
+    return normalise_public_defines( value )
+
+
 def build_manifest(
         dependencies: list | None = None,
         default_use_libs: Any = None,
