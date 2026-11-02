@@ -2156,7 +2156,8 @@ def _file_field( action, target, source, env, command=None ):
             return _coloured_file( directory, filename or shown )
         return as_subdued( summary )
     if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
-        return _transfer_field( target, source, env )
+        use_target, use_source = _shell_transfer_nodes( command, target, source )
+        return _transfer_field( use_target, use_source, env )
     if action in _PATH_ACTIONS:
         return _path_action_field( _node_path( _first_node( target ) ), env )
     if _is_transform_action( action ):
@@ -2677,7 +2678,9 @@ def format_terse_line(
     # chrome like ``[....]``, not the durable done-form ``compile``.
     if status == "stopped":
         fields.append( _muted_bold( progressive_terse_action( action ) ) )
-        file_text = _executing_file_field( action, target, source, env )
+        file_text = _executing_file_field(
+                action, target, source, env, command=command,
+        )
     else:
         fields.append( _action_label( action ) )
         file_text = _file_field( action, target, source, env, command=command )
@@ -2846,11 +2849,12 @@ def _executing_file_field( action, target, source, env, command=None ):
         return source_text or dest_text
 
     if action in _TRANSFER_ACTIONS or _paths_style( target ) == "transfer":
-        source_token, source_path = _locate( _node_path( _first_node( source ) ), env )
-        dest_token, dest_path = _locate( _node_path( _first_node( target ) ), env )
+        use_target, use_source = _shell_transfer_nodes( command, target, source )
+        source_token, source_path = _locate( _node_path( _first_node( use_source ) ), env )
+        dest_token, dest_path = _locate( _node_path( _first_node( use_target ) ), env )
         source_text = _coloured_transfer_end( source_token, source_path, dest=False )
         dest_text = _pending_product_end(
-                dest_token, dest_path, fallback=_node_basename( target ),
+                dest_token, dest_path, fallback=_node_basename( use_target ),
         )
         if source_text and dest_text:
             return source_text + " " + as_subdued( "→" ) + " " + dest_text
@@ -3534,6 +3538,62 @@ def _factory_args( body ):
     return args
 
 
+def _shell_transfer_paths( command ):
+    """``(dest, src)`` from a two-path ``cp``/``mv``/``copy``/``move``, else None.
+
+    Publishers often stage with ``Command(dest.a, cmake_stamp, run("cp -f SRC DEST"))``.
+    SCons ``source`` is then the stamp, not ``SRC``. Recover the transfer ends
+    from the shell argv when it is a simple two-operand copy or move.
+    Multi-source / ``-t DIR`` forms leave nodes alone.
+    """
+    from cuppa.toolchains.terse_actions import command_tokens, tool_basename
+    tool = tool_basename( command )
+    if tool not in ( "cp", "mv", "copy", "move" ):
+        return None, None
+    tokens = command_tokens( command )
+    if len( tokens ) < 3:
+        return None, None
+    operands = []
+    index = 1
+    while index < len( tokens ):
+        token = tokens[ index ].strip( "'\"" )
+        if token == "--":
+            operands.extend(
+                    t.strip( "'\"" ) for t in tokens[ index + 1: ]
+            )
+            break
+        if token.startswith( "-" ) and token != "-":
+            lowered = token.lower()
+            # ``cp -t DIR …`` / ``--target-directory=…`` are multi-source forms.
+            if (
+                    lowered in ( "-t", "--target-directory" )
+                    or lowered.startswith( "--target-directory=" )
+            ):
+                return None, None
+            # Options that take a separate value (``-S SUFFIX``, …).
+            if lowered in ( "-S", "--suffix" ) and "=" not in token:
+                index += 2
+                continue
+            index += 1
+            continue
+        operands.append( token )
+        index += 1
+    if len( operands ) != 2:
+        return None, None
+    src, dest = operands[0], operands[1]
+    if not src or not dest:
+        return None, None
+    return dest, src
+
+
+def _shell_transfer_nodes( command, target, source ):
+    """Prefer ``cp``/``mv`` argv paths over stamp-as-source SCons nodes."""
+    dest, src = _shell_transfer_paths( command )
+    if dest and src:
+        return [ dest ], [ src ]
+    return target, source
+
+
 def _executed_paths( command, target, source ):
     """Nodes for an ``Execute`` action. ``Execute`` itself passes empty lists.
 
@@ -3553,6 +3613,11 @@ def _executed_paths( command, target, source ):
         if not _node_path( _first_node( source ) ) and src:
             source = [ src ]
         return target, source
+    # Shell ``cp`` / ``mv`` via ``env.Execute(run(...))`` — same recovery as
+    # durable Python-action staging copies.
+    dest, src = _shell_transfer_paths( text )
+    if dest and src:
+        return [ dest ], [ src ]
     if key in ( "delete", "mkdir", "chmod" ):
         paths = _quoted_args( text )
         if paths and not _node_path( _first_node( target ) ):
@@ -4429,9 +4494,18 @@ def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
 
 
 def write_terse_transfer_action( env, action, source, dest, status="ok", count=True ):
-    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line."""
+    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line.
+
+    A counted transfer (``compress`` / ``publish`` / …) closes the parent
+    Python action's narrative. Drop the in-flight ``[....] packaging`` caption
+    *before* writing so ``write_transcript(keep_pending=True)`` cannot chase
+    that caption back onto the status row after the durable line — otherwise
+    a following ``logger.info`` glues into the sticky text.
+    """
     if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
         return False
+    if count:
+        end_terse_executing()
     holder = type( "T", (), {} )()
     holder.path = dest
     attributes = type( "A", (), {} )()
@@ -4450,6 +4524,7 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
     sys.stdout.flush()
     if count:
         note_terse_status_emitted()
+        refresh_terse_executing()
     else:
         note_terse_nested_action()
     return True
@@ -4629,6 +4704,26 @@ class _TersePythonCallable( object ):
                 _account_and_prefix( target, env, count=True, mark=False )
             refresh_terse_executing()
             return
+        # ``run`` / similar callables carry the shell string. If SCons only
+        # dumped ``Name([...], [...])``, replace that with the real command so
+        # ``cp … .a`` spells ``copy`` instead of ``archive``.
+        preferred = getattr( self._original, "_command", None )
+        if preferred:
+            command, stashed_target, stashed_source, stashed_env = take_terse_command()
+            if not command or _is_python_action_dump( command ):
+                stash_terse_command(
+                        preferred,
+                        target if _iter_nodes( target ) else stashed_target,
+                        source if _iter_nodes( source ) else stashed_source,
+                        env or stashed_env,
+                )
+            else:
+                stash_terse_command(
+                        command,
+                        stashed_target if _iter_nodes( stashed_target ) else target,
+                        stashed_source if _iter_nodes( stashed_source ) else source,
+                        stashed_env or env,
+                )
         _report_python_action( target, source, env, failed=failed )
 
 def _is_python_action_dump( command ):

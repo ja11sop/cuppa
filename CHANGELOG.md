@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Online GitLab package consume checks whether a cached archive is still the
+  file on the registry (``HEAD``, preferring ``X-Checksum-Sha256``) before
+  reusing it. A same-version retag (for example ``develop``) re-fetches
+  without ``--refresh-downloads``. When the check cannot run, consume warns
+  once and keeps the cached extract. ``--offline`` skips the check;
+  ``--refresh-downloads`` still force-refetches. Plan:
+  ``design/plans/package-download-freshness.md``.
+
 - ``CMakeInstall`` rewrites installed ``*.pc`` files so ``prefix`` is
   ``${pcfiledir}`` relative to the package root. Paths under that prefix
   (``libdir``, ``includedir``, and raw ``-I`` / ``-L`` paths) follow it.
@@ -73,6 +81,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   coverage docs say so.
 
 ### Fixed
+
+- Under ``--terse-output``, GitLab package build / amend / publish staging
+  chatter (refreshed include/lib, wrote manifest, seeded publisher-tree,
+  creating/created package, and the amend/publish parallels) is demoted to
+  debug. The counted ``copy`` / ``compress`` / ``publish`` lines already name
+  the work. A counted ``write_terse_transfer_action`` also ends the parent
+  ``[....] packaging`` caption before it writes, so a following logger line
+  cannot glue into the sticky progressive text. Empty gcov coverage with no
+  tests is demoted the same way (noise after ``[completed]``).
+
+- Under ``--terse-output``, staging ``cp`` / ``mv`` of a ``.a`` (for example
+  after CMake) is spelled ``copy`` / ``move`` with a ``source → dest``
+  transfer field. ``cuppa.utility.command.run`` now exposes the shell string
+  to SCons, and the transfer ends are recovered from the argv when SCons
+  ``source`` is a stamp rather than the file being copied. Previously the
+  Python-action dump left only the ``.a`` suffix, which was misspelled
+  ``archive``.
+
+- Under ``--terse-output``, ``cuppa: command: [info] Executing […]`` is no
+  longer printed on the success path. Delegated ``[launch]`` bookends and
+  counted status lines already name the job; the full argv stays available in
+  normal output and on failure.
+
+- Under ``--terse-output``, ``Applying default_use_libs …`` is demoted to
+  debug. The package already appears on the resolve location map.
 
 - Parallel coverage reports no longer share one gcovr output directory.
   Each program's HTML and JSON are written under ``gcov-data/{program}/gcovr``

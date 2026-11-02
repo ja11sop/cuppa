@@ -79,6 +79,7 @@ def test_select_failure_detail_lines_prefers_failed_over_warnings():
 def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsys ):
     progress.reset_progress_ledger()
     progress.take_terse_launch()
+    infos = []
 
     def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
         assert kwargs.get( "suppress_output" ) is True
@@ -89,6 +90,10 @@ def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsy
     monkeypatch.setattr(
             "cuppa.utility.command.IncrementalSubProcess.Popen2",
             fake_popen2,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.command.logger.info",
+            lambda message: infos.append( message ),
     )
     env = {
             "terse_output": True,
@@ -112,9 +117,57 @@ def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsy
     assert "→ [1/2] Building CXX object a.cpp.o" in out
     assert "→ [2/2] Linking CXX static library liba.a" in out
     assert "cmake --build _build/x --parallel 1\n" not in out
+    assert not any( "Executing" in str( message ) for message in infos )
     emitted, command = progress.take_terse_launch()
     assert emitted
     assert command == "cmake --build _build/x --parallel 1"
+
+
+def test_command_run_strfunction_returns_the_shell_command():
+    """SCons PRINT_CMD_LINE must see ``cp …``, not ``run([...], [...])``."""
+    action = run( "cp -f build/lib.a working/lib.a", working_dir="/tmp" )
+    assert action.strfunction( [ "working/lib.a" ], [ "stamp" ], {} ) == (
+            "cp -f build/lib.a working/lib.a"
+    )
+
+
+def test_command_run_terse_suppresses_executing_for_plain_run( monkeypatch ):
+    """Under terse, plain ``run()`` also skips Executing (status line owns it)."""
+    infos = []
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        return 0
+
+    monkeypatch.setattr(
+            "cuppa.utility.command.IncrementalSubProcess.Popen2",
+            fake_popen2,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.command.logger.info",
+            lambda message: infos.append( message ),
+    )
+    action = run( "cp -f a.a b.a", working_dir="/tmp" )
+    assert action( [ "b.a" ], [ "a.a" ], { "terse_output": True } ) == 0
+    assert not any( "Executing" in str( message ) for message in infos )
+
+
+def test_command_run_non_terse_still_logs_executing( monkeypatch ):
+    infos = []
+
+    def fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        return 0
+
+    monkeypatch.setattr(
+            "cuppa.utility.command.IncrementalSubProcess.Popen2",
+            fake_popen2,
+    )
+    monkeypatch.setattr(
+            "cuppa.utility.command.logger.info",
+            lambda message: infos.append( message ),
+    )
+    action = run( "cp -f a.a b.a", working_dir="/tmp" )
+    assert action( [ "b.a" ], [ "a.a" ], {} ) == 0
+    assert any( "Executing" in str( message ) for message in infos )
 
 
 def test_command_run_interrupt_skips_error_logging( monkeypatch, capsys ):

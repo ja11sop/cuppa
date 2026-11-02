@@ -218,6 +218,66 @@ def test_wrapped_execute_copy_does_not_leak_outstanding( monkeypatch, capsys ):
     assert list( progress._outstanding ) == []  # noqa: SLF001
 
 
+def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
+    """``compress`` closes the parent ``package`` caption before it writes."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _arm_status_row( stream, clock, monkeypatch )
+    monkeypatch.setattr( progress, "_arm_outstanding_rotate", lambda: None )
+
+    env = _env()
+    package_node = _node(
+            "/proj/_build/gcc15_rel/working/widget.packaged"
+    )
+    package_node.attributes.cuppa_terse_action = "package"
+    key = progress.begin_terse_executing(
+            "build_package", [ package_node ], [], env,
+    )
+    assert key is not None
+    assert key in progress._outstanding  # noqa: SLF001
+
+    assert progress.write_terse_transfer_action(
+            env,
+            "compress",
+            "/proj/_build/gcc15_rel/final/widget",
+            "/proj/_build/gcc15_rel/final/widget.tar.gz",
+    )
+    assert list( progress._outstanding ) == []  # noqa: SLF001
+    assert list( progress._pending_outstanding ) == []  # noqa: SLF001
+    out = strip_ansi( capsys.readouterr().out )
+    assert "· compress ·" in out
+
+
+def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
+    """``compress`` closes the parent ``package`` caption before it writes."""
+    stream = io.StringIO()
+    clock = FakeClock()
+    _arm_status_row( stream, clock, monkeypatch )
+    monkeypatch.setattr( progress, "_arm_outstanding_rotate", lambda: None )
+
+    env = _env()
+    package_node = _node(
+            "/proj/_build/gcc15_rel/working/widget.packaged"
+    )
+    package_node.attributes.cuppa_terse_action = "package"
+    key = progress.begin_terse_executing(
+            "build_package", [ package_node ], [], env,
+    )
+    assert key is not None
+    assert key in progress._outstanding  # noqa: SLF001
+
+    assert progress.write_terse_transfer_action(
+            env,
+            "compress",
+            "/proj/_build/gcc15_rel/final/widget",
+            "/proj/_build/gcc15_rel/final/widget.tar.gz",
+    )
+    assert list( progress._outstanding ) == []  # noqa: SLF001
+    assert list( progress._pending_outstanding ) == []  # noqa: SLF001
+    out = strip_ansi( capsys.readouterr().out )
+    assert "· compress ·" in out
+
+
 def test_fast_action_ends_before_arm_never_paints( monkeypatch ):
     """Actions that finish inside the arm delay skip the status row entirely."""
     stream = io.StringIO()

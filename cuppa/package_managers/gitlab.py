@@ -19,7 +19,7 @@ import zipfile
 import cuppa.core.storage_options
 
 from cuppa.log import logger, register_secret
-from cuppa.colourise import as_error, as_info, as_notice, as_info_label
+from cuppa.colourise import as_error, as_info, as_notice, as_info_label, as_warning
 from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_node_path
 from cuppa.utility.storage import display_path
 
@@ -53,6 +53,26 @@ def reset_refresh_downloads_session_for_tests():
     global _refresh_downloads_selection, _refresh_downloads_seen
     _refresh_downloads_selection = None
     _refresh_downloads_seen = set()
+
+
+def _env_terse( env ):
+    if env is None:
+        return False
+    getter = getattr( env, "get", None )
+    if callable( getter ):
+        return bool( getter( "terse_output" ) )
+    try:
+        return bool( env[ "terse_output" ] )
+    except Exception:
+        return False
+
+
+def _package_build_info( env, message ):
+    """Staging / create / seed chatter. Status lines own it under terse."""
+    if _env_terse( env ):
+        logger.debug( message )
+    else:
+        logger.info( message )
 
 
 def refresh_downloads_applies( dependency_name, package_name ):
@@ -900,7 +920,7 @@ class GitlabPackagePublisher:
         source_include = _resolve_node_path( self._source_include_dir )
         target_include = str( self._target_include_dir )
         if refresh_staging_tree( source_include, target_include ):
-            logger.info( "For package [{}], refreshed include staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed include staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_include ),
                     as_notice( source_include ),
@@ -914,7 +934,7 @@ class GitlabPackagePublisher:
                 names, package_dir_name, package_file_name
         )
         if refresh_staging_tree( source_lib, target_lib, ignore=lib_ignore ):
-            logger.info( "For package [{}], refreshed lib staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed lib staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_lib ),
                     as_notice( source_lib ),
@@ -925,7 +945,7 @@ class GitlabPackagePublisher:
         if os.path.isdir( source_modules ) and refresh_staging_tree(
                 source_modules, target_modules
         ):
-            logger.info( "For package [{}], refreshed modules staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed modules staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_modules ),
                     as_notice( source_modules ),
@@ -937,11 +957,12 @@ class GitlabPackagePublisher:
         )
         package_base = str( self._package_base_dir )
         if remove_legacy_dependency_manifest( package_base ):
-            logger.info(
+            _package_build_info(
+                    env,
                     "Removed legacy cuppa-dependency.json under [{}] "
                     "(traveling SoT is cuppa-publish.json)".format(
                             as_info( package_base )
-                    )
+                    ),
             )
         public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
@@ -957,7 +978,7 @@ class GitlabPackagePublisher:
                 library_prefix=getattr( self, '_library_prefix', None ),
                 pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
-        logger.info( "Wrote [{}] for package [{}]".format(
+        _package_build_info( env, "Wrote [{}] for package [{}]".format(
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
@@ -985,11 +1006,11 @@ class GitlabPackagePublisher:
                     library_prefix=getattr( self, '_library_prefix', None ),
                     pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
-            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+            _package_build_info( env, "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
             ) )
 
-        logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
+        _package_build_info( env, "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
         archive_path = str( self._package_archive )
         staging_roots = [
                 str( self._target_include_dir ),
@@ -1006,17 +1027,19 @@ class GitlabPackagePublisher:
             if callable( getter ):
                 force = bool( getter( 'force' ) )
             if not force:
-                logger.info(
+                _package_build_info(
+                        env,
                         "Package archive [{}] is up to date; skipping recreate".format(
                                 as_info( archive_path )
-                        )
+                        ),
                 )
                 env.Execute( Touch( target[0] ) )
                 return None
-            logger.info(
+            _package_build_info(
+                    env,
                     "Package archive [{}] is up to date; --force recreating".format(
                             as_info( archive_path )
-                    )
+                    ),
             )
 
         returncode = create_package_archive(
@@ -1041,7 +1064,7 @@ class GitlabPackagePublisher:
             pass
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] created".format( as_info( archive_path ) ) )
 
         return None
 
@@ -1099,9 +1122,10 @@ class GitlabPackagePublisher:
             archive_ok = os.path.isfile( archive_path )
 
         if not stage_ok and archive_ok:
-            logger.info(
+            _package_build_info(
+                    env,
                     "Extracting [{}] into [{}] for metadata amend..."
-                    .format( as_info( archive_path ), as_info( abs_final ) )
+                    .format( as_info( archive_path ), as_info( abs_final ) ),
             )
             returncode = extract_package_archive( archive_path, abs_final )
             if returncode != 0:
@@ -1121,11 +1145,12 @@ class GitlabPackagePublisher:
                 write_publish_manifest,
         )
         if remove_legacy_dependency_manifest( package_base ):
-            logger.info(
+            _package_build_info(
+                    env,
                     "Removed legacy cuppa-dependency.json under [{}] "
                     "(traveling SoT is cuppa-publish.json)".format(
                             as_info( package_base )
-                    )
+                    ),
             )
         public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
@@ -1141,7 +1166,7 @@ class GitlabPackagePublisher:
                 library_prefix=getattr( self, '_library_prefix', None ),
                 pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
-        logger.info( "Amended [{}] for package [{}]".format(
+        _package_build_info( env, "Amended [{}] for package [{}]".format(
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
@@ -1174,7 +1199,7 @@ class GitlabPackagePublisher:
                     library_prefix=getattr( self, '_library_prefix', None ),
                     pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
-            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+            _package_build_info( env, "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
             ) )
 
@@ -1196,21 +1221,23 @@ class GitlabPackagePublisher:
             if callable( getter ):
                 force = bool( getter( 'force' ) )
             if not force:
-                logger.info(
+                _package_build_info(
+                        env,
                         "Package archive [{}] already matches amended stage; "
-                        "skipping recreate".format( as_info( archive_path ) )
+                        "skipping recreate".format( as_info( archive_path ) ),
                 )
                 env.Execute( Touch( target[0] ) )
-                logger.info( "Package [{}] amend up to date".format(
+                _package_build_info( env, "Package [{}] amend up to date".format(
                         as_info( archive_path )
                 ) )
                 return None
-            logger.info(
+            _package_build_info(
+                    env,
                     "Package archive [{}] already matches amended stage; "
-                    "--force recreating".format( as_info( archive_path ) )
+                    "--force recreating".format( as_info( archive_path ) ),
             )
 
-        logger.info( "Recreating package [{}] after metadata amend...".format(
+        _package_build_info( env, "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )
         ) )
         returncode = create_package_archive(
@@ -1235,7 +1262,7 @@ class GitlabPackagePublisher:
             pass
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] amended".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] amended".format( as_info( archive_path ) ) )
         return None
 
 
@@ -1246,7 +1273,7 @@ class GitlabPackagePublisher:
 
         archive_path = str( self._package_archive )
         location = getattr( self, '_package_location', None ) or archive_path
-        logger.info( "Publishing package [{}] to [{}]...".format(
+        _package_build_info( env, "Publishing package [{}] to [{}]...".format(
                 as_info( archive_path ),
                 as_info( location ),
         ) )
@@ -1267,7 +1294,7 @@ class GitlabPackagePublisher:
             return 1
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] published".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] published".format( as_info( archive_path ) ) )
         try:
             import cuppa.progress
             cuppa.progress.write_terse_transfer_action(
@@ -1994,6 +2021,89 @@ class GitlabPackageDependency:
             self._download_target = existing
             package_file = os.path.basename( existing )
 
+        # Online conditional freshness: HEAD before reuse when an archive is
+        # already cached. Force --refresh-downloads already handled above.
+        # Plan: design/plans/package-download-freshness.md.
+        no_exec = bool(
+                self.is_option_set( "no_exec" )
+                or self._cuppa_env.get( 'no_exec' )
+        )
+        if (
+                not self._offline
+                and not want_refresh
+                and os.path.exists( self._download_target )
+        ):
+            from cuppa.package_managers.package_download_freshness import (
+                    MATCH,
+                    STALE,
+                    UNVERIFIED,
+                    check_cached_archive_freshness,
+                    url_for_cached_archive,
+            )
+            freshness_url = url_for_cached_archive(
+                    candidates, self._download_target
+            )
+            if freshness_url:
+                outcome, _identity, detail = check_cached_archive_freshness(
+                        freshness_url,
+                        self._download_target,
+                        custom_token=custom_token,
+                )
+                if outcome == STALE:
+                    if no_exec:
+                        logger.info(
+                                "Package archive [{}] for [{}] is not current "
+                                "on the registry{}; would re-fetch "
+                                "(skipped under -n / --no-exec)".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        " ({})".format( detail ) if detail else "",
+                                )
+                        )
+                    else:
+                        removed = _remove_package_consume_cache(
+                                cache_dir, self._package_dir, self._package_id
+                        )
+                        logger.info(
+                                "Package archive [{}] for [{}] changed on the "
+                                "registry{}; cleared {} path(s) and "
+                                "re-fetching".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        " ({})".format( detail ) if detail else "",
+                                        as_info( str( len( removed ) ) ),
+                                )
+                        )
+                        self._download_target = preferred_target
+                        package_file = os.path.basename( self._download_target )
+                elif outcome == UNVERIFIED:
+                    self._label_terse_package()
+                    remark = "unverified · using cached archive"
+                    if not self._terse_collect(
+                            status="warn",
+                            remark=remark,
+                            registry=registry,
+                            archive_path=self._download_target,
+                    ):
+                        logger.warn(
+                                "Could not verify package archive [{}] for "
+                                "[{}] against the registry ({}). "
+                                "This build is using the cached archive, "
+                                "which might not be current.".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        as_warning( detail or "check failed" ),
+                                )
+                        )
+                elif outcome == MATCH:
+                    logger.debug(
+                            "Package archive [{}] for [{}] matches the "
+                            "registry".format(
+                                    as_info( package_file ),
+                                    as_info( self._package_id ),
+                            )
+                    )
+
         # The package file doesn't exist so lets attempt to download it
         if not self._offline:
             if not os.path.exists( self._download_target ):
@@ -2016,6 +2126,19 @@ class GitlabPackageDependency:
                             log_id=self._package_id,
                     )
                     self._download_target = dest
+                    from cuppa.package_managers.package_download_freshness import (
+                            record_archive_freshness_from_head,
+                            url_for_cached_archive,
+                    )
+                    freshness_url = url_for_cached_archive(
+                            candidates, self._download_target
+                    )
+                    if freshness_url:
+                        record_archive_freshness_from_head(
+                                freshness_url,
+                                self._download_target,
+                                custom_token=custom_token,
+                        )
                 except DownloadError as error:
                     from cuppa.utility.download import is_http_not_found
                     from cuppa.package_managers.package_cascade import (
@@ -2360,10 +2483,17 @@ class GitlabPackageDependency:
             )
             return
 
-        logger.info( "Applying default_use_libs {} for package [{}]".format(
+        # Under terse the package already appears on the resolve location map;
+        # do not punch a second configure info line (same idea as develop /
+        # "Using package" gating). Keep the fact at debug for -d soaks.
+        message = "Applying default_use_libs {} for package [{}]".format(
                 as_info( str( defaults ) ),
                 as_notice( self._package_id ),
-        ) )
+        )
+        if self._cuppa_env.get( "terse_output" ):
+            logger.debug( message )
+        else:
+            logger.info( message )
         self.use_libs( defaults, dependency_name=dependency_name )
 
 
