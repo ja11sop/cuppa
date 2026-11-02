@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Online GitLab package consume checks whether a cached archive is still the
+  file on the registry (``HEAD``, preferring ``X-Checksum-Sha256``) before
+  reusing it. A same-version retag (for example ``develop``) re-fetches
+  without ``--refresh-downloads``. When the check cannot run, consume warns
+  once and keeps the cached extract. ``--offline`` skips the check;
+  ``--refresh-downloads`` still force-refetches. Plan:
+  ``design/plans/package-download-freshness.md``.
+
 - ``CMakeInstall`` rewrites installed ``*.pc`` files so ``prefix`` is
   ``${pcfiledir}`` relative to the package root. Paths under that prefix
   (``libdir``, ``includedir``, and raw ``-I`` / ``-L`` paths) follow it.
@@ -73,6 +81,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   coverage docs say so.
 
 ### Fixed
+
+- Under ``--terse-output``, ``cuppa: command: [info] Executing […]`` is no
+  longer printed on the success path. Delegated ``[launch]`` bookends and
+  counted status lines already name the job; the full argv stays available in
+  normal output and on failure.
+
+- Under ``--terse-output``, ``Applying default_use_libs …`` is demoted to
+  debug. The package already appears on the resolve location map.
 
 - Parallel coverage reports no longer share one gcovr output directory.
   Each program's HTML and JSON are written under ``gcov-data/{program}/gcovr``

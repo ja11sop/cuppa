@@ -115,10 +115,15 @@ class run:
                 logger.error( "  {}".format( as_error( line ) ) )
 
         try:
-            logger.info( "Executing [{}] in directory [{}]...".format(
-                    as_info( self._command ),
-                    as_notice( self._working_dir )
-            ) )
+            # Under terse, status / [launch] lines own the narrative. Do not
+            # punch the full argv through as logger.info (Popen2 argv reprint is
+            # already suppressed). Non-terse keeps Executing. Failures still
+            # log below.
+            if not terse:
+                logger.info( "Executing [{}] in directory [{}]...".format(
+                        as_info( self._command ),
+                        as_notice( self._working_dir )
+                ) )
             args_list = _resolve_executable(
                     shlex.split( self._command ),
                     self._working_dir

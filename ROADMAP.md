@@ -11,7 +11,7 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-10-31
+**As of:** 2026-11-01
 
 ---
 
@@ -30,6 +30,7 @@ Minor cycle after **1.13.0**. No single opener locked yet — pick up the
 | Quiet heartbeat at exit | **Noted** — `-Q` parks the last INFO on the status row and exit does not finish that row — [`quiet-heartbeat-exit.md`](design/plans/quiet-heartbeat-exit.md) |
 | Unverified registry `latest` | **Done** — consume reuses a remembered extract when the check cannot run. Terse keeps that on the `[version]` row. Normal output warns once at the decision. 404 and publish stay hard stops — [`unverified-latest.md`](design/plans/unverified-latest.md) |
 | Package public compile defines | **Done** (unreleased) — `public_defines` on `BuildWith`, relocatable `.pc` after `CMakeInstall`, traveling `library_prefix` and `pkg_config_dir`. Ships with 1.14.0 — [#388](https://github.com/ja11sop/cuppa/pull/388) — [`package-public-defines.md`](design/plans/package-public-defines.md) |
+| Package download freshness | **In progress** — online HEAD before reuse so same-version retags are picked up; `--refresh-downloads` stays force — [`package-download-freshness.md`](design/plans/package-download-freshness.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
 | Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
@@ -516,7 +517,8 @@ mechanics: [`design/plans/removal-options.md`](design/plans/removal-options.md).
 | ID | Work | Priority | Notes |
 |----|------|----------|-------|
 | `storage-listing-removal` | `--list-*`, `--remove-*`, `--purge-*`, `--wipe-*` for builds, dependencies, and downloads | Medium | Umbrella [#134](https://github.com/ja11sop/cuppa/issues/134) closed by [#144](https://github.com/ja11sop/cuppa/pull/144). Builds #140; list-deps #141; remove #142; archive clean #143; Phase 4 list-downloads + purge #144. Phase 3 polish [#145](https://github.com/ja11sop/cuppa/issues/145). Wipe [#146](https://github.com/ja11sop/cuppa/issues/146) closed by [#150](https://github.com/ja11sop/cuppa/pull/150). Remaining from this family: [#135](https://github.com/ja11sop/cuppa/issues/135) (artefacts). |
-| `package-download-refresh` | Opt-in re-fetch of GitLab package archives (and re-extract) after same-version registry overwrite | Medium | **Shipped in 1.11.0** [#342](https://github.com/ja11sop/cuppa/pull/342). Design: [`package-download-refresh.md`](design/archive/package-download-refresh.md). [#296](https://github.com/ja11sop/cuppa/issues/296). |
+| `package-download-refresh` | Opt-in re-fetch of GitLab package archives (and re-extract) after same-version registry overwrite | Medium | **Shipped in 1.11.0** [#342](https://github.com/ja11sop/cuppa/pull/342). Design: [`package-download-refresh.md`](design/archive/package-download-refresh.md). [#296](https://github.com/ja11sop/cuppa/issues/296). Follow-on: `package-download-freshness`. |
+| `package-download-freshness` | Online conditional freshness: `HEAD` the package archive before reuse; re-fetch when the registry file changed (floating tags / same-version overwrite) | Medium | **In progress**. All version keys (not `develop`-only). Sidecar identity; warn-and-reuse if HEAD fails; terse stays quiet on match. `--refresh-downloads` remains force. [`package-download-freshness.md`](design/plans/package-download-freshness.md). Deferred slice from [#296](https://github.com/ja11sop/cuppa/issues/296) / `pkg-dl-refresh-conditional`. |
 | `package-build-publish-deps` | Opt-in cascade: tip publisher **or consume-only tip**; nest-publish or nest-build GitLab package DAG then tip upload / tip build only | Medium | **Shipped in 1.11.0** ([#302](https://github.com/ja11sop/cuppa/pull/302)–[#339](https://github.com/ja11sop/cuppa/pull/339)). Forest stem keying deferred. Design: [`package-build-publish-deps.md`](design/archive/package-build-publish-deps.md). [#297](https://github.com/ja11sop/cuppa/issues/297). |
 | `cascade-enable-rename` | Master flag **`--cascade`**; deprecate `--build-and-publish-dependencies` (alias until 2.0) | Low | **Shipped in 1.12.0** [#361](https://github.com/ja11sop/cuppa/pull/361). [`cascade-enable-rename.md`](design/archive/cascade-enable-rename.md). Follow-on to shipped `package-build-publish-deps`. |
 | `cascade-consume-ux` | Docs + small UX: tip consume vs cascade; list missing ≠ registry; early `-n` did-you-mean plan; nest default `--rel`; remedy split; clone-first finish | Medium | **Shipped in 1.12.0** (#366–#368). `skip-location-update` (soak `skip-resolve`) → [`skip-location-update.md`](design/archive/skip-location-update.md). Later: full `opt-compat-early`. [`cascade-consume-ux-soak.md`](design/archive/cascade-consume-ux-soak.md). |

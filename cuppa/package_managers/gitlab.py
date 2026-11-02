@@ -19,7 +19,7 @@ import zipfile
 import cuppa.core.storage_options
 
 from cuppa.log import logger, register_secret
-from cuppa.colourise import as_error, as_info, as_notice, as_info_label
+from cuppa.colourise import as_error, as_info, as_notice, as_info_label, as_warning
 from cuppa.utility.scons_nodes import resolve_existing_node_path as _resolve_node_path
 from cuppa.utility.storage import display_path
 
@@ -1994,6 +1994,89 @@ class GitlabPackageDependency:
             self._download_target = existing
             package_file = os.path.basename( existing )
 
+        # Online conditional freshness: HEAD before reuse when an archive is
+        # already cached. Force --refresh-downloads already handled above.
+        # Plan: design/plans/package-download-freshness.md.
+        no_exec = bool(
+                self.is_option_set( "no_exec" )
+                or self._cuppa_env.get( 'no_exec' )
+        )
+        if (
+                not self._offline
+                and not want_refresh
+                and os.path.exists( self._download_target )
+        ):
+            from cuppa.package_managers.package_download_freshness import (
+                    MATCH,
+                    STALE,
+                    UNVERIFIED,
+                    check_cached_archive_freshness,
+                    url_for_cached_archive,
+            )
+            freshness_url = url_for_cached_archive(
+                    candidates, self._download_target
+            )
+            if freshness_url:
+                outcome, _identity, detail = check_cached_archive_freshness(
+                        freshness_url,
+                        self._download_target,
+                        custom_token=custom_token,
+                )
+                if outcome == STALE:
+                    if no_exec:
+                        logger.info(
+                                "Package archive [{}] for [{}] is not current "
+                                "on the registry{}; would re-fetch "
+                                "(skipped under -n / --no-exec)".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        " ({})".format( detail ) if detail else "",
+                                )
+                        )
+                    else:
+                        removed = _remove_package_consume_cache(
+                                cache_dir, self._package_dir, self._package_id
+                        )
+                        logger.info(
+                                "Package archive [{}] for [{}] changed on the "
+                                "registry{}; cleared {} path(s) and "
+                                "re-fetching".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        " ({})".format( detail ) if detail else "",
+                                        as_info( str( len( removed ) ) ),
+                                )
+                        )
+                        self._download_target = preferred_target
+                        package_file = os.path.basename( self._download_target )
+                elif outcome == UNVERIFIED:
+                    self._label_terse_package()
+                    remark = "unverified · using cached archive"
+                    if not self._terse_collect(
+                            status="warn",
+                            remark=remark,
+                            registry=registry,
+                            archive_path=self._download_target,
+                    ):
+                        logger.warn(
+                                "Could not verify package archive [{}] for "
+                                "[{}] against the registry ({}). "
+                                "This build is using the cached archive, "
+                                "which might not be current.".format(
+                                        as_info( package_file ),
+                                        as_info( self._package_id ),
+                                        as_warning( detail or "check failed" ),
+                                )
+                        )
+                elif outcome == MATCH:
+                    logger.debug(
+                            "Package archive [{}] for [{}] matches the "
+                            "registry".format(
+                                    as_info( package_file ),
+                                    as_info( self._package_id ),
+                            )
+                    )
+
         # The package file doesn't exist so lets attempt to download it
         if not self._offline:
             if not os.path.exists( self._download_target ):
@@ -2016,6 +2099,19 @@ class GitlabPackageDependency:
                             log_id=self._package_id,
                     )
                     self._download_target = dest
+                    from cuppa.package_managers.package_download_freshness import (
+                            record_archive_freshness_from_head,
+                            url_for_cached_archive,
+                    )
+                    freshness_url = url_for_cached_archive(
+                            candidates, self._download_target
+                    )
+                    if freshness_url:
+                        record_archive_freshness_from_head(
+                                freshness_url,
+                                self._download_target,
+                                custom_token=custom_token,
+                        )
                 except DownloadError as error:
                     from cuppa.utility.download import is_http_not_found
                     from cuppa.package_managers.package_cascade import (
@@ -2360,10 +2456,17 @@ class GitlabPackageDependency:
             )
             return
 
-        logger.info( "Applying default_use_libs {} for package [{}]".format(
+        # Under terse the package already appears on the resolve location map;
+        # do not punch a second configure info line (same idea as develop /
+        # "Using package" gating). Keep the fact at debug for -d soaks.
+        message = "Applying default_use_libs {} for package [{}]".format(
                 as_info( str( defaults ) ),
                 as_notice( self._package_id ),
-        ) )
+        )
+        if self._cuppa_env.get( "terse_output" ):
+            logger.debug( message )
+        else:
+            logger.info( message )
         self.use_libs( defaults, dependency_name=dependency_name )
 
 
