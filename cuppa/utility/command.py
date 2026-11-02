@@ -60,6 +60,16 @@ class run:
         self._terse_action = terse_action
 
 
+    def strfunction( self, target, source, env ):
+        """SCons description for ``PRINT_CMD_LINE`` / terse stash.
+
+        Without this, FunctionAction dumps ``run([...], [...])`` and the
+        speller never sees ``cp`` — a ``.a`` dest is then misspelled
+        ``archive``. Return the shell string the action actually runs.
+        """
+        return self._command
+
+
     def __call__( self, target, source, env ):
 
         from SCons.Script import Touch

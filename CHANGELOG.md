@@ -82,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Under ``--terse-output``, staging ``cp`` / ``mv`` of a ``.a`` (for example
+  after CMake) is spelled ``copy`` / ``move`` with a ``source → dest``
+  transfer field. ``cuppa.utility.command.run`` now exposes the shell string
+  to SCons, and the transfer ends are recovered from the argv when SCons
+  ``source`` is a stamp rather than the file being copied. Previously the
+  Python-action dump left only the ``.a`` suffix, which was misspelled
+  ``archive``.
+
 - Under ``--terse-output``, ``cuppa: command: [info] Executing […]`` is no
   longer printed on the success path. Delegated ``[launch]`` bookends and
   counted status lines already name the job; the full argv stays available in

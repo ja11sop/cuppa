@@ -146,6 +146,78 @@ def test_staging_cp_of_a_static_library_is_copy_with_transfer_field():
     assert "· archive ·" not in line
 
 
+def test_staging_cp_recovers_paths_when_scons_source_is_a_stamp():
+    """``Command(dest.a, cmake.complete, run("cp SRC DEST"))`` — source is stamp."""
+    env = _layout_env()
+    env.pop( "_variant" )
+    cmake_src = (
+            "/proj/_build/reference_guide/gcc16/dbg/x86_64/cxx2c/"
+            "cmake-build/libboost_corosio.a"
+    )
+    working = env["abs_build_dir"] + "/libboost_corosio.a"
+    command = "cp -f {} {}".format( cmake_src, working )
+    line = progress.format_terse_line(
+            "ok",
+            command,
+            [ working ],
+            [ env["abs_build_dir"] + "/cmake.build.complete" ],
+            env,
+    )
+    assert "· copy ·" in line
+    assert "· archive ·" not in line
+    assert "→" in line
+    assert "libboost_corosio.a" in line
+    assert "cmake.build.complete" not in line
+
+
+def test_shell_transfer_paths_parses_cp_and_skips_multi_source():
+    assert progress._shell_transfer_paths(
+            "cp -f /build/lib.a /working/lib.a"
+    ) == ( "/working/lib.a", "/build/lib.a" )
+    assert progress._shell_transfer_paths(
+            "mv a.a b.a"
+    ) == ( "b.a", "a.a" )
+    assert progress._shell_transfer_paths( "cp -t dest a.a b.a" ) == ( None, None )
+    assert progress._shell_transfer_paths( "ar rc lib.a a.o" ) == ( None, None )
+
+
+def test_python_action_cp_of_a_library_is_copy_not_archive( capsys ):
+    """Live path: stash may be a FunctionAction dump until ``run.strfunction``."""
+    progress.reset_progress_ledger()
+    progress.take_terse_command()
+    env = _layout_env()
+    env.pop( "_variant" )
+    working = env["abs_build_dir"] + "/libboost_corosio.a"
+    cmake_src = (
+            "/proj/_build/reference_guide/gcc16/dbg/x86_64/cxx2c/"
+            "cmake-build/libboost_corosio.a"
+    )
+    command = "cp -f {} {}".format( cmake_src, working )
+    # Simulate the pre-strfunction dump then the preferred-command recovery
+    # path used by ``_TersePythonCallable`` for ``run``.
+    progress.stash_terse_command(
+            'run(["{}"], ["cmake.build.complete"])'.format( working ),
+            [ working ],
+            [ env["abs_build_dir"] + "/cmake.build.complete" ],
+            env,
+    )
+    wrapped = progress._TersePythonCallable(
+            type( "R", (), { "_command": command, "__name__": "run" } )()
+    )
+    wrapped._finish_python_action(
+            [ working ],
+            [ env["abs_build_dir"] + "/cmake.build.complete" ],
+            env,
+            failed=False,
+    )
+    out = capsys.readouterr().out
+    assert "· copy ·" in out
+    assert "· archive ·" not in out
+    assert "→" in out
+    assert "libboost_corosio.a" in out
+    assert "cmake.build.complete" not in out
+
+
 def test_scons_builders_are_named_and_tar_is_not_a_compile():
     assert progress.spell_terse_action( "tar -c -f pkg.tar a.txt", [ "pkg.tar" ] ) == "tar"
     assert progress.spell_terse_action( "/usr/bin/gtar -c -f pkg.tar a.txt", [ "pkg.tar" ] ) == "tar"

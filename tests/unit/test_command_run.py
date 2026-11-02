@@ -123,6 +123,14 @@ def test_command_run_terse_streams_launch_and_muted_children( monkeypatch, capsy
     assert command == "cmake --build _build/x --parallel 1"
 
 
+def test_command_run_strfunction_returns_the_shell_command():
+    """SCons PRINT_CMD_LINE must see ``cp …``, not ``run([...], [...])``."""
+    action = run( "cp -f build/lib.a working/lib.a", working_dir="/tmp" )
+    assert action.strfunction( [ "working/lib.a" ], [ "stamp" ], {} ) == (
+            "cp -f build/lib.a working/lib.a"
+    )
+
+
 def test_command_run_terse_suppresses_executing_for_plain_run( monkeypatch ):
     """Under terse, plain ``run()`` also skips Executing (status line owns it)."""
     infos = []
