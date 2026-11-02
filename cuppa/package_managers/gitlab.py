@@ -55,6 +55,26 @@ def reset_refresh_downloads_session_for_tests():
     _refresh_downloads_seen = set()
 
 
+def _env_terse( env ):
+    if env is None:
+        return False
+    getter = getattr( env, "get", None )
+    if callable( getter ):
+        return bool( getter( "terse_output" ) )
+    try:
+        return bool( env[ "terse_output" ] )
+    except Exception:
+        return False
+
+
+def _package_build_info( env, message ):
+    """Staging / create / seed chatter. Status lines own it under terse."""
+    if _env_terse( env ):
+        logger.debug( message )
+    else:
+        logger.info( message )
+
+
 def refresh_downloads_applies( dependency_name, package_name ):
     """Whether this package should drop cache before download for the session."""
     selection = _refresh_downloads_selection
@@ -900,7 +920,7 @@ class GitlabPackagePublisher:
         source_include = _resolve_node_path( self._source_include_dir )
         target_include = str( self._target_include_dir )
         if refresh_staging_tree( source_include, target_include ):
-            logger.info( "For package [{}], refreshed include staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed include staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_include ),
                     as_notice( source_include ),
@@ -914,7 +934,7 @@ class GitlabPackagePublisher:
                 names, package_dir_name, package_file_name
         )
         if refresh_staging_tree( source_lib, target_lib, ignore=lib_ignore ):
-            logger.info( "For package [{}], refreshed lib staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed lib staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_lib ),
                     as_notice( source_lib ),
@@ -925,7 +945,7 @@ class GitlabPackagePublisher:
         if os.path.isdir( source_modules ) and refresh_staging_tree(
                 source_modules, target_modules
         ):
-            logger.info( "For package [{}], refreshed modules staging [{}] from [{}]".format(
+            _package_build_info( env, "For package [{}], refreshed modules staging [{}] from [{}]".format(
                     as_info( self._package_file_name ),
                     as_info( target_modules ),
                     as_notice( source_modules ),
@@ -937,11 +957,12 @@ class GitlabPackagePublisher:
         )
         package_base = str( self._package_base_dir )
         if remove_legacy_dependency_manifest( package_base ):
-            logger.info(
+            _package_build_info(
+                    env,
                     "Removed legacy cuppa-dependency.json under [{}] "
                     "(traveling SoT is cuppa-publish.json)".format(
                             as_info( package_base )
-                    )
+                    ),
             )
         public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
@@ -957,7 +978,7 @@ class GitlabPackagePublisher:
                 library_prefix=getattr( self, '_library_prefix', None ),
                 pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
-        logger.info( "Wrote [{}] for package [{}]".format(
+        _package_build_info( env, "Wrote [{}] for package [{}]".format(
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
@@ -985,11 +1006,11 @@ class GitlabPackagePublisher:
                     library_prefix=getattr( self, '_library_prefix', None ),
                     pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
-            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+            _package_build_info( env, "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
             ) )
 
-        logger.info( "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
+        _package_build_info( env, "Creating package [{}]...".format( as_info( str(target[0]) ) ) )
         archive_path = str( self._package_archive )
         staging_roots = [
                 str( self._target_include_dir ),
@@ -1006,17 +1027,19 @@ class GitlabPackagePublisher:
             if callable( getter ):
                 force = bool( getter( 'force' ) )
             if not force:
-                logger.info(
+                _package_build_info(
+                        env,
                         "Package archive [{}] is up to date; skipping recreate".format(
                                 as_info( archive_path )
-                        )
+                        ),
                 )
                 env.Execute( Touch( target[0] ) )
                 return None
-            logger.info(
+            _package_build_info(
+                    env,
                     "Package archive [{}] is up to date; --force recreating".format(
                             as_info( archive_path )
-                    )
+                    ),
             )
 
         returncode = create_package_archive(
@@ -1041,7 +1064,7 @@ class GitlabPackagePublisher:
             pass
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] created".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] created".format( as_info( archive_path ) ) )
 
         return None
 
@@ -1099,9 +1122,10 @@ class GitlabPackagePublisher:
             archive_ok = os.path.isfile( archive_path )
 
         if not stage_ok and archive_ok:
-            logger.info(
+            _package_build_info(
+                    env,
                     "Extracting [{}] into [{}] for metadata amend..."
-                    .format( as_info( archive_path ), as_info( abs_final ) )
+                    .format( as_info( archive_path ), as_info( abs_final ) ),
             )
             returncode = extract_package_archive( archive_path, abs_final )
             if returncode != 0:
@@ -1121,11 +1145,12 @@ class GitlabPackagePublisher:
                 write_publish_manifest,
         )
         if remove_legacy_dependency_manifest( package_base ):
-            logger.info(
+            _package_build_info(
+                    env,
                     "Removed legacy cuppa-dependency.json under [{}] "
                     "(traveling SoT is cuppa-publish.json)".format(
                             as_info( package_base )
-                    )
+                    ),
             )
         public_defines = self._public_defines_for( package_base, env )
         publish_path_written = write_publish_manifest(
@@ -1141,7 +1166,7 @@ class GitlabPackagePublisher:
                 library_prefix=getattr( self, '_library_prefix', None ),
                 pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
         )
-        logger.info( "Amended [{}] for package [{}]".format(
+        _package_build_info( env, "Amended [{}] for package [{}]".format(
                 as_info( publish_path_written ),
                 as_info( self._package_file_name ),
         ) )
@@ -1174,7 +1199,7 @@ class GitlabPackagePublisher:
                     library_prefix=getattr( self, '_library_prefix', None ),
                     pkg_config_dir=getattr( self, '_pkg_config_dir', None ),
             )
-            logger.info( "Seeded publisher-tree [{}] for cascade discovery".format(
+            _package_build_info( env, "Seeded publisher-tree [{}] for cascade discovery".format(
                     as_info( seed_path ),
             ) )
 
@@ -1196,21 +1221,23 @@ class GitlabPackagePublisher:
             if callable( getter ):
                 force = bool( getter( 'force' ) )
             if not force:
-                logger.info(
+                _package_build_info(
+                        env,
                         "Package archive [{}] already matches amended stage; "
-                        "skipping recreate".format( as_info( archive_path ) )
+                        "skipping recreate".format( as_info( archive_path ) ),
                 )
                 env.Execute( Touch( target[0] ) )
-                logger.info( "Package [{}] amend up to date".format(
+                _package_build_info( env, "Package [{}] amend up to date".format(
                         as_info( archive_path )
                 ) )
                 return None
-            logger.info(
+            _package_build_info(
+                    env,
                     "Package archive [{}] already matches amended stage; "
-                    "--force recreating".format( as_info( archive_path ) )
+                    "--force recreating".format( as_info( archive_path ) ),
             )
 
-        logger.info( "Recreating package [{}] after metadata amend...".format(
+        _package_build_info( env, "Recreating package [{}] after metadata amend...".format(
                 as_info( archive_path )
         ) )
         returncode = create_package_archive(
@@ -1235,7 +1262,7 @@ class GitlabPackagePublisher:
             pass
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] amended".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] amended".format( as_info( archive_path ) ) )
         return None
 
 
@@ -1246,7 +1273,7 @@ class GitlabPackagePublisher:
 
         archive_path = str( self._package_archive )
         location = getattr( self, '_package_location', None ) or archive_path
-        logger.info( "Publishing package [{}] to [{}]...".format(
+        _package_build_info( env, "Publishing package [{}] to [{}]...".format(
                 as_info( archive_path ),
                 as_info( location ),
         ) )
@@ -1267,7 +1294,7 @@ class GitlabPackagePublisher:
             return 1
 
         env.Execute( Touch( target[0] ) )
-        logger.info( "Package [{}] published".format( as_info( archive_path ) ) )
+        _package_build_info( env, "Package [{}] published".format( as_info( archive_path ) ) )
         try:
             import cuppa.progress
             cuppa.progress.write_terse_transfer_action(

@@ -4494,9 +4494,18 @@ def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
 
 
 def write_terse_transfer_action( env, action, source, dest, status="ok", count=True ):
-    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line."""
+    """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line.
+
+    A counted transfer (``compress`` / ``publish`` / …) closes the parent
+    Python action's narrative. Drop the in-flight ``[....] packaging`` caption
+    *before* writing so ``write_transcript(keep_pending=True)`` cannot chase
+    that caption back onto the status row after the durable line — otherwise
+    a following ``logger.info`` glues into the sticky text.
+    """
     if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
         return False
+    if count:
+        end_terse_executing()
     holder = type( "T", (), {} )()
     holder.path = dest
     attributes = type( "A", (), {} )()
@@ -4515,6 +4524,7 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
     sys.stdout.flush()
     if count:
         note_terse_status_emitted()
+        refresh_terse_executing()
     else:
         note_terse_nested_action()
     return True
