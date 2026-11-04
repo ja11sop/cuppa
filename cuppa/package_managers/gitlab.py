@@ -1059,6 +1059,7 @@ class GitlabPackagePublisher:
             stage = os.path.join( env['abs_final_dir'], self._package_source_dir )
             cuppa.progress.write_terse_transfer_action(
                     env, "compress", stage, archive_path,
+                    closes_parent=True,
             )
         except Exception:
             pass
@@ -1257,6 +1258,7 @@ class GitlabPackagePublisher:
             stage = os.path.join( abs_final, self._package_source_dir )
             cuppa.progress.write_terse_transfer_action(
                     env, "compress", stage, archive_path,
+                    closes_parent=True,
             )
         except Exception:
             pass
@@ -1302,6 +1304,7 @@ class GitlabPackagePublisher:
                     "publish",
                     archive_path,
                     location,
+                    closes_parent=True,
             )
         except Exception:
             pass

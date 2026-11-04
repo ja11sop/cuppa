@@ -4493,18 +4493,28 @@ def write_terse_transfer_resolve( env, action, source, dest, status="ok" ):
     return True
 
 
-def write_terse_transfer_action( env, action, source, dest, status="ok", count=True ):
+def write_terse_transfer_action(
+        env, action, source, dest, status="ok", count=True, closes_parent=None,
+):
     """Variant-phase transfer: ordinary ``[ok] … · download · src → dest`` line.
 
-    A counted transfer (``compress`` / ``publish`` / …) closes the parent
-    Python action's narrative. Drop the in-flight ``[....] packaging`` caption
-    *before* writing so ``write_transcript(keep_pending=True)`` cannot chase
-    that caption back onto the status row after the durable line — otherwise
-    a following ``logger.info`` glues into the sticky text.
+    ``count`` controls the ``N/M`` tally only. ``closes_parent`` means this
+    line **is** the enclosing Python action's durable status (package →
+    ``compress``, publish → ``publish``): call ``note_terse_status_emitted``
+    so the generic finish ``[ok]`` is skipped, and drop the in-flight
+    ``[....]`` caption *before* writing so ``write_transcript(keep_pending)``
+    cannot chase that caption back onto the status row. When ``closes_parent``
+    is omitted it defaults to ``count`` — today's call graph uses one counted
+    closing transfer per parent. Pass the knobs separately when a counted
+    mid-action transfer must not close the parent (or an uncounted one must).
     """
     if not _env_get( env, "terse_output" ) or _env_get( env, "clean" ):
         return False
-    if count:
+    if closes_parent is None:
+        closes_parent = bool( count )
+    else:
+        closes_parent = bool( closes_parent )
+    if closes_parent:
         end_terse_executing()
     holder = type( "T", (), {} )()
     holder.path = dest
@@ -4522,10 +4532,10 @@ def write_terse_transfer_action( env, action, source, dest, status="ok", count=T
     )
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
-    if count:
+    if closes_parent:
         note_terse_status_emitted()
         refresh_terse_executing()
-    else:
+    elif not count:
         note_terse_nested_action()
     return True
 

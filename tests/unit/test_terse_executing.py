@@ -218,8 +218,8 @@ def test_wrapped_execute_copy_does_not_leak_outstanding( monkeypatch, capsys ):
     assert list( progress._outstanding ) == []  # noqa: SLF001
 
 
-def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
-    """``compress`` closes the parent ``package`` caption before it writes."""
+def test_closes_parent_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
+    """``closes_parent=True`` drops the parent caption before the durable line."""
     stream = io.StringIO()
     clock = FakeClock()
     _arm_status_row( stream, clock, monkeypatch )
@@ -241,15 +241,17 @@ def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
             "compress",
             "/proj/_build/gcc15_rel/final/widget",
             "/proj/_build/gcc15_rel/final/widget.tar.gz",
+            closes_parent=True,
     )
     assert list( progress._outstanding ) == []  # noqa: SLF001
     assert list( progress._pending_outstanding ) == []  # noqa: SLF001
+    assert progress.take_terse_status_emitted() is True
     out = strip_ansi( capsys.readouterr().out )
     assert "· compress ·" in out
 
 
-def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
-    """``compress`` closes the parent ``package`` caption before it writes."""
+def test_counted_transfer_can_leave_parent_outstanding( monkeypatch, capsys ):
+    """``count`` and ``closes_parent`` are separate knobs."""
     stream = io.StringIO()
     clock = FakeClock()
     _arm_status_row( stream, clock, monkeypatch )
@@ -264,18 +266,22 @@ def test_counted_transfer_ends_packaging_outstanding( monkeypatch, capsys ):
             "build_package", [ package_node ], [], env,
     )
     assert key is not None
-    assert key in progress._outstanding  # noqa: SLF001
 
     assert progress.write_terse_transfer_action(
             env,
             "compress",
             "/proj/_build/gcc15_rel/final/widget",
             "/proj/_build/gcc15_rel/final/widget.tar.gz",
+            count=True,
+            closes_parent=False,
     )
-    assert list( progress._outstanding ) == []  # noqa: SLF001
-    assert list( progress._pending_outstanding ) == []  # noqa: SLF001
+    assert list( progress._outstanding.keys() ) == [ key ]  # noqa: SLF001
+    assert progress.take_terse_status_emitted() is False
     out = strip_ansi( capsys.readouterr().out )
     assert "· compress ·" in out
+
+    progress.end_terse_executing( key )
+    progress.refresh_terse_executing()
 
 
 def test_fast_action_ends_before_arm_never_paints( monkeypatch ):

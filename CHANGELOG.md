@@ -86,10 +86,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   chatter (refreshed include/lib, wrote manifest, seeded publisher-tree,
   creating/created package, and the amend/publish parallels) is demoted to
   debug. The counted ``copy`` / ``compress`` / ``publish`` lines already name
-  the work. A counted ``write_terse_transfer_action`` also ends the parent
-  ``[....] packaging`` caption before it writes, so a following logger line
-  cannot glue into the sticky progressive text. Empty gcov coverage with no
-  tests is demoted the same way (noise after ``[completed]``).
+  the work. ``write_terse_transfer_action(..., closes_parent=True)`` ends the
+  parent ``[....] packaging`` caption before it writes (and notes status
+  emitted), so a following logger line cannot glue into the sticky progressive
+  text. ``count`` remains the ``N/M`` tally only; ``closes_parent`` defaults to
+  ``count`` when omitted. Empty gcov coverage with no tests is demoted the
+  same way (noise after ``[completed]``).
 
 - Under ``--terse-output``, staging ``cp`` / ``mv`` of a ``.a`` (for example
   after CMake) is spelled ``copy`` / ``move`` with a ``source → dest``
