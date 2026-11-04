@@ -1,9 +1,11 @@
 # Plan: online conditional freshness for GitLab package downloads
 
-- **Status:** in progress
-- **Related:** [`package-download-refresh.md`](../archive/package-download-refresh.md) (force `--refresh-downloads`, deferred `pkg-dl-refresh-conditional`); [#296](https://github.com/ja11sop/cuppa/issues/296); [`unverified-latest.md`](unverified-latest.md) (warn-and-reuse when a check cannot run); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md) (durable resolve children); `GitlabPackageDependency` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py); [`ROADMAP.md`](../../ROADMAP.md) — storage `package-download-freshness`
-- **Updated:** 2026-11-01
+- **Status:** done
+- **Related:** [`package-download-refresh.md`](../archive/package-download-refresh.md) (force `--refresh-downloads`, deferred `pkg-dl-refresh-conditional`); [#296](https://github.com/ja11sop/cuppa/issues/296); [`unverified-latest.md`](unverified-latest.md) (warn-and-reuse when a check cannot run); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md) (durable resolve children); `GitlabPackageDependency` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py); [`ROADMAP.md`](../../ROADMAP.md) — storage `package-download-freshness`; [#389](https://github.com/ja11sop/cuppa/pull/389)
+- **Updated:** 2026-11-04
 - **Impact:** `minor` (online consume may re-fetch after a same-version registry overwrite without a new flag)
+
+Done in [#389](https://github.com/ja11sop/cuppa/pull/389). Ships with 1.14.0. The notes below are the record of the gap.
 
 ## Problem
 
