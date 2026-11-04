@@ -82,6 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Surprising option refusals for ``--stage-package`` with ``--publish-package``,
+  and for ``--parallel=N`` with ``--jobs`` / ``-j``, print an **Options Error**
+  tree (why / remedy) on stdout before a short ``StopError``, matching the
+  cascade ``-n`` pattern. The shared helper is
+  ``cuppa.utility.console_errors.raise_options_error``. Plan:
+  ``design/plans/console-stop-error-reporting.md``.
+
 - Under ``--terse-output``, GitLab package build / amend / publish staging
   chatter (refreshed include/lib, wrote manifest, seeded publisher-tree,
   creating/created package, and the amend/publish parallels) is demoted to

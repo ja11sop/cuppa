@@ -32,7 +32,6 @@ from cuppa.colourise import (
         as_emphasised,
         as_emphasised_plain,
         as_error,
-        as_error_label,
         as_info,
         as_info_label,
         as_notice,
@@ -2749,40 +2748,18 @@ def _run_nested_cuppa( argv, cwd, env ) -> int:
 
 
 def _raise_options_error( headline, reasons, short_message, encoding=None, out=None ):
-    """Print an Options Error tree on stdout, then raise a short ``StopError``.
+    """Delegate to :func:`cuppa.utility.console_errors.raise_options_error`.
 
-    Surprising refusals (invalid flag combinations) deserve a readable report
-    before the critical exception line. ``headline`` is the title after the
-    chip. ``reasons`` is a list of ``(prose, colour)`` branches — typically a
-    why branch coloured with ``as_error`` and a remedy branch coloured with
-    emphasised info so the positive next flags stand out. Bare ``--flags`` and
-    ``[bracketed]`` values take that branch's colour.
+    Kept as a thin alias so existing cascade call sites and tests stay stable.
     """
-    tee, elbow, pipe, gap = storage.glyphs( encoding )
-    stub = pipe.rstrip()
-    lines = [
-            "",
-            "{}: {}".format(
-                    as_error_label( as_emphasised( "Options Error" ) ),
-                    storage.highlight_values( headline, as_error ),
-            ),
-    ]
-    total = len( reasons )
-    for index, ( reason, colour ) in enumerate( reasons ):
-        last = index == total - 1
-        lines.append( as_subdued( stub ) )
-        first = elbow if last else tee
-        carried = gap if last else pipe
-        wrap_width = max( storage.WIDEST_PROSE - len( first ), storage.NARROWEST_PROSE )
-        branch = first
-        for piece in storage.wrapped( reason, wrap_width ):
-            lines.append(
-                    as_subdued( branch ) + storage.highlight_values( piece, colour )
-            )
-            branch = carried
-    lines.append( "" )
-    write_lines( lines, out=out )
-    raise SCons.Errors.StopError( short_message )
+    from cuppa.utility.console_errors import raise_options_error
+    raise_options_error(
+            headline,
+            reasons,
+            short_message,
+            encoding=encoding,
+            out=out,
+    )
 
 
 # Plan reports recorded during the sconscript read; see finish_plan_only().

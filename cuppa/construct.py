@@ -742,7 +742,41 @@ class Construct(object):
                         parallel_request, num_jobs,
                 )
             except ValueError as exc:
-                raise SCons.Errors.StopError( str( exc ) )
+                from cuppa.colourise import as_error
+                from cuppa.utility.console_errors import (
+                        raise_options_error,
+                        remedy_colour,
+                )
+                message = str( exc )
+                # Conflict between --parallel=N and --jobs / -j: Options Error
+                # tree, then a short StopError. Other ValueErrors stay plain.
+                if "do not combine --parallel=" in message:
+                    parallel_n = parallel_request.jobs
+                    jobs_n = int( num_jobs )
+                    raise_options_error(
+                            "--parallel={} cannot be combined with --jobs / -j"
+                            .format( parallel_n ),
+                            [
+                                    (
+                                            "--parallel={} sets both affinity and "
+                                            "the job count; --jobs={} / -j sets "
+                                            "the count alone".format(
+                                                    parallel_n, jobs_n,
+                                            ),
+                                            as_error,
+                                    ),
+                                    (
+                                            "Pass --parallel={} alone, or "
+                                            "--parallel --jobs={}".format(
+                                                    parallel_n, jobs_n,
+                                            ),
+                                            remedy_colour,
+                                    ),
+                            ],
+                            "Invalid option combination (--parallel={} and "
+                            "--jobs={} / -j)".format( parallel_n, jobs_n ),
+                    )
+                raise SCons.Errors.StopError( message )
 
             parallel = parallel_request.enabled
             if parallel and job_count != int( num_jobs ):

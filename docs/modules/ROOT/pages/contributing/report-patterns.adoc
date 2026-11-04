@@ -109,13 +109,40 @@ Prefer these instead of inventing a second flat warning list:
 | `_is_already_gone_error` / `_already_gone_note_reason`
 | `cuppa.core.storage_actions`
 | Benign miss classification
+
+| `raise_options_error` / `remedy_colour`
+| `cuppa.utility.console_errors`
+| Surprising flag refusals (Options Error tree + short `StopError`)
 |===
 
 Do not invent a second flat `as_warning("Not all...")` plus an indented list for dependency
 failures.
+
+== Options Error / stopping refusals
+
+Surprising **operator flag mistakes** (incompatible pairs, missing companion flags)
+should not dump a long sentence only into
+`cuppa: __init__: [critical] Cuppa terminated by exception [StopError: ...]`.
+
+Prefer:
+
+. Print an **Options Error** tree on stdout (unprefixed so tree glyphs survive)
+  via `cuppa.utility.console_errors.raise_options_error`.
+. Raise a **short** `StopError` (`Invalid option combination (...)`).
+. Why branch: error colour on `--flags` / `[values]`. Remedy branch:
+  `remedy_colour` (emphasised info) on the next-step flags.
+
+Critical-line colouring still applies to every `StopError` / `UserError`
+(`highlight_values` on the message). It does **not** replace the Options Error
+tree for flag refusals.
+
+Do **not** graduate every configure refuse (missing toolchain, 404, corrupt
+manifest) into an Options Error tree — only surprising flag combinations.
+Design: `design/plans/console-stop-error-reporting.md`.
 
 == Where to go next
 
 * Managing wipe / remove flags → xref:dependencies/managing.adoc[Managing dependencies]
 * Versioning and changelog → xref:contributing/versioning.adoc[Versioning and changelog]
 * Repository design plan → `design/archive/console-report-patterns.md`
+* Options Error / StopError plan → `design/plans/console-stop-error-reporting.md`
