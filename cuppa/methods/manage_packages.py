@@ -106,10 +106,28 @@ class PublishPackageMethod(object):
         publish = env.get_option( 'publish-package' ) and True or False
         stage = env.get_option( 'stage-package' ) and True or False
         if stage and publish:
-            import SCons.Errors
-            raise SCons.Errors.StopError(
-                    "--stage-package and --publish-package cannot be combined; "
-                    "stage builds the package archive without uploading."
+            from cuppa.colourise import as_error
+            from cuppa.utility.console_errors import (
+                    raise_options_error,
+                    remedy_colour,
+            )
+            raise_options_error(
+                    "--stage-package and --publish-package cannot be combined",
+                    [
+                            (
+                                    "--stage-package builds the package archive "
+                                    "without uploading; --publish-package uploads "
+                                    "it to the registry",
+                                    as_error,
+                            ),
+                            (
+                                    "Choose one: --stage-package for a local "
+                                    "archive, or --publish-package to upload",
+                                    remedy_colour,
+                            ),
+                    ],
+                    "Invalid option combination "
+                    "(--stage-package and --publish-package)",
             )
 
         if publish:
