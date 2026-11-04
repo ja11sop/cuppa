@@ -1240,8 +1240,17 @@ class CoverageIndexBuilder(object):
             logger.debug( "COVERAGE = {:d}/{:d}\n".format( cls.all_lines_covered, cls.all_lines_total ) )
 
             if not cls.all_lines_total > 0:
-                logger.info( "No lines of coverage (perhaps no tests were executed). Reported as {:d}/{:d} lines covered\n"
-                             .format( cls.all_lines_covered, cls.all_lines_total ) )
+                message = (
+                        "No lines of coverage (perhaps no tests were executed). "
+                        "Reported as {:d}/{:d} lines covered\n"
+                        .format( cls.all_lines_covered, cls.all_lines_total )
+                )
+                # Empty coverage after a package-only / no-test build is noise
+                # under terse; the transcript already closed with [completed].
+                if env.get( "terse_output" ):
+                    logger.debug( message )
+                else:
+                    logger.info( message )
                 return
 
             lines_percent = 100.0 * float(cls.all_lines_covered) / float(cls.all_lines_total)

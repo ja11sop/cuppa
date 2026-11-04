@@ -8,7 +8,7 @@ from cuppa.package_managers import gitlab
 pytestmark = pytest.mark.unit
 
 
-def _publisher_env( tmp_path, touched=None, sconstruct_dir=None ):
+def _publisher_env( tmp_path, touched=None, sconstruct_dir=None, terse_output=False ):
     class Env:
         abs_final_dir = str( tmp_path )
 
@@ -17,6 +17,8 @@ def _publisher_env( tmp_path, touched=None, sconstruct_dir=None ):
                 return str( tmp_path )
             if key == 'sconstruct_dir' and sconstruct_dir is not None:
                 return str( sconstruct_dir )
+            if key == 'terse_output':
+                return terse_output
             raise KeyError( key )
 
         def get( self, key, default=None ):
@@ -170,6 +172,32 @@ def _bare_publisher( tmp_path, staging, include_dir, lib_dir, archive, source_in
     publisher._custom_token = None
     publisher._package_location = None
     return publisher
+
+
+def test_package_build_info_is_debug_under_terse( caplog ):
+    import logging
+    env = { "terse_output": True }
+    with caplog.at_level( logging.DEBUG, logger="cuppa" ):
+        gitlab._package_build_info( env, "Creating package [stamp]..." )
+    assert any(
+            "Creating package" in record.getMessage() and record.levelno == logging.DEBUG
+            for record in caplog.records
+    )
+    assert not any(
+            "Creating package" in record.getMessage() and record.levelno == logging.INFO
+            for record in caplog.records
+    )
+
+
+def test_package_build_info_is_info_without_terse( caplog ):
+    import logging
+    env = {}
+    with caplog.at_level( logging.INFO, logger="cuppa" ):
+        gitlab._package_build_info( env, "Creating package [stamp]..." )
+    assert any(
+            "Creating package" in record.getMessage() and record.levelno == logging.INFO
+            for record in caplog.records
+    )
 
 
 def test_build_package_skips_create_when_archive_current( tmp_path, monkeypatch ):

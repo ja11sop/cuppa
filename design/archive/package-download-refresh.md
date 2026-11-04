@@ -105,7 +105,7 @@ flowchart TD
 | `pkg-dl-refresh-names` | Settle flag spelling + `=LIST` grammar | **Settled** 2026-09-27 |
 | `pkg-dl-refresh-impl` | Option + GitlabPackageDependency hook; unit tests; unknown-name audit | Done on master [#342](https://github.com/ja11sop/cuppa/pull/342) |
 | `pkg-dl-refresh-docs` | Antora Managing / CLI; CHANGELOG | Done on master [#342](https://github.com/ja11sop/cuppa/pull/342) |
-| `pkg-dl-refresh-conditional` | Optional If-Modified-Since / skip unchanged | Later |
+| `pkg-dl-refresh-conditional` | Optional If-Modified-Since / skip unchanged | **Superseded as default online policy** — see [`../plans/package-download-freshness.md`](../plans/package-download-freshness.md) |
 
 ## Acceptance
 

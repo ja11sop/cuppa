@@ -146,6 +146,29 @@ Publishing `version="latest"` does not reuse the pin; it still needs a live regi
 So the remembered value is “what registry latest resolved to,” not “proof the archive is on
 disk.”
 
+[#package-download-freshness]
+== Package download freshness
+
+Cache keys are still **package + version + stem**. Online configure adds a
+cheap check before reusing a cached archive: Cuppa `HEAD`s the generic package
+file URL (same auth as download) and compares the response to a small sidecar
+next to the archive. GitLab's `X-Checksum-Sha256` is preferred; otherwise
+`Last-Modified` and `Content-Length` are used.
+
+* Match → reuse the archive and extract (no durable terse line for the check).
+* Different identity, or no sidecar yet → clear that archive and extract, then
+  download again (existing `[collect]` / `[extract]` terse children).
+* Check cannot run (network / auth / missing headers) → **warn once** and keep
+  the cached extract. Under `--terse-output` that is a `[collect]` child with a
+  warning remark (`unverified · using cached archive`).
+* `--offline` → no `HEAD` (existence-only reuse).
+* xref:cli/inspect-and-maintain.adoc#refresh-downloads[`--refresh-downloads`]
+  still force-clears and re-fetches.
+
+This applies to **every** version string, including floating tags such as
+`develop` and same-version semver overwrites. It is not limited to the name
+`develop`.
+
 [#boost-package]
 == Boost package
 

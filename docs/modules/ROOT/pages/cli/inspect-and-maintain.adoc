@@ -187,9 +187,12 @@ Do not combine remove, purge, and wipe modes in one command.
 [#refresh-downloads]
 === Refresh package downloads (configure-time)
 
-Same-version GitLab package republish leaves a sticky archive until you delete
-it. Prefer an opt-in re-fetch on the **next configure** over a separate purge
-when you only need currency for this build:
+Online configure already checks whether a cached GitLab package archive still
+matches the registry file (a cheap `HEAD`, using `X-Checksum-Sha256` when the
+server sends it). A same-version overwrite is picked up on the next online
+configure without a flag. Use `--refresh-downloads` when you want to
+**force** drop and re-fetch anyway (for example CI on a sticky runner before
+that check soaks, or when you distrust the local sidecar):
 
 [source,sh]
 ----
@@ -203,7 +206,8 @@ all project-used GitLab package dependencies; `=NAMES` selects by Cuppa
 dependency name or registry package name. It refuses `--offline`, skips deps
 using `--develop` / a local stage, and does not delete under `-n` /
 `--no-exec`. It complements purge/wipe; it does not replace them. Location /
-Conan archives are out of scope.
+Conan archives are out of scope. See
+xref:dependencies/using/gitlab.adoc#package-download-freshness[package download freshness].
 
 Publisher forest reclaim is separate: `--remove-publishers=NAME` /
 `--remove-all-publishers` (comma-separated folder names under the in-force

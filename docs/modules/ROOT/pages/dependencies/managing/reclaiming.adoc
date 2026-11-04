@@ -32,10 +32,13 @@ It is **not** the same as a filter **selector** (`[gitlab]`, `[source]`, <...>),
 restricts which dependency *type* a name matches — see
 xref:#dependency-types-and-selectors[Dependency types and selectors].
 
-When a GitLab package was **republished at the same version** and you only need this
-build to see the new archive (not a storage clean-out), prefer configure-time
+When a GitLab package was **republished at the same version**, an **online**
+configure already re-fetches if the registry file changed (see
+xref:dependencies/using/gitlab.adoc#package-download-freshness[package download freshness]).
+Use configure-time
 xref:cli/inspect-and-maintain.adoc#refresh-downloads[`--refresh-downloads`]
-over purge/wipe.
+when you want a forced drop and re-fetch without relying on that check, rather
+than purge/wipe.
 
 [cols="1,2,4"]
 |===
