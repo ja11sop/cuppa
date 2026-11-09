@@ -86,7 +86,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and for ``--parallel=N`` with ``--jobs`` / ``-j``, print an **Options Error**
   tree (why / remedy) on stdout before a short ``StopError``, matching the
   cascade ``-n`` pattern. The shared helper is
-  ``cuppa.utility.console_errors.raise_options_error``. Plan:
+  ``cuppa.utility.console_errors.raise_options_error``. Methods may expose
+  optional ``check_options(env)`` (discovered like ``add_options``);
+  construct asks before SConscript so a bad pair does not touch location
+  trees. ``PublishPackage`` owns the stage/publish refuse that way. Plan:
   ``design/plans/console-stop-error-reporting.md``.
 
 - Under ``--terse-output``, GitLab package build / amend / publish staging

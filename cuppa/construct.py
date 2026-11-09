@@ -803,6 +803,20 @@ class Construct(object):
                         as_info( str( SCons.Script.GetOption( 'num_jobs') ) )
                 ) )
 
+        if not help:
+            # Methods that introduced CLI flags may refuse incompatible
+            # combinations here (read-only get_option). Runs before SConscript
+            # / dependency resolve so a bad pair does not touch location trees.
+            cuppa.modules.registration.check_options( "methods", cuppa_env )
+            for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
+                try:
+                    plugin = method_plugin.load()
+                    check = getattr( plugin, "check_options", None )
+                    if callable( check ):
+                        check( cuppa_env )
+                except AttributeError:
+                    pass
+
         if not help and self._configure.handle_conf_only():
             self._configure.save()
 

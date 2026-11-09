@@ -113,6 +113,10 @@ Prefer these instead of inventing a second flat warning list:
 | `raise_options_error` / `remedy_colour`
 | `cuppa.utility.console_errors`
 | Surprising flag refusals (Options Error tree + short `StopError`)
+
+| `check_options` (optional classmethod)
+| Method / module beside `add_options`; `registration.check_options`
+| Early refuse: construct asks before SConscript; owner only reads `get_option`
 |===
 
 Do not invent a second flat `as_warning("Not all...")` plus an indented list for dependency
@@ -131,6 +135,13 @@ Prefer:
 . Raise a **short** `StopError` (`Invalid option combination (...)`).
 . Why branch: error colour on `--flags` / `[values]`. Remedy branch:
   `remedy_colour` (emphasised info) on the next-step flags.
+
+The method (or module) that **introduced** the flags should own the check via
+optional `check_options(env)`. Construct calls
+`cuppa.modules.registration.check_options` after options are settled and
+**before** SConscript / dependency resolve — read-only `get_option`, no
+flag-processing moves. That keeps knowledge next to `add_options` and avoids
+hard-coding flag names in construct.
 
 Critical-line colouring still applies to every `StopError` / `UserError`
 (`highlight_values` on the message). It does **not** replace the Options Error

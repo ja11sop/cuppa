@@ -2,7 +2,7 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean); shared helper [`console_errors.py`](../../cuppa/utility/console_errors.py)
-- **Updated:** 2026-11-04
+- **Updated:** 2026-11-09
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
 
 ## Problem
@@ -71,20 +71,39 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 |----|-------------|--------|
 | `stop-err-critical-colour` | StopError / UserError critical-line `highlight_values` | **Done** (earlier; 1.13.x / unreleased hygiene) |
 | `stop-err-cascade-n` | Cascade `-n` Options Error tree (first instance) | **Done** |
-| `stop-err-helper` | Extract `raise_options_error` to `console_errors.py`; settle Q1–6 | **This slice** |
-| `stop-err-second-callers` | Graduate clear second callers: `--stage-package`+`--publish-package`; `--parallel=N`+`--jobs`/`-j` | **This slice** |
-| `stop-err-docs` | Antora Report patterns subsection | **This slice** |
+| `stop-err-helper` | Extract `raise_options_error` to `console_errors.py`; settle Q1–6 | **Done** (this PR) |
+| `stop-err-second-callers` | Graduate clear second callers: `--stage-package`+`--publish-package`; `--parallel=N`+`--jobs`/`-j` | **Done** (this PR) |
+| `stop-err-docs` | Antora Report patterns subsection | **Done** (this PR) |
+| `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **This follow-up** |
 | `stop-err-cascade-combos` | Remaining cascade `cannot be combined` / `requires --cascade` plain StopErrors → Options Error trees | Later |
-| `opt-compat-early` | Register incompatible option sets; fail before resolve when safe | Later — soak leftover; ties to this plan |
+| `opt-compat-early` | More modules implement `check_options` (and core/base for parallel); optional later registry | Later — soak leftover; builds on `check_options` |
+
+### Early refuse without construct hard-coding flags
+
+Soak showed `--stage-package` + `--publish-package` refused only inside
+`PublishPackageMethod`, after location update. Prefer:
+
+1. The method that **introduced** the flags implements optional
+   `check_options(cls, env)` (read-only `get_option`; call
+   `raise_options_error` on conflict).
+2. `cuppa.modules.registration.check_options("methods", env)` discovers it
+   (same walk as `add_options` / `get_options`).
+3. Construct calls that **after** configure/output settle and **before**
+   `build()` / SConscript — no knowledge of package flag names.
+4. Method `__call__` still invokes `check_options` as a belt for unit tests.
+
+Do **not** move flag registration or nest argv forwarding. Parallel+jobs may
+later grow a core `check_options`; until then it may stay as a construct-local
+refuse.
 
 ## Non-goals (for now)
 
 - A new colour meaning named `critical` (CRITICAL already uses emphasised error label)
 - Converting every existing one-line StopError into an Options Error tree in one sweep
-- Full `opt-compat-early` registry (separate slice)
+- Full declarative incompat matrix in construct (use `check_options` instead)
 
 ## Next focus
 
-After this slice: convert remaining cascade option-conflict StopErrors that are
-pure flag incompatibilities, then consider `opt-compat-early` as a registry so
-new conflicts do not re-invent the tree by hand.
+Convert remaining cascade option-conflict StopErrors that are pure flag
+incompatibilities (ideally via a cascade/`check_options` owner), then grow
+`opt-compat-early` as more modules implementing the same hook.

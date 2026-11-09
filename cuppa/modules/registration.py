@@ -41,6 +41,19 @@ def get_options( module_name, env ):
     __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "get_options", env )
 
 
+def check_options( module_name, env ):
+    """Ask modules whether the current CLI options are tenable.
+
+    Optional classmethod beside ``add_options`` / ``get_options``. Implementations
+    should only *read* ``env.get_option`` (no AddOption / argv rewrite) and raise
+    an Options Error / ``StopError`` when flags they introduced are incompatible.
+    Construct calls this after options are settled and before SConscript work.
+    """
+    __call_classmethod_for_classes_in_module(
+            'cuppa', module_name, __package('cuppa'), "check_options", env,
+    )
+
+
 def init_env_for_variant( module_name, sconscript_exports ):
     __call_classmethod_for_classes_in_module( 'cuppa', module_name, __package('cuppa'), "init_env_for_variant", sconscript_exports )
 

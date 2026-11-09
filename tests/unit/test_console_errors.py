@@ -55,6 +55,61 @@ def test_raise_options_error_prints_tree_then_short_stop( capsys ):
     assert out.endswith( "\n\n" ) or "\n\n" in out
 
 
+def test_publish_package_check_options_refuses_stage_and_publish( capsys ):
+    from cuppa.methods.manage_packages import PublishPackageMethod
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in ( "publish-package", "stage-package" )
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--stage-package and --publish-package\)",
+        ):
+            PublishPackageMethod.check_options( _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--stage-package and --publish-package cannot be combined" in visible
+
+
+def test_publish_package_check_options_allows_stage_alone():
+    from cuppa.methods.manage_packages import PublishPackageMethod
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "stage-package"
+
+    PublishPackageMethod.check_options( _Env() )
+
+
+def test_registration_check_options_discovers_publish_package( capsys ):
+    from cuppa.modules import registration
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in ( "publish-package", "stage-package" )
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--stage-package and --publish-package\)",
+        ):
+            registration.check_options( "methods", _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+
+
 def test_publish_package_method_stage_and_publish_is_options_error(
         monkeypatch, capsys,
 ):
