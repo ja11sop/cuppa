@@ -13,7 +13,7 @@
   "devDependencies": {
     "@antora/cli": "3.1.15",
     "@antora/lunr-extension": "^1.0.0-alpha.13",
-    "@antora/site-generator": "3.1.15",
+    "@antora/site-generator": "3.2.2",
     "@sntke/antora-mermaid-extension": "^0.0.13"
   },
   "overrides": {
