@@ -46,7 +46,7 @@ maintainer workflow evolved.
 | [`plans/shiki-syntax-highlighting.md`](plans/shiki-syntax-highlighting.md) | proposal | Build-time Shiki for Antora listings; ANSI preview only — ROADMAP `doc-shiki` |
 | [`plans/coverage-performance.md`](plans/coverage-performance.md) | proposal | Where `--cov --test` time actually goes, what the A/B measurement ruled out, and the remaining suspects |
 | [`plans/coverage-parallel.md`](plans/coverage-parallel.md) | done | `--cov --test --parallel` is supported: per-test `gcov-data/{program}`, `gcov` in `gcov-run`; the configure warning is removed — [#236](https://github.com/ja11sop/cuppa/issues/236) |
-| [`plans/terse-heartbeat-chase.md`](plans/terse-heartbeat-chase.md) | in progress | Preserve ECG phase across consecutive sticky heartbeat lines — ROADMAP `console-terse-heartbeat-chase` |
+| [`plans/terse-heartbeat-chase.md`](plans/terse-heartbeat-chase.md) | done | Preserve ECG phase across consecutive sticky heartbeat lines. Ships with 1.14.0 — [#395](https://github.com/ja11sop/cuppa/pull/395) |
 | [`plans/quiet-heartbeat-exit.md`](plans/quiet-heartbeat-exit.md) | done | Quiet heartbeat finishes the status row at exit and promotes the last event INFO. Ships with 1.14.0 — [#393](https://github.com/ja11sop/cuppa/pull/393) |
 | [`plans/unverified-latest.md`](plans/unverified-latest.md) | done | Online `latest` reuses a remembered extract when the registry check cannot run. 404 and publish stay hard stops |
 | [`plans/package-public-defines.md`](plans/package-public-defines.md) | done | Package carries public compile defines; `BuildWith` applies them. Relocatable `.pc` after `CMakeInstall`, traveling `library_prefix` and `pkg_config_dir`. Ships with 1.14.0 — [#388](https://github.com/ja11sop/cuppa/pull/388) |
