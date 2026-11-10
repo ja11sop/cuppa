@@ -1,6 +1,6 @@
 # Plan: Normalise StopError / options-error reporting
 
-- **Status:** ready — behaviour complete on [#390](https://github.com/ja11sop/cuppa/pull/390); archive after merge to master
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean); shared helper [`console_errors.py`](../../cuppa/utility/console_errors.py)
 - **Updated:** 2026-11-10
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
@@ -110,5 +110,7 @@ from that hook (Options Error trees + short `StopError`). Parallel+jobs live in
 
 ## Next focus
 
-Grow more module `check_options` owners only when new flag pairs appear. Optional
-later registry (`opt-compat-early`) if discovery alone is not enough.
+Merge [#390](https://github.com/ja11sop/cuppa/pull/390), then archive this plan
+when 1.14.0 ships. Grow more module `check_options` owners only when new flag
+pairs appear. Optional later registry (`opt-compat-early`) if discovery alone
+is not enough.
