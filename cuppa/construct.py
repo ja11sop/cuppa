@@ -561,6 +561,21 @@ class Construct(object):
         toolchains = cuppa_env.get_option( 'toolchains' )
         cuppa_env[ 'target_architectures' ] = None
 
+        if not help:
+            # Methods that introduced CLI flags may refuse incompatible
+            # combinations here (read-only get_option). Before mode banners,
+            # toolchain activation, and SConscript so a bad pair does not claim
+            # a cascade mode or touch location trees.
+            cuppa.modules.registration.check_options( "methods", cuppa_env )
+            for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
+                try:
+                    plugin = method_plugin.load()
+                    check = getattr( plugin, "check_options", None )
+                    if callable( check ):
+                        check( cuppa_env )
+                except AttributeError:
+                    pass
+
         if not help and not self._configure.handle_conf_only():
             default_toolchain = cuppa_env['platform'].default_toolchain()
 
@@ -701,21 +716,25 @@ class Construct(object):
                 SCons.Script.Exit( exit_status )
 
             from cuppa.package_managers import package_cascade
-            if package_cascade.cascade_plan_enabled( cuppa_env ):
-                report_mode_banner( "{} — report only; no clone, build, or publish".format(
-                        as_info_label( "Running in PACKAGE BUILD: CASCADE PLAN mode" )
-                ) )
-            elif package_cascade.cascade_collect_enabled( cuppa_env ):
-                report_mode_banner( "{} — resolve and clone publisher trees; no build or publish".format(
-                        as_info_label( "Running in PACKAGE BUILD: CASCADE COLLECT mode" )
-                ) )
-            elif (
-                    package_cascade.cascade_update_enabled( cuppa_env )
-                    and package_cascade.cascade_stop_before_build( cuppa_env )
-            ):
-                report_mode_banner( "{} — fetch/fast-forward publisher trees; no build or publish".format(
-                        as_info_label( "Running in PACKAGE BUILD: CASCADE UPDATE mode" )
-                ) )
+            # Companions alone (e.g. --cascade-plan without --cascade) are
+            # refused by check_options above; only claim a mode when cascade
+            # itself is enabled.
+            if package_cascade.cascade_enabled( cuppa_env ):
+                if package_cascade.cascade_plan_enabled( cuppa_env ):
+                    report_mode_banner( "{} — report only; no clone, build, or publish".format(
+                            as_info_label( "Running in PACKAGE BUILD: CASCADE PLAN mode" )
+                    ) )
+                elif package_cascade.cascade_collect_enabled( cuppa_env ):
+                    report_mode_banner( "{} — resolve and clone publisher trees; no build or publish".format(
+                            as_info_label( "Running in PACKAGE BUILD: CASCADE COLLECT mode" )
+                    ) )
+                elif (
+                        package_cascade.cascade_update_enabled( cuppa_env )
+                        and package_cascade.cascade_stop_before_build( cuppa_env )
+                ):
+                    report_mode_banner( "{} — fetch/fast-forward publisher trees; no build or publish".format(
+                            as_info_label( "Running in PACKAGE BUILD: CASCADE UPDATE mode" )
+                    ) )
 
             cuppa.develop.warn_unused_develop_overrides( cuppa_env )
 
@@ -802,20 +821,6 @@ class Construct(object):
                         as_emphasised(parallel_mode),
                         as_info( str( SCons.Script.GetOption( 'num_jobs') ) )
                 ) )
-
-        if not help:
-            # Methods that introduced CLI flags may refuse incompatible
-            # combinations here (read-only get_option). Runs before SConscript
-            # / dependency resolve so a bad pair does not touch location trees.
-            cuppa.modules.registration.check_options( "methods", cuppa_env )
-            for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
-                try:
-                    plugin = method_plugin.load()
-                    check = getattr( plugin, "check_options", None )
-                    if callable( check ):
-                        check( cuppa_env )
-                except AttributeError:
-                    pass
 
         if not help and self._configure.handle_conf_only():
             self._configure.save()

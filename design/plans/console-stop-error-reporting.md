@@ -75,7 +75,8 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-second-callers` | Graduate clear second callers: `--stage-package`+`--publish-package`; `--parallel=N`+`--jobs`/`-j` | **Done** (this PR) |
 | `stop-err-docs` | Antora Report patterns subsection | **Done** (this PR) |
 | `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **Done** |
-| `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **This follow-up** |
+| `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **Done** |
+| `stop-err-check-options-order` | Construct runs `check_options` before cascade mode banners; banners require `--cascade` so companions alone do not claim a mode | **This follow-up** |
 | `stop-err-cascade-combos` | Remaining cascade plain StopErrors → Options Error trees (presentation) | Later — timing done via `check_cascade_options` |
 | `opt-compat-early` | More modules implement `check_options` (and core/base for parallel); optional later registry | Later — soak leftover; builds on `check_options` |
 
