@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Under ``--terse-output``, sticky heartbeat captions that chase back after a
+  durable ``[ok]`` line keep the ECG / spinner phase. Consecutive heartbeat
+  lines continue the animation instead of restarting at rest every time.
+  Ordinary clears (warn/report, leave-the-row) still reset to rest. Plan:
+  ``design/plans/terse-heartbeat-chase.md``.
+
 - Under ``-Q`` / ``-s`` on a TTY, process exit finishes the quiet heartbeat
   status row. The last event INFO caption (for example coverage ``No lines of
   coverage…``) is written as a durable line with a trailing newline, then the

@@ -858,6 +858,31 @@ def test_sticky_caption_chases_busy_transcript( monkeypatch ):
     hb.reset()
 
 
+def test_sticky_chase_preserves_spin_across_transcript( monkeypatch ):
+    """Consecutive heartbeat lines continue the ECG; they must not restart at rest."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock, columns=120 )
+    import cuppa.utility.heartbeat as heartbeat_module
+    out = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = out
+    try:
+        hb.show_info( '[....] long · compiling · big.cpp', sticky=True )
+        hb._spin = 7
+        for i in range( 3 ):
+            hb.write_transcript(
+                    '  {}/3 ·  {}% [ok] · copy · file{}.json\n'.format( i + 1, ( i + 1 ) * 30, i )
+            )
+            assert hb._spin == 7
+            assert '[....] long' in _status_body( stream )
+            assert hb._pulse_frame( hb._spin ) != hb._PULSE_REST
+    finally:
+        heartbeat_module.sys.stdout = real
+    hb.reset()
+
+
 def test_sticky_show_info_bypasses_idle_gate_after_transcript( monkeypatch ):
     """Promote / refresh sticky must paint even when transcript just wrote."""
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
