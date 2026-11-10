@@ -697,7 +697,9 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     With ``keep_pending=True``, a sticky in-progress caption is preserved across
     the clear and painted again immediately after the durable line so armed
     ``[....]`` jobs chase back onto the status row while fast ``[ok]`` lines
-    scroll the transcript (they must not wait on the idle gate).
+    scroll the transcript (they must not wait on the idle gate). That chase
+    also keeps the ECG / spinner phase (``_spin``) so consecutive heartbeat
+    lines continue the animation instead of restarting at rest.
     """
     global _pending, _pending_is_sticky
     if dwell and status_row_active():
@@ -712,7 +714,19 @@ def write_line( text, *, dwell=False, keep_pending=False ):
         with _draw_lock:
             _mark_transcript_unlocked()
             if _last_line or _body is not None:
-                _clear_unlocked( advance=False, keep_pending=keep_pending )
+                # Sticky chase-back: keep the beat phase across clear→restore.
+                preserve_spin = bool(
+                        keep_pending
+                        and (
+                            ( _sticky and _body is not None )
+                            or ( _pending is not None and _pending_is_sticky )
+                        )
+                )
+                _clear_unlocked(
+                        advance=False,
+                        keep_pending=keep_pending,
+                        preserve_spin=preserve_spin,
+                )
             elif not keep_pending:
                 # Reports drop pending INFO even when the row is blank.
                 _pending = None
@@ -1301,7 +1315,7 @@ def allow():
             _arm_idle_flush_unlocked()
 
 
-def _clear_unlocked( advance=False, keep_pending=False ):
+def _clear_unlocked( advance=False, keep_pending=False, preserve_spin=False ):
     global _pending, _body, _last_line, _last_emit, _wrap_disabled
     global _wrap_off_sent, _message_shown_at, _visible_since, _sticky
     global _pending_is_sticky, _pending_preserve_style, _body_preserve_style, _spin
@@ -1326,9 +1340,11 @@ def _clear_unlocked( advance=False, keep_pending=False ):
     _body_preserve_style = False
     _message_shown_at = 0.0
     _visible_since = 0.0
-    # Leaving the status row — next paint is a new line; restart the cycle
-    # so a mid-beat ECG does not resume after transcript / terse output.
-    _spin = 0
+    # Leaving the status row — next paint is a new line. Restart the cycle
+    # after a real gap so a mid-beat ECG does not resume later. Sticky
+    # chase-back (``preserve_spin``) keeps the phase across clear→restore.
+    if not preserve_spin:
+        _spin = 0
     if not _heartbeat_active or _stream is None:
         _last_line = ''
         # Still owe the TTY a wrap-on if a prior paint sent wrap-off.
@@ -1357,22 +1373,23 @@ def _clear_unlocked( advance=False, keep_pending=False ):
 
 
 def _flush_unlocked( now ):
-    """Paint pending caption without disturbing same-row ECG cadence.
+    """Paint pending caption without disturbing ECG / spinner cadence.
 
     * Same status row (``_last_line`` set): keep ``_spin`` and the running
       pulse timer (:func:`_ensure_pulse`) so caption text can change without
       jumping the beat.
-    * New status row (after clear / transcript): start the cycle at rest
-      (``_spin = 0``) so animation does not resume mid-beat on a fresh line.
+    * New status row after clear: ``_spin`` is already decided by
+      :func:`_clear_unlocked` (rest after a real gap; preserved for sticky
+      chase-back). Do not force rest here — that restarted the animation on
+      every durable terse line.
 
     Still a full-row ``\\r`` rewrite (option 1). Column-local caption paint
     (option 2) is a follow-on if soak still shows widget flicker.
     """
-    global _pending, _last_emit, _body, _message_shown_at, _spin
+    global _pending, _last_emit, _body, _message_shown_at
     global _sticky, _pending_is_sticky, _body_preserve_style, _pending_preserve_style
     if _pending is None or _stream is None or _suppress_depth:
         return
-    same_row = bool( _last_line )
     _body = _pending
     _sticky = bool( _pending_is_sticky )
     _body_preserve_style = bool( _pending_preserve_style )
@@ -1380,8 +1397,6 @@ def _flush_unlocked( now ):
     _pending_is_sticky = False
     _pending_preserve_style = False
     _message_shown_at = now
-    if not same_row:
-        _spin = 0
     _draw_unlocked( _body )
     _last_emit = now
     _ensure_pulse()

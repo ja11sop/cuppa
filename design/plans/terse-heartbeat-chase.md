@@ -1,9 +1,9 @@
 # Note: terse heartbeat should chase, not dwell
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-heartbeat-chase`; [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`terse-build-action-heartbeat.md`](../archive/terse-build-action-heartbeat.md)
-- **Updated:** 2026-10-31
-- **Impact:** none until implemented (`patch` if the dwell changes)
+- **Updated:** 2026-11-10
+- **Impact:** `patch` — preserve ECG phase across consecutive heartbeat lines
 
 Not part of the coverage-parallel slice. Recorded so it is not only a row inside that plan.
 
@@ -19,8 +19,18 @@ Quiet-TTY and terse-action heartbeat both used a full-cycle minimum dwell (about
 
 Actions that finish before the arm delay (0.20s) never paint a caption, so they never waited. Anything that stayed up — a short coverage, collate, or copy — waited out the rest of the cycle, and the next line started the animation from the beginning.
 
-## For now
+## Dwell: done
 
-Terse action lines clear a visible caption immediately (`dwell=False` on `_write_terse_stdout`, and on the terse spawn transcript). The parallel carousel is unchanged. Non-terse tool text and `reveal` still hold one cycle.
+Terse action lines clear a visible caption immediately (`dwell=False` on `_write_terse_stdout`, and on the terse spawn transcript). The parallel carousel is unchanged. Non-terse tool text and `reveal` still hold one cycle. Do not split one SCons coverage action into two terse lines to work around presentation.
 
-The chase (animation continues from where the previous line left off) is still the later change. Do not split one SCons coverage action into two terse lines to work around presentation.
+## Chase: settled
+
+Dwell is off; the remaining gap is **phase**. `_clear_unlocked` always zeroed `_spin`, and `_flush_unlocked` zeroed it again on a new row after clear. Sticky chase-back after a durable `[ok]` therefore restarted the ECG at rest every time.
+
+Settled behaviour:
+
+1. When a durable write clears the row **and** immediately restores a sticky heartbeat caption (`keep_pending` sticky chase), **preserve `_spin`** across clear → restore so consecutive heartbeat lines continue the animation.
+2. Ordinary clears (warn/report, non-chase leave-the-row) still reset `_spin` to rest so a mid-beat does not resume after a real gap.
+3. Same-row caption rewrites (already keep `_spin`) stay as they are.
+
+Ownership: clear decides whether the cycle resets; flush on a new row does not force rest when spin was preserved for chase.
