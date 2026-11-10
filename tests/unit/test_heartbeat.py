@@ -1202,3 +1202,84 @@ def test_reset_and_atexit_restore_terminal_wrap():
     hb.restore_terminal_wrap()
     assert hb._WRAP_ON in healed.getvalue()
     assert hb._wrap_off_sent is False
+
+
+def test_finish_at_exit_promotes_event_info_to_durable_line( monkeypatch ):
+    """Coverage-style event INFO must not share the row with the shell prompt."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    message = (
+            'No lines of coverage (perhaps no tests were executed). '
+            'Reported as 0/0 lines covered'
+    )
+    logger.info( message + '\n' )
+    assert message in _status_body( stream )
+    assert not stream.getvalue().endswith( message + '\n' )
+
+    before = stream.getvalue()
+    hb.finish_at_exit()
+    after = stream.getvalue()[ len( before ): ]
+    assert message + '\n' in after
+    assert hb._WRAP_ON in after
+    assert hb._body is None
+    assert hb._last_line == ''
+    assert hb._wrap_off_sent is False
+
+
+def test_finish_at_exit_promotes_pending_event_info( monkeypatch ):
+    """Unpainted pending event INFO still becomes a durable exit line."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    with hb._draw_lock:
+        hb._pending = 'deferred coverage note'
+        hb._pending_is_sticky = False
+        hb._body = None
+        hb._last_line = ''
+    before = stream.getvalue()
+    hb.finish_at_exit()
+    after = stream.getvalue()[ len( before ): ]
+    assert after.endswith( 'deferred coverage note\n' ) or 'deferred coverage note\n' in after
+    assert hb._pending is None
+
+
+def test_finish_at_exit_drops_sticky_without_promoting( monkeypatch ):
+    """In-progress captions are progress — clear them; do not keep the bar."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    hb.show_info( 'Updating [libfoo]', sticky=True )
+    assert 'Updating [libfoo]' in _status_body( stream )
+    before = stream.getvalue()
+    hb.finish_at_exit()
+    after = stream.getvalue()[ len( before ): ]
+    assert 'Updating [libfoo]\n' not in after
+    assert hb._WRAP_ON in after
+    assert hb._body is None
+    assert hb._last_line == ''
+
+
+def test_finish_at_exit_clears_pulse_only_anchor( monkeypatch ):
+    """Aged-out caption leaves a pulse anchor — exit erases it with no durable line."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    logger.info( 'Using [/tmp] for dependencies' )
+    clock.advance( hb._caption_hold_s() + 0.01 )
+    with hb._draw_lock:
+        expired = hb._expire_message_unlocked( clock() )
+        assert expired is True
+        hb._draw_unlocked( hb._body )
+    assert hb._body == ''
+    before = stream.getvalue()
+    hb.finish_at_exit()
+    after = stream.getvalue()[ len( before ): ]
+    # Erase + wrap restore only — no promoted caption newline payload.
+    assert hb._WRAP_ON in after
+    assert hb._body is None
+    assert 'dependencies\n' not in after

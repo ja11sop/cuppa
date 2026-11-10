@@ -633,7 +633,39 @@ def restore_terminal_wrap( *, force=False ):
                 pass
 
 
-atexit.register( restore_terminal_wrap )
+def finish_at_exit():
+    """End the quiet status row for process exit.
+
+    Event INFO captions parked on the transient row (including pending text
+    that never painted) become one durable line so results such as coverage
+    "no lines" survive exit. Sticky in-progress captions and a pulse-only
+    anchor after caption expiry are cleared without promoting. Always restores
+    terminal autowrap afterward.
+    """
+    text = None
+    with _draw_lock:
+        if _pending is not None and not _pending_is_sticky:
+            text = _pending
+        elif _body and not _sticky:
+            text = _body
+    if text:
+        line = text if text.endswith( '\n' ) else text + '\n'
+        try:
+            write_line( line, dwell=False, keep_pending=False )
+        except Exception:
+            try:
+                clear()
+            except Exception:
+                pass
+    else:
+        try:
+            clear()
+        except Exception:
+            pass
+    restore_terminal_wrap( force=True )
+
+
+atexit.register( finish_at_exit )
 
 
 def _restore_sticky_after_transcript_unlocked():
