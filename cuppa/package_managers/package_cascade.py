@@ -32,7 +32,6 @@ from cuppa.colourise import (
         as_emphasised,
         as_emphasised_plain,
         as_error,
-        as_error_label,
         as_info,
         as_info_label,
         as_notice,
@@ -2749,40 +2748,18 @@ def _run_nested_cuppa( argv, cwd, env ) -> int:
 
 
 def _raise_options_error( headline, reasons, short_message, encoding=None, out=None ):
-    """Print an Options Error tree on stdout, then raise a short ``StopError``.
+    """Delegate to :func:`cuppa.utility.console_errors.raise_options_error`.
 
-    Surprising refusals (invalid flag combinations) deserve a readable report
-    before the critical exception line. ``headline`` is the title after the
-    chip. ``reasons`` is a list of ``(prose, colour)`` branches — typically a
-    why branch coloured with ``as_error`` and a remedy branch coloured with
-    emphasised info so the positive next flags stand out. Bare ``--flags`` and
-    ``[bracketed]`` values take that branch's colour.
+    Kept as a thin alias so existing cascade call sites and tests stay stable.
     """
-    tee, elbow, pipe, gap = storage.glyphs( encoding )
-    stub = pipe.rstrip()
-    lines = [
-            "",
-            "{}: {}".format(
-                    as_error_label( as_emphasised( "Options Error" ) ),
-                    storage.highlight_values( headline, as_error ),
-            ),
-    ]
-    total = len( reasons )
-    for index, ( reason, colour ) in enumerate( reasons ):
-        last = index == total - 1
-        lines.append( as_subdued( stub ) )
-        first = elbow if last else tee
-        carried = gap if last else pipe
-        wrap_width = max( storage.WIDEST_PROSE - len( first ), storage.NARROWEST_PROSE )
-        branch = first
-        for piece in storage.wrapped( reason, wrap_width ):
-            lines.append(
-                    as_subdued( branch ) + storage.highlight_values( piece, colour )
-            )
-            branch = carried
-    lines.append( "" )
-    write_lines( lines, out=out )
-    raise SCons.Errors.StopError( short_message )
+    from cuppa.utility.console_errors import raise_options_error
+    raise_options_error(
+            headline,
+            reasons,
+            short_message,
+            encoding=encoding,
+            out=out,
+    )
 
 
 # Plan reports recorded during the sconscript read; see finish_plan_only().
@@ -5543,6 +5520,327 @@ def consume_develop_package_stage(
     )
 
 
+def check_cascade_options( env ) -> None:
+    """Refuse incompatible cascade CLI flags (read-only ``get_option``).
+
+    Owns the mutual-exclusion / companion / ``requires --cascade`` matrix for
+    flags registered on ``PublishPackageMethod.add_options``. Construct reaches
+    this via that method's ``check_options`` before SConscript / location work;
+    :func:`maybe_run_cascade` calls the same helper as a belt. Surprising
+    combinations print an Options Error tree then a short ``StopError``. Does
+    not touch publishers, clones, or location trees.
+    """
+    from cuppa.utility.console_errors import remedy_colour
+
+    plan_only = cascade_plan_enabled( env )
+    collect_only = cascade_collect_enabled( env )
+    update_publishers = cascade_update_enabled( env )
+    publish = bool( env.get_option( "publish-package" ) )
+    publish_cascade_deps = publish_cascade_dependencies_enabled( env )
+    build_cascade_deps = build_cascade_dependencies_enabled( env )
+    consume_deps = consume_cascade_dependencies_enabled( env )
+    amend_cascade = tip_has_amend_cascade_manifests( env=env )
+    nest_action = publish or publish_cascade_deps or build_cascade_deps
+    # Stop before nested work when plan/collect, or update without a nest action.
+    stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
+    cascade_on = cascade_enabled( env )
+
+    def _require_cascade( option ):
+        _raise_options_error(
+                "--{} requires --{}".format( option, CASCADE_OPTION ),
+                [
+                        (
+                                "--{} is a cascade companion; it only applies "
+                                "with --{}".format( option, CASCADE_OPTION ),
+                                as_error,
+                        ),
+                        (
+                                "Pass --{} --{}".format( CASCADE_OPTION, option ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} without --{})".format(
+                        option, CASCADE_OPTION,
+                ),
+        )
+
+    if plan_only and collect_only:
+        _raise_options_error(
+                "--{} and --{} cannot be combined".format(
+                        CASCADE_PLAN_OPTION, COLLECT_CASCADE_OPTION,
+                ),
+                [
+                        (
+                                "--{} is review-only; --{} places publisher "
+                                "trees".format(
+                                        CASCADE_PLAN_OPTION,
+                                        COLLECT_CASCADE_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Choose one: --{} for a review, or --{} to "
+                                "collect".format(
+                                        CASCADE_PLAN_OPTION,
+                                        COLLECT_CASCADE_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --{})".format(
+                        CASCADE_PLAN_OPTION, COLLECT_CASCADE_OPTION,
+                ),
+        )
+    if plan_only and update_publishers:
+        _raise_options_error(
+                "--{} and --{} cannot be combined".format(
+                        CASCADE_PLAN_OPTION, UPDATE_PUBLISHERS_OPTION,
+                ),
+                [
+                        (
+                                "--{} is review-only; --{} fast-forwards "
+                                "publisher trees".format(
+                                        CASCADE_PLAN_OPTION,
+                                        UPDATE_PUBLISHERS_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Choose one: --{} to review, or --{} to update"
+                                .format(
+                                        CASCADE_PLAN_OPTION,
+                                        UPDATE_PUBLISHERS_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --{})".format(
+                        CASCADE_PLAN_OPTION, UPDATE_PUBLISHERS_OPTION,
+                ),
+        )
+    if plan_only and not cascade_on:
+        _require_cascade( CASCADE_PLAN_OPTION )
+    if collect_only and not cascade_on:
+        _require_cascade( COLLECT_CASCADE_OPTION )
+    if update_publishers and not cascade_on:
+        _require_cascade( UPDATE_PUBLISHERS_OPTION )
+    if publish_cascade_deps and not cascade_on:
+        _require_cascade( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
+    if build_cascade_deps and not cascade_on:
+        _require_cascade( BUILD_CASCADE_DEPENDENCIES_OPTION )
+    if consume_deps and not cascade_on:
+        _require_cascade( CONSUME_CASCADE_DEPENDENCIES_OPTION )
+    if amend_cascade and not cascade_on:
+        _require_cascade( "amend-cascade-manifests" )
+    if publish and publish_cascade_deps:
+        _raise_options_error(
+                "--{} and --publish-package cannot be combined".format(
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                ),
+                [
+                        (
+                                "--{} nest-publishes then tip-builds without "
+                                "uploading the tip; --publish-package uploads "
+                                "the tip".format(
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Choose one: --{} for tip build-only, or "
+                                "--publish-package for tip upload".format(
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --publish-package)"
+                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION ),
+        )
+    if publish and build_cascade_deps:
+        _raise_options_error(
+                "--{} and --publish-package cannot be combined".format(
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                ),
+                [
+                        (
+                                "--{} nest-builds without registry upload; "
+                                "--publish-package uploads the tip".format(
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Choose one: --{} for nest build-only, or "
+                                "--publish-package for tip upload".format(
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --publish-package)"
+                .format( BUILD_CASCADE_DEPENDENCIES_OPTION ),
+        )
+    if publish_cascade_deps and build_cascade_deps:
+        _raise_options_error(
+                "--{} and --{} cannot be combined".format(
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                ),
+                [
+                        (
+                                "--{} nest-publishes; --{} nest-builds "
+                                "without upload".format(
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Choose one: --{} for nest-publish, or --{} "
+                                "for nest-build".format(
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --{})".format(
+                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                ),
+        )
+    if consume_deps and ( publish or publish_cascade_deps or build_cascade_deps ):
+        _raise_options_error(
+                "--{} cannot be combined with nest or tip-upload flags".format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                ),
+                [
+                        (
+                                "--{} binds existing forest stages and does "
+                                "not nest; --publish-package, --{}, and --{} "
+                                "run nest or tip upload".format(
+                                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Pass --{} alone (with --{}), or drop it and "
+                                "choose a nest companion".format(
+                                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                                        CASCADE_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} cannot be combined with "
+                "nest or tip-upload)".format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                ),
+        )
+    if consume_deps and amend_cascade:
+        _raise_options_error(
+                "--{} and --amend-cascade-manifests cannot be combined".format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                ),
+                [
+                        (
+                                "--amend-cascade-manifests needs nest "
+                                "sessions; --{} only binds existing stages"
+                                .format( CONSUME_CASCADE_DEPENDENCIES_OPTION ),
+                                as_error,
+                        ),
+                        (
+                                "Run the amend (or --{}) first, then consume "
+                                "the stages".format(
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and "
+                "--amend-cascade-manifests)".format(
+                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                ),
+        )
+    if not cascade_on:
+        return
+
+    # Plan, collect, update-without-nest, and consume-only do not nest.
+    # Real nest needs --publish-package, --publish-cascade-dependencies, or
+    # --build-cascade-dependencies.
+    if not stop_only and not nest_action and not consume_deps:
+        _raise_options_error(
+                "--{} requires a companion flag".format( CASCADE_OPTION ),
+                [
+                        (
+                                "--{} alone does not choose nest, consume, "
+                                "review, collect, or update".format(
+                                        CASCADE_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Pass --{} with one of --publish-package, "
+                                "--{}, --{}, --{}, --{}, --{}, or --{}"
+                                .format(
+                                        CASCADE_OPTION,
+                                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
+                                        BUILD_CASCADE_DEPENDENCIES_OPTION,
+                                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
+                                        CASCADE_PLAN_OPTION,
+                                        COLLECT_CASCADE_OPTION,
+                                        UPDATE_PUBLISHERS_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} without a companion)"
+                .format( CASCADE_OPTION ),
+        )
+
+    offline = False
+    try:
+        offline = bool( env.get( "offline" ) )
+    except Exception:
+        offline = False
+    if not offline:
+        offline = bool( env.get_option( "offline" ) )
+    if update_publishers and offline and not _no_exec_enabled( env ):
+        _raise_options_error(
+                "--{} needs the network, but --offline was specified".format(
+                        UPDATE_PUBLISHERS_OPTION,
+                ),
+                [
+                        (
+                                "--{} fetches and fast-forwards publisher "
+                                "trees; --offline blocks the network".format(
+                                        UPDATE_PUBLISHERS_OPTION,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Drop --offline to update, or drop --{} for "
+                                "an offline tip build".format(
+                                        UPDATE_PUBLISHERS_OPTION,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--{} and --offline)".format(
+                        UPDATE_PUBLISHERS_OPTION,
+                ),
+        )
+
+    # SCons -n still runs configure in nested sessions; Configure refuses to
+    # create .sconf_temp under dry-run. Update-only / collect / consume allow -n.
+    refuse_cascade_nest_under_no_exec(
+            env, stop_only=stop_only or consume_deps,
+    )
+
+
 def maybe_run_cascade( env, publisher ) -> None:
     """Run cascade when the flag is set; no-op for nested invokes or when unset.
 
@@ -5557,7 +5855,20 @@ def maybe_run_cascade( env, publisher ) -> None:
     no registry upload, then tip-builds. ``--consume-cascade-dependencies``
     binds existing forest stages and does not nest. ``construct.py`` exits
     after the sconscript read for stop-before-build modes.
+
+    Flag incompatibilities are refused by :func:`check_cascade_options` (also
+    invoked early from ``PublishPackageMethod.check_options``).
     """
+    check_cascade_options( env )
+    if not cascade_enabled( env ):
+        return
+    if _is_nested():
+        logger.info(
+                "Cascade: nested invoke — skipping further "
+                "--{}".format( CASCADE_OPTION )
+        )
+        return
+
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
     update_publishers = cascade_update_enabled( env )
@@ -5569,122 +5880,10 @@ def maybe_run_cascade( env, publisher ) -> None:
     # Stop before nested work when plan/collect, or update without a nest action.
     stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
 
-    if plan_only and collect_only:
-        raise SCons.Errors.StopError(
-                "--{} and --{} cannot be combined; choose review or collect"
-                .format( CASCADE_PLAN_OPTION, COLLECT_CASCADE_OPTION )
-        )
-    if plan_only and update_publishers:
-        raise SCons.Errors.StopError(
-                "--{} and --{} cannot be combined; plan is review-only"
-                .format( CASCADE_PLAN_OPTION, UPDATE_PUBLISHERS_OPTION )
-        )
-    if plan_only and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( CASCADE_PLAN_OPTION, CASCADE_OPTION )
-        )
-    if collect_only and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( COLLECT_CASCADE_OPTION, CASCADE_OPTION )
-        )
-    if update_publishers and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( UPDATE_PUBLISHERS_OPTION, CASCADE_OPTION )
-        )
-    if publish_cascade_deps and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
-        )
-    if build_cascade_deps and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( BUILD_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
-        )
-    if consume_deps and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} requires --{}"
-                .format( CONSUME_CASCADE_DEPENDENCIES_OPTION, CASCADE_OPTION )
-        )
-    if tip_has_amend_cascade_manifests( env=env ) and not cascade_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--amend-cascade-manifests requires --{}"
-                .format( CASCADE_OPTION )
-        )
-    if publish and publish_cascade_deps:
-        raise SCons.Errors.StopError(
-                "--{} and --publish-package cannot be combined; choose tip "
-                "build-only or tip upload"
-                .format( PUBLISH_CASCADE_DEPENDENCIES_OPTION )
-        )
-    if publish and build_cascade_deps:
-        raise SCons.Errors.StopError(
-                "--{} and --publish-package cannot be combined; choose nest "
-                "build-only or tip upload"
-                .format( BUILD_CASCADE_DEPENDENCIES_OPTION )
-        )
-    if publish_cascade_deps and build_cascade_deps:
-        raise SCons.Errors.StopError(
-                "--{} and --{} cannot be combined; choose nest-publish or "
-                "nest-build"
-                .format(
-                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
-                        BUILD_CASCADE_DEPENDENCIES_OPTION,
-                )
-        )
-    if consume_deps and ( publish or publish_cascade_deps or build_cascade_deps ):
-        raise SCons.Errors.StopError(
-                "--{} cannot be combined with --publish-package, --{}, or "
-                "--{}; it binds existing forest stages and does not nest"
-                .format(
-                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
-                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
-                        BUILD_CASCADE_DEPENDENCIES_OPTION,
-                )
-        )
-    if consume_deps and tip_has_amend_cascade_manifests( env=env ):
-        raise SCons.Errors.StopError(
-                "--{} and --amend-cascade-manifests cannot be combined; amend "
-                "needs nest sessions. Run the amend (or --{}) first, then "
-                "consume the stages."
-                .format(
-                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
-                        BUILD_CASCADE_DEPENDENCIES_OPTION,
-                )
-        )
-    if not cascade_enabled( env ):
-        return
-    if _is_nested():
-        logger.info(
-                "Cascade: nested invoke — skipping further "
-                "--{}".format( CASCADE_OPTION )
-        )
-        return
-
     tip_package = str( getattr( publisher, "_package", "" ) )
     tip_version = str( getattr( publisher, "_version", "" ) )
     nested_key = _cascade_nested_key( env, publisher )
 
-    # Plan, collect, update-without-nest, and consume-only do not nest.
-    # Real nest needs --publish-package, --publish-cascade-dependencies, or
-    # --build-cascade-dependencies.
-    if not stop_only and not nest_action and not consume_deps:
-        raise SCons.Errors.StopError(
-                "--{} requires --publish-package, --{}, --{}, --{}, --{}, "
-                "--{}, or --{}"
-                .format(
-                        CASCADE_OPTION,
-                        PUBLISH_CASCADE_DEPENDENCIES_OPTION,
-                        BUILD_CASCADE_DEPENDENCIES_OPTION,
-                        CONSUME_CASCADE_DEPENDENCIES_OPTION,
-                        CASCADE_PLAN_OPTION,
-                        COLLECT_CASCADE_OPTION,
-                        UPDATE_PUBLISHERS_OPTION,
-                )
-        )
     if not stop_only and nested_key in _cascade_nested_done:
         logger.info(
                 "Cascade: nested publish graph already completed for [{}] — "
@@ -5692,18 +5891,6 @@ def maybe_run_cascade( env, publisher ) -> None:
                 .format( as_info( tip_package ) )
         )
         return
-    if update_publishers and env.get( "offline" ) and not _no_exec_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} needs the network, but --offline was specified"
-                .format( UPDATE_PUBLISHERS_OPTION )
-        )
-    # SCons -n still runs configure in nested sessions; Configure refuses to
-    # create .sconf_temp under dry-run, so the nested publish dies before any
-    # builder is skipped. Update-only / collect allow -n (like --update-develop).
-    # Consume does not nest, so -n is allowed even though it is not a stop mode.
-    refuse_cascade_nest_under_no_exec(
-            env, stop_only=stop_only or consume_deps,
-    )
 
     # Consume-only: tip bind happens at package resolve. No graph walk, no nest.
     # Plan / collect / update still use the paths below (consume + plan reviews

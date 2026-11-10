@@ -85,19 +85,41 @@ def skips_spawn_processor( env ):
     return bool( env.get( 'raw_output' ) or env.get( 'scons_output' ) )
 
 
-def _terse_only_flag( env, name, message ):
+def _terse_only_flag( env, name, flag_cli ):
     """Resolve a modifier that only applies to the terse transcript."""
     if not env.get_option( name ):
         return False
     if env.get( 'terse_output' ):
         return True
     if cuppa.core.options.command_line_option( name ) is True:
-        raise SCons.Errors.StopError( message )
+        from cuppa.colourise import as_error
+        from cuppa.utility.console_errors import raise_options_error, remedy_colour
+        raise_options_error(
+                "{} requires --terse-output".format( flag_cli ),
+                [
+                        (
+                                "{} only applies to the terse transcript"
+                                .format( flag_cli ),
+                                as_error,
+                        ),
+                        (
+                                "Pass --terse-output {}, or drop {}".format(
+                                        flag_cli, flag_cli,
+                                ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination ({} without --terse-output)"
+                .format( flag_cli ),
+        )
     return False
 
 
 def process_output_options( env ):
     """Resolve output options onto ``env`` and validate their combination."""
+    from cuppa.colourise import as_error
+    from cuppa.utility.console_errors import raise_options_error, remedy_colour
+
     env['raw_output']      = bool( env.get_option( 'raw_output' ) )
     env['scons_output']    = bool( env.get_option( 'scons_output' ) )
     env['standard_output'] = bool( env.get_option( 'standard_output' ) )
@@ -108,25 +130,40 @@ def process_output_options( env ):
     env['suppress_process_output'] = bool(
             env.get_option( 'suppress-process-output' )
     )
+    # Enable colour before any Options Error refuse in this function so
+    # normal+terse / processor conflicts match later refusals (location,
+    # parallel). --raw-output / --standard-output keep colour off.
+    if not env['raw_output'] and not env['standard_output']:
+        env.colouriser().enable()
+        reset_logging_format()
+
     normal_requested = cuppa.core.options.command_line_option( 'normal_output' ) is True
     terse_requested = cuppa.core.options.command_line_option( 'terse_output' ) is True
     if normal_requested and terse_requested:
-        raise SCons.Errors.StopError(
-                "Invalid option combination (--normal-output and --terse-output)"
+        raise_options_error(
+                "--normal-output and --terse-output cannot be combined",
+                [
+                        (
+                                "--normal-output and --terse-output are one "
+                                "boolean transcript choice",
+                                as_error,
+                        ),
+                        (
+                                "Pass --normal-output or --terse-output, not both",
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--normal-output and --terse-output)",
         )
     env['terse_output'] = (
             False if normal_requested else bool( env.get_option( 'terse_output' ) )
     )
 
     env['show_test_cases'] = _terse_only_flag(
-            env,
-            'show_test_cases',
-            "--show-test-cases requires --terse-output",
+            env, 'show_test_cases', '--show-test-cases',
     )
     env['terse_output_show_actions'] = _terse_only_flag(
-            env,
-            'terse_output_show_actions',
-            "--terse-output-show-actions requires --terse-output",
+            env, 'terse_output_show_actions', '--terse-output-show-actions',
     )
 
     from cuppa.utility.heartbeat import normalize_style, set_presentation
@@ -160,16 +197,27 @@ def process_output_options( env ):
             blockers.append( '--raw-output' )
         if env['scons_output']:
             blockers.append( '--scons-output' )
-        raise SCons.Errors.StopError(
+        processor = " and ".join( processor_flags )
+        blocker = " and ".join( blockers )
+        raise_options_error(
+                "{} cannot be combined with {}".format( processor, blocker ),
+                [
+                        (
+                                "{} needs Cuppa's spawn processor; {} leaves "
+                                "SCons' own SPAWN in place".format(
+                                        processor, blocker,
+                                ),
+                                as_error,
+                        ),
+                        (
+                                "Drop {}, or drop {}".format( blocker, processor ),
+                                remedy_colour,
+                        ),
+                ],
                 "Invalid option combination ({} and {})".format(
-                        " and ".join( processor_flags ),
-                        " and ".join( blockers ),
-                )
+                        processor, blocker,
+                ),
         )
-
-    if not env['raw_output'] and not env['standard_output']:
-        env.colouriser().enable()
-        reset_logging_format()
 
 
 def is_saveable( key, value ):

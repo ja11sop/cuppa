@@ -109,13 +109,59 @@ Prefer these instead of inventing a second flat warning list:
 | `_is_already_gone_error` / `_already_gone_note_reason`
 | `cuppa.core.storage_actions`
 | Benign miss classification
+
+| `raise_options_error` / `remedy_colour`
+| `cuppa.utility.console_errors`
+| Surprising flag refusals (Options Error tree + short `StopError`)
+
+| `check_options` (optional classmethod)
+| Method / module beside `add_options`; `registration.check_options`
+| Early refuse: construct asks before SConscript; owner only reads `get_option`
+
+| `base_options.check_options`
+| `cuppa.core.base_options`
+| `--parallel=N` vs `--jobs` / `-j` (same early hook as methods)
 |===
 
 Do not invent a second flat `as_warning("Not all...")` plus an indented list for dependency
 failures.
+
+== Options Error / stopping refusals
+
+Surprising **operator flag mistakes** (incompatible pairs, missing companion flags)
+should not dump a long sentence only into
+`cuppa: __init__: [critical] Cuppa terminated by exception [StopError: ...]`.
+
+Prefer:
+
+. Print an **Options Error** tree on stdout (unprefixed so tree glyphs survive)
+  via `cuppa.utility.console_errors.raise_options_error`.
+. Raise a **short** `StopError` (`Invalid option combination (...)`).
+. Why branch: error colour on `--flags` / `[values]`. Remedy branch:
+  `remedy_colour` (emphasised info) on the next-step flags.
+
+The method (or module) that **introduced** the flags should own the check via
+optional `check_options(env)`. Construct calls
+`cuppa.modules.registration.check_options` after options are settled and
+**before** SConscript / dependency resolve — read-only `get_option`, no
+flag-processing moves. That keeps knowledge next to `add_options` and avoids
+hard-coding flag names in construct. Cascade companions registered on
+`PublishPackage` refuse through `package_cascade.check_cascade_options` from
+that same hook. Base flags use `cuppa.core.base_options.check_options`.
+Location and output conflicts stay in `process_*_options` (already early) and
+print the same Options Error trees.
+
+Critical-line colouring still applies to every `StopError` / `UserError`
+(`highlight_values` on the message). It does **not** replace the Options Error
+tree for flag refusals.
+
+Do **not** graduate every configure refuse (missing toolchain, 404, corrupt
+manifest) into an Options Error tree — only surprising flag combinations.
+Design: `design/plans/console-stop-error-reporting.md`.
 
 == Where to go next
 
 * Managing wipe / remove flags → xref:dependencies/managing.adoc[Managing dependencies]
 * Versioning and changelog → xref:contributing/versioning.adoc[Versioning and changelog]
 * Repository design plan → `design/archive/console-report-patterns.md`
+* Options Error / StopError plan → `design/plans/console-stop-error-reporting.md`

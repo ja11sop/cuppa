@@ -209,18 +209,27 @@ def test_build_cascade_graph_reads_nested_publish_file( tmp_path ):
     assert order[1] == ( "date", "date", "3.0.5" )
 
 
-def test_maybe_run_cascade_requires_publish_package():
+def test_maybe_run_cascade_requires_publish_package( capsys ):
     class _Env:
         def get_option( self, name, default=None ):
             return name == "cascade"
+
+        def get( self, name, default=None ):
+            return default
 
     class _Publisher:
         _dependencies = []
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="publish-package" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--cascade without a companion\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--publish-package" in visible
 
 
 def test_maybe_run_cascade_accepts_publish_cascade_dependencies():
@@ -257,7 +266,10 @@ def test_maybe_run_cascade_refuses_publish_cascade_deps_with_publish_package():
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--publish-cascade-dependencies and --publish-package\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
@@ -295,7 +307,10 @@ def test_maybe_run_cascade_refuses_build_cascade_with_publish_package():
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--build-cascade-dependencies and --publish-package\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
@@ -313,7 +328,10 @@ def test_maybe_run_cascade_refuses_build_and_publish_cascade_together():
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--publish-cascade-dependencies and --build-cascade-dependencies\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
@@ -412,7 +430,10 @@ def test_maybe_run_cascade_refuses_consume_with_amend():
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--consume-cascade-dependencies and --amend-cascade-manifests\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 
@@ -583,7 +604,10 @@ def test_maybe_run_cascade_consume_tip_still_requires_publish_action():
             return default
 
     tip = cascade.make_consume_tip_publisher( _Env(), edges=[] )
-    with pytest.raises( SCons.Errors.StopError, match="publish-cascade-dependencies" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--cascade without a companion\)",
+    ):
         cascade.maybe_run_cascade( _Env(), tip )
 
 
@@ -911,7 +935,7 @@ class _PlanEnv( dict ):
         return self._options.get( name, default )
 
 
-def test_cascade_plan_requires_the_cascade_flag():
+def test_cascade_plan_requires_the_cascade_flag( capsys ):
     class _Publisher:
         _dependencies = []
         _package = "widget"
@@ -920,9 +944,12 @@ def test_cascade_plan_requires_the_cascade_flag():
     env = _PlanEnv( { "cascade-plan": True } )
     with pytest.raises(
             SCons.Errors.StopError,
-            match="--cascade-plan requires --cascade",
+            match=r"Invalid option combination \(--cascade-plan without --cascade\)",
     ):
         cascade.maybe_run_cascade( env, _Publisher() )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--cascade-plan requires --cascade" in visible
 
 
 def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
@@ -976,15 +1003,18 @@ def test_cascade_plan_does_not_require_publish_package( tmp_path, monkeypatch ):
     ]
 
 
-def test_collect_cascade_requires_the_cascade_flag():
+def test_collect_cascade_requires_the_cascade_flag( capsys ):
     env = _PlanEnv( { "collect-cascade": True } )
     with pytest.raises(
             SCons.Errors.StopError,
-            match="--collect-cascade requires --cascade",
+            match=r"Invalid option combination \(--collect-cascade without --cascade\)",
     ):
         cascade.maybe_run_cascade( env, type( "P", (), {
                 "_dependencies": [], "_package": "w", "_version": "1",
         } )() )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--collect-cascade requires --cascade" in visible
 
 
 def test_collect_cascade_and_cascade_plan_cannot_combine():
@@ -993,7 +1023,10 @@ def test_collect_cascade_and_cascade_plan_cannot_combine():
             "cascade-plan": True,
             "cascade": True,
     } )
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--cascade-plan and --collect-cascade\)",
+    ):
         cascade.maybe_run_cascade( env, type( "P", (), {
                 "_dependencies": [], "_package": "w", "_version": "1",
         } )() )
@@ -2119,7 +2152,10 @@ def test_maybe_run_cascade_refuses_plan_with_update():
         _package = "widget"
         _version = "1"
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--cascade-plan and --update-publishers\)",
+    ):
         cascade.maybe_run_cascade( _Env(), _Publisher() )
 
 

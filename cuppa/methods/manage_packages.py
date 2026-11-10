@@ -69,7 +69,50 @@ def declare_package_archive_side_effect( env, built_package, publisher ):
 
 class PublishPackageMethod(object):
 
+    @classmethod
+    def check_options( cls, env ):
+        """Refuse incompatible package publish / cascade flags before SConscript.
+
+        Owns the flags introduced in :meth:`add_options` (stage/publish and the
+        cascade companion matrix). Construct discovers this via
+        ``registration.check_options``; ``__call__`` also invokes it so unit
+        tests and any late entry still refuse. Cascade details live in
+        ``package_cascade.check_cascade_options``.
+        """
+        publish = bool( env.get_option( 'publish-package' ) )
+        stage = bool( env.get_option( 'stage-package' ) )
+        if stage and publish:
+            from cuppa.colourise import as_error
+            from cuppa.utility.console_errors import (
+                    raise_options_error,
+                    remedy_colour,
+            )
+            raise_options_error(
+                    "--stage-package and --publish-package cannot be combined",
+                    [
+                            (
+                                    "--stage-package builds the package archive "
+                                    "without uploading; --publish-package uploads "
+                                    "it to the registry",
+                                    as_error,
+                            ),
+                            (
+                                    "Choose one: --stage-package for a local "
+                                    "archive, or --publish-package to upload",
+                                    remedy_colour,
+                            ),
+                    ],
+                    "Invalid option combination "
+                    "(--stage-package and --publish-package)",
+            )
+
+        from cuppa.package_managers import package_cascade
+        package_cascade.check_cascade_options( env )
+
+
     def __call__( self, env, source, publisher=None ):
+
+        self.check_options( env )
 
         package = env.File( publisher.package() )
         if amend_package_manifest_enabled( env ):
@@ -104,13 +147,6 @@ class PublishPackageMethod(object):
             env.Clean( built_package, publisher.clean_targets() )
 
         publish = env.get_option( 'publish-package' ) and True or False
-        stage = env.get_option( 'stage-package' ) and True or False
-        if stage and publish:
-            import SCons.Errors
-            raise SCons.Errors.StopError(
-                    "--stage-package and --publish-package cannot be combined; "
-                    "stage builds the package archive without uploading."
-            )
 
         if publish:
             package_published = env.File( publisher.package_published() )

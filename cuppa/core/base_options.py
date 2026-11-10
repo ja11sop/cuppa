@@ -11,6 +11,7 @@
 # None
 
 # Scons
+import SCons.Errors
 import SCons.Script
 
 # Custom
@@ -27,6 +28,56 @@ SCons.Script.Decider( 'MD5-timestamp' )
 
 def set_base_options():
     SCons.Script.SetOption( 'warn', 'no-duplicate-environment' )
+
+
+def check_options( env ):
+    """Refuse incompatible base CLI flags (read-only ``get_option``).
+
+    Owns ``--parallel=N`` vs ``--jobs`` / ``-j`` registered in
+    :func:`add_base_options`. Construct calls this beside method
+    ``check_options`` before mode banners / SConscript. Job-count
+    application still happens later in construct; this only refuses.
+    """
+    from cuppa.colourise import as_error
+    from cuppa.utility.console_errors import raise_options_error, remedy_colour
+    from cuppa.utility.parallelism import (
+            parse_parallel_option,
+            resolve_parallel_job_count,
+    )
+
+    try:
+        parallel_request = parse_parallel_option( env.get_option( 'parallel' ) )
+    except ValueError as exc:
+        raise SCons.Errors.StopError( str( exc ) )
+
+    num_jobs = env.get_option( 'num_jobs' )
+    try:
+        resolve_parallel_job_count( parallel_request, num_jobs )
+    except ValueError as exc:
+        message = str( exc )
+        if "do not combine --parallel=" not in message:
+            raise SCons.Errors.StopError( message )
+        parallel_n = parallel_request.jobs
+        jobs_n = int( num_jobs )
+        raise_options_error(
+                "--parallel={} cannot be combined with --jobs / -j"
+                .format( parallel_n ),
+                [
+                        (
+                                "--parallel={} sets both affinity and the job "
+                                "count; --jobs={} / -j sets the count alone"
+                                .format( parallel_n, jobs_n ),
+                                as_error,
+                        ),
+                        (
+                                "Pass --parallel={} alone, or --parallel "
+                                "--jobs={}".format( parallel_n, jobs_n ),
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--parallel={} and --jobs={} / -j)"
+                .format( parallel_n, jobs_n ),
+        )
 
 
 def add_base_options():

@@ -3,6 +3,8 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
+import re
+
 import pytest
 import SCons.Errors
 
@@ -11,6 +13,10 @@ from tests.helpers.fakes import FakeEnv
 
 
 pytestmark = pytest.mark.unit
+
+
+def _plain( text ):
+    return re.sub( r"\x1b\[[0-9;]*m", "", text )
 
 
 class _ColourEnv(FakeEnv):
@@ -48,22 +54,25 @@ def test_scons_output_with_standard_output_matches_raw_colour_off():
     assert output_options.skips_spawn_processor(env) is True
 
 
-def test_minimal_output_refuses_scons_or_raw_spawn_skip():
+def test_minimal_output_refuses_scons_or_raw_spawn_skip(capsys):
     for flags in ( {"minimal_output": True, "scons_output": True},
                    {"minimal_output": True, "raw_output": True} ):
         env = _ColourEnv(**flags)
         with pytest.raises(SCons.Errors.StopError) as caught:
             output_options.process_output_options(env)
         assert "--minimal-output" in str(caught.value)
+        assert "Invalid option combination" in str(caught.value)
+        assert "Options Error" in _plain(capsys.readouterr().out)
 
 
-def test_terse_output_refuses_scons_or_raw_spawn_skip():
+def test_terse_output_refuses_scons_or_raw_spawn_skip(capsys):
     for flags in ( {"terse_output": True, "scons_output": True},
                    {"terse_output": True, "raw_output": True} ):
         env = _ColourEnv(**flags)
         with pytest.raises(SCons.Errors.StopError) as caught:
             output_options.process_output_options(env)
         assert "--terse-output" in str(caught.value)
+        assert "Options Error" in _plain(capsys.readouterr().out)
 
 
 def test_normal_output_is_the_false_terse_choice():
@@ -78,14 +87,34 @@ def test_terse_output_is_the_true_terse_choice():
     assert env["terse_output"] is True
 
 
-def test_normal_and_terse_on_the_same_command_line_are_refused(monkeypatch):
+def test_normal_and_terse_on_the_same_command_line_are_refused(monkeypatch, capsys):
+    from cuppa.colourise import as_emphasised, as_error_label, colouriser
+
+    class _Env(_ColourEnv):
+        def colouriser(self):
+            # Match real Environment.colouriser() — Options Error uses the
+            # global colouriser, so enable() must flip that flag.
+            return colouriser
+
     monkeypatch.setattr(
             "cuppa.core.options.command_line_option",
             lambda name: True if name in ("normal_output", "terse_output") else None,
     )
-    with pytest.raises(SCons.Errors.StopError) as caught:
-        output_options.process_output_options(_ColourEnv())
-    assert "--normal-output and --terse-output" in str(caught.value)
+    was = colouriser.use_colour
+    colouriser.use_colour = False
+    try:
+        with pytest.raises(SCons.Errors.StopError) as caught:
+            output_options.process_output_options(_Env())
+        assert "--normal-output and --terse-output" in str(caught.value)
+        out = capsys.readouterr().out
+        visible = _plain(out)
+        assert "Options Error" in visible
+        assert "cannot be combined" in visible
+        # Colour must be enabled before the refuse (not left until end of
+        # process_output_options), so the tree matches later Options Errors.
+        assert as_error_label(as_emphasised("Options Error")) in out
+    finally:
+        colouriser.use_colour = was
 
 
 def test_a_saved_terse_only_flag_is_ignored_on_a_normal_run(monkeypatch):
@@ -101,7 +130,7 @@ def test_a_saved_terse_only_flag_is_ignored_on_a_normal_run(monkeypatch):
     assert env["terse_output_show_actions"] is False
 
 
-def test_a_command_line_terse_only_flag_is_refused_on_a_normal_run(monkeypatch):
+def test_a_command_line_terse_only_flag_is_refused_on_a_normal_run(monkeypatch, capsys):
     monkeypatch.setattr(
             "cuppa.core.options.command_line_option",
             lambda name: True if name == "show_test_cases" else None,
@@ -113,6 +142,7 @@ def test_a_command_line_terse_only_flag_is_refused_on_a_normal_run(monkeypatch):
     with pytest.raises(SCons.Errors.StopError) as caught:
         output_options.process_output_options(env)
     assert "--show-test-cases" in str(caught.value)
+    assert "Options Error" in _plain(capsys.readouterr().out)
 
 
 def test_terse_and_minimal_together_keep_the_processor():
