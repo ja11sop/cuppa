@@ -1,11 +1,11 @@
 # Note: terse heartbeat should chase, not dwell
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-heartbeat-chase`; [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`terse-build-action-heartbeat.md`](../archive/terse-build-action-heartbeat.md)
 - **Updated:** 2026-11-10
-- **Impact:** `patch` — preserve ECG phase across consecutive heartbeat lines
+- **Impact:** `patch` — ships with 1.14.0 — [#395](https://github.com/ja11sop/cuppa/pull/395)
 
-Not part of the coverage-parallel slice. Recorded so it is not only a row inside that plan.
+Done on master via [#395](https://github.com/ja11sop/cuppa/pull/395). Archive when 1.14.0 ships. Dwell was already off; this slice preserved ECG phase across sticky chase-back.
 
 ## What happened
 
