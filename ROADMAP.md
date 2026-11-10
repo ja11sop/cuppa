@@ -22,7 +22,7 @@ Minor cycle after **1.13.0**. No single opener locked yet — pick up the
 
 | Area | Status in 1.14.0 |
 |------|------------------|
-| Cascade option-compat / early refuse | **In progress** — Options Error helper + method `check_options` early refuse (stage/publish); parallel/jobs still construct-local; remaining cascade combos + more `check_options` owners later — [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
+| Cascade option-compat / early refuse | **In progress** — method `check_options` early refuse for stage/publish + cascade flag matrix; parallel/jobs still construct-local; Options Error trees for cascade/location/output presentation later — [`console-stop-error-reporting.md`](design/plans/console-stop-error-reporting.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Artefact removal / `deep-clean` [#135](https://github.com/ja11sop/cuppa/issues/135) | **Candidate** — [`deep-clean.md`](design/plans/deep-clean.md); removal Phase 6 |
 | Coverage parallel (`GCOV_PREFIX`) | **Done** — `--cov --test --parallel` is supported; per-test notes and per-program reports; the configure warning is removed — [`coverage-parallel.md`](design/plans/coverage-parallel.md) |

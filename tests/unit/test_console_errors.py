@@ -85,7 +85,62 @@ def test_publish_package_check_options_allows_stage_alone():
         def get_option( self, name, default=None ):
             return name == "stage-package"
 
+        def get( self, name, default=None ):
+            return default
+
     PublishPackageMethod.check_options( _Env() )
+
+
+def test_publish_package_check_options_refuses_cascade_without_companion():
+    from cuppa.methods.manage_packages import PublishPackageMethod
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "cascade"
+
+        def get( self, name, default=None ):
+            return default
+
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"--cascade requires --publish-package",
+    ):
+        PublishPackageMethod.check_options( _Env() )
+
+
+def test_publish_package_check_options_refuses_publish_cascade_deps_with_publish():
+    from cuppa.methods.manage_packages import PublishPackageMethod
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name in (
+                    "cascade",
+                    "publish-cascade-dependencies",
+                    "publish-package",
+            )
+
+        def get( self, name, default=None ):
+            return default
+
+    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
+        PublishPackageMethod.check_options( _Env() )
+
+
+def test_check_cascade_options_refuses_plan_without_cascade():
+    from cuppa.package_managers import package_cascade
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            return name == "cascade-plan"
+
+        def get( self, name, default=None ):
+            return default
+
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"--cascade-plan requires --cascade",
+    ):
+        package_cascade.check_cascade_options( _Env() )
 
 
 def test_registration_check_options_discovers_publish_package( capsys ):

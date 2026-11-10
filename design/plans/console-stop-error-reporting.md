@@ -74,8 +74,9 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-helper` | Extract `raise_options_error` to `console_errors.py`; settle Q1–6 | **Done** (this PR) |
 | `stop-err-second-callers` | Graduate clear second callers: `--stage-package`+`--publish-package`; `--parallel=N`+`--jobs`/`-j` | **Done** (this PR) |
 | `stop-err-docs` | Antora Report patterns subsection | **Done** (this PR) |
-| `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **This follow-up** |
-| `stop-err-cascade-combos` | Remaining cascade `cannot be combined` / `requires --cascade` plain StopErrors → Options Error trees | Later |
+| `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **Done** |
+| `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **This follow-up** |
+| `stop-err-cascade-combos` | Remaining cascade plain StopErrors → Options Error trees (presentation) | Later — timing done via `check_cascade_options` |
 | `opt-compat-early` | More modules implement `check_options` (and core/base for parallel); optional later registry | Later — soak leftover; builds on `check_options` |
 
 ### Early refuse without construct hard-coding flags
@@ -92,9 +93,11 @@ Soak showed `--stage-package` + `--publish-package` refused only inside
    `build()` / SConscript — no knowledge of package flag names.
 4. Method `__call__` still invokes `check_options` as a belt for unit tests.
 
-Do **not** move flag registration or nest argv forwarding. Parallel+jobs may
-later grow a core `check_options`; until then it may stay as a construct-local
-refuse.
+Do **not** move flag registration or nest argv forwarding. Cascade companions
+registered on the same method refuse via `package_cascade.check_cascade_options`
+from that hook (plain `StopError` text for now; Options Error trees later).
+Parallel+jobs may later grow a core `check_options`; until then it may stay as
+a construct-local refuse.
 
 ## Non-goals (for now)
 
@@ -104,6 +107,6 @@ refuse.
 
 ## Next focus
 
-Convert remaining cascade option-conflict StopErrors that are pure flag
-incompatibilities (ideally via a cascade/`check_options` owner), then grow
-`opt-compat-early` as more modules implementing the same hook.
+Graduate cascade (and later location/output) plain StopErrors to Options Error
+trees for presentation uniformity. Optionally move parallel+jobs into a core
+`check_options`. Grow more module owners only when new flag pairs appear.

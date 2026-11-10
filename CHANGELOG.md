@@ -89,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``cuppa.utility.console_errors.raise_options_error``. Methods may expose
   optional ``check_options(env)`` (discovered like ``add_options``);
   construct asks before SConscript so a bad pair does not touch location
-  trees. ``PublishPackage`` owns the stage/publish refuse that way. Plan:
+  trees. ``PublishPackage`` owns stage/publish and the cascade flag matrix
+  that way (``package_cascade.check_cascade_options``). Plan:
   ``design/plans/console-stop-error-reporting.md``.
 
 - Under ``--terse-output``, GitLab package build / amend / publish staging

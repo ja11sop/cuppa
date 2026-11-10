@@ -5520,20 +5520,14 @@ def consume_develop_package_stage(
     )
 
 
-def maybe_run_cascade( env, publisher ) -> None:
-    """Run cascade when the flag is set; no-op for nested invokes or when unset.
+def check_cascade_options( env ) -> None:
+    """Refuse incompatible cascade CLI flags (read-only ``get_option``).
 
-    Under ``--cascade-plan`` this reports the resolved order and returns without
-    cloning or nested publish. Under ``--collect-cascade`` it resolves, clones
-    missing trees when ``--clone-publishers`` is set, reports, and returns without
-    nested publish. Under ``--update-publishers`` it fast-forwards existing
-    publisher trees (and may stop, or continue into nested publish when
-    ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
-    ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
-    (no tip upload). ``--build-cascade-dependencies`` nest-builds the DAG with
-    no registry upload, then tip-builds. ``--consume-cascade-dependencies``
-    binds existing forest stages and does not nest. ``construct.py`` exits
-    after the sconscript read for stop-before-build modes.
+    Owns the mutual-exclusion / companion / ``requires --cascade`` matrix for
+    flags registered on ``PublishPackageMethod.add_options``. Construct reaches
+    this via that method's ``check_options`` before SConscript / location work;
+    :func:`maybe_run_cascade` calls the same helper as a belt. Does not touch
+    publishers, clones, or location trees.
     """
     plan_only = cascade_plan_enabled( env )
     collect_only = cascade_collect_enabled( env )
@@ -5634,16 +5628,6 @@ def maybe_run_cascade( env, publisher ) -> None:
         )
     if not cascade_enabled( env ):
         return
-    if _is_nested():
-        logger.info(
-                "Cascade: nested invoke — skipping further "
-                "--{}".format( CASCADE_OPTION )
-        )
-        return
-
-    tip_package = str( getattr( publisher, "_package", "" ) )
-    tip_version = str( getattr( publisher, "_version", "" ) )
-    nested_key = _cascade_nested_key( env, publisher )
 
     # Plan, collect, update-without-nest, and consume-only do not nest.
     # Real nest needs --publish-package, --publish-cascade-dependencies, or
@@ -5662,6 +5646,70 @@ def maybe_run_cascade( env, publisher ) -> None:
                         UPDATE_PUBLISHERS_OPTION,
                 )
         )
+
+    offline = False
+    try:
+        offline = bool( env.get( "offline" ) )
+    except Exception:
+        offline = False
+    if not offline:
+        offline = bool( env.get_option( "offline" ) )
+    if update_publishers and offline and not _no_exec_enabled( env ):
+        raise SCons.Errors.StopError(
+                "--{} needs the network, but --offline was specified"
+                .format( UPDATE_PUBLISHERS_OPTION )
+        )
+
+    # SCons -n still runs configure in nested sessions; Configure refuses to
+    # create .sconf_temp under dry-run. Update-only / collect / consume allow -n.
+    refuse_cascade_nest_under_no_exec(
+            env, stop_only=stop_only or consume_deps,
+    )
+
+
+def maybe_run_cascade( env, publisher ) -> None:
+    """Run cascade when the flag is set; no-op for nested invokes or when unset.
+
+    Under ``--cascade-plan`` this reports the resolved order and returns without
+    cloning or nested publish. Under ``--collect-cascade`` it resolves, clones
+    missing trees when ``--clone-publishers`` is set, reports, and returns without
+    nested publish. Under ``--update-publishers`` it fast-forwards existing
+    publisher trees (and may stop, or continue into nested publish when
+    ``--publish-package`` or ``--publish-cascade-dependencies`` is set).
+    ``--publish-cascade-dependencies`` nest-publishes the DAG then tip-builds
+    (no tip upload). ``--build-cascade-dependencies`` nest-builds the DAG with
+    no registry upload, then tip-builds. ``--consume-cascade-dependencies``
+    binds existing forest stages and does not nest. ``construct.py`` exits
+    after the sconscript read for stop-before-build modes.
+
+    Flag incompatibilities are refused by :func:`check_cascade_options` (also
+    invoked early from ``PublishPackageMethod.check_options``).
+    """
+    check_cascade_options( env )
+    if not cascade_enabled( env ):
+        return
+    if _is_nested():
+        logger.info(
+                "Cascade: nested invoke — skipping further "
+                "--{}".format( CASCADE_OPTION )
+        )
+        return
+
+    plan_only = cascade_plan_enabled( env )
+    collect_only = cascade_collect_enabled( env )
+    update_publishers = cascade_update_enabled( env )
+    publish = bool( env.get_option( "publish-package" ) )
+    publish_cascade_deps = publish_cascade_dependencies_enabled( env )
+    build_cascade_deps = build_cascade_dependencies_enabled( env )
+    consume_deps = consume_cascade_dependencies_enabled( env )
+    nest_action = publish or publish_cascade_deps or build_cascade_deps
+    # Stop before nested work when plan/collect, or update without a nest action.
+    stop_only = plan_only or collect_only or ( update_publishers and not nest_action )
+
+    tip_package = str( getattr( publisher, "_package", "" ) )
+    tip_version = str( getattr( publisher, "_version", "" ) )
+    nested_key = _cascade_nested_key( env, publisher )
+
     if not stop_only and nested_key in _cascade_nested_done:
         logger.info(
                 "Cascade: nested publish graph already completed for [{}] — "
@@ -5669,18 +5717,6 @@ def maybe_run_cascade( env, publisher ) -> None:
                 .format( as_info( tip_package ) )
         )
         return
-    if update_publishers and env.get( "offline" ) and not _no_exec_enabled( env ):
-        raise SCons.Errors.StopError(
-                "--{} needs the network, but --offline was specified"
-                .format( UPDATE_PUBLISHERS_OPTION )
-        )
-    # SCons -n still runs configure in nested sessions; Configure refuses to
-    # create .sconf_temp under dry-run, so the nested publish dies before any
-    # builder is skipped. Update-only / collect allow -n (like --update-develop).
-    # Consume does not nest, so -n is allowed even though it is not a stop mode.
-    refuse_cascade_nest_under_no_exec(
-            env, stop_only=stop_only or consume_deps,
-    )
 
     # Consume-only: tip bind happens at package resolve. No graph walk, no nest.
     # Plan / collect / update still use the paths below (consume + plan reviews

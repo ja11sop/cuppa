@@ -141,7 +141,9 @@ optional `check_options(env)`. Construct calls
 `cuppa.modules.registration.check_options` after options are settled and
 **before** SConscript / dependency resolve — read-only `get_option`, no
 flag-processing moves. That keeps knowledge next to `add_options` and avoids
-hard-coding flag names in construct.
+hard-coding flag names in construct. Cascade companions registered on
+`PublishPackage` refuse through `package_cascade.check_cascade_options` from
+that same hook.
 
 Critical-line colouring still applies to every `StopError` / `UserError`
 (`highlight_values` on the message). It does **not** replace the Options Error
