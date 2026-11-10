@@ -177,6 +177,47 @@ def test_check_cascade_options_refuses_plan_without_cascade( capsys ):
     assert "Pass --cascade --cascade-plan" in visible
 
 
+def test_base_options_check_options_refuses_parallel_n_with_jobs( capsys ):
+    from cuppa.core import base_options
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            if name == "parallel":
+                return "4"
+            if name == "num_jobs":
+                return 8
+            return default
+
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--parallel=4 and --jobs=8 / -j\)",
+        ):
+            base_options.check_options( _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--parallel=4 cannot be combined with --jobs / -j" in visible
+
+
+def test_base_options_check_options_allows_parallel_alone():
+    from cuppa.core import base_options
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            if name == "parallel":
+                return "4"
+            if name == "num_jobs":
+                return 1
+            return default
+
+    base_options.check_options( _Env() )
+
+
 def test_registration_check_options_discovers_publish_package( capsys ):
     from cuppa.modules import registration
 

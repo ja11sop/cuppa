@@ -562,10 +562,12 @@ class Construct(object):
         cuppa_env[ 'target_architectures' ] = None
 
         if not help:
-            # Methods that introduced CLI flags may refuse incompatible
-            # combinations here (read-only get_option). Before mode banners,
-            # toolchain activation, and SConscript so a bad pair does not claim
-            # a cascade mode or touch location trees.
+            # Flag owners refuse incompatible combinations here (read-only
+            # get_option). Before mode banners, toolchain activation, and
+            # SConscript so a bad pair does not claim a cascade mode or touch
+            # location trees. Base owns --parallel=N vs --jobs; methods own
+            # package/cascade flags.
+            cuppa.core.base_options.check_options( cuppa_env )
             cuppa.modules.registration.check_options( "methods", cuppa_env )
             for method_plugin in iter_entry_points( group='cuppa.method.plugins', name=None ):
                 try:
@@ -761,40 +763,11 @@ class Construct(object):
                         parallel_request, num_jobs,
                 )
             except ValueError as exc:
-                from cuppa.colourise import as_error
-                from cuppa.utility.console_errors import (
-                        raise_options_error,
-                        remedy_colour,
-                )
+                # --parallel=N vs --jobs is refused earlier by
+                # base_options.check_options; keep a belt for other errors.
                 message = str( exc )
-                # Conflict between --parallel=N and --jobs / -j: Options Error
-                # tree, then a short StopError. Other ValueErrors stay plain.
                 if "do not combine --parallel=" in message:
-                    parallel_n = parallel_request.jobs
-                    jobs_n = int( num_jobs )
-                    raise_options_error(
-                            "--parallel={} cannot be combined with --jobs / -j"
-                            .format( parallel_n ),
-                            [
-                                    (
-                                            "--parallel={} sets both affinity and "
-                                            "the job count; --jobs={} / -j sets "
-                                            "the count alone".format(
-                                                    parallel_n, jobs_n,
-                                            ),
-                                            as_error,
-                                    ),
-                                    (
-                                            "Pass --parallel={} alone, or "
-                                            "--parallel --jobs={}".format(
-                                                    parallel_n, jobs_n,
-                                            ),
-                                            remedy_colour,
-                                    ),
-                            ],
-                            "Invalid option combination (--parallel={} and "
-                            "--jobs={} / -j)".format( parallel_n, jobs_n ),
-                    )
+                    cuppa.core.base_options.check_options( cuppa_env )
                 raise SCons.Errors.StopError( message )
 
             parallel = parallel_request.enabled

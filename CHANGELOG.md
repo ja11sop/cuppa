@@ -93,7 +93,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that way (``package_cascade.check_cascade_options``).   Construct asks
   before cascade mode banners, and those banners require ``--cascade``.
   Cascade companions, mutual exclusions, and ``--cascade`` without a
-  companion also print Options Error trees (same helper). Plan:
+  companion also print Options Error trees (same helper). Location and
+  output flag conflicts use the same trees. ``--parallel=N`` with
+  ``--jobs`` / ``-j`` is refused from ``base_options.check_options``
+  (construct asks beside method ``check_options``). Plan:
   ``design/plans/console-stop-error-reporting.md``.
 
 - Under ``--terse-output``, GitLab package build / amend / publish staging

@@ -117,6 +117,10 @@ Prefer these instead of inventing a second flat warning list:
 | `check_options` (optional classmethod)
 | Method / module beside `add_options`; `registration.check_options`
 | Early refuse: construct asks before SConscript; owner only reads `get_option`
+
+| `base_options.check_options`
+| `cuppa.core.base_options`
+| `--parallel=N` vs `--jobs` / `-j` (same early hook as methods)
 |===
 
 Do not invent a second flat `as_warning("Not all...")` plus an indented list for dependency
@@ -143,7 +147,9 @@ optional `check_options(env)`. Construct calls
 flag-processing moves. That keeps knowledge next to `add_options` and avoids
 hard-coding flag names in construct. Cascade companions registered on
 `PublishPackage` refuse through `package_cascade.check_cascade_options` from
-that same hook.
+that same hook. Base flags use `cuppa.core.base_options.check_options`.
+Location and output conflicts stay in `process_*_options` (already early) and
+print the same Options Error trees.
 
 Critical-line colouring still applies to every `StopError` / `UserError`
 (`highlight_values` on the message). It does **not** replace the Options Error

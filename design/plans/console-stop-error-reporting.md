@@ -77,8 +77,10 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **Done** |
 | `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **Done** |
 | `stop-err-check-options-order` | Construct runs `check_options` before cascade mode banners; banners require `--cascade` so companions alone do not claim a mode | **Done** |
-| `stop-err-cascade-combos` | Cascade flag matrix plain StopErrors → Options Error trees via `check_cascade_options` | **This follow-up** |
-| `opt-compat-early` | More modules implement `check_options` (and core/base for parallel); optional later registry | Later — soak leftover; builds on `check_options` |
+| `stop-err-cascade-combos` | Cascade flag matrix plain StopErrors → Options Error trees via `check_cascade_options` | **Done** |
+| `stop-err-location-output` | Location / output plain StopErrors → Options Error trees (still via `process_*_options`) | **This follow-up** |
+| `stop-err-parallel-check-options` | Move `--parallel=N`+`--jobs` refuse into `base_options.check_options`; construct asks beside methods | **This follow-up** |
+| `opt-compat-early` | More modules implement `check_options`; optional later registry | Later — soak leftover; builds on `check_options` |
 
 ### Early refuse without construct hard-coding flags
 
@@ -96,9 +98,9 @@ Soak showed `--stage-package` + `--publish-package` refused only inside
 
 Do **not** move flag registration or nest argv forwarding. Cascade companions
 registered on the same method refuse via `package_cascade.check_cascade_options`
-from that hook (Options Error trees + short `StopError`). Parallel+jobs may
-later grow a core `check_options`; until then it may stay as a construct-local
-refuse.
+from that hook (Options Error trees + short `StopError`). Parallel+jobs live in
+`base_options.check_options`. Location/output keep validation in
+`process_*_options` (already early) and use the same Options Error presentation.
 
 ## Non-goals (for now)
 
@@ -108,6 +110,5 @@ refuse.
 
 ## Next focus
 
-Optionally graduate location/output plain StopErrors to Options Error trees.
-Optionally move parallel+jobs into a core `check_options`. Grow more module
-owners only when new flag pairs appear.
+Grow more module `check_options` owners only when new flag pairs appear. Optional
+later registry (`opt-compat-early`) if discovery alone is not enough.

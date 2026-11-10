@@ -142,16 +142,43 @@ def process_location_options( cuppa_env ):
     cuppa_env['stage_develop']                    = cuppa_env.get_option( 'stage-develop' )
     cuppa_env['stage_develop_plan']               = cuppa_env.get_option( 'stage-develop-plan' )
     if cuppa_env['stage_develop'] and not cuppa_env['develop']:
-        import SCons.Errors
-        raise SCons.Errors.StopError(
-                "--stage-develop requires --develop (it nest-builds package and "
-                "location develop trees that have an sconstruct)"
+        from cuppa.colourise import as_error
+        from cuppa.utility.console_errors import raise_options_error, remedy_colour
+        raise_options_error(
+                "--stage-develop requires --develop",
+                [
+                        (
+                                "--stage-develop nest-builds package and "
+                                "location develop trees that have an "
+                                "sconstruct; that only applies with --develop",
+                                as_error,
+                        ),
+                        (
+                                "Pass --develop --stage-develop",
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--stage-develop without --develop)",
         )
     if cuppa_env['stage_develop_plan'] and not cuppa_env['develop']:
-        import SCons.Errors
-        raise SCons.Errors.StopError(
-                "--stage-develop-plan requires --develop (it reports the "
-                "location develop stage order without building)"
+        from cuppa.colourise import as_error
+        from cuppa.utility.console_errors import raise_options_error, remedy_colour
+        raise_options_error(
+                "--stage-develop-plan requires --develop",
+                [
+                        (
+                                "--stage-develop-plan reports the location "
+                                "develop stage order without building; that "
+                                "only applies with --develop",
+                                as_error,
+                        ),
+                        (
+                                "Pass --develop --stage-develop-plan",
+                                remedy_colour,
+                        ),
+                ],
+                "Invalid option combination (--stage-develop-plan without "
+                "--develop)",
         )
     cuppa_env['list_develop']                     = cuppa_env.get_option( 'list_develop' )
     cuppa_env['clone_develop']                    = cuppa_env.get_option( 'clone_develop' )
@@ -170,12 +197,27 @@ def process_location_options( cuppa_env ):
         elif cuppa_env['reset_develop_branch']:
             conflict = "--reset-develop-branch"
         if conflict:
-            import SCons.Errors
-            raise SCons.Errors.StopError(
-                    "--skip-location-update freezes location working copies this "
-                    "run; do not combine it with {} (drop one of the flags)".format(
-                            conflict
-                    )
+            from cuppa.colourise import as_error
+            from cuppa.utility.console_errors import raise_options_error, remedy_colour
+            raise_options_error(
+                    "--skip-location-update cannot be combined with {}".format(
+                            conflict,
+                    ),
+                    [
+                            (
+                                    "--skip-location-update freezes location "
+                                    "working copies this run; {} updates or "
+                                    "replaces them".format( conflict ),
+                                    as_error,
+                            ),
+                            (
+                                    "Drop --skip-location-update, or drop {}"
+                                    .format( conflict ),
+                                    remedy_colour,
+                            ),
+                    ],
+                    "Invalid option combination (--skip-location-update and {})"
+                    .format( conflict ),
             )
     cuppa_env['location_default_branch']          = cuppa_env.get_option( 'location_default_branch' )
     cuppa_env['location_base_branch']             = cuppa_env.get_option( 'location_base_branch' )

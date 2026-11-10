@@ -40,7 +40,8 @@ def test_process_location_options_copies_flags():
     assert env["location_match_tag"] == "v1.0"
 
 
-def test_process_location_options_refuses_skip_with_update_develop():
+def test_process_location_options_refuses_skip_with_update_develop( capsys ):
+    import re
     import SCons.Errors
 
     env = FakeEnv(
@@ -52,5 +53,32 @@ def test_process_location_options_refuses_skip_with_update_develop():
             "reset_develop_branch": None,
         }
     )
-    with pytest.raises( SCons.Errors.StopError, match="skip-location-update" ):
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--skip-location-update and --update-develop\)",
+    ):
         location_options.process_location_options( env )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--skip-location-update cannot be combined with --update-develop" in visible
+
+
+def test_process_location_options_refuses_stage_develop_without_develop( capsys ):
+    import re
+    import SCons.Errors
+
+    env = FakeEnv(
+        {
+            "develop": False,
+            "stage-develop": True,
+            "stage-develop-plan": False,
+        }
+    )
+    with pytest.raises(
+            SCons.Errors.StopError,
+            match=r"Invalid option combination \(--stage-develop without --develop\)",
+    ):
+        location_options.process_location_options( env )
+    visible = re.sub( r"\x1b\[[0-9;]*m", "", capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "Pass --develop --stage-develop" in visible
