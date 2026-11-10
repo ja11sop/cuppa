@@ -82,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Under ``-Q`` / ``-s`` on a TTY, process exit finishes the quiet heartbeat
+  status row. The last event INFO caption (for example coverage ``No lines of
+  coverage…``) is written as a durable line with a trailing newline, then the
+  row is cleared and terminal autowrap restored. Sticky in-progress captions
+  are cleared without promoting. Previously ``atexit`` only restored wrap, so
+  the shell prompt shared the heartbeat bar with that caption. Plan:
+  ``design/plans/quiet-heartbeat-exit.md``.
+
 - Surprising option refusals for ``--stage-package`` with ``--publish-package``,
   and for ``--parallel=N`` with ``--jobs`` / ``-j``, print an **Options Error**
   tree (why / remedy) on stdout before a short ``StopError``, matching the
