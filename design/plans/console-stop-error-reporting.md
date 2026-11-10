@@ -1,8 +1,8 @@
 # Plan: Normalise StopError / options-error reporting
 
-- **Status:** in progress
+- **Status:** ready — behaviour complete on [#390](https://github.com/ja11sop/cuppa/pull/390); archive after merge to master
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean); shared helper [`console_errors.py`](../../cuppa/utility/console_errors.py)
-- **Updated:** 2026-11-09
+- **Updated:** 2026-11-10
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
 
 ## Problem
@@ -78,9 +78,9 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **Done** |
 | `stop-err-check-options-order` | Construct runs `check_options` before cascade mode banners; banners require `--cascade` so companions alone do not claim a mode | **Done** |
 | `stop-err-cascade-combos` | Cascade flag matrix plain StopErrors → Options Error trees via `check_cascade_options` | **Done** |
-| `stop-err-location-output` | Location / output plain StopErrors → Options Error trees (still via `process_*_options`) | **This follow-up** |
-| `stop-err-parallel-check-options` | Move `--parallel=N`+`--jobs` refuse into `base_options.check_options`; construct asks beside methods | **This follow-up** |
-| `opt-compat-early` | More modules implement `check_options`; optional later registry | Later — soak leftover; builds on `check_options` |
+| `stop-err-location-output` | Location / output plain StopErrors → Options Error trees (still via `process_*_options`) | **Done** (this PR) |
+| `stop-err-parallel-check-options` | Move `--parallel=N`+`--jobs` refuse into `base_options.check_options`; construct asks beside methods | **Done** (this PR) |
+| `opt-compat-early` | More modules implement `check_options`; optional later registry | Later — soak leftover; out of this PR |
 
 ### Early refuse without construct hard-coding flags
 
