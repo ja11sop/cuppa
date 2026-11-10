@@ -1,11 +1,11 @@
 # Note: quiet heartbeat leaves its last line at exit
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-quiet-heartbeat-exit`; [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`terse-heartbeat-chase.md`](terse-heartbeat-chase.md) (a different later change)
 - **Updated:** 2026-11-10
-- **Impact:** `patch` if exit finishes the status row
+- **Impact:** `patch` — ships with 1.14.0 — [#393](https://github.com/ja11sop/cuppa/pull/393)
 
-Not part of unverified-latest. Recorded so the stuck line is not only a remark on that run.
+Done on master via [#393](https://github.com/ja11sop/cuppa/pull/393). Archive when 1.14.0 ships.
 
 ## What happened
 
