@@ -168,7 +168,7 @@ a concrete `12.2.0`. No new ranges bug found here — keep tracking on
 
 | ID | Work | Priority |
 |----|------|----------|
-| `opt-compat-early` | Register incompatible option sets; fail before resolve when safe; guided tree | Medium — ties to console-stop-error |
+| `opt-compat-early` | Register incompatible option sets; fail before resolve when safe; guided tree | **Superseded** by method/base `check_options` + Options Error trees on [#390](https://github.com/ja11sop/cuppa/pull/390) — [`../plans/console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md) |
 | `cascade-n-did-you-mean` | `--cascade` + `-n` → did you mean `--cascade-plan`? | Done — #366 |
 | `cascade-remedy-split` | Finish-line / node errors distinguish no-URL vs URL-needs-clone | Done — #366 |
 | `cascade-nest-rel` | Default nest `--rel`; opt-in `--cascade-variants` | Done — this PR |
@@ -234,5 +234,6 @@ as the primary fix. Those are for publisher trees, not tip consume cache.
 | ``-n`` + nest cascade: did-you-mean ``--cascade-plan`` + early refuse | Done — #366 |
 | `cascade-nest-rel` (default nest ``--rel`` + ``--cascade-variants``) | Done — #367 |
 | Plan finish clone-first (collect only vs clone on the way) | Done — #368 |
-| `skip-resolve` / full `opt-compat-early` | Later slices |
+| `skip-resolve` | **Done** as `--skip-location-update` — [#379](https://github.com/ja11sop/cuppa/pull/379) |
+| `opt-compat-early` | **Superseded** by `check_options` — [#390](https://github.com/ja11sop/cuppa/pull/390) |
 | Design-index / ROADMAP row | Done — ``shipped`` / archive at 1.12.0 cut |

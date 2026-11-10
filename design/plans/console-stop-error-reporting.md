@@ -80,7 +80,7 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-cascade-combos` | Cascade flag matrix plain StopErrors → Options Error trees via `check_cascade_options` | **Done** |
 | `stop-err-location-output` | Location / output plain StopErrors → Options Error trees (still via `process_*_options`) | **Done** (this PR) |
 | `stop-err-parallel-check-options` | Move `--parallel=N`+`--jobs` refuse into `base_options.check_options`; construct asks beside methods | **Done** (this PR) |
-| `opt-compat-early` | More modules implement `check_options`; optional later registry | Later — soak leftover; out of this PR |
+| `opt-compat-early` | Central “register incompatible option sets” leftover from cascade soak | **Superseded** by method/base `check_options` + `raise_options_error` ([#390](https://github.com/ja11sop/cuppa/pull/390)); no separate registry planned |
 
 ### Early refuse without construct hard-coding flags
 
@@ -110,7 +110,6 @@ from that hook (Options Error trees + short `StopError`). Parallel+jobs live in
 
 ## Next focus
 
-Merge [#390](https://github.com/ja11sop/cuppa/pull/390), then archive this plan
-when 1.14.0 ships. Grow more module `check_options` owners only when new flag
-pairs appear. Optional later registry (`opt-compat-early`) if discovery alone
-is not enough.
+Archive this plan when 1.14.0 ships. Grow more module `check_options` owners
+only when new flag pairs appear — that is the ongoing shape; a central
+`opt-compat-early` registry is not needed.

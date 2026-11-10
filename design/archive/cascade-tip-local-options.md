@@ -125,8 +125,10 @@ take a separate argv token.
   dependency factory option).
 * Workaround today: omit tip-local flags on cascade command lines (no longer
   required after this PR — tip may keep helpers; nests drop them).
-* Related soak leftover `opt-compat-early` remains about **known incompatible
-  cuppa combinations**; keep that separate but cross-link.
+* Related soak leftover `opt-compat-early` (known incompatible cuppa
+  combinations) was **superseded** by method/base `check_options` on
+  [#390](https://github.com/ja11sop/cuppa/pull/390) — see
+  [`../plans/console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md).
 
 ## Remainder: opt-in forward of selected tip-local options
 
