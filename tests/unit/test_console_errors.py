@@ -91,7 +91,7 @@ def test_publish_package_check_options_allows_stage_alone():
     PublishPackageMethod.check_options( _Env() )
 
 
-def test_publish_package_check_options_refuses_cascade_without_companion():
+def test_publish_package_check_options_refuses_cascade_without_companion( capsys ):
     from cuppa.methods.manage_packages import PublishPackageMethod
 
     class _Env:
@@ -101,14 +101,26 @@ def test_publish_package_check_options_refuses_cascade_without_companion():
         def get( self, name, default=None ):
             return default
 
-    with pytest.raises(
-            SCons.Errors.StopError,
-            match=r"--cascade requires --publish-package",
-    ):
-        PublishPackageMethod.check_options( _Env() )
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--cascade without a companion\)",
+        ):
+            PublishPackageMethod.check_options( _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--cascade requires a companion flag" in visible
+    assert "--publish-package" in visible
 
 
-def test_publish_package_check_options_refuses_publish_cascade_deps_with_publish():
+def test_publish_package_check_options_refuses_publish_cascade_deps_with_publish(
+        capsys,
+):
     from cuppa.methods.manage_packages import PublishPackageMethod
 
     class _Env:
@@ -122,11 +134,23 @@ def test_publish_package_check_options_refuses_publish_cascade_deps_with_publish
         def get( self, name, default=None ):
             return default
 
-    with pytest.raises( SCons.Errors.StopError, match="cannot be combined" ):
-        PublishPackageMethod.check_options( _Env() )
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--publish-cascade-dependencies and --publish-package\)",
+        ):
+            PublishPackageMethod.check_options( _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "cannot be combined" in visible
 
 
-def test_check_cascade_options_refuses_plan_without_cascade():
+def test_check_cascade_options_refuses_plan_without_cascade( capsys ):
     from cuppa.package_managers import package_cascade
 
     class _Env:
@@ -136,11 +160,21 @@ def test_check_cascade_options_refuses_plan_without_cascade():
         def get( self, name, default=None ):
             return default
 
-    with pytest.raises(
-            SCons.Errors.StopError,
-            match=r"--cascade-plan requires --cascade",
-    ):
-        package_cascade.check_cascade_options( _Env() )
+    was = colouriser.use_colour
+    colouriser.enable()
+    try:
+        with pytest.raises(
+                SCons.Errors.StopError,
+                match=r"Invalid option combination \(--cascade-plan without --cascade\)",
+        ):
+            package_cascade.check_cascade_options( _Env() )
+    finally:
+        colouriser.use_colour = was
+
+    visible = _plain( capsys.readouterr().out )
+    assert "Options Error" in visible
+    assert "--cascade-plan requires --cascade" in visible
+    assert "Pass --cascade --cascade-plan" in visible
 
 
 def test_registration_check_options_discovers_publish_package( capsys ):

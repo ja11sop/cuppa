@@ -76,8 +76,8 @@ Cascade’s `_raise_options_error` was the first instance. Shared home is now
 | `stop-err-docs` | Antora Report patterns subsection | **Done** (this PR) |
 | `stop-err-check-options` | Optional method `check_options(env)` discovered like `add_options`; construct calls before SConscript; PublishPackage owns stage+publish | **Done** |
 | `stop-err-cascade-early` | Extract `check_cascade_options`; PublishPackage `check_options` refuses cascade flag matrix (+ nest `-n`, update+offline) before SConscript; `maybe_run_cascade` keeps belt | **Done** |
-| `stop-err-check-options-order` | Construct runs `check_options` before cascade mode banners; banners require `--cascade` so companions alone do not claim a mode | **This follow-up** |
-| `stop-err-cascade-combos` | Remaining cascade plain StopErrors → Options Error trees (presentation) | Later — timing done via `check_cascade_options` |
+| `stop-err-check-options-order` | Construct runs `check_options` before cascade mode banners; banners require `--cascade` so companions alone do not claim a mode | **Done** |
+| `stop-err-cascade-combos` | Cascade flag matrix plain StopErrors → Options Error trees via `check_cascade_options` | **This follow-up** |
 | `opt-compat-early` | More modules implement `check_options` (and core/base for parallel); optional later registry | Later — soak leftover; builds on `check_options` |
 
 ### Early refuse without construct hard-coding flags
@@ -96,9 +96,9 @@ Soak showed `--stage-package` + `--publish-package` refused only inside
 
 Do **not** move flag registration or nest argv forwarding. Cascade companions
 registered on the same method refuse via `package_cascade.check_cascade_options`
-from that hook (plain `StopError` text for now; Options Error trees later).
-Parallel+jobs may later grow a core `check_options`; until then it may stay as
-a construct-local refuse.
+from that hook (Options Error trees + short `StopError`). Parallel+jobs may
+later grow a core `check_options`; until then it may stay as a construct-local
+refuse.
 
 ## Non-goals (for now)
 
@@ -108,6 +108,6 @@ a construct-local refuse.
 
 ## Next focus
 
-Graduate cascade (and later location/output) plain StopErrors to Options Error
-trees for presentation uniformity. Optionally move parallel+jobs into a core
-`check_options`. Grow more module owners only when new flag pairs appear.
+Optionally graduate location/output plain StopErrors to Options Error trees.
+Optionally move parallel+jobs into a core `check_options`. Grow more module
+owners only when new flag pairs appear.
