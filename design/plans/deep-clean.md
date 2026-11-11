@@ -1,7 +1,7 @@
 # Plan: `--deep-clean` as a modifier on `-c` / `--clean`
 
-- **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326);   [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](../archive/terse-delegated-output.md)
+- **Status:** done
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); [#399](https://github.com/ja11sop/cuppa/pull/399); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326); [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](../archive/terse-delegated-output.md)
 - **Updated:** 2026-11-11
 - **Impact:** `minor` (new CLI flag / opt-in clean scope)
 
@@ -264,6 +264,8 @@ continues to use.
 | Docs + unit tests | Done (CLI pages + `test_deep_clean`) |
 | Consumer soak (`-c --deep-clean` on Boost package) | Done 2026-11-11 — see below |
 | CMake cooperative `--target clean` | Done (`cmake_clean_command` + `CMake*` methods) |
+| Terse `Removed …` heartbeat + `sconstruct → [clean]` summary | Done (#399) |
+| Landed on `master` | Done — [#399](https://github.com/ja11sop/cuppa/pull/399) |
 
 ## Soak (Boost package publisher)
 
@@ -306,7 +308,7 @@ Soak on a CMake publisher with `-c --deep-clean --terse-output` showed a correct
 ordinary `-c` behaviour — deep-clean does not invent it; the bookend makes it
 louder.
 
-**Settled (this PR):** keep path Clean after native clean (cold next configure).
+**Settled (#399):** keep path Clean after native clean (cold next configure).
 Under `--terse-output`, fold each `Removed …` onto the shared status-row
 heartbeat and emit one tip-wide durable line on completion:
 
@@ -321,6 +323,10 @@ onto a pulse.
 
 ## Next focus
 
-Optional: time a cold `--rel` rebuild after deep-clean; extract `b2` on ordinary
-`-c` follow-up; other location deps only when a publisher needs them. CMake native
-`--target clean` is in this PR (with Boost). Terse `Removed` fold is in this PR.
+v1 is **done** on `master` (#399); archive to `shipped` with the 1.14.0 release.
+Remaining follow-ups (not blockers for this plan's `done`):
+
+- Extract `b2` on ordinary `-c` (drop `NoClean`) — still under [#135](https://github.com/ja11sop/cuppa/issues/135)
+- Optional: time a cold `--rel` rebuild after deep-clean
+- Optional: sticky heartbeat during quiet `b2 --clean` (delegate often emits nothing useful)
+- Other location deps only when a publisher needs them
