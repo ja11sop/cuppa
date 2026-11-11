@@ -166,8 +166,9 @@ TeX tools. `CopyAs` and `CopyTo` are `copy`. A `·` separates the action from th
   program (`<final>/management`) so a test lines up with the `link` that built
   it. A redirected run stays `program → output`. `test-case` uses the same located
   program prefix (`<final>/management/case`) with the case leaf in the status colour.
-* **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `b2`): a short
-  summary such as `-B _build/...`, not a stamp name like `cmake.build.complete`.
+* **Delegated** (`cmake-configure`, `cmake-build`, `cmake-install`, `cmake-clean`, `b2`, `b2-clean`): a short
+  summary such as `-B _build/...` or `--clean build.<abi>/...`, not a stamp name like
+  `cmake.build.complete`.
 
 Colour for both ends of an arrow matches transfer colouring: directories subdued,
 filenames info and bold, `→` subdued. `<working>/` and `<final>/` are this variant's
@@ -260,6 +261,7 @@ method label. Anything still unnamed is `run`.
 | `CMakeConfigure` | `cmake-configure`
 | `CMakeBuild` | `cmake-build`
 | `CMakeInstall` | `cmake-install`
+| CMake `--target clean` (deep-clean) | `cmake-clean` (summary `-B <dir> --target clean`)
 | `Coverage` | `coverage`
 | `CollateCoverageFiles` | `collate-coverage`
 | `CollateCoverageIndex` | `coverage-index`
@@ -283,6 +285,7 @@ method label. Anything still unnamed is `run`.
 | static library | `archive`, then `index`
 | Boost bootstrap (`BuildB2`) | `build-b2`
 | Boost `b2` library build | `b2`
+| Boost `b2 --clean` (deep-clean) | `b2-clean` (summary `--clean <stage> · N libs`)
 | Boost toolset config | `boost-toolset`
 | `PublishPackage` archive | `package`
 | `PublishPackage` upload | `publish`

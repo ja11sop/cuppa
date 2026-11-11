@@ -162,7 +162,8 @@ whenever you introduce a new anonymised reference — but never copy a name out 
 tracked file.
 
 Enforcement: `python -m scripts.check_public_prose` builds a denylist from the **Real** /
-**Private** columns of that map (when present) and scans prose changed vs `master`, plus
+**Private** columns of that map (when present) and scans **added lines** in the diff vs
+`master` (full file for new/untracked paths and for `--file` / `--all-tracked`), plus
 always rejects personal `/home/<user>/` paths. It is the **first** step of
 `scripts.local_gate` (skipped only for `--integration` / `--preflight-only`).
 

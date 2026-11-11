@@ -11,10 +11,11 @@ a maintainer go-ahead to commit/push does not waive a clean run. Pass ``--file``
 for PR bodies before ``create-pr``.
 
 When ``design/INTERNAL_PROJECTS.local.md`` is present (gitignored), extract a
-denylist from **Real** / **Private** table columns and scan files changed
-relative to ``origin/master`` (or ``master``). Without the map, still forbid
-personal ``/home/<user>/`` paths other than the documented ``/home/user/``
-placeholder.
+denylist from **Real** / **Private** table columns and scan **added lines** in
+the diff vs ``origin/master`` (or ``master``), plus the full text of new /
+untracked prose files. ``--file`` and ``--all-tracked`` still scan whole files.
+Without the map, still forbid personal ``/home/<user>/`` paths other than the
+documented ``/home/user/`` placeholder.
 
     python -m scripts.check_public_prose
     python -m scripts.check_public_prose --file /tmp/pr.md
@@ -61,6 +62,9 @@ _ALLOW_TOKENS = frozenset( {
         'gitlab.example',
         '/home/user/...',
         '/home/<user>/...',
+        # Public OSS / public GitLab package names that appear in Real columns.
+        'capy',
+        'corosio',
 } )
 
 _HOME_RE = re.compile( r'/home/(?!user(?:/|\b))([A-Za-z0-9._-]+)/' )
@@ -294,16 +298,106 @@ def find_hits( text: str, tokens: list[str] ) -> list[str]:
     return ordered
 
 
-def scan_file( path: Path, tokens: list[str] ) -> list[tuple[int, str, str]]:
-    try:
-        lines = path.read_text( encoding='utf-8', errors='replace' ).splitlines()
-    except OSError as error:
-        return [ ( 0, str( path ), 'unreadable: {}'.format( error ) ) ]
+def scan_lines(
+        lines: list[tuple[int, str]],
+        tokens: list[str],
+) -> list[tuple[int, str, str]]:
     findings = []
-    for number, line in enumerate( lines, 1 ):
+    for number, line in lines:
         for hit in find_hits( line, tokens ):
             findings.append( ( number, hit, line.strip()[:120] ) )
     return findings
+
+
+def scan_file( path: Path, tokens: list[str] ) -> list[tuple[int, str, str]]:
+    try:
+        body = path.read_text( encoding='utf-8', errors='replace' ).splitlines()
+    except OSError as error:
+        return [ ( 0, str( path ), 'unreadable: {}'.format( error ) ) ]
+    numbered = [ ( number, line ) for number, line in enumerate( body, 1 ) ]
+    return scan_lines( numbered, tokens )
+
+
+def _parse_unified_added_lines( diff_text: str ) -> dict[str, list[tuple[int, str]]]:
+    """Map repo-relative paths to ``(new_lineno, text)`` for ``+`` hunk lines."""
+    result: dict[str, list[tuple[int, str]]] = {}
+    current: str | None = None
+    new_lineno = 0
+    hunk_re = re.compile( r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@' )
+    for line in diff_text.splitlines():
+        if line.startswith( '+++ ' ):
+            raw = line[4:].strip()
+            if raw == '/dev/null':
+                current = None
+                continue
+            if raw.startswith( 'b/' ):
+                raw = raw[2:]
+            current = raw
+            result.setdefault( current, [] )
+            continue
+        if current is None:
+            continue
+        match = hunk_re.match( line )
+        if match:
+            new_lineno = int( match.group( 1 ) )
+            continue
+        if line.startswith( '+' ) and not line.startswith( '+++' ):
+            result[ current ].append( ( new_lineno, line[1:] ) )
+            new_lineno += 1
+        elif line.startswith( '-' ) and not line.startswith( '---' ):
+            continue
+        elif line.startswith( '\\' ):
+            continue
+        else:
+            # Context line
+            new_lineno += 1
+    return result
+
+
+def _is_new_or_untracked( repo_relative: str ) -> bool:
+    status = _git( 'status', '--porcelain', '-uall', '--', repo_relative )
+    for status_line in status.splitlines():
+        if status_line.startswith( '??' ) or status_line.startswith( 'A ' ):
+            return True
+        if len( status_line ) >= 2 and status_line[0] == 'A':
+            return True
+    return False
+
+
+def _full_file_lines( path: Path ) -> list[tuple[int, str]]:
+    body = path.read_text( encoding='utf-8', errors='replace' ).splitlines()
+    return [ ( number, line ) for number, line in enumerate( body, 1 ) ]
+
+
+def added_lines_for_paths(
+        paths: list[Path],
+        *,
+        base: str | None,
+) -> dict[Path, list[tuple[int, str]]]:
+    """Added lines for modified tracked files; full file for new/untracked."""
+    relative = {}
+    for path in paths:
+        try:
+            relative[ path ] = path.relative_to( REPO_ROOT ).as_posix()
+        except ValueError:
+            relative[ path ] = str( path )
+
+    diff_text = ''
+    if base:
+        diff_text += _git( 'diff', '-U0', '{}...HEAD'.format( base ), '--' )
+    diff_text += _git( 'diff', '-U0', '--' )
+    diff_text += _git( 'diff', '-U0', '--cached', '--' )
+    added_by_name = _parse_unified_added_lines( diff_text )
+
+    out: dict[Path, list[tuple[int, str]]] = {}
+    for path, name in relative.items():
+        if _is_new_or_untracked( name ):
+            out[ path ] = _full_file_lines( path )
+            continue
+        lines = added_by_name.get( name, [] )
+        if lines:
+            out[ path ] = lines
+    return out
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -386,8 +480,28 @@ def main( argv: list[str] | None = None ) -> int:
         )
 
     failed = False
-    for path in paths:
-        findings = scan_file( path, tokens )
+    extra_resolved = {
+            Path( extra ).expanduser().resolve() for extra in args.file
+    }
+    if args.all_tracked:
+        path_lines = { path: None for path in paths }  # None => full file
+    else:
+        repo_paths = [
+                path for path in paths if path.resolve() not in extra_resolved
+        ]
+        added = added_lines_for_paths( repo_paths, base=merge_base_ref() )
+        path_lines = {}
+        for path in paths:
+            if path.resolve() in extra_resolved:
+                path_lines[ path ] = None
+            else:
+                path_lines[ path ] = added.get( path, [] )
+
+    for path, line_records in path_lines.items():
+        if line_records is None:
+            findings = scan_file( path, tokens )
+        else:
+            findings = scan_lines( line_records, tokens )
         if not findings:
             continue
         failed = True

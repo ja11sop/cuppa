@@ -141,6 +141,10 @@ xref:dependencies/managing/reclaiming.adoc#filter-examples[filter examples] glan
 | Targets known to the selected SCons graph
 | Build directory structure and anything not represented by selected targets
 
+| `-c --deep-clean`
+| Clean graph targets plus out-of-tree products for the current selection (Boost: cooperative `b2 --clean` and matching `bin.*` paths; CMake: `cmake --build ... --target clean`, then the usual `-B` path Clean)
+| Dependency extracts / downloads (same as plain `-c`). Prefer this over `--remove-dependencies=boost` when the intent is a cold rebuild of the current selection without wiping the extract
+
 | `--remove-builds`
 | Build subtrees selected by toolchain, variant, and sconscript
 | Other build selections and the artefacts root

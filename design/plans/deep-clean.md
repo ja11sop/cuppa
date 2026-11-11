@@ -1,8 +1,8 @@
 # Plan: `--deep-clean` as a modifier on `-c` / `--clean`
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326);   [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](../archive/terse-delegated-output.md)
-- **Updated:** 2026-10-03
+- **Updated:** 2026-11-11
 - **Impact:** `minor` (new CLI flag / opt-in clean scope)
 
 ## Problem
@@ -115,7 +115,7 @@ dir, stamps).
 | Boost `bin.<abi>/…` for this selection | No | Yes — prefer **cooperative `b2 --clean`**, with path Clean as fallback/supplement |
 | Boost extract / headers | No | No |
 | Boost extract `b2` binary | No today (`env.NoClean`); **should** be Yes — follow-up | No (headers/extract stay) |
-| CMake `-B` via Cuppa methods | Yes | Yes; optional native `cmake --build --target clean` later if path Clean proves incomplete |
+| CMake `-B` via Cuppa methods | Yes (path Clean) | Yes — **cooperative `cmake --build --target clean`**, then path Clean leftovers |
 | Other location deps | No new behaviour until each opts in | Opt-in via the same helper |
 
 **Major-toolset coarseness** under `bin.<abi>` (e.g. `gcc-16` vs `gcc162`) remains
@@ -254,16 +254,73 @@ continues to use.
 | Item | State |
 |------|--------|
 | Settled: modifier on `-c`, not standalone | Done |
-| Naming commentary + gap assessment | Done (this revision) |
-| Native tool clean + Boost `b2 --clean` use case | Done (design); code not started |
-| Extract `b2` on ordinary `-c` (drop `NoClean`) | Follow-up; not terse |
+| Naming commentary + gap assessment | Done |
+| Native tool clean + Boost `b2 --clean` use case | Done (design) |
+| Extract `b2` on ordinary `-c` (drop `NoClean`) | Follow-up; not this slice |
 | Scratchpad note | Graduated here |
-| Option + refusal gate | Not started |
-| Boost cooperative clean + fallback | Not started |
-| Nested forward | Not started |
-| Docs + tests | Not started |
+| Option + refusal gate | Done (`cuppa.core.deep_clean`) |
+| Boost cooperative clean + path Clean fallback | Done (`b2_clean_command` + `BoostLibraryBuilder`) |
+| Nested forward | Done (tip argv keeps `--deep-clean`; not dropped) |
+| Docs + unit tests | Done (CLI pages + `test_deep_clean`) |
+| Consumer soak (`-c --deep-clean` on Boost package) | Done 2026-11-11 — see below |
+| CMake cooperative `--target clean` | Done (`cmake_clean_command` + `CMake*` methods) |
+
+## Soak (Boost package publisher)
+
+Command (anonymised): `cuppa -D --rel --toolchains=gcc15 --parallel -c --deep-clean`
+on the Boost GitLab package publisher.
+
+| Check | Result |
+|-------|--------|
+| `--deep-clean` alone | Options Error (requires `-c`) |
+| Cooperative `b2 --clean` | Ran once with matching `toolset=` / `variant=release` / `--build-dir` / `--stagedir` / `--user-config` |
+| `bin.*/…/gcc-15/release/…` | Cleared (0 files) |
+| `bin.*/…/gcc-15/debug/…` | Left intact (other variant) |
+| Sibling toolset (`gcc-16`) | Untouched |
+| Extract `b2` / headers | Kept |
+| Stage `build.*/gcc15/release` | Emptied (empty dir may remain) |
+
+**Follow-up (same tip):** a later `-c --deep-clean --toolchains=gcc15` failed when
+`<toolchain>._jam` was missing from the extract (never built / never written for that
+toolset). Deep-clean now ensures the user-config jam before `b2 --clean` (same content as
+`WriteToolsetConfigJam`). SCons still correctly **Removes** that jam on `-c` afterward
+(Command target — not `NoClean`).
+
+**Quiet/terse (2026-11-11):** re-soak with `-Q --terse-output` succeeded; cooperative clean
+ran. First cut echoed full `b2` argv via `IncrementalSubProcess` and flooded config-check
+lines (`lambda line: line`). Aligned with library-build: `suppress_output=True` +
+`B2OutputProcessor` (+ terse launch / muted child).
+
+**Delegate bookend:** action word `b2-clean` (like `cmake-build` / `b2`), summary
+`--clean <stage> · N libs`. Launch under `env.Execute` must close with uncounted
+`→ [done] … · b2-clean · …` via `write_terse_delegate_close` — otherwise Execute paints
+`→ [ok] · run`.
+
+Cold rebuild after this clean not timed in this pass (optional follow-up).
+
+### Terse path Clean (`Removed …`)
+
+Soak on a CMake publisher with `-c --deep-clean --terse-output` showed a correct
+`cmake-clean` `[launch]`/`[done]` bookend, then a wall of SCons
+`display("Removed …")` for the `-B` path Clean (and tip `_build`). That flood is
+ordinary `-c` behaviour — deep-clean does not invent it; the bookend makes it
+louder.
+
+**Settled (this PR):** keep path Clean after native clean (cold next configure).
+Under `--terse-output`, fold each `Removed …` onto the shared status-row
+heartbeat and emit one tip-wide durable line on completion:
+
+```text
+sconstruct    → [clean] removed N paths
+```
+
+Not a per-variant `scons-clean` / `[done]` (path Clean is SCons `CleanTask`,
+not a launched delegate). Also helps plain `-c --terse-output`. Without terse,
+`-Q -c` still forces classic quiet (no heartbeat) so the flood cannot shear
+onto a pulse.
 
 ## Next focus
 
-Land CLI + Boost cooperative `b2 --clean` (with path fallback) first. Revisit
-other location deps / CMake native clean only when a concrete publisher needs them.
+Optional: time a cold `--rel` rebuild after deep-clean; extract `b2` on ordinary
+`-c` follow-up; other location deps only when a publisher needs them. CMake native
+`--target clean` is in this PR (with Boost). Terse `Removed` fold is in this PR.

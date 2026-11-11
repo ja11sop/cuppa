@@ -213,19 +213,31 @@ def test_anonymised_json_regen_uses_json_paths_in_html( tmp_path ):
 
 
 def test_anonymised_json_regen_ignores_live_vcs_and_cwd( tmp_path, monkeypatch ):
+    """Regen from anonymised JSON must ignore whatever VCS identity the host has checked out."""
     payload, originals = _sample_payload( tmp_path )
     anonymised = anonymise_report_payload( payload )
 
     json_path = tmp_path / 'anonymised.json'
     json_path.write_text( json.dumps( anonymised ), encoding='utf-8' )
 
+    # Deliberately "secret" live-checkout stand-ins — must not leak into HTML.
+    live_remote = 'git@git.example.com:org/host_checkout_tip.git'
+    live_describe = 'host_checkout_tip_r1.15-167-gb39732e'
+    forbidden_live_tokens = (
+        'host_checkout_tip',
+        'host_checkout_tip_r1.15',
+        'b39732e',
+        live_remote,
+        live_describe,
+    )
+
     def _fake_test_linking( env, link_style='raw' ):
         return (
-            'git@git.example.com:org/matching_facility.git',
-            'git@git.example.com:org/matching_facility.git',
+            live_remote,
+            live_remote,
             'master',
             'origin',
-            'cplx_dex_r1.15-167-gb39732e',
+            live_describe,
         )
 
     monkeypatch.setattr(
@@ -237,16 +249,15 @@ def test_anonymised_json_regen_ignores_live_vcs_and_cwd( tmp_path, monkeypatch )
 
     assert regenerate_profiles_report.main( [ str( json_path ), '--from-json' ] ) == 0
     index_html = ( tmp_path / 'cxx-profiles-index.html' ).read_text( encoding='utf-8' )
-    assert 'matching_facility' not in index_html
-    assert 'clearpool' not in index_html
-    assert 'cplx_dex_r1.15' not in index_html
-    assert 'b39732e' not in index_html
+    for token in forbidden_live_tokens:
+        assert token not in index_html
     assert 'example-project' in index_html
 
     scope_files = list( tmp_path.glob( 'cxx-profiles--*.html' ) )
     assert scope_files
     scope_html = scope_files[ 0 ].read_text( encoding='utf-8' )
-    assert 'matching_facility' not in scope_html
+    for token in ( 'host_checkout_tip', 'b39732e' ):
+        assert token not in scope_html
     assert 'example-project' in scope_html
     assert originals[ 'encoded_folder' ] not in scope_html
 

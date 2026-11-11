@@ -22,14 +22,30 @@ from cuppa.colourise        import as_info, as_notice, colour_items
 from cuppa.log              import logger
 
 # Boost Imports
-from cuppa.dependencies.boost.b2                   import B2OutputProcessor, BuildB2, b2_exe, b2_command
-from cuppa.dependencies.boost.configjam            import WriteToolsetConfigJam
-from cuppa.dependencies.boost.library_naming       import stage_directory, variant_name, static_library_name, shared_library_name, extract_library_name_from_path
+from cuppa.dependencies.boost.b2                   import (
+        B2OutputProcessor, BuildB2, b2_exe, b2_command, b2_clean_command,
+)
+from cuppa.dependencies.boost.configjam            import (
+        WriteToolsetConfigJam,
+        ensure_toolset_user_config_jam,
+)
+from cuppa.dependencies.boost.library_naming       import (
+        b2_build_dir_toolset_token,
+        directory_from_abi_flag,
+        extract_library_name_from_path,
+        find_b2_build_dir_products,
+        shared_library_name,
+        stage_directory,
+        static_library_name,
+        variant_name,
+)
 from cuppa.dependencies.boost.library_dependencies import add_dependent_libraries
+from cuppa.core.deep_clean                         import deep_clean_enabled
 
 
 _prebuilt_boost_libraries = { 'action': {}, 'emitter': {}, 'builder': {} }
 _b2_invocations = {}
+_scheduled_b2_deep_cleans = set()
 
 # NOTE: We want to take advantage of the ability to parallelise B2 calls when building boost.
 #       However a number of aspects of how B2 is executed are not "thread-safe" - that is
@@ -472,13 +488,206 @@ class BoostLibraryBuilder(object):
 
         # Cuppa-scoped stage under the shared extract (build.<abi>/<toolchain>/…).
         # Mirror CMake's env.Clean on -B for what this variant owns. Leave bin.<abi>
-        # and the extract for --remove-dependencies=boost (and a future --deep-clean).
+        # and the extract for --remove-dependencies=boost unless --deep-clean.
         if installed:
             stage_abs = os.path.join( self._boost.local(), stage_dir )
             env.Clean( installed, stage_abs )
             if built_libraries:
                 env.Clean( built_libraries, stage_abs )
 
+        if deep_clean_enabled( env ) and installed:
+            _register_boost_deep_clean(
+                    env,
+                    boost=self._boost,
+                    toolchain=toolchain,
+                    variant=variant,
+                    target_arch=target_arch,
+                    linktype=linktype,
+                    stage_dir=stage_dir,
+                    libraries=list( library_action._libraries or required_libraries ),
+                    verbose_build=self._verbose_build,
+                    verbose_config=self._verbose_config,
+                    installed=installed,
+                    built_libraries=built_libraries,
+            )
+
         logger.debug( "Boost 'Installed' Libraries = [{}]".format( colour_items( l.path for l in installed ) ) )
 
         return installed
+
+
+def _register_boost_deep_clean(
+        env,
+        *,
+        boost,
+        toolchain,
+        variant,
+        target_arch,
+        linktype,
+        stage_dir,
+        libraries,
+        verbose_build,
+        verbose_config,
+        installed,
+        built_libraries,
+):
+    """Path-Clean ``bin.*`` products and schedule cooperative ``b2 --clean`` once."""
+    location = boost.local()
+    abi_flag = toolchain.abi_flag( env )
+    abi_dir = directory_from_abi_flag( abi_flag )
+    bin_name = 'bin.' + ( abi_dir if abi_dir else '' )
+    bin_dir = os.path.join( location, bin_name )
+    if os.path.isdir( bin_dir ):
+        token = b2_build_dir_toolset_token( toolchain )
+        bin_products = find_b2_build_dir_products( bin_dir, token, variant )
+        if bin_products:
+            env.Clean( installed, bin_products )
+            if built_libraries:
+                env.Clean( built_libraries, bin_products )
+
+    if not libraries:
+        return
+
+    clean_key = (
+            env.get( 'sconstruct_path' ),
+            os.path.abspath( location ),
+            toolchain.name(),
+            variant,
+            linktype,
+            stage_dir,
+            tuple( sorted( libraries ) ),
+    )
+    if clean_key in _scheduled_b2_deep_cleans:
+        return
+    _scheduled_b2_deep_cleans.add( clean_key )
+
+    b2_path = b2_exe( boost.numeric_version(), location )
+    if not os.path.isfile( b2_path ):
+        logger.warn(
+                "Deep-clean: Boost.Build binary [{}] missing; "
+                "path Clean for bin products only".format( b2_path )
+        )
+        return
+
+    # Build graph writes <toolchain>._jam via WriteToolsetConfigJam; -c --deep-clean
+    # may run before that action (or against an extract never built for this toolset).
+    if cuppa.build_platform.name() == "Linux":
+        user_config = os.path.join( location, toolchain.name() + "._jam" )
+        try:
+            if ensure_toolset_user_config_jam( user_config, toolchain ):
+                logger.info(
+                        "Deep-clean: wrote missing user-config [{}]".format( user_config )
+                )
+        except OSError as error:
+            logger.warn(
+                    "Deep-clean: could not write user-config [{}]: {}; "
+                    "path Clean for bin products only".format( user_config, error )
+            )
+            return
+
+    args = b2_clean_command(
+            env,
+            boost.numeric_version(),
+            location,
+            toolchain,
+            libraries,
+            variant,
+            target_arch,
+            linktype,
+            stage_dir,
+            verbose_build,
+            verbose_config,
+            env.get( 'job_count', 1 ),
+            env.get( 'parallel', False ),
+            boost.defines(),
+    )
+    command_text = " ".join( str( token ) for token in args )
+    # Match cmake-build / b2: action word + short selection summary (not raw argv).
+    # ``--clean`` names the b2 mode; stage_dir is the cuppa stage this clean owns.
+    launch_summary = "--clean {}".format( stage_dir )
+    if libraries:
+        launch_summary = "{} · {} {}".format(
+                launch_summary,
+                len( libraries ),
+                "lib" if len( libraries ) == 1 else "libs",
+        )
+    terse_action = "b2-clean"
+
+    def _run_b2_clean(
+            target,
+            source,
+            env,
+            _args=args,
+            _cwd=location,
+            _cmd=command_text,
+            _toolchain=toolchain,
+            _verbose_build=verbose_build,
+            _verbose_config=verbose_config,
+            _summary=launch_summary,
+            _action=terse_action,
+    ):
+        logger.info( "Deep-clean: running [{}] in [{}]".format( _cmd, _cwd ) )
+        processor = B2OutputProcessor(
+                env, _verbose_build, _verbose_config, _toolchain
+        )
+        terse = bool( env.get( 'terse_output' ) )
+        # Always suppress IncrementalSubProcess argv echo — Action cmdstr / terse launch
+        # own the one-line announcement; B2OutputProcessor filters config-check flood.
+        if terse:
+            cuppa.progress.write_terse_launch(
+                    _action,
+                    _summary,
+                    env,
+                    command=_cmd,
+                    target=target,
+            )
+
+            def muted_line( line, _processor=processor, _env=env ):
+                rendered = _processor( line )
+                if rendered:
+                    cuppa.progress.write_terse_muted_child( rendered, _env )
+                return None
+
+            returncode = IncrementalSubProcess.Popen(
+                    muted_line,
+                    _args,
+                    cwd=_cwd,
+                    suppress_output=True,
+            )
+            tool_summary = processor.summary( returncode )
+            if tool_summary and returncode:
+                print( tool_summary )
+            # env.Execute closes via _present_executed_command (→ [ok] · run)
+            # unless we emit the delegated bookend ourselves.
+            cuppa.progress.write_terse_delegate_close(
+                    _action,
+                    _summary,
+                    env,
+                    status="error" if returncode else "done",
+                    target=target,
+                    command=_cmd if returncode else None,
+            )
+        else:
+            returncode = IncrementalSubProcess.Popen(
+                    processor,
+                    _args,
+                    cwd=_cwd,
+                    suppress_output=True,
+            )
+            tool_summary = processor.summary( returncode )
+            if tool_summary:
+                print( tool_summary )
+        if returncode:
+            logger.error(
+                    "Deep-clean: b2 --clean failed (exit {}) for [{}]"
+                    .format( returncode, _cmd )
+            )
+        return returncode
+
+    from SCons.Action import Action
+    result = env.Execute( Action( _run_b2_clean, cmdstr="Deep-clean: b2 --clean" ) )
+    if result:
+        from SCons.Errors import StopError
+        raise StopError(
+                "Boost deep-clean failed: {} (cwd {})".format( command_text, location )
+        )

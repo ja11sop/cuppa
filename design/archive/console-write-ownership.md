@@ -49,19 +49,21 @@ pipe → **OFFLINE ×2** even with a once-per-process banner guard.
 
 ## What the latest soak actually improved
 
-Do not throw these out — they work on content, not ownership:
+Do not throw these out — they work on content, not ownership. Examples below use the public
+registry stand-in `gitlab.example` (encoded folder form `gitlab_example_…`); they are not a
+specific customer registry.
 
 | Slice | Visible in soak? | Notes |
 |-------|------------------|-------|
-| **A** `https://` preserved | Yes | Registry map URL is correct |
-| **B1** `<registry>/name/ver/file` publish | Yes | e.g. `→ <clearpool_io_…>/abseil-cpp/20250814.2/….tar.gz` |
-| **G** Up-to-date flood gone | Yes | Abseil/c-ares install no longer dumps hundreds of paths |
-| **G** `-- All targets Up-to-date` | **No** | Preamble (`[0/1] Install…`, `-- Install configuration`) marked “other”, so summary suppressed |
-| **C1** clear ProgressReporter before `→` | Partial | Compress shear reduced; **ECG shear remains** (different writer) |
-| **F** OFFLINE dedupe | **No** | Guard is per process; dual TTY+pipe echo is a second writer |
+| **A** `https://` preserved | Yes | Registry map URL keeps the scheme; no accidental `git@` rewrite on HTTPS maps |
+| **B1** `<registry>/name/ver/file` publish | Yes | e.g. `→ <gitlab_example_org_pkgs>/abseil-cpp/20250814.2/abseil-cpp-20250814.2.tar.gz` and the matching c-ares leaf under the same encoded registry folder |
+| **G** Up-to-date flood gone | Yes | Abseil / c-ares install no longer dumps hundreds of “Up-to-date” paths into the transcript |
+| **G** `-- All targets Up-to-date` | **No** | Preamble (`[0/1] Install…`, `-- Install configuration: …`) still marked “other”, so the summary line stays suppressed |
+| **C1** clear ProgressReporter before `→` | Partial | Compress shear reduced; **ECG shear remains** (different writer owns the status row) |
+| **F** OFFLINE dedupe | **No** | Guard is per process; dual TTY+pipe echo is still a second writer |
 
-So the user’s “I don’t see anything improved” is fair for **readability** —
-ownership still dominates — but content slices A/B1/G-suppress did land.
+So the user’s “I don’t see anything improved” is fair for **readability** — ownership still
+dominates the eye — but content slices A / B1 / G-suppress did land on the soak tip.
 
 ## Intent
 
@@ -181,6 +183,6 @@ enter/exit. Publisher tips `defer_tip_cascade` during construction;
 | Cascade Ctrl-C process-tree kill | Done — ``_run_nested_cuppa`` + ``terminate_process_tree`` |
 | First Ctrl-C forwards stop to delegates | Done — ``interrupt_build_children`` (``SIGINT``) on first stop; ``SIGTERM`` on second |
 | Parallel terse failure drain note | Done — once after first ``[error]`` under ``-j``: ``failed — draining in-flight jobs...`` |
-| Quiet heartbeat vs ``-c`` clean | Done — clean forces heartbeat ``off``; SCons ``display()`` routed through ``write_line`` while diverting |
+| Quiet heartbeat vs ``-c`` clean | Done — clean without terse forces heartbeat ``off``; with ``--terse-output`` folds ``Removed …`` onto the status row + durable count; SCons ``display()`` otherwise routed through ``write_line`` while diverting |
 | One alive writer + resolve ``dwell=False`` | Done — ``ensure_status_row``; resolve map/child/bookend skip full-cycle dwell |
 | TTY autowrap restore after heartbeat | Done — ``restore_terminal_wrap`` on clear/reset/atexit + construct start heal |

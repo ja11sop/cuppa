@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--deep-clean`` modifier on ``-c`` / ``--clean``: expands clean to out-of-tree
+  products for the current selection. Boost runs cooperative ``b2 --clean`` with
+  the same argv shape as the library build, and path-Cleans matching ``bin.*``
+  products; CMake methods run ``cmake --build … --target clean`` before the
+  existing ``-B`` path Clean. Extracts stay. Alone without ``-c`` it is refused.
+  Nested cascade sessions forward the flag. Plan: ``design/plans/deep-clean.md``.
+
 - Online GitLab package consume checks whether a cached archive is still the
   file on the registry (``HEAD``, preferring ``X-Checksum-Sha256``) before
   reusing it. A same-version retag (for example ``develop``) re-fetches
@@ -51,6 +58,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``*.gcov`` files stay per binary. Plan: ``design/plans/coverage-parallel.md``.
 
 ### Changed
+
+- ``--terse-output`` + ``-c`` / ``--clean``: SCons path-Clean ``Removed …`` lines
+  (via ``display()``, including after ``--deep-clean`` native cleans) fold onto
+  the shared status-row heartbeat instead of flooding the transcript, then one
+  tip-wide durable ``sconstruct → [clean] removed N paths`` summary on
+  completion. ``-Q -c`` without terse still forces classic quiet (no heartbeat)
+  so the flood cannot shear onto a pulse. Plan: ``design/plans/deep-clean.md``.
 
 - Online consume of registry ``latest`` continues when the registry check
   cannot run (DNS, connection, HTTP 401/403/5xx) and the remembered version's
@@ -509,10 +523,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quiet+TTY heartbeat: under ``-Q`` / ``-s`` on an interactive terminal, Cuppa
   keeps generating info records but folds them onto one subdued status line
   (width from the controlling TTY; VT100 wrap-off + erase-to-end-of-line).
-  ``-c`` / ``--clean`` forces classic quiet (no status row): SCons prints
-  ``Removed …`` via ``display()``, which used to shear onto the heartbeat
-  (``|•--------|Removed …`` / ``downloadsRemoved``). While diverting, SCons
-  ``display()`` is also routed through ``write_line`` as a safety net.
+  ``-c`` / ``--clean`` without ``--terse-output`` forces classic quiet (no
+  status row): SCons prints ``Removed …`` via ``display()``, which used to
+  shear onto the heartbeat (``|•--------|Removed …`` / ``downloadsRemoved``).
+  With ``--terse-output``, those lines fold onto the status row with a durable
+  count (see Changed above). While diverting, other SCons ``display()`` lines
+  are routed through ``write_line`` as a safety net.
   Heartbeat ``?7l`` (disable autowrap) is always paired with ``?7h`` on
   clear/reset/atexit, and construct start force-heals wrap if a prior cuppa
   exited mid-pulse — otherwise later builds look "unwrapped" (long ``g++``

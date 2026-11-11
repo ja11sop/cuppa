@@ -44,7 +44,7 @@ def b2_as_command( boost_version, boost_location ):
     return b2_exe( boost_version, boost_location )
 
 
-def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel, defines ):
+def b2_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel, defines, clean=False ):
     # Build argv as a list. Do not round-trip through a quoted string + shlex.split:
     # escaping quotes before split used to tear cxxflags apart (e.g.
     # cxxflags="-std=c++2c -stdlib=libstdc++" -> ['cxxflags="-std=c++2c', '-stdlib=libstdc++"'])
@@ -58,6 +58,9 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
             jobs = int( job_count/4 + 1 )
 
     args = [ b2_as_command( boost_version, location ) ]
+    if clean:
+        # Same selection as the library build; scoped --clean (not --clean-all).
+        args.append( '--clean' )
 
     if verbose_build:
         args.append( "-d+2" )
@@ -128,6 +131,27 @@ def b2_command( env, boost_version, location, toolchain, libraries, variant, tar
         args.append( "--user-config=" + user_config )
 
     return args
+
+
+def b2_clean_command( env, boost_version, location, toolchain, libraries, variant, target_arch, linktype, stage_dir, verbose_build, verbose_config, job_count, parallel, defines ):
+    """Argv for cooperative ``b2 --clean`` matching a library-build invocation."""
+    return b2_command(
+            env,
+            boost_version,
+            location,
+            toolchain,
+            libraries,
+            variant,
+            target_arch,
+            linktype,
+            stage_dir,
+            verbose_build,
+            verbose_config,
+            job_count,
+            parallel,
+            defines,
+            clean=True,
+    )
 
 
 

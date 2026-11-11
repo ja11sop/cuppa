@@ -220,15 +220,23 @@ Approach 2's enrollment set is larger than “two call sites” and will drift.
 
 ## One alive writer + resolve continuity
 
-Soak (order_matcher cascade-plan): `-Q --terse-output` and `--terse-output`
-alone were ~70s real with ~6s CPU; `-Q --normal-output` / normal ~30s. The gap
-was **sleep** — full-cycle ECG dwell (~1.5s) between durable resolve children
-after an alive caption, not “animation during git”.
+**Soak (labelled project B, `--cascade-plan` on a consume tip).** Timing was measured on a
+quiet machine with a warm registry cache:
 
-Non-quiet terse also showed a **second painter**: private `operation_status`
-loop via another `open_progress_stream`, columns falling back through the
-launcher pipe to **80** (ellipsis truncation), and a frozen first frame while
-exit dwell slept. Same product surface, two implementations.
+| Mode | Wall (~) | CPU (~) | Notes |
+|------|----------|---------|-------|
+| `-Q --terse-output` | 70s | 6s | Long idle between resolve children |
+| `--terse-output` (TTY) | 70s | 6s | Same sleep-dominated profile |
+| `-Q --normal-output` | 30s | ~same work | Baseline without full-cycle dwell tax |
+| normal (no `-Q`) | 30s | ~same work | Same as quiet+normal for this tip |
+
+The gap was **sleep** — full-cycle ECG dwell (~1.5s) between durable resolve children after
+an alive caption — not “animation during git”. Project label only; no tip path in this note.
+
+Non-quiet terse also showed a **second painter**: private `operation_status` loop via another
+`open_progress_stream`, columns falling back through the launcher pipe to **80** (ellipsis
+truncation), and a frozen first frame while exit dwell slept. Same product surface, two
+implementations — the continuity work collapses them to one alive writer.
 
 ### Nutshell: dwell and idle gate
 

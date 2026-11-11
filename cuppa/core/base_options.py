@@ -34,16 +34,20 @@ def check_options( env ):
     """Refuse incompatible base CLI flags (read-only ``get_option``).
 
     Owns ``--parallel=N`` vs ``--jobs`` / ``-j`` registered in
-    :func:`add_base_options`. Construct calls this beside method
-    ``check_options`` before mode banners / SConscript. Job-count
-    application still happens later in construct; this only refuses.
+    :func:`add_base_options`, and ``--deep-clean`` without ``-c``.
+    Construct calls this beside method ``check_options`` before mode
+    banners / SConscript. Job-count application still happens later in
+    construct; this only refuses.
     """
+    from cuppa.core.deep_clean import check_deep_clean_options
     from cuppa.colourise import as_error
     from cuppa.utility.console_errors import raise_options_error, remedy_colour
     from cuppa.utility.parallelism import (
             parse_parallel_option,
             resolve_parallel_job_count,
     )
+
+    check_deep_clean_options( env )
 
     try:
         parallel_request = parse_parallel_option( env.get_option( 'parallel' ) )
@@ -187,3 +191,6 @@ def add_base_options():
     cuppa.core.storage_actions.add_storage_action_options( add_option )
 
     cuppa.core.location_options.add_location_options( add_option )
+
+    from cuppa.core.deep_clean import add_deep_clean_option
+    add_deep_clean_option( add_option )
