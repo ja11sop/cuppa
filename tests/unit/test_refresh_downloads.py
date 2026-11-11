@@ -109,7 +109,7 @@ def test_refresh_downloads_clears_cache_and_refetches( tmp_path, monkeypatch ):
 
     fetched = {}
 
-    def fake_download( candidates, cache_dir, custom_token=None, log_id=None ):
+    def fake_download( candidates, cache_dir, custom_token=None, log_id=None, env=None ):
         dest = os_path_join( cache_dir, archive_name )
         with open( dest, 'wb' ) as handle:
             handle.write( b'fresh-bytes' )
@@ -151,6 +151,82 @@ def test_refresh_downloads_clears_cache_and_refetches( tmp_path, monkeypatch ):
     assert open( fetched['dest'], 'rb' ).read() == b'fresh-bytes'
     assert ( extract / 'include' / 'widget.hpp' ).read_text() == 'new'
     assert dep.package_dir().endswith( os_mod.path.join( 'widget', '1.0' ) )
+
+
+def test_refresh_downloads_terse_emits_refresh_child(
+        tmp_path, monkeypatch, capsys, caplog,
+):
+    """Force clear under terse becomes ``→ [refresh]``, not an INFO punch."""
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.platform.freedesktop_os_release',
+            lambda: { 'ID': 'debian' },
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.platform.system',
+            lambda: 'Linux',
+    )
+    env, downloads, dependencies = _env( tmp_path, terse_output=True )
+    env['default_dependencies'] = [ 'widget' ]
+    archive_name = package_file_name( env, package='widget', variant='rel' )
+    cache = downloads / 'packages' / 'widget' / '1.0'
+    cache.mkdir( parents=True )
+    ( cache / archive_name ).write_bytes( b'stale' )
+    extract = dependencies / 'gcc15_rel_x86_64_cxx2c' / 'widget' / '1.0'
+    extract.mkdir( parents=True )
+    ( extract / 'include' ).mkdir()
+    ( extract / 'include' / 'widget.hpp' ).write_text( 'old' )
+
+    import os as os_mod
+    os_path_join = os_mod.path.join
+    os_makedirs = os_mod.makedirs
+
+    def fake_download( candidates, cache_dir, custom_token=None, log_id=None, env=None ):
+        dest = os_path_join( cache_dir, archive_name )
+        with open( dest, 'wb' ) as handle:
+            handle.write( b'fresh' )
+        return dest, archive_name, 'stem'
+
+    def fake_extract( archive, extraction_dir ):
+        include = os_path_join( extraction_dir, 'widget', '1.0', 'include' )
+        os_makedirs( include, exist_ok=True )
+        with open( os_path_join( include, 'widget.hpp' ), 'w' ) as handle:
+            handle.write( 'new' )
+        return 0
+
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.download_first_available_package',
+            fake_download,
+    )
+    monkeypatch.setattr(
+            'cuppa.package_managers.gitlab.extract_package_archive',
+            fake_extract,
+    )
+
+    import cuppa.progress as progress
+    from cuppa.output_processor import strip_ansi
+    progress.reset_progress_ledger()
+    progress.write_terse_resolve_prepare( env )
+    capsys.readouterr()
+
+    begin_refresh_downloads_session( 'widget' )
+    with caplog.at_level( 'INFO', logger='cuppa' ):
+        GitlabPackageDependency(
+                env,
+                registry='https://gitlab.example/api/v4/projects/1',
+                package='widget',
+                version='1.0',
+                variant='rel',
+                dependency_name='widget',
+        )
+    out = strip_ansi( capsys.readouterr().out )
+    assert '[refresh]' in out
+    assert '<widget>' in out
+    assert 'cache re-fetched' in out
+    # Durable refresh only after download completes, then collect/extract.
+    refresh_at = out.index( '[refresh]' )
+    assert '[collect]' in out
+    assert refresh_at < out.index( '[collect]' )
+    assert '--refresh-downloads: cleared' not in caplog.text
 
 
 def test_refresh_downloads_develop_skips_clear( tmp_path, monkeypatch ):

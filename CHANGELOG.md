@@ -82,6 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Under ``--terse-output``, ``--refresh-downloads`` prints a durable resolve
+  child ``→ [refresh]  <token> · <version> · cache re-fetched`` only after the
+  re-download finishes (download heartbeat first; then ``[refresh]``, then
+  ``[collect]`` / ``[extract]``), including with ``-Q``. ``Stored … in
+  [.cuppaconfig]`` and ``Downloading package archive […]…`` are demoted to
+  debug so they do not punch the ledger. Force refresh still always re-fetches
+  (no HEAD). Plan: ``design/plans/terse-refresh-ledger.md``.
+
 - Under ``--terse-output``, sticky heartbeat captions that chase back after a
   durable ``[ok]`` line keep the ECG / spinner phase. Consecutive heartbeat
   lines continue the animation instead of restarting at rest every time.

@@ -185,13 +185,27 @@ def remember_registry_latest( env, registry, package, version ):
     key = registry_latest_conf_key( registry, package )
     # Quote so configure.conf literal_eval keeps ``1.10`` as a string (not float 1.1).
     upsert_setting( conf_path, key, repr( str( version ) ) )
-    logger.info(
-            "Stored {} = [{}] in [{}]".format(
-                    as_notice( key ),
-                    as_info( str( version ) ),
-                    as_info( conf_path ),
-            )
+    # Under terse the ``[version]`` resolve child already names the pin; keep
+    # the store fact at debug so configure INFO does not punch the ledger.
+    message = "Stored {} = [{}] in [{}]".format(
+            as_notice( key ),
+            as_info( str( version ) ),
+            as_info( conf_path ),
     )
+    terse = False
+    if env is not None:
+        getter = getattr( env, "get", None )
+        if callable( getter ):
+            terse = bool( getter( "terse_output" ) )
+        else:
+            try:
+                terse = bool( env[ "terse_output" ] )
+            except Exception:
+                terse = False
+    if terse:
+        logger.debug( message )
+    else:
+        logger.info( message )
     try:
         options = env[ 'configured_options' ]
         if isinstance( options, dict ):

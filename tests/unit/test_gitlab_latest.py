@@ -106,6 +106,28 @@ def test_resolve_latest_online_remembers( tmp_path, monkeypatch ):
     assert gl.read_setting( conf, key ) == '1.10'
 
 
+def test_remember_registry_latest_demotes_under_terse( tmp_path, monkeypatch, caplog ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    env = FakeEnv( terse_output=True, configured_options={} )
+    with caplog.at_level( 'DEBUG', logger='cuppa' ):
+        gl.remember_registry_latest(
+                env,
+                'https://gitlab.example/api/v4/projects/1',
+                'widget',
+                '1.10',
+        )
+    assert 'Stored' in caplog.text
+    assert not any(
+            r.levelname == 'INFO' and 'Stored' in r.getMessage()
+            for r in caplog.records
+    )
+    assert any(
+            r.levelname == 'DEBUG' and 'Stored' in r.getMessage()
+            for r in caplog.records
+    )
+
+
 def test_registry_latest_conf_path_project_when_downloads_under_sconstruct( tmp_path ):
     project = tmp_path / 'proj'
     downloads = project / 'downloads'
