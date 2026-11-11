@@ -3,7 +3,7 @@
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
 
-"""Local pre-push gate: venv preflight, then flake8 / pylint / pytest.
+"""Local pre-push gate: venv preflight, then prose / flake8 / pylint / pytest.
 
     python -m scripts.local_gate
     python -m scripts.local_gate --unit
@@ -245,7 +245,17 @@ def run_gate(
         integration: bool,
         lint: bool,
         serial_integration: bool = False,
+        public_prose: bool = True,
 ) -> int:
+    if public_prose:
+        # Denylist from gitignored INTERNAL_PROJECTS.local.md when present;
+        # always checks personal /home/<user>/ paths in changed prose.
+        code = _run_step(
+                'check_public_prose',
+                [ sys.executable, '-m', 'scripts.check_public_prose' ],
+        )
+        if code != EXIT_OK:
+            return code
     if lint:
         code = _run_step( 'flake8 cuppa', [ sys.executable, '-m', 'flake8', 'cuppa' ] )
         if code != EXIT_OK:
@@ -284,7 +294,7 @@ def build_parser() -> argparse.ArgumentParser:
             prog='python -m scripts.local_gate',
             description=(
                     'Run the cuppa local pre-push gate (venv preflight, then '
-                    'flake8 / pylint / pytest).'
+                    'public-prose / flake8 / pylint / pytest).'
             ),
     )
     mode = parser.add_mutually_exclusive_group()
@@ -354,6 +364,7 @@ def main( argv: list[str] | None = None ) -> int:
                 integration=True,
                 lint=False,
                 serial_integration=serial,
+                public_prose=False,
         )
     if args.unit or args.skip_integration:
         return run_gate( unit=True, integration=False, lint=True )

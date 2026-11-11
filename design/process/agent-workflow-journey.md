@@ -323,9 +323,9 @@ These are recommendations for the next project, not self-flagellation.
 19. **Orchestrate the local gate; do not hand-roll the checklist every session.**  
     Agents burned full integration runs on nested `python -m cuppa` import failures (`six`)
     while in-process imports in the venv looked fine. Prefer
-    `python -m scripts.local_gate` (venv re-exec, subprocess smoke, then flake8 / pylint /
-    unit / integration; exit `2` = env broken). Encoded in `AGENTS.md`, Contributing overview,
-    and [`local-gate.md`](../archive/local-gate.md).
+    `python -m scripts.local_gate` (venv re-exec, subprocess smoke, then public-prose /
+    flake8 / pylint / unit / integration; exit `2` = env broken). Encoded in `AGENTS.md`,
+    Contributing overview, and [`local-gate.md`](../archive/local-gate.md).
 
 20. **Isolate integration `HOME` before enabling pytest-xdist.**  
     Shared `~/.cuppa` is the main flake risk under workers. Autouse per-test
@@ -362,6 +362,7 @@ These are recommendations for the next project, not self-flagellation.
 | `create-pr` rejects missing `impact:` label | Version job runs before the matrix; label-at-open avoids a wasted CI cycle |
 | Local docs preview; scan screenshots only on request | UI CSS review stays in the browser; PNG-in-context is a token tax, not a default loop |
 | Propose commit message; wait for go-ahead before commit/push | Maintainer skims the diff and steers before history moves (`AGENTS.md` Commit messages) |
+| `check_public_prose` (or `local_gate`) exit 0 **before** every commit and push | Private names must not reach the remote even briefly; force-push cleanup is not a waiver |
 | Delete GitHub's pre-filled squash `Co-authored-by` | Helpers do not write trailers; GitHub adds one when branch-commit email ≠ account identity |
 | Gates read state live, not from a webhook payload | An `opened` payload is frozen before `create-pr` can label; a check that trusts it fails on a pull request that is correctly labelled (2026-09-16) |
 
@@ -448,6 +449,7 @@ This is a process rule, not a product plan. Day-to-day wording lives in `AGENTS.
 | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) | prepare / publish / tag-push |
 | [`scripts/check_release.py`](../../scripts/check_release.py) | Gate: no `.dev`, dated notes, tag match; also docs URL integrity |
 | [`scripts/check_docs_urls.py`](../../scripts/check_docs_urls.py) | Refuse versionless `/cuppa/….html` in navbar / README / built site |
+| [`scripts/check_public_prose.py`](../../scripts/check_public_prose.py) | Denylist private consumer names / personal `/home/` in changed prose; **must** exit 0 before commit/push (also first `local_gate` step) |
 | [`scripts/finish_release.py`](../../scripts/finish_release.py) / [`start_release.py`](../../scripts/start_release.py) | Close / open cycles |
 | [`docs/.../contributing.adoc`](../../docs/modules/ROOT/pages/contributing.adoc) | Human Contributing hub (diagrams on children) |
 | [`design/README.md`](../README.md) | Index of plans / process / archive |
