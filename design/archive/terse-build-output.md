@@ -218,13 +218,20 @@ sconscript, or variant begins, and one when it ends. The line is a build-transcr
 not an action, so it does not move the tally. Without `--terse-output`, keep today's
 `Progress(...)` text, and `-Q` still omits it.
 
+Illustrative transcript (neutral demo tree under `~/coding/demo_monorepo/…`; action counts are
+representative, not a live soak capture):
+
 ```text
-sconstruct    0% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · begin · 40 sconscripts · 1 variant · 0/2244 actions
-sconscript    3% [progress] test/trading_limit_management/sconscript · begin · 1 variant · 24/58 actions
-variant       3% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · begin · 24/58 actions
-variant       4% [progress] test/trading_limit_management/gcc16_dbg_x86_64_cxx2c · end · 58/58 actions
-sconscript    4% [progress] test/trading_limit_management/sconscript · end · 1 variant · 58/58 actions
-sconstruct  100% [progress] ~/coding/clearpool_cuppa/cplx_core/protocols/sconstruct · end · 40 sconscripts · 1 variant · 2244/2244 actions
+sconstruct    0% [progress] ~/coding/demo_monorepo/libs/protocols/sconstruct · begin · 40 sconscripts · 1 variant · 0/2244 actions
+sconscript    2% [progress] test/fixture_suite/sconscript · begin · 1 variant · 12/58 actions
+variant       2% [progress] test/fixture_suite/gcc16_dbg_x86_64_cxx2c · begin · 12/58 actions
+sconscript    3% [progress] test/widget_suite/sconscript · begin · 1 variant · 24/58 actions
+variant       3% [progress] test/widget_suite/gcc16_dbg_x86_64_cxx2c · begin · 24/58 actions
+variant       4% [progress] test/widget_suite/gcc16_dbg_x86_64_cxx2c · end · 58/58 actions
+sconscript    4% [progress] test/widget_suite/sconscript · end · 1 variant · 58/58 actions
+variant       5% [progress] test/fixture_suite/gcc16_dbg_x86_64_cxx2c · end · 58/58 actions
+sconscript    5% [progress] test/fixture_suite/sconscript · end · 1 variant · 58/58 actions
+sconstruct  100% [progress] ~/coding/demo_monorepo/libs/protocols/sconstruct · end · 40 sconscripts · 1 variant · 2244/2244 actions
 ```
 
 The scope word is subdued and padded to `sconstruct`. The percent is the whole build, in the
@@ -243,9 +250,9 @@ file. The leaf and the directory before it are info. Anything above that is subd
 `test/reference_data/`. A variant checkpoint is the sconscript directory plus the build cell
 (`gcc16_dbg_x86_64_cxx2c`). The directory rule is the same, and the cell is coloured as on an
 action line: subdued, with `dbg`, `rel`, and `cov` left plain. The sconstruct path is always
-`~/...` when the file is under the home directory, including when it sits inside the project.
-Other paths stay project-relative. Spell the line from the progress event and its env. Do not
-parse the `Progress(...)` sentence.
+`~/...` when the file is under the home directory, including when it sits inside the project
+(as in the `demo_monorepo` sketch above). Other paths stay project-relative. Spell the line
+from the progress event and its env. Do not parse the `Progress(...)` sentence.
 
 A method that builds a node sets `cuppa_terse_action`. Unlabelled commands stay `run`.
 `GenerateHtmlTestReport` is `test-report`, `CollateTestReportIndex` is `test-index`,

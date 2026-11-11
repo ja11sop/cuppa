@@ -308,17 +308,21 @@ class Construct(object):
             return
 
         # ``-c`` / ``--clean`` floods SCons ``display("Removed …")`` lines that
-        # never pass ``PRINT_CMD_LINE_FUNC``. A quiet status row on ``/dev/tty``
-        # shears under the launcher (``|•--------|Removed …``). Force classic
-        # quiet (no heartbeat) even when ``--quiet-heartbeat=pulse`` is saved.
+        # never pass ``PRINT_CMD_LINE_FUNC``. Without ``--terse-output``, a quiet
+        # status row on ``/dev/tty`` shears under the launcher
+        # (``|•--------|Removed …``) — force classic quiet (no heartbeat) even
+        # when ``--quiet-heartbeat=pulse`` is saved. With ``--terse-output``, keep
+        # the pulse: DisplayEngine folds ``Removed …`` onto the status row and
+        # emits one durable count (see ``arm_scons_removed_folding``).
         heartbeat_style = cuppa_env.get( 'quiet_heartbeat' )
-        if cuppa_env.get_option( 'clean' ):
+        terse = bool( cuppa_env.get( 'terse_output' ) )
+        if cuppa_env.get_option( 'clean' ) and not terse:
             heartbeat_style = 'off'
 
         quiet_heartbeat.configure_quiet_console(
                 quiet_kind,
                 style=heartbeat_style,
-                compact=bool( cuppa_env.get( 'terse_output' ) ),
+                compact=terse,
         )
 
 
@@ -417,6 +421,14 @@ class Construct(object):
         # Re-apply quiet once output options are settled: quiet+TTY diverts
         # INFO onto the heartbeat status line (works with terse and normal).
         self._set_verbosity_level( cuppa_env, apply_quiet_heartbeat=True )
+        # Terse clean: fold SCons ``Removed …`` into the status row + summary
+        # (with or without ``-Q``; quiet path above already kept the pulse).
+        if cuppa_env.get_option( 'clean' ) and cuppa_env.get( 'terse_output' ):
+            try:
+                from cuppa.utility.heartbeat import arm_scons_removed_folding
+                arm_scons_removed_folding()
+            except Exception:
+                pass
         # Heal TTY autowrap if a prior cuppa left ``?7l`` on (heartbeat exit
         # without ``?7h``) — otherwise long compile lines truncate mid-flag.
         try:
@@ -551,6 +563,7 @@ class Construct(object):
         cuppa_env['inherit_process_env'] = cuppa_env.get_option( 'inherit-process-env' ) and True or False
         cuppa_env['dump']                = cuppa_env.get_option( 'dump' )                and True or False
         cuppa_env['clean']               = cuppa_env.get_option( 'clean' )               and True or False
+        cuppa_env['deep_clean']          = cuppa_env.get_option( 'deep-clean' )          and True or False
 
         self.add_variants   ( cuppa_env )
         self.add_toolchains ( cuppa_env )

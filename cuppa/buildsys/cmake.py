@@ -53,6 +53,7 @@ __all__ = [
         'cmake_build_jobs',
         'cmake_build_args',
         'cmake_build_command',
+        'cmake_clean_command',
         'cmake_prefix_path',
         'cmake_prefix_path_for',
         'cmake_install_rpath_defines',
@@ -264,6 +265,15 @@ def cmake_build_command( build_dir, jobs=None, target=None, cmake='cmake' ):
     """Return a ``cmake --build`` shell string for ``cuppa.utility.command.run``."""
     tokens = [ cmake ] + list( cmake_build_args( build_dir, jobs=jobs, target=target ) )
     return ' '.join( shlex.quote( str( token ) ) for token in tokens )
+
+
+def cmake_clean_command( build_dir, cmake='cmake' ):
+    """Return ``cmake --build <dir> --target clean`` for cooperative deep-clean.
+
+    Omits ``--parallel`` — clean is not a compile farm. Same ``-B`` / build-dir
+    identity as ``cmake_build_command``.
+    """
+    return cmake_build_command( build_dir, jobs=None, target='clean', cmake=cmake )
 
 
 def resolve_cmake_generator( generator=None ):

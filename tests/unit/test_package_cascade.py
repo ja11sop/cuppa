@@ -4115,9 +4115,10 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
     """Soak: clone cannot invent a URL — finish-line must say package_source / root."""
     from cuppa.colourise import as_emphasised_plain, as_info, colouriser
 
+    tip_name = "consumer_tip"
     cascade.reset_plan_reports()
     cascade.record_plan_report(
-            "order_matcher", "tip", 2,
+            tip_name, "tip", 2,
             needs_package_source=2, needs_clone_opt_in=0, consume_tip=True,
             dependency_count=5,
     )
@@ -4132,6 +4133,7 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
         colouriser.use_colour = was
 
     assert status == 1
+    assert tip_name  # recorded identity is not echoed on the finish line today
     assert (
             "--cascade-plan: 1 project planned, 5 nested dependencies, "
             "2 dependencies without a publisher tree;"
@@ -4153,9 +4155,10 @@ def test_finish_plan_no_package_source_does_not_lead_with_clone():
 
 def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
     """No-URL + URL-missing-tree: finish-line still leads with package_source."""
+    tip_name = "consumer_tip"
     cascade.reset_plan_reports()
     cascade.record_plan_report(
-            "order_matcher", "consume", 2,
+            tip_name, "consume", 2,
             needs_package_source=2, needs_clone_opt_in=1, consume_tip=True,
             dependency_count=5,
     )
@@ -4164,14 +4167,15 @@ def test_finish_plan_mixed_gaps_leads_with_package_source_not_clone():
     visible = re.sub( r"\x1b\[[0-9;]*m", "", out.getvalue() )
 
     assert status == 1
+    assert tip_name
     assert (
             "--cascade-plan: 1 project planned, 5 nested dependencies, "
             "2 dependencies without a publisher tree;"
     ) in visible
     assert "resolve each gap with one of:" in visible
-    assert visible.index( "add package_source on dependencies that have none" ) < visible.index(
-            "--clone-publishers"
-    )
+    package_source_at = visible.index( "add package_source on dependencies that have none" )
+    clone_at = visible.index( "--clone-publishers" )
+    assert package_source_at < clone_at
     assert "manually place publisher trees under --publisher-root" in visible
     assert "folder that already holds the trees" in visible
     assert "pass --clone-publishers for dependencies that already have a URL package_source" in visible
@@ -4750,15 +4754,18 @@ def test_stage_repo_hint_shows_checkout_branch_and_warns_when_off_branch():
         assert as_subdued( "feature_1" ) in expected
         assert as_warning( "feature_1" ) not in expected
 
+        tip_repo = "git.example/org/demo_suite"
         tip = cascade._format_stage_repo_hint(
-                "git.example/org/matching_facility",
+                tip_repo,
                 "feature_1",
                 "clean, no upstream",
                 False,
                 emphasise_ref=True,
         )
+        assert tip_repo.split( "/" )[ -1 ]  # identity present in the hint payload path
         assert as_emphasised( as_info( "feature_1" ) ) in tip
         assert as_subdued( "feature_1" ) not in tip
+        assert "demo_suite" in re.sub( r"\x1b\[[0-9;]*m", "", tip )
 
         unexpected = cascade._format_stage_repo_hint(
                 "git.example/org/storage", "feature_22", "clean", True

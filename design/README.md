@@ -21,7 +21,7 @@ maintainer workflow evolved.
 
 | Document | Status | Subject |
 |----------|--------|---------|
-| [`plans/deep-clean.md`](plans/deep-clean.md) | proposal | `--deep-clean` modifier on `-c`; cooperative `b2 --clean`; extract `b2` on ordinary `-c` as follow-up; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
+| [`plans/deep-clean.md`](plans/deep-clean.md) | in progress | `--deep-clean` modifier on `-c`; cooperative `b2 --clean` + bin path Clean; extract `b2` on ordinary `-c` as follow-up; ROADMAP `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) |
 | [`archive/gitlab-package-transitive.md`](archive/gitlab-package-transitive.md) | shipped | GitLab package A carries deps on B via `cuppa-dependency.json` (MVP on master; archive at 1.12.0) — [#279](https://github.com/ja11sop/cuppa/issues/279); follow-ons version-ranges + lib-groups |
 | [`archive/gitlab-package-version-ranges.md`](archive/gitlab-package-version-ranges.md) | shipped | Soft pins (`>=1.28.0`) on package / transitive edges; tip list ``bound → concrete``; soak c_ares/grpc — follow-on to transitive MVP |
 | [`archive/gitlab-package-lib-groups.md`](archive/gitlab-package-lib-groups.md) | shipped | Named `use_libs` groups + `show_*` discovery — **1.13.0** opener on [#373](https://github.com/ja11sop/cuppa/pull/373) |

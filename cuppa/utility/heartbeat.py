@@ -139,8 +139,12 @@ _body_preserve_style = False
 _pending_preserve_style = False
 # SCons ``display()`` (clean ``Removed …``, etc.) bypasses PRINT_CMD_LINE;
 # route those lines through ``write_line`` while the heartbeat is diverting.
+# Under ``--terse-output`` + ``-c``, fold ``Removed …`` onto the status row and
+# emit one durable summary instead of a path-per-line flood.
 _scons_display_patched = False
 _scons_display_original = None
+_fold_scons_removed = False
+_scons_removed_count = 0
 
 
 def _terminal_columns():
@@ -553,12 +557,106 @@ def transfer_progress_allowed():
     return logger.isEnabledFor( logging.INFO )
 
 
+def _is_scons_removed_message( text ):
+    """True for SCons clean ``display("Removed …")`` / ``Removed directory …``."""
+    return str( text or "" ).lstrip().startswith( "Removed " )
+
+
+def arm_scons_removed_folding():
+    """Fold SCons clean ``Removed …`` under ``--terse-output`` + ``-c``.
+
+    Arms the DisplayEngine patch and (when the alive style allows) the compact
+    status row so each removal pulses in place. Individual paths stay off the
+    durable transcript; :func:`flush_scons_removed_summary` prints the tip-wide
+    ``sconstruct → [clean] removed N paths`` line. Idempotent. Safe when there
+    is no TTY — folding still suppresses the flood and the summary still writes
+    to stdout.
+    """
+    global _fold_scons_removed
+    _fold_scons_removed = True
+    _ensure_scons_display_routed()
+    try:
+        ensure_status_row()
+    except Exception:
+        pass
+
+
+def folding_scons_removed():
+    """True when terse clean is folding SCons ``Removed …`` lines."""
+    return bool( _fold_scons_removed )
+
+
+def note_scons_removed( message ):
+    """Count one SCons removal and pulse it on the status row (no transcript)."""
+    global _scons_removed_count
+    text = str( message or "" ).replace( "\n", " " ).strip()
+    if not text:
+        return
+    _scons_removed_count += 1
+    # Sticky so a flood of removals keeps the latest path visible until the
+    # durable summary clears the row — same idea as ``operation_status``.
+    if diverting() or ensure_status_row():
+        show_info( text, sticky=True )
+
+
+def take_scons_removed_count():
+    """Return and clear the folded removal count; drop the sticky caption.
+
+    ``0`` when nothing was folded. Callers that print the durable summary
+    (terse sconstruct ``[clean]`` line) should use this.
+    """
+    global _scons_removed_count
+    count = _scons_removed_count
+    if count <= 0:
+        return 0
+    _scons_removed_count = 0
+    try:
+        _release_sticky_caption()
+    except Exception:
+        pass
+    return count
+
+
+def flush_scons_removed_summary( env=None ):
+    """Emit the durable clean-removal summary if any removals were folded.
+
+    Prefers the terse sconstruct ``→ [clean] removed N paths`` line via
+    progress. Falls back to a plain count when progress is unavailable
+    (atexit safety net). No-op when the count is zero. Idempotent until more
+    removals arrive.
+    """
+    count = take_scons_removed_count()
+    if count <= 0:
+        return
+    try:
+        from cuppa.progress import write_terse_sconstruct_clean_removed
+        write_terse_sconstruct_clean_removed( count, env )
+        return
+    except Exception:
+        pass
+    unit = "path" if count == 1 else "paths"
+    try:
+        from cuppa.colourise import as_emphasised
+        line = "Removed {} {}\n".format( as_emphasised( str( count ) ), unit )
+    except Exception:
+        line = "Removed {} {}\n".format( count, unit )
+    try:
+        write_line( line, dwell=False, keep_pending=False )
+    except Exception:
+        try:
+            sys.stdout.write( line )
+            sys.stdout.flush()
+        except Exception:
+            pass
+
+
 def _ensure_scons_display_routed():
     """Patch SCons ``DisplayEngine`` so durable messages clear the status row.
 
     Clean tasks print ``Removed …`` via ``display()``, not
     ``PRINT_CMD_LINE_FUNC``. Without this, the launcher can echo those lines
-    onto a live ``/dev/tty`` heartbeat. Idempotent; no-ops when not diverting.
+    onto a live ``/dev/tty`` heartbeat. Under terse clean folding, ``Removed …``
+    becomes an ephemeral status pulse plus a final count instead. Idempotent.
     """
     global _scons_display_patched, _scons_display_original
     if _scons_display_patched:
@@ -573,12 +671,19 @@ def _ensure_scons_display_routed():
     def routed( self, text, append_newline=1 ):
         if not getattr( self, "print_it", True ):
             return
-        if diverting():
-            message = str( text )
-            if append_newline:
-                message = message + "\n"
+        message = str( text )
+        if _fold_scons_removed and _is_scons_removed_message( message ):
             try:
-                write_line( message, dwell=False, keep_pending=False )
+                note_scons_removed( message )
+                return
+            except Exception:
+                pass
+        if diverting():
+            out = message
+            if append_newline:
+                out = out + "\n"
+            try:
+                write_line( out, dwell=False, keep_pending=False )
                 return
             except Exception:
                 pass
@@ -641,7 +746,14 @@ def finish_at_exit():
     "no lines" survive exit. Sticky in-progress captions and a pulse-only
     anchor after caption expiry are cleared without promoting. Always restores
     terminal autowrap afterward.
+
+    Flushes any folded SCons ``Removed …`` summary first so a terse clean does
+    not lose its durable count when ``sconstruct_end`` never ran.
     """
+    try:
+        flush_scons_removed_summary()
+    except Exception:
+        pass
     text = None
     with _draw_lock:
         if _pending is not None and not _pending_is_sticky:
@@ -941,6 +1053,7 @@ def reset():
     global _compact_bridge
     global _last_transcript_at, _sticky, _pending_is_sticky
     global _body_preserve_style, _pending_preserve_style
+    global _fold_scons_removed, _scons_removed_count
     with _draw_lock:
         _cancel_idle_flush_unlocked()
     clear_operation_status( dwell=False )
@@ -985,6 +1098,8 @@ def reset():
     _pending_is_sticky = False
     _body_preserve_style = False
     _pending_preserve_style = False
+    _fold_scons_removed = False
+    _scons_removed_count = 0
     _clock = time.monotonic
     _sleep = time.sleep
 
@@ -1158,16 +1273,17 @@ def pulse_ephemeral_status( message ):
     """Show a short-lived status caption that must not become transcript.
 
     Used for cmake ``-- Up-to-date:`` under ``--terse-output``: little durable
-    value, but useful as a disappearing “still working” cue. Under quiet
-    diverting this is ordinary event INFO on the heartbeat. Otherwise a no-op
-    (caller still suppresses the durable ``→`` child and may emit a summary).
+    value, but useful as a disappearing “still working” cue. Quiet diverting
+    *or* compact terse (via :func:`ensure_status_row`) paints on the shared
+    status row. Otherwise a no-op (caller still suppresses the durable ``→``
+    child and may emit a summary).
     """
     from cuppa.output_processor import strip_ansi
 
     text = strip_ansi( ( message or '' ).replace( '\n', ' ' ) ).strip()
     if not text:
         return
-    if diverting():
+    if diverting() or ensure_status_row():
         show_info( text, sticky=False )
 
 

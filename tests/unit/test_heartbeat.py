@@ -347,12 +347,15 @@ def test_long_info_stays_on_one_physical_line():
     clock = FakeClock()
     cols = 40
     _configure( stream, clock, columns=cols )
+    # Synthetic status caption: long remote + download root under the public home stand-in.
+    download_root = '/home/user/_cuppa/_download/git_ssh_git.example.com__org_demo_repo…/'
     long_msg = (
             'Updating [git+ssh://git@example.com/org/very_long_repo_name@master] '
-            'in [/home/jamie/_cuppa/_download/git_ssh_…/] on '
+            'in [{root}] on '
             "<RevOptions git: rev='master'> at [master rev. abcdef]"
-    )
+    ).format( root=download_root )
     assert len( long_msg ) > cols
+    assert '/home/user/' in long_msg
     logger.info( long_msg )
     body = _status_body( stream )
     assert visible_len( body ) <= cols
@@ -366,6 +369,7 @@ def test_long_info_stays_on_one_physical_line():
     assert 'Using package [tip]' in body2
     # Previous long tail must not remain after the rewrite.
     assert 'very_long_repo_name' not in body2
+    assert 'user/_cuppa' not in body2
 
 
 def test_terminal_columns_prefer_stream_fileno( monkeypatch ):
@@ -1166,7 +1170,7 @@ def test_scons_display_clears_heartbeat_before_removed_line( monkeypatch ):
 
 
 def test_clean_quiet_uses_classic_quiet_without_heartbeat():
-    """``-Q -c`` must not arm the status row (SCons clean bypasses PRINT_CMD_LINE)."""
+    """``-Q -c`` without terse must not arm the status row (Removed flood)."""
     from cuppa.construct import Construct
 
     class _Env:
@@ -1188,6 +1192,106 @@ def test_clean_quiet_uses_classic_quiet_without_heartbeat():
     assert hb.quiet_console() is True
     assert hb.diverting() is False
     assert not logger.isEnabledFor( logging.INFO )
+
+
+def test_clean_quiet_terse_keeps_heartbeat_for_removed_fold( monkeypatch ):
+    """``-Q -c --terse-output`` keeps the pulse so Removed can fold onto it."""
+    from cuppa.construct import Construct
+
+    class _Env:
+        def get_option( self, name, default=None ):
+            options = {
+                'verbosity': None,
+                'silent': False,
+                'no_progress': True,
+                'clean': True,
+                'quiet_heartbeat': 'pulse',
+                'terse_output': True,
+            }
+            return options.get( name, default )
+
+        def get( self, name, default=None ):
+            return self.get_option( name, default )
+
+    stream = io.StringIO()
+    monkeypatch.setattr(
+            hb, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    Construct._set_verbosity_level( _Env(), apply_quiet_heartbeat=True )
+    assert hb.quiet_console() is True
+    assert hb.diverting() is True
+    assert hb._style == hb._STYLE_PULSE
+
+
+def test_terse_clean_folds_removed_into_heartbeat_and_summary( monkeypatch, capsys ):
+    """Under terse clean, SCons ``Removed …`` pulses; one durable count at end."""
+    # Piped outer stdout (launcher): durable summary on the pipe; status on TTY.
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    hb.set_presentation( style='pulse', compact=True )
+    hb.configure_quiet_console(
+            'warn',
+            stream=stream,
+            is_tty=True,
+            owns_stream=False,
+            clock=clock,
+            columns=120,
+            pulse=False,
+            style='pulse',
+            compact=True,
+    )
+    hb.arm_scons_removed_folding()
+    assert hb.folding_scons_removed() is True
+
+    from SCons.Util import display
+    display( 'Removed _build/foo.o' )
+    display( 'Removed directory _build/bar' )
+    display( 'Removed _build/baz.a' )
+
+    status = _status_body( stream )
+    assert 'Removed' in status
+    # Individual paths must not become durable stdout transcript lines.
+    out = strip_ansi( capsys.readouterr().out )
+    assert 'Removed _build/foo.o' not in out
+    assert 'Removed directory' not in out
+
+    hb.flush_scons_removed_summary()
+    summary = strip_ansi( capsys.readouterr().out )
+    assert 'sconstruct' in summary
+    assert '[clean]' in summary
+    assert 'removed 3 paths' in summary
+    assert 'Removed _build/foo.o' not in summary
+    # Second flush is a no-op.
+    hb.flush_scons_removed_summary()
+    assert capsys.readouterr().out == ''
+
+
+def test_terse_clean_removed_fold_without_quiet( monkeypatch, capsys ):
+    """``--terse-output -c`` without ``-Q`` still folds Removed + summary."""
+    stream = io.StringIO()
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+    monkeypatch.setattr(
+            hb, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    hb.arm_scons_removed_folding()
+    assert hb.diverting() is False
+    assert hb.status_row_active() is True
+
+    from SCons.Util import display
+    display( 'Removed alone.o' )
+    out = strip_ansi( capsys.readouterr().out )
+    assert 'Removed alone.o' not in out
+    assert 'Removed alone.o' in _status_body( stream )
+
+    hb.flush_scons_removed_summary()
+    summary = strip_ansi( capsys.readouterr().out )
+    assert '[clean]' in summary
+    assert 'removed 1 path' in summary
 
 
 def test_reset_and_atexit_restore_terminal_wrap():

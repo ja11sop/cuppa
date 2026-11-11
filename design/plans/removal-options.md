@@ -1351,10 +1351,14 @@ Hierarchy (outer → inner):
    sconstruct cares about) then `unreferenced` (orphans with no registry binding in this run).
 2. **Type group:** repository dependencies, gitlab packages, conan, source archives (omit empty
    groups). See §4.15 for the `location` → `repository` rename and wipe/remove selectors.
-3. **Identity:** registry name for referenced (`baa [clearpool.io/cplx_core/baa]`); short name
-   alone for unreferenced (`clearpool.io/cplx_core/transport_layer`). For **missing** referenced
-   identities, replace the short name with `remote_location()` (configured location URL, or
-   `registry/package/version` for GitLab packages).
+3. **Identity:** prefer the **registry / declare name** when it differs from the on-disk short
+   folder; put the short form in brackets. Public sketch examples (not a live tip):
+   - referenced location: `widgets [gitlab.example/org/widgets]`
+   - referenced package: `boost_package [boost]` when the registry name and folder differ
+   - unreferenced orphan: short name alone, e.g. `gitlab.example/org/legacy_transport`
+   - another unreferenced sketch: `gitlab.example/org/other_pkg`
+   For **missing** referenced identities, replace the short name with `remote_location()`
+   (configured location URL, or `registry/package/version` for GitLab packages).
 4. **Variants:**
    - **repository** (was `location`): one child per qualifier (`@` for unspecified / unqualified
      stem, `@master`, `@feature_x`, …). Prefer `@` over inventing `<default_branch>` — until the
@@ -1468,8 +1472,11 @@ footer counts; no LOCATION for `--list-format=text`.
 - Example LOCATION paths under an unreferenced `google-cloud-*` package that still say `boost/…`
   are sketch typos; real paths must follow `{tool_variant}/{package}/{version}`.
 - Referenced gitlab identity should prefer the **registry** name (`boost_package`) with short
-  package folder in brackets (`[boost]`) when they differ — same pattern as location
-  `baa [clearpool.io/…]`.
+  package folder in brackets (`[boost]`) when they differ — same pattern as a referenced
+  location row such as `widgets [gitlab.example/org/widgets]` or the shorter sketch form
+  `widgets [gitlab.example/…]`.
+- Unreferenced gitlab orphans keep the encoded registry path as the identity label (no
+  brackets); do not invent a friendly registry name when nothing in this run bound them.
 - `cached` (develop shadow) belongs with the referenced identity as a remark variant, not a
   second section — **shipped** as REMARK `develop` on the identity (branch leaves unmarked);
   footer points at `--list-develop`.

@@ -8,6 +8,7 @@ import pytest
 from cuppa.dependencies.boost.configjam import (
     WriteToolsetConfigJam,
     _neutralise_cuppa_project_config_jam,
+    ensure_toolset_user_config_jam,
 )
 
 
@@ -20,6 +21,22 @@ class _Toolchain(object):
 
     def toolset_name( self ):
         return "gcc"
+
+
+@pytest.mark.unit
+def test_ensure_toolset_user_config_jam_writes_once( tmp_path, monkeypatch ):
+    monkeypatch.setattr(
+        "cuppa.dependencies.boost.configjam.toolset_name_from_toolchain",
+        lambda toolchain: "gcc",
+    )
+
+    jam_path = tmp_path / "gcc15._jam"
+    assert ensure_toolset_user_config_jam( str( jam_path ), _Toolchain() ) is True
+    text = jam_path.read_text()
+    assert "using gcc : 15 : /usr/bin/g++-15 ;" in text
+    assert ensure_toolset_user_config_jam( str( jam_path ), _Toolchain() ) is False
+    assert jam_path.read_text() == text
+    assert not ( tmp_path / "project-config.jam" ).exists()
 
 
 @pytest.mark.unit

@@ -1,40 +1,53 @@
-# Plan: Cascade / consume UX soak notes (order_matcher)
+# Plan: Cascade / consume UX soak notes (labelled project B)
 
 - **Status:** shipped
-- **Related:** [`package-build-publish-deps.md`](package-build-publish-deps.md); [`cascade-enable-rename.md`](cascade-enable-rename.md); [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md); Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc), [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc), [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc); version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
+- **Related:**
+  - [`package-build-publish-deps.md`](package-build-publish-deps.md)
+  - [`cascade-enable-rename.md`](cascade-enable-rename.md)
+  - [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md)
+  - Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc)
+  - Antora [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc)
+  - Antora [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc)
+  - Version-ranges soak context [`gitlab-package-version-ranges.md`](gitlab-package-version-ranges.md)
 - **Updated:** 2026-10-11
 - **Impact:** `patch` / `minor` (nest ``--rel``) — list gap wording + cascade remedies / `-n` guidance; nest default `--rel` + `--cascade-variants`; clone-first finish; skip-resolve later
+- **Example tip:** consume-only tree labelled **project B** in the private project map (not a
+  publisher tip). Fixture names in tests use neutral stems such as `consumer_tip`.
 
 ## Problem
 
-A new-user soak on a consume-only tip (`order_matcher`) while validating package
-pins (including `version='>=…'`) surfaced several confusions that are **easy to
-hit** and **hard to unlearn** from today’s messages alone. Most are not bugs in
-skip-if-current; they are **vocabulary and workflow** gaps.
+A first-pass soak on a **consume-only tip** (private map: **project B**) while checking
+package pins — including lower-bound ranges such as `version='>=…'` — surfaced several
+confusions that are **easy to hit** and **hard to unlearn** from today’s messages alone.
+Most are not bugs in skip-if-current; they are **vocabulary and workflow** gaps between
+“does this tip have extracts?” and “can I nest-publish the DAG?”.
 
 The central mix-up:
 
 | Question the operator meant | Question they accidentally asked |
 |-----------------------------|----------------------------------|
-| **Can this tip build against the packages I declared?** (consume) | **Can I cascade nest-publish those packages?** (publish DAG) |
+| **Can this tip build against the packages I declared?** (consume / resolve) | **Can I cascade nest-publish those packages?** (publish DAG / `--cascade*`) |
+| **Why does `--list-dependencies` say missing?** | **Do I need `--clone-publishers`?** |
 
-`--list-dependencies` showed tip GitLab rows as **missing**. That looked like
-“the packages aren’t available,” so the operator reached for `--cascade` /
-`--cascade-plan` / `--collect-cascade` / `--clone-publishers`. In fact the pins
-were already **in the registry**; “missing” meant **no tip-local consume extract**
-for the selected toolchain stem. An online tip resolve later downloaded them;
-cascade then correctly reported **skipped (current)** with no nest build.
+`--list-dependencies` showed tip GitLab rows as **missing**. That looked like “the packages
+aren’t available,” so the operator reached for `--cascade` / `--cascade-plan` /
+`--collect-cascade` / `--clone-publishers`. In fact the pins were already **in the
+registry**; “missing” meant **no tip-local consume extract** for the selected toolchain
+stem. An online tip resolve later downloaded them; cascade then correctly reported
+**skipped (current)** with no nest build.
 
-So: list said “missing” when the packages were **not** absent from the world —
-only absent from this machine’s tip consume cache. Cascade was the wrong tool
-for the first question.
+So: list said “missing” when the packages were **not** absent from the world — only absent
+from this machine’s tip consume cache. Cascade was the wrong tool for the first question.
+The soak tip is referred to only as **project B** here; public examples elsewhere use
+`consumer_tip` / `gitlab.example/org/…` stand-ins.
 
 ## Intent
 
 1. Capture soak findings so agents/humans do not rediscover them only by pain.
-2. Specify **documentation** that answers the two questions separately.
-3. List small product follow-ons (option-compat, remedies, nest variant default)
-   without blocking the version-ranges PR.
+2. Specify **documentation** that answers the two questions separately (consume vs publish).
+3. List small product follow-ons (option-compat, remedies, nest variant default) without
+   blocking the version-ranges PR.
+4. Keep archive prose free of host-local tip paths and private registry stems.
 
 ## Two questions (teach this first)
 

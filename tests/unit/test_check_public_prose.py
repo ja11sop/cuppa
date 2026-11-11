@@ -123,6 +123,25 @@ def test_main_file_flag_clean_with_placeholders( tmp_path: Path, monkeypatch, ca
     assert 'check_public_prose: ok' in capsys.readouterr().out
 
 
+def test_parse_unified_added_lines_ignores_context_and_deletions():
+    diff = (
+            'diff --git a/AGENTS.md b/AGENTS.md\n'
+            '--- a/AGENTS.md\n'
+            '+++ b/AGENTS.md\n'
+            '@@ -10,0 +11,2 @@\n'
+            '+new private line\n'
+            '+another line\n'
+            '@@ -20,1 +22,0 @@\n'
+            '-removed line\n'
+    )
+    parsed = prose._parse_unified_added_lines( diff )
+    assert list( parsed.keys() ) == [ 'AGENTS.md' ]
+    assert parsed[ 'AGENTS.md' ] == [
+            ( 11, 'new private line' ),
+            ( 12, 'another line' ),
+    ]
+
+
 def test_main_absent_map_still_flags_personal_home( tmp_path: Path, monkeypatch, capsys ):
     missing = tmp_path / 'missing.local.md'
     prose_file = tmp_path / 'note.md'

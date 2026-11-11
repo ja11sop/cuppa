@@ -826,14 +826,19 @@ def test_parallel_terse_error_notes_draining_once(capsys, monkeypatch):
 
 def test_parallel_python_action_error_notes_draining(capsys, monkeypatch):
     monkeypatch.setattr( progress, "_parallel_build_active", lambda: True )
+    compose_src = "_docker/demo_suite/docker-compose-dbg.yml"
+    compose_built = (
+            "_build/demo_suite/gcc16/dbg/x86_64/cxx2c/final/docker-compose-dbg.yml"
+    )
     progress._report_python_action(
-            ["_docker/order_matcher/docker-compose-dbg.yml"],
-            ["_build/order_matcher/gcc16/dbg/x86_64/cxx2c/final/docker-compose-dbg.yml"],
+            [compose_src],
+            [compose_built],
             _variant_env(),
             failed=True,
     )
     out = capsys.readouterr().out
     assert "[error]" in out
+    assert "demo_suite" in out or "docker-compose-dbg.yml" in out
     assert out.rstrip().endswith( "failed — draining in-flight jobs..." )
 
     progress.note_build_interrupted()
@@ -906,7 +911,8 @@ def test_compile_shows_the_source_tree_not_the_variant_working_copy( tmp_path ):
 
 def test_compile_outside_the_project_is_home_relative_not_a_dotdot_climb( monkeypatch, tmp_path ):
     home = tmp_path / "home"
-    project = home / "coding" / "order_matcher"
+    # Neutral consume-tip stand-in under ~/coding (not a real host path).
+    project = home / "coding" / "demo_suite"
     monkeypatch.setattr(
             os.path, "expanduser",
             lambda path: str( home ) if path == "~" else os.path.expanduser( path ),
@@ -930,6 +936,7 @@ def test_compile_outside_the_project_is_home_relative_not_a_dotdot_climb( monkey
             " → tuple_mapper.o"
     ) in line
     assert "../" not in line
+    assert "demo_suite" not in line  # outside-project compile should not leak tip stem
 
     climbed = progress.format_terse_success(
             "g++ -c cell.cpp",
@@ -959,15 +966,18 @@ def test_status_line_colours_the_sconscript_leaf_and_leaves_the_variant_token_pl
             " <s>→</s> <e><i>hello.o</i></e>"
     )
 
+    tip_leaf = "demo_suite"
     env = _variant_env()
-    env["sconscript_file"] = "./order_matcher/sconscript"
+    env["sconscript_file"] = "./{}/sconscript".format( tip_leaf )
     leaf_only = progress.format_terse_success(
-            "g++ -c order_matcher/main.cpp",
+            "g++ -c {}/main.cpp".format( tip_leaf ),
             ["main.o"],
-            ["order_matcher/main.cpp"],
+            ["{}/main.cpp".format( tip_leaf )],
             env,
     )
-    assert leaf_only.startswith( "[ok]   <i>order_matcher</i> " )
+    assert leaf_only.startswith( "[ok]   <i>{}</i> ".format( tip_leaf ) )
+    assert tip_leaf in leaf_only
+    assert "orders" not in leaf_only
 
 
 def test_ctrl_c_is_one_interrupted_line_not_a_job_list(capsys):
@@ -1491,6 +1501,39 @@ def test_launch_bookend_suppresses_clean_argv_flush( capsys ):
     assert command == "cmake --build _build/x"
 
 
+def test_b2_clean_delegate_bookends_match_launch_fields( capsys ):
+    """Deep-clean runs under ``env.Execute`` — uncounted ``[done]`` mirrors launch."""
+    env = _terse_env()
+    summary = "--clean build.c++2c/gcc15/release/x86_64 · 14 libs"
+    launch = progress.format_terse_launch( "b2-clean", summary, env )
+    assert launch == (
+            "delegate     0% [launch] test/orders · gcc16_dbg_x86_64_cxx2c · "
+            "b2-clean · --clean build.c++2c/gcc15/release/x86_64 · 14 libs"
+    )
+    done = progress.format_terse_delegate_close( "b2-clean", summary, env )
+    assert done.startswith( "→ [done]" )
+    # Six-column status field like ``[ok]`` — one space before fields, not the
+    # extra pad that would match eight-column ``[launch]``.
+    assert "[done] test/orders" in done
+    assert "[done]  test/orders" not in done
+    assert "gcc16_dbg_x86_64_cxx2c · b2-clean · --clean build.c++2c/gcc15/release/x86_64 · 14 libs" in done
+    assert "· run" not in done
+
+    progress.write_terse_launch(
+            "b2-clean", summary, env, command="./b2 --clean …",
+    )
+    progress.write_terse_delegate_close( "b2-clean", summary, env )
+    out = capsys.readouterr().out
+    assert "[launch]" in out
+    assert "→ [done]" in out
+    assert " · run\n" not in out
+    # Execute finish must not paint a second status line.
+    assert progress._present_executed_command(
+            "Deep-clean: b2 --clean", [], [], env, False,
+    )
+    assert capsys.readouterr().out == ""
+
+
 def test_shared_across_variants_replaces_the_variant_cell( monkeypatch ):
     env = _terse_env()
     node = SimpleNamespace(
@@ -1735,6 +1778,25 @@ def test_clean_does_not_print_read_checkpoint_or_maps( capsys ):
             env, "dependencies", "/home/u/_cuppa/_download", scope="sconstruct",
     )
     assert capsys.readouterr().out == ""
+
+
+def test_sconstruct_clean_removed_summary_is_tip_wide( capsys ):
+    """Path Clean is one process-wide count — not a per-variant delegate close."""
+    from cuppa.output_processor import strip_ansi
+
+    env = _layout_env()
+    env["terse_output"] = True
+    env["clean"] = True
+    line = strip_ansi( progress.format_terse_sconstruct_clean_removed( 589, env ) )
+    assert line.startswith( "sconstruct" )
+    assert "→ [clean]" in line
+    assert "removed 589 paths" in line
+    assert "gcc" not in line
+    assert "[done]" not in line
+
+    progress.write_terse_sconstruct_clean_removed( 1, env )
+    out = strip_ansi( capsys.readouterr().out )
+    assert "→ [clean] removed 1 path" in out
 
 
 def test_develop_location_does_not_nest_under_dependencies():

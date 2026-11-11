@@ -17,13 +17,18 @@ acquire (see ``env.DownloadExtract`` / ``env.RemoveEmptyDirs`` in
 """
 
 import os
+import shlex
 
 import cuppa.progress
 
+from cuppa.core.deep_clean import deep_clean_enabled
+from cuppa.log import logger
+from cuppa.output_processor import IncrementalSubProcess
 from cuppa.utility.command import run
 from cuppa.buildsys.cmake import (
         cmake_build_command,
         cmake_build_jobs,
+        cmake_clean_command,
         cmake_configure_command,
         resolve_cmake_generator,
 )
@@ -31,6 +36,10 @@ from cuppa.package_managers.package_amend import (
         amend_package_manifest_enabled,
         skip_builder_for_amend,
 )
+
+
+# One cooperative ``cmake --build --target clean`` per ``-B`` tree per process.
+_scheduled_cmake_deep_cleans = set()
 
 
 def _node_abspath( path ):
@@ -61,6 +70,111 @@ def _terse_summary_parts( *parts ):
     """
     return " ".join( str( part ) for part in parts if part )
 
+def _register_cmake_deep_clean( env, working_dir, build_dir, cmake='cmake' ):
+    """Schedule cooperative ``cmake --build --target clean`` once per ``-B`` tree.
+
+    Path ``env.Clean`` on the build tree remains; this is the native-tool half of
+    ``-c --deep-clean`` (same idea as Boost ``b2 --clean``).
+    """
+    if build_dir is None:
+        return
+    tree = cmake_build_tree_path( working_dir, build_dir )
+    if not tree:
+        return
+    tree_key = os.path.abspath( tree )
+    clean_key = ( env.get( 'sconstruct_path' ), tree_key )
+    if clean_key in _scheduled_cmake_deep_cleans:
+        return
+    _scheduled_cmake_deep_cleans.add( clean_key )
+
+    if not os.path.isdir( tree ):
+        logger.info(
+                "Deep-clean: CMake build tree [{}] missing; path Clean only"
+                .format( tree )
+        )
+        return
+    cache = os.path.join( tree, 'CMakeCache.txt' )
+    if not os.path.isfile( cache ):
+        logger.info(
+                "Deep-clean: no CMakeCache.txt in [{}]; path Clean only"
+                .format( tree )
+        )
+        return
+
+    command_text = cmake_clean_command( build_dir, cmake=cmake )
+    args = shlex.split( command_text )
+    cwd = _node_abspath( working_dir ) if working_dir is not None else None
+    launch_summary = _terse_summary_parts(
+            '-B {}'.format( build_dir ),
+            '--target clean',
+    )
+    terse_action = 'cmake-clean'
+
+    def _run_cmake_clean(
+            target,
+            source,
+            env,
+            _args=args,
+            _cwd=cwd,
+            _cmd=command_text,
+            _summary=launch_summary,
+            _action=terse_action,
+    ):
+        logger.info( "Deep-clean: running [{}] in [{}]".format( _cmd, _cwd ) )
+        terse = bool( env.get( 'terse_output' ) )
+        if terse:
+            cuppa.progress.write_terse_launch(
+                    _action,
+                    _summary,
+                    env,
+                    command=_cmd,
+                    target=target,
+            )
+            cmake_filter = cuppa.progress.CmakeDelegatedChildFilter( env )
+
+            def muted_line( line, _filter=cmake_filter ):
+                _filter.handle( line )
+                return None
+
+            returncode = IncrementalSubProcess.Popen(
+                    muted_line,
+                    _args,
+                    cwd=_cwd,
+                    suppress_output=True,
+            )
+            if returncode == 0:
+                cmake_filter.finish()
+            cuppa.progress.write_terse_delegate_close(
+                    _action,
+                    _summary,
+                    env,
+                    status="error" if returncode else "done",
+                    target=target,
+                    command=_cmd if returncode else None,
+            )
+        else:
+            returncode = IncrementalSubProcess.Popen(
+                    lambda line: line,
+                    _args,
+                    cwd=_cwd,
+                    suppress_output=True,
+            )
+        if returncode:
+            logger.error(
+                    "Deep-clean: cmake --target clean failed (exit {}) for [{}]"
+                    .format( returncode, _cmd )
+            )
+        return returncode
+
+    from SCons.Action import Action
+    from SCons.Errors import StopError
+    result = env.Execute( Action( _run_cmake_clean, cmdstr="Deep-clean: cmake --target clean" ) )
+    if result:
+        raise StopError(
+                "CMake deep-clean failed: {} (cwd {})".format( command_text, cwd )
+        )
+
+
 def _command_nodes(
         env,
         target,
@@ -71,6 +185,8 @@ def _command_nodes(
         terse_action=None,
         terse_summary=None,
         after=None,
+        build_dir=None,
+        cmake='cmake',
 ):
     action = run(
             command,
@@ -92,6 +208,8 @@ def _command_nodes(
         for path in clean_paths:
             if path:
                 env.Clean( nodes, path )
+    if deep_clean_enabled( env ) and build_dir is not None:
+        _register_cmake_deep_clean( env, working_dir, build_dir, cmake=cmake )
     cuppa.progress.NotifyProgress.add( env, nodes )
     return nodes
 
@@ -154,6 +272,8 @@ class CMakeConfigureMethod(object):
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
                 terse_action='cmake-configure',
                 terse_summary=_terse_summary_parts( *summary_parts ) or None,
+                build_dir=build_dir,
+                cmake=cmake,
         )
 
     @classmethod
@@ -203,6 +323,8 @@ class CMakeBuildMethod(object):
                 clean_paths=[ cmake_build_tree_path( working_dir, build_dir ) ],
                 terse_action='cmake-build',
                 terse_summary=_terse_summary_parts( *summary_parts ),
+                build_dir=build_dir,
+                cmake=cmake,
         )
 
     @classmethod
@@ -263,6 +385,8 @@ class CMakeInstallMethod(object):
                 terse_action='cmake-install',
                 terse_summary=_terse_summary_parts( *summary_parts ),
                 after=_relocate_pkgconfig,
+                build_dir=build_dir,
+                cmake=cmake,
         )
 
     @classmethod

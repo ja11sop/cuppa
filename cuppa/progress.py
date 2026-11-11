@@ -143,11 +143,59 @@ def write_terse_build_completion( env ):
     """Finish a successful terse build, including a no-op build under ``-Q``."""
     if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return
+    # Path Clean under ``-c`` may have folded SCons ``Removed …`` onto the
+    # heartbeat; promote the durable sconstruct ``[clean]`` count first.
+    try:
+        from cuppa.utility.heartbeat import flush_scons_removed_summary
+        flush_scons_removed_summary( env )
+    except Exception:
+        pass
     outcome = "succeeded" if terse_build_had_activity() else "up to date"
     suffix = ""
     if _summary_enabled:
         suffix = _progress_ledger.completion_clause( outcome == "up to date" )
     _write_terse_stdout( as_colour( "success", "[completed]" ) + " build " + outcome + suffix + "\n" )
+    sys.stdout.flush()
+
+
+def format_terse_sconstruct_clean_removed( count, env=None ):
+    """``sconstruct    → [clean] removed N paths`` — tip-wide path-Clean summary.
+
+    One process-wide count for SCons ``CleanTask`` (not a per-variant delegate).
+    Scope column matches checkpoints; ``→`` lines up with nested status arrows;
+    ``[clean]`` is not ``[done]`` (nothing was ``[launch]``ed).
+    """
+    if env is None:
+        env = {}
+    try:
+        n = int( count )
+    except ( TypeError, ValueError ):
+        n = 0
+    unit = "path" if n == 1 else "paths"
+    body = "removed {} {}".format( as_emphasised( str( n ) ), unit )
+    badge = as_emphasised( as_info( "[clean]" ) )
+    lead = " " * _progress_ledger.progress_line_indent()
+    scope = as_subdued( "{:<{}}".format( "sconstruct", _SCOPE_WIDTH ) )
+    prefix = lead + scope
+    from cuppa.output_processor import strip_ansi
+    plain_len = len( strip_ansi( prefix ) )
+    arrow_col = terse_arrow_column( env )
+    pad = max( arrow_col - plain_len, 1 )
+    return (
+            prefix
+            + ( " " * pad )
+            + as_subdued( "→" )
+            + " "
+            + badge
+            + " "
+            + body
+    )
+
+
+def write_terse_sconstruct_clean_removed( count, env=None ):
+    """Print the tip-wide clean-removal summary. Always writes (caller gates)."""
+    line = format_terse_sconstruct_clean_removed( count, env )
+    _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
 
 
@@ -576,6 +624,7 @@ _PROGRESSIVE_ACTIONS = {
         "archive": "archiving",
         "asciidoc": "asciidoc",
         "b2": "launching-b2",
+        "b2-clean": "cleaning-b2",
         "benchmark": "running-benchmark",
         "biber": "biber",
         "bibtex": "bibtex",
@@ -586,6 +635,7 @@ _PROGRESSIVE_ACTIONS = {
         "chmod": "chmod",
         "clean": "cleaning",
         "cmake-build": "launching-cmake-build",
+        "cmake-clean": "cleaning-cmake",
         "cmake-configure": "launching-cmake-configure",
         "cmake-install": "launching-cmake-install",
         "collate": "collating",
@@ -2599,6 +2649,21 @@ def take_terse_status_emitted():
     return done
 
 
+_terse_execute_closed = threading.local()
+
+
+def note_terse_execute_closed():
+    """This ``env.Execute`` already printed its status. Skip ``_present_executed_command``."""
+    note_terse_build_activity()
+    _terse_execute_closed.done = True
+
+
+def take_terse_execute_closed():
+    done = bool( getattr( _terse_execute_closed, "done", False ) )
+    _terse_execute_closed.done = False
+    return done
+
+
 def _fit_terse_file_field( file_text, head_parts, fields_before_file ):
     """Optionally truncate a long ``Run`` command cell to remaining columns.
 
@@ -3277,30 +3342,18 @@ def take_terse_launch():
     command = getattr( _terse_launch, "command", None )
     _terse_launch.emitted = False
     _terse_launch.command = None
+    _terse_launch.action = None
+    _terse_launch.summary = None
     _terse_launch.target = None
     _terse_launch.source = None
     _terse_launch.env = None
     return emitted, command
 
 
-def format_terse_launch( action, summary, env, target=None ):
-    """``delegate P% [launch] [sconscript ·] variant · action · summary``.
-
-    Chrome matches a progress checkpoint; fields after the badge mirror the
-    counted close line so a long muted child wall can be reattached. Not in
-    the action total. ``target`` may carry a ``shared`` label for the cell.
-    """
-    script = _sconscript_label( env )
-    cell = _variant_cell( env )
-    counts = _progress_ledger.checkpoint_counts( script, cell )
-    percent = "{:>{}}%".format( counts[ "percent" ], counts[ "percent_digits" ] )
-    lead = " " * _progress_ledger.progress_line_indent()
-    parts = [
-            lead + as_subdued( "{:<{}}".format( "delegate", _SCOPE_WIDTH ) ),
-            percent,
-            as_emphasised( as_info( "[launch]" ) ),
-    ]
+def _terse_delegate_fields( action, summary, env, target=None ):
+    """Shared ``[sconscript ·] variant · action · summary`` cells for launch/done."""
     fields = []
+    script = _sconscript_label( env )
     if script:
         fields.append( _coloured_sconscript( script ) )
     painted_cell = _coloured_build_cell( env, target )
@@ -3322,10 +3375,49 @@ def format_terse_launch( action, summary, env, target=None ):
         file_text = _file_field( action, target, None, env )
     if file_text:
         fields.append( file_text )
+    return fields
+
+
+def format_terse_launch( action, summary, env, target=None ):
+    """``delegate P% [launch] [sconscript ·] variant · action · summary``.
+
+    Chrome matches a progress checkpoint; fields after the badge mirror the
+    counted close line so a long muted child wall can be reattached. Not in
+    the action total. ``target`` may carry a ``shared`` label for the cell.
+    """
+    script = _sconscript_label( env )
+    cell = _variant_cell( env )
+    counts = _progress_ledger.checkpoint_counts( script, cell )
+    percent = "{:>{}}%".format( counts[ "percent" ], counts[ "percent_digits" ] )
+    lead = " " * _progress_ledger.progress_line_indent()
+    parts = [
+            lead + as_subdued( "{:<{}}".format( "delegate", _SCOPE_WIDTH ) ),
+            percent,
+            as_emphasised( as_info( "[launch]" ) ),
+    ]
+    fields = _terse_delegate_fields( action, summary, env, target=target )
     line = " ".join( parts )
     if fields:
         line += " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
     return line
+
+
+def format_terse_delegate_close( action, summary, env, status="done", target=None ):
+    """Uncounted ``→ [done]|[error] [sconscript ·] variant · action · summary``.
+
+    Closes a ``write_terse_launch`` span that ran under ``env.Execute`` (no
+    Command node in the action total). Counted Command delegates still close
+    through ``_report_python_action``.
+
+    Badge width matches ordinary ``[ok]`` / ``[done]`` (six columns), not
+    ``[launch]`` (eight). Launch uses different chrome (``delegate N%``); the
+    close should line up with other durable status lines in the transcript.
+    """
+    marker = _uncounted_prefix( env, _status_marker( status ) )
+    fields = _terse_delegate_fields( action, summary, env, target=target )
+    if not fields:
+        return marker
+    return marker + " " + ( " " + as_subdued( "·" ) + " " ).join( fields )
 
 
 def write_terse_launch( action, summary, env, command=None, target=None ):
@@ -3336,6 +3428,8 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
     # stash-time ``[....]`` so we do not double-caption.
     end_terse_executing()
     _terse_launch.emitted = True
+    _terse_launch.action = action
+    _terse_launch.summary = summary
     if command:
         _terse_launch.command = command
     line = format_terse_launch( action, summary, env, target=target )
@@ -3344,6 +3438,32 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
     sys.stdout.flush()
     # Repaint another outstanding job (or clear the parallel bridge) after the
     # durable ``[launch]`` line owns the transcript row.
+    refresh_terse_executing( advance=False )
+
+
+def write_terse_delegate_close(
+        action, summary, env, status="done", target=None, command=None,
+):
+    """Close a delegated ``[launch]`` that ran under ``env.Execute``.
+
+    Prints the uncounted ``[done]`` / ``[error]`` bookend, clears the launch
+    stash, and marks the Execute closed so ``_present_executed_command`` does
+    not also paint a generic ``→ [ok] · run``.
+    """
+    if not _env_get( env, "terse_output" ):
+        take_terse_launch()
+        return
+    end_terse_executing()
+    if status != "done" and command:
+        _write_command( command )
+    line = format_terse_delegate_close(
+            action, summary, env, status=status, target=target,
+    )
+    note_terse_build_activity()
+    _write_terse_stdout( line + "\n" )
+    sys.stdout.flush()
+    take_terse_launch()
+    note_terse_execute_closed()
     refresh_terse_executing( advance=False )
 
 
@@ -3661,7 +3781,14 @@ def _present_executed_command( command, target, source, env, failed ):
     Every other call is an uncounted status line. ``Copy`` and ``Move`` show
     ``source → dest``. ``Delete``, ``Mkdir``, and ``Chmod`` show the path.
     Anything else is ``run``, and its command is printed only on failure.
+
+    A delegated launch that already printed its own ``[done]`` / ``[error]``
+    close (see ``write_terse_delegate_close``) leaves ``note_terse_execute_closed``
+    set — honour that and do not paint a second generic ``→ [ok] · run``.
     """
+    if take_terse_execute_closed():
+        take_terse_launch()
+        return True
     text = str( command or "" ).strip()
     if not text:
         return False

@@ -51,20 +51,38 @@ def _neutralise_cuppa_project_config_jam( boost_local ):
         )
 
 
+def ensure_toolset_user_config_jam( path, toolchain ):
+    """Create ``<toolchain>._jam`` if missing (build action and deep-clean both need it).
+
+    ``b2 --user-config=…`` refuses to start when the file is absent. A tip that never
+    built this toolchain against the extract (or cleaned the jam away) still needs the
+    file before cooperative ``b2 --clean``.
+    """
+    boost_local = os.path.split( path )[0]
+    _neutralise_cuppa_project_config_jam( boost_local )
+
+    if os.path.exists( path ):
+        return False
+
+    current_toolset = "using {} : {} :".format(
+            toolset_name_from_toolchain( toolchain ),
+            toolchain.cxx_version(),
+    )
+    toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
+
+    with open( path, 'w' ) as toolchain_config:
+        logger.info(
+                "adding toolset config [{}] to user-config [{}]".format(
+                        str( toolset_config_line.strip() ),
+                        path,
+                )
+        )
+        toolchain_config.write( toolset_config_line )
+    return True
+
+
 class WriteToolsetConfigJam(object):
 
     def __call__( self, target, source, env ):
-        path = str(target[0])
-        boost_local = os.path.split( path )[0]
-        _neutralise_cuppa_project_config_jam( boost_local )
-
-        if not os.path.exists( path ):
-            toolchain = env['toolchain']
-            current_toolset = "using {} : {} :".format( toolset_name_from_toolchain( toolchain ), toolchain.cxx_version() )
-            toolset_config_line = "{} {} ;\n".format( current_toolset, toolchain.binary() )
-
-            with open( path, 'w' ) as toolchain_config:
-                logger.info( "adding toolset config [{}] to user-config [{}]".format( str(toolset_config_line.strip()), path ) )
-                toolchain_config.write( toolset_config_line )
-
+        ensure_toolset_user_config_jam( str( target[0] ), env['toolchain'] )
         return None
