@@ -671,11 +671,15 @@ def _register_boost_deep_clean(
                 return None
 
             with operation_status( alive ):
+                # ``keep_heartbeat``: default Popen suppresses the status row for
+                # the whole spawn (avoids shear onto tool lines). Here the sticky
+                # ``cleaning-b2`` caption *is* the progress — do not blank it.
                 returncode = IncrementalSubProcess.Popen(
                         muted_line,
                         _args,
                         cwd=_cwd,
                         suppress_output=True,
+                        keep_heartbeat=True,
                 )
             tool_summary = processor.summary( returncode )
             if tool_summary and returncode:
@@ -697,6 +701,7 @@ def _register_boost_deep_clean(
                         _args,
                         cwd=_cwd,
                         suppress_output=True,
+                        keep_heartbeat=True,
                 )
             tool_summary = processor.summary( returncode )
             if tool_summary:

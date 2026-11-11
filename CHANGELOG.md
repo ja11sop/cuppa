@@ -64,9 +64,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ``-c --deep-clean`` for Boost also path-Cleans the extract ``b2`` binary
   (Cuppa's bootstrap engine). Ordinary ``-c`` still keeps it (``NoClean``) so
   the next library build stays warm. Cooperative ``b2 --clean`` runs first while
-  the binary is present. Under ``--terse-output`` / ``-Q``, a sticky heartbeat
-  caption (``cleaning-b2 · …``) covers the quiet Popen span; config dump stays
-  filtered unless ``--boost-verbose-config`` / ``--boost-verbose-build``.
+  the binary is present.   Under ``--terse-output`` / ``-Q``, a sticky heartbeat
+  caption (``cleaning-b2 · …``) covers the quiet Popen span (``keep_heartbeat``
+  so the spawn does not blank the status row); config dump stays filtered
+  unless ``--boost-verbose-config`` / ``--boost-verbose-build``.
   Plan: ``design/plans/deep-clean.md``.
 
 - ``--terse-output`` + ``-c`` / ``--clean``: SCons path-Clean ``Removed …`` lines

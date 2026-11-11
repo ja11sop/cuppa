@@ -240,9 +240,15 @@ def test_boost_deep_clean_path_cleans_extract_b2( tmp_path, monkeypatch ):
             'cuppa.utility.heartbeat.operation_status',
             _capture_alive,
     )
+    popen_kwargs = []
+
+    def _fake_popen( *args, **kwargs ):
+        popen_kwargs.append( kwargs )
+        return 0
+
     monkeypatch.setattr(
             'cuppa.dependencies.boost.boost_builder.IncrementalSubProcess.Popen',
-            lambda *args, **kwargs: 0,
+            _fake_popen,
     )
     monkeypatch.setattr(
             'cuppa.progress.write_terse_launch',
@@ -258,4 +264,6 @@ def test_boost_deep_clean_path_cleans_extract_b2( tmp_path, monkeypatch ):
     assert len( alive ) == 1
     assert alive[0].startswith( 'cleaning-b2 ·' )
     assert '--clean' in alive[0]
+    assert len( popen_kwargs ) == 1
+    assert popen_kwargs[0].get( 'keep_heartbeat' ) is True
     boost_builder._scheduled_b2_deep_cleans.clear()
