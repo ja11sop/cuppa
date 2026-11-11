@@ -132,8 +132,8 @@ def test_main_unit_runs_lint_and_unit( monkeypatch ):
         seen['cxx'] = need_cxx
         return local_gate.EXIT_OK
 
-    def fake_gate( *, unit, integration, lint, serial_integration=False ):
-        seen['gate'] = ( unit, integration, lint, serial_integration )
+    def fake_gate( *, unit, integration, lint, serial_integration=False, public_prose=True ):
+        seen['gate'] = ( unit, integration, lint, serial_integration, public_prose )
         return local_gate.EXIT_OK
 
     monkeypatch.setattr( local_gate, 'preflight', fake_preflight )
@@ -141,7 +141,7 @@ def test_main_unit_runs_lint_and_unit( monkeypatch ):
     code = local_gate.main( ['local_gate', '--unit', '--no-reexec'] )
     assert code == local_gate.EXIT_OK
     assert seen['cxx'] is False
-    assert seen['gate'] == ( True, False, True, False )
+    assert seen['gate'] == ( True, False, True, False, True )
 
 
 def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
@@ -153,8 +153,8 @@ def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
         seen['cxx'] = need_cxx
         return local_gate.EXIT_OK
 
-    def fake_gate( *, unit, integration, lint, serial_integration=False ):
-        seen['gate'] = ( unit, integration, lint, serial_integration )
+    def fake_gate( *, unit, integration, lint, serial_integration=False, public_prose=True ):
+        seen['gate'] = ( unit, integration, lint, serial_integration, public_prose )
         return local_gate.EXIT_OK
 
     monkeypatch.setattr( local_gate, 'preflight', fake_preflight )
@@ -162,7 +162,7 @@ def test_main_default_needs_cxx_and_full_gate( monkeypatch ):
     code = local_gate.main( ['local_gate', '--no-reexec'] )
     assert code == local_gate.EXIT_OK
     assert seen['cxx'] is True
-    assert seen['gate'] == ( True, True, True, False )
+    assert seen['gate'] == ( True, True, True, False, True )
 
 
 def test_main_serial_integration_flag( monkeypatch ):
@@ -173,8 +173,9 @@ def test_main_serial_integration_flag( monkeypatch ):
             local_gate, 'preflight', lambda need_cxx: local_gate.EXIT_OK
     )
 
-    def fake_gate( *, unit, integration, lint, serial_integration=False ):
+    def fake_gate( *, unit, integration, lint, serial_integration=False, public_prose=True ):
         seen['serial'] = serial_integration
+        seen['public_prose'] = public_prose
         return local_gate.EXIT_OK
 
     monkeypatch.setattr( local_gate, 'run_gate', fake_gate )
@@ -183,6 +184,7 @@ def test_main_serial_integration_flag( monkeypatch ):
     )
     assert code == local_gate.EXIT_OK
     assert seen['serial'] is True
+    assert seen['public_prose'] is False
 
 
 def test_integration_pytest_cmd_parallel_when_xdist( monkeypatch ):

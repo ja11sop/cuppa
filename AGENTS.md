@@ -11,6 +11,19 @@ Cuppa is a SCons extension for C++ builds. This repository is the **cuppa packag
 **Release notes:** [`CHANGELOG.md`](CHANGELOG.md) — Keep a Changelog / SemVer; write entries into the open section as you work (see [Versioning and changelog](#versioning-and-changelog)).
 **Design notes, plans, issue drafts:** [`design/README.md`](design/README.md) — the index; read it before writing a new plan, in case one already exists.
 
+## Hard rules (read before any public prose)
+
+These apply to **every** agent and human working on this repo. Details and exceptions live in the sections linked below — do not skip them when drafting plans, PR bodies, commits, or changelog entries.
+
+1. **Private consumer names stay out of the public tree** — no private project, group, host, dependency, or package names, and no personal absolute paths (`/home/<you>/...`). Use **project A** / **project B**, `widget`, `gitlab.example`, `/home/user/...`. Map labels via gitignored [`design/INTERNAL_PROJECTS.local.md`](design/INTERNAL_PROJECTS.local.md). Never paste raw soak logs into tracked files or PR text. See [Private projects](#private-projects--never-name-them-here).
+2. **Land work through a PR** — never push commits directly to `master`. See [Commit messages](#commit-messages).
+3. **No commit trailers** — no `Co-authored-by`, `Signed-off-by`, or tool attribution lines. See [Commit messages](#commit-messages).
+4. **Do not commit or push until asked** — propose the message; wait for an explicit go-ahead. See [Commit messages](#commit-messages).
+5. **Exactly one `impact:` label** when opening a PR (`none` / `patch` / `minor` / `major`). Prefer `scripts.github_helpers create-pr --label impact:...`.
+6. **Agent guidance lives in this repo** — `AGENTS.md`, `design/`, and `scripts/` are authoritative. Do not put unique cuppa rules only in IDE-specific skill/rule files.
+
+**Before publishing prose** (plan, PR body, CHANGELOG, ROADMAP): rewrite soak output; resolve labels from the local map; run `python -m scripts.check_public_prose` (also part of `local_gate`).
+
 ## Versioning and changelog
 
 `cuppa/VERSION` names the version being assembled, with a `.dev` suffix while it is open —
@@ -146,6 +159,12 @@ pasted build output. Instead:
 (`*.local.md`). Read it when you need to know which project a label means, and update it
 whenever you introduce a new anonymised reference — but never copy a name out of it into a
 tracked file.
+
+Enforcement: `python -m scripts.check_public_prose` builds a denylist from the **Real** /
+**Private** columns of that map (when present) and scans prose changed vs `master`, plus
+always rejects personal `/home/<user>/` paths. It runs from `scripts.local_gate` (skipped only
+for `--integration` / `--preflight-only`). Pass `--file PATH` to scan a PR body before
+publish.
 
 ## Commit messages
 
@@ -359,6 +378,7 @@ preflight before burning the suite). See [`design/archive/local-gate.md`](design
 
 ```sh
 source venv/bin/activate
+python -m scripts.check_public_prose   # private names / personal /home/ in changed prose
 flake8 cuppa
 pylint -E cuppa
 pytest -m unit
