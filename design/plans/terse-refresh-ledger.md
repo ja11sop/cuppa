@@ -5,7 +5,8 @@
 - **Updated:** 2026-11-10
 - **Impact:** `patch`
 
-Soak on `order_matcher` with `--terse-output` (± `-Q`) and `--refresh-downloads=google_cloud_cpp`.
+Soak on **project B** (consume-only tip) with `--terse-output` (± `-Q`) and
+`--refresh-downloads` for a large GitLab package dep.
 
 ## What happened
 
