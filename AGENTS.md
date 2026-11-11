@@ -16,13 +16,14 @@ Cuppa is a SCons extension for C++ builds. This repository is the **cuppa packag
 These apply to **every** agent and human working on this repo. Details and exceptions live in the sections linked below — do not skip them when drafting plans, PR bodies, commits, or changelog entries.
 
 1. **Private consumer names stay out of the public tree** — no private project, group, host, dependency, or package names, and no personal absolute paths (`/home/<you>/...`). Use **project A** / **project B**, `widget`, `gitlab.example`, `/home/user/...`. Map labels via gitignored [`design/INTERNAL_PROJECTS.local.md`](design/INTERNAL_PROJECTS.local.md). Never paste raw soak logs into tracked files or PR text. See [Private projects](#private-projects--never-name-them-here).
-2. **Land work through a PR** — never push commits directly to `master`. See [Commit messages](#commit-messages).
-3. **No commit trailers** — no `Co-authored-by`, `Signed-off-by`, or tool attribution lines. See [Commit messages](#commit-messages).
-4. **Do not commit or push until asked** — propose the message; wait for an explicit go-ahead. See [Commit messages](#commit-messages).
-5. **Exactly one `impact:` label** when opening a PR (`none` / `patch` / `minor` / `major`). Prefer `scripts.github_helpers create-pr --label impact:...`.
-6. **Agent guidance lives in this repo** — `AGENTS.md`, `design/`, and `scripts/` are authoritative. Do not put unique cuppa rules only in IDE-specific skill/rule files.
+2. **Run the public-prose gate before every `git commit` and every `git push`** — `python -m scripts.check_public_prose` must exit 0 on the pending tree (and on any PR body via `--file`) **before** history moves. Prefer `python -m scripts.local_gate --unit` (or full `local_gate`) so prose + lint + unit all pass first. A go-ahead to commit/push does **not** waive this. Fixing a leak after push means rewriting history; do not put private names on the remote even briefly. See [Private projects](#private-projects--never-name-them-here).
+3. **Land work through a PR** — never push commits directly to `master`. See [Commit messages](#commit-messages).
+4. **No commit trailers** — no `Co-authored-by`, `Signed-off-by`, or tool attribution lines. See [Commit messages](#commit-messages).
+5. **Do not commit or push until asked** — propose the message; wait for an explicit go-ahead; then run the gate (rule 2) before `git commit` / `git push`. See [Commit messages](#commit-messages).
+6. **Exactly one `impact:` label** when opening a PR (`none` / `patch` / `minor` / `major`). Prefer `scripts.github_helpers create-pr --label impact:...`.
+7. **Agent guidance lives in this repo** — `AGENTS.md`, `design/`, and `scripts/` are authoritative. Do not put unique cuppa rules only in IDE-specific skill/rule files.
 
-**Before publishing prose** (plan, PR body, CHANGELOG, ROADMAP): rewrite soak output; resolve labels from the local map; run `python -m scripts.check_public_prose` (also part of `local_gate`).
+**Before publishing prose** (plan, PR body, CHANGELOG, ROADMAP, commit, push): rewrite soak output; resolve labels from the local map; run `python -m scripts.check_public_prose` and wait for exit 0 (also the first step of `local_gate`).
 
 ## Versioning and changelog
 
@@ -162,9 +163,14 @@ tracked file.
 
 Enforcement: `python -m scripts.check_public_prose` builds a denylist from the **Real** /
 **Private** columns of that map (when present) and scans prose changed vs `master`, plus
-always rejects personal `/home/<user>/` paths. It runs from `scripts.local_gate` (skipped only
-for `--integration` / `--preflight-only`). Pass `--file PATH` to scan a PR body before
-publish.
+always rejects personal `/home/<user>/` paths. It is the **first** step of
+`scripts.local_gate` (skipped only for `--integration` / `--preflight-only`).
+
+**Mandatory before commit/push:** after a go-ahead, run `check_public_prose` (or
+`local_gate --unit` / full `local_gate`) and confirm exit 0 **before** `git commit` and
+again before `git push` if anything changed since the last clean run. Scan a PR body with
+`--file PATH` before `create-pr`. Never push first and clean up later — private names must
+not land on the remote, even in commits you plan to force-push away.
 
 ## Commit messages
 
@@ -173,7 +179,8 @@ diff unstaged or uncommitted, summarise what changed, and propose a commit messa
 (subject + body). Wait for an explicit go-ahead before `git commit` or `git push`.
 That pause lets the maintainer skim the diff and steer before history moves. “Commit
 this”, “go ahead and commit”, or “commit and push” are go-aheads; finishing a task is
-not.
+not. A go-ahead still requires a clean public-prose gate (Hard rule 2) before any
+`git commit` or `git push`.
 
 **`master` is protected.** Never push commits directly to `master` (or force-push it). Land every
 change — including release tagging prep, ROADMAP/CHANGELOG housekeeping, and `AGENTS.md` edits —

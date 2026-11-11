@@ -5,6 +5,11 @@
 
 """Fail if changed public prose contains private consumer names or home paths.
 
+**Required before every ``git commit`` and ``git push``** (see ``AGENTS.md`` Hard
+rules). Prefer ``python -m scripts.local_gate --unit`` so this check runs first;
+a maintainer go-ahead to commit/push does not waive a clean run. Pass ``--file``
+for PR bodies before ``create-pr``.
+
 When ``design/INTERNAL_PROJECTS.local.md`` is present (gitignored), extract a
 denylist from **Real** / **Private** table columns and scan files changed
 relative to ``origin/master`` (or ``master``). Without the map, still forbid
