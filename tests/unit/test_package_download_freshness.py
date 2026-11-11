@@ -246,7 +246,7 @@ def test_dependency_refetches_when_stale( tmp_path, monkeypatch ):
 
     import os as os_mod
 
-    def fake_download( candidates, cache_dir, custom_token=None, log_id=None ):
+    def fake_download( candidates, cache_dir, custom_token=None, log_id=None, env=None ):
         dest = os_mod.path.join( cache_dir, archive_name )
         with open( dest, 'wb' ) as handle:
             handle.write( b'fresh' )

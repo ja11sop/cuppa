@@ -708,6 +708,7 @@ def download_first_available_package(
         custom_token=None,
         download=None,
         log_id=None,
+        env=None,
 ):
     """Download the first candidate that exists; skip 404s until the list is exhausted.
 
@@ -724,10 +725,15 @@ def download_first_available_package(
         stem, filename, url, _token = item
         dest_path = os.path.join( dest_dir, filename )
         tried.append( filename )
-        logger.info( "Downloading package archive [{}]{}...".format(
+        # Under terse, heartbeat + ``[collect]`` own the story; keep this at debug.
+        message = "Downloading package archive [{}]{}...".format(
                 as_info( filename ),
                 " for [{}]".format( as_info( log_id ) ) if log_id else "",
-        ) )
+        )
+        if _env_terse( env ):
+            logger.debug( message )
+        else:
+            logger.info( message )
         try:
             download(
                     url,
@@ -1428,6 +1434,7 @@ class GitlabPackageInstaller:
                         self._candidates,
                         self._target_dir,
                         custom_token=self._custom_token,
+                        env=env,
                 )
                 self._download_target = dest
                 self._package_file = filename
@@ -1743,6 +1750,19 @@ class GitlabPackageDependency:
                 remark=remark,
         )
 
+
+    def _terse_refresh( self, *fields ):
+        """``→ [refresh]  <name> · ver · cleared cache · re-fetching`` (force path)."""
+        import cuppa.progress
+        self._label_terse_package()
+        return cuppa.progress.write_terse_resolve_child(
+                self._cuppa_env,
+                "refresh",
+                self._dependency_name,
+                self.version(),
+                *fields,
+        )
+
     def is_option_set( self, option ):
         return option in self._cuppa_env and self._cuppa_env[option] or False
 
@@ -1969,18 +1989,26 @@ class GitlabPackageDependency:
         want_refresh = refresh_downloads_applies(
                 self._dependency_name, self._package
         )
+        # Durable ``[refresh]`` waits until the re-fetch (download) finishes —
+        # heartbeat owns the live bar; then ``cache re-fetched`` (like ``[update]``).
+        self._force_refresh_pending = False
         if want_refresh:
             no_exec = bool(
                     self.is_option_set( "no_exec" )
                     or self._cuppa_env.get( 'no_exec' )
             )
             if no_exec:
-                logger.info(
+                # Dry-run: no work completes — record the decision now.
+                message = (
                         "--refresh-downloads: would re-fetch package [{}] "
                         "(skipped under -n / --no-exec)".format(
                                 as_info( self._package_id )
                         )
                 )
+                if not self._terse_refresh( "would re-fetch" ):
+                    logger.info( message )
+                else:
+                    logger.debug( message )
             elif self._offline:
                 logger.error(
                         "--refresh-downloads cannot run in OFFLINE mode "
@@ -1992,11 +2020,12 @@ class GitlabPackageDependency:
                         "--refresh-downloads.".format( self._package_id )
                 )
             else:
+                self._label_terse_package()
                 removed = _remove_package_consume_cache(
                         cache_dir, self._package_dir, self._package_id
                 )
                 if removed:
-                    logger.info(
+                    message = (
                             "--refresh-downloads: cleared {} path(s) for "
                             "package [{}]; re-fetching".format(
                                     as_info( str( len( removed ) ) ),
@@ -2004,12 +2033,18 @@ class GitlabPackageDependency:
                             )
                     )
                 else:
-                    logger.info(
+                    message = (
                             "--refresh-downloads: no cached archive/extract "
                             "for package [{}]; fetching".format(
                                     as_info( self._package_id )
                             )
                     )
+                # Start-of-work chatter only; durable ``[refresh]`` after download.
+                if self._cuppa_env.get( "terse_output" ):
+                    logger.debug( message )
+                else:
+                    logger.info( message )
+                self._force_refresh_pending = True
                 # Prefer the configured stem after a force clear (do not reuse a
                 # sibling stem that survived a partial remove).
                 self._download_target = preferred_target
@@ -2127,6 +2162,7 @@ class GitlabPackageDependency:
                             cache_dir,
                             custom_token=custom_token,
                             log_id=self._package_id,
+                            env=self._cuppa_env,
                     )
                     self._download_target = dest
                     from cuppa.package_managers.package_download_freshness import (
@@ -2187,6 +2223,14 @@ class GitlabPackageDependency:
                                 error.parameter,
                         )
                     )
+                if getattr( self, "_force_refresh_pending", False ):
+                    # Re-fetch (download) finished — durable refresh before collect.
+                    if not self._terse_refresh( "cache re-fetched" ):
+                        logger.info(
+                                "--refresh-downloads: package [{}] cache "
+                                "re-fetched".format( as_info( self._package_id ) )
+                        )
+                    self._force_refresh_pending = False
                 self._terse_collect(
                         registry=registry,
                         archive_path=self._download_target,

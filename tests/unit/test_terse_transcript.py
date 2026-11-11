@@ -2251,6 +2251,15 @@ def test_resolve_update_child_uses_success_colour_and_location_width( monkeypatc
     assert "<success>[update]</success>   <fmt>" in out
     assert "master" in out
     assert "9197f515" in out
+    assert progress.write_terse_resolve_child(
+            env, "refresh", "google_cloud_cpp", "3.9.0", "cache re-fetched",
+    )
+    refresh = capsys.readouterr().out
+    assert "<success>[refresh]</success>" in refresh
+    # Nine-char badge pads to ``[location]`` width (one trailing space).
+    assert "<success>[refresh]</success>  <google_cloud_cpp>" in refresh
+    assert "3.9.0" in refresh
+    assert "cache re-fetched" in refresh
     fail = progress.format_terse_resolve_child(
             env, "clone", "fmt", status="error",
     )
