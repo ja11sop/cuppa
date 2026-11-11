@@ -114,7 +114,7 @@ dir, stamps).
 | Boost `build.<abi>/<toolchain>/…` stage | Yes (after #326) | Yes (path Clean; also after b2 clean) |
 | Boost `bin.<abi>/…` for this selection | No | Yes — prefer **cooperative `b2 --clean`**, with path Clean as fallback/supplement |
 | Boost extract / headers | No | No |
-| Boost extract `b2` binary | No today (`env.NoClean`); **should** be Yes — follow-up | No (headers/extract stay) |
+| Boost extract `b2` binary | No (`env.NoClean` — bootstrap once) | **Yes** — path Clean after cooperative `b2 --clean` |
 | CMake `-B` via Cuppa methods | Yes (path Clean) | Yes — **cooperative `cmake --build --target clean`**, then path Clean leftovers |
 | Other location deps | No new behaviour until each opts in | Opt-in via the same helper |
 
@@ -123,29 +123,26 @@ a Boost.Build naming limit when using path Clean / `storage_clean`. Cooperative
 `b2 --clean` with Cuppa’s exact `toolset=` / `variant=` / `--build-dir=` should
 track **what that b2 invocation built**, which is the better default for deep-clean.
 
-## Follow-up: extract `b2` vs ordinary `-c`
+## Extract `b2`: keep on `-c`, remove on `--deep-clean`
 
-Not a `--terse-output` blocker. Recorded after a Boost package soak where
-`build-b2` is a first-class transcript line.
+Recorded after a Boost package soak where `build-b2` is a first-class
+transcript line. Settled on [#399](https://github.com/ja11sop/cuppa/pull/399)
+follow-on: the deep-clean metaphor is “go deeper,” not “ordinary clean deletes
+the bootstrap engine.”
 
-Today `env.NoClean(b2)` leaves `…/patched/b2`. The **build** default is correct:
-do not rebuild `b2` when the binary already exists (the old reason for
-`NoClean` is no longer clearly recalled; the effect still matches “bootstrap
-once per extract”). The **clean** default is wrong: Cuppa built that file, so
-ordinary `-c` should remove it, the way CMake `-B` is cleaned. Leaving `b2`
-after `-c` while removing the stage makes the next build look half-clean.
+`env.NoClean(b2)` stays for ordinary `-c`: bootstrap once per extract; the next
+library build stays warm. Under `-c --deep-clean`, Cuppa path-Cleans extract
+`b2` (via `env.Clean` on installed / built libraries) **after** cooperative
+`b2 --clean` can still use the binary. `NoClean` only protects the build-b2
+node as a clean target; CleanTargets still delete the path.
 
-Desired split:
+| Gesture | Extract `b2` | Selection products |
+|---------|--------------|--------------------|
+| Ordinary `-c` | **Keep** | `_build` copies + cuppa stage (not whole `bin.*`) |
+| `-c --deep-clean` | **Remove** | Cooperative `b2 --clean` + path Clean `bin.*` leftovers + extract `b2` |
 
-| Gesture | Intent |
-|---------|--------|
-| Ordinary `-c` | `_build` copies + cuppa stage + **extract `b2`** (we built it) + cooperative `b2 --clean` for **this selection** (current variants / toolset / abi). Not a wipe of the whole `bin.*` tree. |
-| `-c --deep-clean` | Coarse wipe of remaining `bin.*` when cooperative clean is not enough. |
-
-The hard part is Boost.Build’s **coarser** versioning under `bin.<abi>`
-(`gcc-16` vs Cuppa `gcc162`, dbg/rel sharing one engine tree). A directory
-delete is too wide for ordinary `-c`; a `NoClean` on `b2` is too narrow.
-Leave `NoClean(b2)` in code until this follow-up is implemented.
+Boost.Build’s coarser versioning under `bin.<abi>` (`gcc-16` vs Cuppa `gcc162`)
+is why ordinary `-c` still does not wipe the whole `bin.*` tree.
 
 ## Use case: Boost package, cold rebuild after `-c`
 
@@ -256,7 +253,7 @@ continues to use.
 | Settled: modifier on `-c`, not standalone | Done |
 | Naming commentary + gap assessment | Done |
 | Native tool clean + Boost `b2 --clean` use case | Done (design) |
-| Extract `b2` on ordinary `-c` (drop `NoClean`) | Follow-up; not this slice |
+| Extract `b2`: keep on `-c`, remove on `--deep-clean` | Done (path Clean under deep-clean; `NoClean` stays for ordinary `-c`) |
 | Scratchpad note | Graduated here |
 | Option + refusal gate | Done (`cuppa.core.deep_clean`) |
 | Boost cooperative clean + path Clean fallback | Done (`b2_clean_command` + `BoostLibraryBuilder`) |
@@ -279,7 +276,8 @@ on the Boost GitLab package publisher.
 | `bin.*/…/gcc-15/release/…` | Cleared (0 files) |
 | `bin.*/…/gcc-15/debug/…` | Left intact (other variant) |
 | Sibling toolset (`gcc-16`) | Untouched |
-| Extract `b2` / headers | Kept |
+| Extract headers | Kept |
+| Extract `b2` | Kept on that soak (path Clean of `b2` under deep-clean landed after #399) |
 | Stage `build.*/gcc15/release` | Emptied (empty dir may remain) |
 
 **Follow-up (same tip):** a later `-c --deep-clean --toolchains=gcc15` failed when
@@ -323,10 +321,17 @@ onto a pulse.
 
 ## Next focus
 
-v1 is **done** on `master` (#399); archive to `shipped` with the 1.14.0 release.
-Remaining follow-ups (not blockers for this plan's `done`):
+v1 is **done** on `master` (#399); extract-`b2` deep-clean removal closes the
+Boost clean gesture under this plan. Archive to `shipped` with the 1.14.0 release.
 
-- Extract `b2` on ordinary `-c` (drop `NoClean`) — still under [#135](https://github.com/ja11sop/cuppa/issues/135)
-- Optional: time a cold `--rel` rebuild after deep-clean
-- Optional: sticky heartbeat during quiet `b2 --clean` (delegate often emits nothing useful)
+Optional leftovers (not blockers):
+
+- Time a cold `--rel` rebuild after deep-clean
 - Other location deps only when a publisher needs them
+- Broader artefact-removal cases under [#135](https://github.com/ja11sop/cuppa/issues/135) if any remain beyond Boost `b2`
+
+**Alive during quiet `b2 --clean`:** sticky heartbeat caption
+(`cleaning-b2 · --clean <stage> · N libs`) for the Popen span under terse and
+`-Q`. Config/component dump stays filtered by default (same as library `b2`);
+`--boost-verbose-config` / `--boost-verbose-build` reopen detail; failures still
+suggest `--boost-verbose-build`.

@@ -104,7 +104,7 @@ same top-level default selection regardless of the directory from which you invo
 
 | `--deep-clean`
 | Modifier on `-c` / `--clean`
-| Requires `-c`. Expands clean to out-of-tree / native tool products for the current selection. Does **not** delete dependency extracts (use `--remove-dependencies` / purge / wipe for those)
+| Requires `-c`. Expands clean to out-of-tree / native tool products for the current selection. Does **not** delete dependency extracts or downloads (use `--remove-dependencies` / purge / wipe for those). For Boost, also removes the extract `b2` engine; ordinary `-c` keeps it
 
 | `-k` / `--keep-going`
 | Continue independent targets after a target fails

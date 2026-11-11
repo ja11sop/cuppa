@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ``--deep-clean`` modifier on ``-c`` / ``--clean``: expands clean to out-of-tree
   products for the current selection. Boost runs cooperative ``b2 --clean`` with
-  the same argv shape as the library build, and path-Cleans matching ``bin.*``
-  products; CMake methods run ``cmake --build … --target clean`` before the
-  existing ``-B`` path Clean. Extracts stay. Alone without ``-c`` it is refused.
-  Nested cascade sessions forward the flag. Plan: ``design/plans/deep-clean.md``.
+  the same argv shape as the library build, path-Cleans matching ``bin.*``
+  products, and removes the extract ``b2`` engine (ordinary ``-c`` keeps it);
+  CMake methods run ``cmake --build … --target clean`` before the existing
+  ``-B`` path Clean. Headers and downloads stay. Alone without ``-c`` it is
+  refused. Nested cascade sessions forward the flag. Plan:
+  ``design/plans/deep-clean.md``.
 
 - Online GitLab package consume checks whether a cached archive is still the
   file on the registry (``HEAD``, preferring ``X-Checksum-Sha256``) before
@@ -58,6 +60,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``*.gcov`` files stay per binary. Plan: ``design/plans/coverage-parallel.md``.
 
 ### Changed
+
+- ``-c --deep-clean`` for Boost also path-Cleans the extract ``b2`` binary
+  (Cuppa's bootstrap engine). Ordinary ``-c`` still keeps it (``NoClean``) so
+  the next library build stays warm. Cooperative ``b2 --clean`` runs first while
+  the binary is present. Under ``--terse-output`` / ``-Q``, a sticky heartbeat
+  caption (``cleaning-b2 · …``) covers the quiet Popen span; config dump stays
+  filtered unless ``--boost-verbose-config`` / ``--boost-verbose-build``.
+  Plan: ``design/plans/deep-clean.md``.
 
 - ``--terse-output`` + ``-c`` / ``--clean``: SCons path-Clean ``Removed …`` lines
   (via ``display()``, including after ``--deep-clean`` native cleans) fold onto
