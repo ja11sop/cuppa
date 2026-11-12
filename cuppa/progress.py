@@ -10,6 +10,7 @@
 
 import atexit
 import itertools
+import os
 import os.path
 import signal
 import sys
@@ -150,6 +151,7 @@ def write_terse_build_completion( env ):
         flush_scons_removed_summary( env )
     except Exception:
         pass
+    dump_uncredited_terse_actions_if_requested()
     outcome = "succeeded" if terse_build_had_activity() else "up to date"
     suffix = ""
     if _summary_enabled:
@@ -1042,6 +1044,35 @@ class _ProgressLedger(object):
         self._percent_digits = max( self._percent_digits, len( str( percent ) ) )
         return self._action_digits, self._percent_digits
 
+    def uncredited_entries( self ):
+        """Executors that still have ``remaining > 0`` (diagnosis / end sweep).
+
+        Each item is ``script``, ``variant``, ``slots``, ``remaining``, and
+        ``nodes`` (path-like labels for live members of that executor).
+        """
+        with self._lock:
+            seen = set()
+            out = []
+            for entry in self._nodes.values():
+                if id( entry ) in seen:
+                    continue
+                seen.add( id( entry ) )
+                if entry[ "remaining" ] <= 0:
+                    continue
+                script, variant = entry[ "cell" ]
+                labels = []
+                for node in entry[ "nodes" ]:
+                    if self._nodes.get( id( node ) ) is entry:
+                        labels.append( _node_path_label( node ) )
+                out.append( {
+                        "script": script,
+                        "variant": variant,
+                        "slots": entry[ "slots" ],
+                        "remaining": entry[ "remaining" ],
+                        "nodes": labels,
+                } )
+            return out
+
     def _rebuild_totals( self ):
         self._cells = {}
         self._done = 0
@@ -1089,6 +1120,65 @@ def register_terse_actions( env, nodes ):
     if not _env_get( env, "terse_output" ):
         return
     _progress_ledger.register( env, nodes )
+
+
+def _node_path_label( node ):
+    """Short path-like label for an uncredited-entry dump (best effort)."""
+    for attr in ( "path", "abspath", "name" ):
+        value = getattr( node, attr, None )
+        if callable( value ):
+            try:
+                value = value()
+            except Exception:
+                value = None
+        if value:
+            return str( value )
+    return repr( node )
+
+
+def uncredited_terse_actions():
+    """Executors still carrying ``remaining`` slots. Empty when the tally closed."""
+    return _progress_ledger.uncredited_entries()
+
+
+def dump_uncredited_terse_actions_if_requested():
+    """When ``CUPPA_TERSE_TALLY_DUMP=1``, print uncredited ledger rows at build end.
+
+    Tip soaks use this to name leftover slots without guessing. Off by default
+    so ordinary builds stay quiet. Output is subdued on the transcript.
+    """
+    flag = os.environ.get( "CUPPA_TERSE_TALLY_DUMP", "" ).strip().lower()
+    if flag not in ( "1", "true", "yes", "on" ):
+        return
+    entries = uncredited_terse_actions()
+    if not entries:
+        _write_terse_stdout(
+                as_subdued( "terse-tally-dump: 0 uncredited executors" ) + "\n"
+        )
+        return
+    total_remaining = sum( item[ "remaining" ] for item in entries )
+    _write_terse_stdout(
+            as_subdued(
+                    "terse-tally-dump: {} uncredited executor(s), {} slot(s)".format(
+                            len( entries ), total_remaining,
+                    )
+            ) + "\n"
+    )
+    for item in entries:
+        script = item[ "script" ] or "?"
+        variant = item[ "variant" ] or "?"
+        nodes = item[ "nodes" ] or [ "?" ]
+        _write_terse_stdout(
+                as_subdued(
+                        "  remaining {}/{} · {} · {} · {}".format(
+                                item[ "remaining" ],
+                                item[ "slots" ],
+                                script,
+                                variant,
+                                ", ".join( nodes ),
+                        )
+                ) + "\n"
+        )
 
 
 def remember_terse_action_target( target ):

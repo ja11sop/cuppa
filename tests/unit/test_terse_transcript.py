@@ -2462,6 +2462,39 @@ def test_an_up_to_date_action_is_already_done():
     assert _compile_line( env, waiting, "hello.cpp" ).startswith( "   2/  2 · 100% [ok]   " )
 
 
+def test_uncredited_terse_actions_lists_remaining_slots():
+    env = _terse_env()
+    skipped = _ActionNode()
+    waiting = _ActionNode( slots=2 )
+    waiting.path = "build/widget.a"
+    progress.register_terse_actions( env, [ skipped, waiting ] )
+    progress.note_up_to_date_action( skipped )
+    left = progress.uncredited_terse_actions()
+    assert len( left ) == 1
+    assert left[ 0 ][ "remaining" ] == 2
+    assert left[ 0 ][ "slots" ] == 2
+    assert "widget.a" in left[ 0 ][ "nodes" ][ 0 ]
+    assert _compile_line( env, waiting, "widget.a" ).startswith( "   2/  3 ·  67% [ok]   " )
+    assert progress.uncredited_terse_actions()[ 0 ][ "remaining" ] == 1
+    assert _compile_line( env, waiting, "widget.a" ).startswith( "   3/  3 · 100% [ok]   " )
+    assert progress.uncredited_terse_actions() == []
+
+
+def test_tally_dump_prints_when_env_requested( monkeypatch, capsys ):
+    env = _terse_env()
+    waiting = _ActionNode()
+    waiting.path = "obj/hello.o"
+    progress.register_terse_actions( env, [ waiting ] )
+    monkeypatch.setenv( "CUPPA_TERSE_TALLY_DUMP", "1" )
+    progress.dump_uncredited_terse_actions_if_requested()
+    out = capsys.readouterr().out
+    assert "terse-tally-dump: 1 uncredited executor(s), 1 slot(s)" in out
+    assert "hello.o" in out
+    monkeypatch.delenv( "CUPPA_TERSE_TALLY_DUMP", raising=False )
+    progress.dump_uncredited_terse_actions_if_requested()
+    assert "terse-tally-dump" not in capsys.readouterr().out
+
+
 def test_actions_outside_the_requested_targets_are_not_in_the_total():
     env = _terse_env()
     child = _ActionNode()
