@@ -142,7 +142,7 @@ or a small registry of well-known handlers (`"consume_handler": "boost"`).
 On apply: prefer a registered factory for that handler; fall back to generic
 GitLab package. Tip and transitive paths share one rule — the archive says how
 it wants to be consumed. Related: resolve / Quince selector gaps in
-[`../plans/boost-updates.md`](../plans/boost-updates.md) and
+[`boost-updates.md`](../plans/boost-updates.md) and
 [`dependency-resolve.md`](dependency-resolve.md).
 
 **Status:** open follow-on (not this PR). Does not remove the need for the
@@ -179,7 +179,7 @@ to ship lib-groups. Pkg-config remains an escape hatch.
 **Later:** that deferral is not the resting place. A CMake
 `INTERFACE_COMPILE_DEFINITIONS` that changes public header layout must travel
 with the library and be applied by `BuildWith`. See
-[`../plans/package-public-defines.md`](../plans/package-public-defines.md)
+[`package-public-defines.md`](package-public-defines.md)
 (date `USE_OS_TZDB=1`, 2026-10-31).
 
 ### Delegate link-line append **policy** to the toolchain (2026-10-17)
@@ -267,5 +267,5 @@ Boost through the static helper.
 | Implementation | Done — expand in `use_libs`; manifest `lib_groups`; `show_libs_for` / `show_all_libs` |
 | Boost opaque via `lib_groups` alone | **Rejected as replacement** — gaps above; keep `boost_package` expander |
 | Manifest-directed consume handler | Open follow-on |
-| Traveling `cppdefines` / flags | Reopened — pkg-config is not enough when the installed CMake target already exports a layout-changing define. [`package-public-defines.md`](../plans/package-public-defines.md) |
+| Traveling `cppdefines` / flags | Reopened — pkg-config is not enough when the installed CMake target already exports a layout-changing define. [`package-public-defines.md`](package-public-defines.md) |
 | Toolchain owns link append **policy** (static / shared / libpath), opt-in via getattr | Done this PR — ``link_append`` helpers; gcc/clang ``append_static_libs`` → Append; call sites routed |

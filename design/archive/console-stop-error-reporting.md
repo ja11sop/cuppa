@@ -1,14 +1,14 @@
 # Plan: Normalise StopError / options-error reporting
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`archive/console-report-patterns.md`](../archive/console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](../archive/cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean); shared helper [`console_errors.py`](../../cuppa/utility/console_errors.py)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-stop-error-reporting`; [`console-report-patterns.md`](console-report-patterns.md); Antora [`contributing/report-patterns.adoc`](../../docs/modules/ROOT/pages/contributing/report-patterns.adoc); cascade Options Error in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py) (`_raise_options_error`); soak follow-ons [`cascade-consume-ux-soak.md`](cascade-consume-ux-soak.md) (early option-compat, `--cascade` + `-n` did-you-mean); shared helper [`console_errors.py`](../../cuppa/utility/console_errors.py)
 - **Updated:** 2026-11-10
 - **Impact:** `patch` (presentation); possibly `minor` if a shared helper becomes public API operators rely on
 
 ## Problem
 
 Cuppa already has a strong **judgement-tree** vocabulary for storage / develop /
-wipe reports ([`console-report-patterns`](../archive/console-report-patterns.md)).
+wipe reports ([`console-report-patterns`](console-report-patterns.md)).
 **Surprising refusals** — invalid flag combinations, configure-time StopErrors —
 usually dump a long sentence into `SCons.Errors.StopError`, which then appears
 only inside:

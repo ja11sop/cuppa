@@ -1,7 +1,7 @@
 # Coverage performance: measurements, analysis, and plan
 
 - **Status:** proposal
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Coverage reporting and performance; parallel collection is [`coverage-parallel.md`](coverage-parallel.md) / [#236](https://github.com/ja11sop/cuppa/issues/236)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Coverage reporting and performance; parallel collection is [`coverage-parallel.md`](../archive/coverage-parallel.md) / [#236](https://github.com/ja11sop/cuppa/issues/236)
 - **Updated:** 2026-09-04
 
 No performance work has been done yet. This records what we measured, what the measurement ruled out, and where the remaining

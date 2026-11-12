@@ -9,7 +9,7 @@ The package carries one list. ``BuildWith`` applies it when the headers go
 on. A publisher may set that list itself, or pass :func:`cmake_public_defines`
 so publish asks CMake for ``INTERFACE_COMPILE_DEFINITIONS`` after install.
 
-See ``design/plans/package-public-defines.md``.
+See ``design/archive/package-public-defines.md``.
 """
 
 from __future__ import annotations

@@ -1,11 +1,11 @@
 # Note: terse ledger for `--refresh-downloads`
 
-- **Status:** done
-- **Related:** [`package-download-freshness.md`](package-download-freshness.md); [`archive/package-download-refresh.md`](../archive/package-download-refresh.md); [`archive/terse-dependency-locations.md`](../archive/terse-dependency-locations.md); [`archive/transfer-and-archive-progress.md`](../archive/transfer-and-archive-progress.md)
+- **Status:** shipped
+- **Related:** [`package-download-freshness.md`](package-download-freshness.md); [`package-download-refresh.md`](package-download-refresh.md); [`terse-dependency-locations.md`](terse-dependency-locations.md); [`transfer-and-archive-progress.md`](transfer-and-archive-progress.md)
 - **Updated:** 2026-11-11
 - **Impact:** `patch` — ships with 1.14.0 — [#397](https://github.com/ja11sop/cuppa/pull/397)
 
-Done on master via [#397](https://github.com/ja11sop/cuppa/pull/397). Archive when 1.14.0 ships.
+Done on master via [#397](https://github.com/ja11sop/cuppa/pull/397). Archived with 1.14.0.
 
 Soak on **project B** (consume-only tip) with `--terse-output` (± `-Q`) and
 `--refresh-downloads` for a large GitLab package dep.

@@ -1,11 +1,11 @@
 # Note: BuildWith should apply a package's public compile defines
 
-- **Status:** done
-- **Related:** [`gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md) (Compile defines / flags — deferred `cppdefines` behind pkg-config); [`package-use-libs-defaults.md`](../archive/package-use-libs-defaults.md); [`package-runtime-paths.md`](../archive/package-runtime-paths.md); Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc) (Pkg-config); [#388](https://github.com/ja11sop/cuppa/pull/388)
+- **Status:** shipped
+- **Related:** [`gitlab-package-lib-groups.md`](gitlab-package-lib-groups.md) (Compile defines / flags — deferred `cppdefines` behind pkg-config); [`package-use-libs-defaults.md`](package-use-libs-defaults.md); [`package-runtime-paths.md`](package-runtime-paths.md); Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc) (Pkg-config); [#388](https://github.com/ja11sop/cuppa/pull/388)
 - **Updated:** 2026-11-01
 - **Impact:** `minor` — traveling manifest gains `public_defines`, `library_prefix`, and `pkg_config_dir`
 
-Done in [#388](https://github.com/ja11sop/cuppa/pull/388). Ships with 1.14.0. The notes below are the record of the gap.
+Done in [#388](https://github.com/ja11sop/cuppa/pull/388). Shipped in 1.14.0. The notes below are the record of the gap.
 
 ## What already travelled
 
@@ -169,18 +169,18 @@ Three shapes in the current installs:
 
 ```text
 # fmt: prefix is absolute, the other variables already use it
-prefix=/home/.../final/fmt/12.2.0
+prefix=/home/user/.../final/fmt/12.2.0
 libdir=${prefix}/lib
 
 # protobuf: every path is absolute
-prefix=/home/.../final/protobuf/36.1
-exec_prefix=/home/.../final/protobuf/36.1
-libdir=/home/.../final/protobuf/36.1/lib
-includedir=/home/.../final/protobuf/36.1/include
+prefix=/home/user/.../final/protobuf/36.1
+exec_prefix=/home/user/.../final/protobuf/36.1
+libdir=/home/user/.../final/protobuf/36.1/lib
+includedir=/home/user/.../final/protobuf/36.1/include
 
 # re2: no prefix variable at all
-includedir=/home/.../final/re2/2025-11-05/include
-libdir=/home/.../final/re2/2025-11-05/lib
+includedir=/home/user/.../final/re2/2025-11-05/include
+libdir=/home/user/.../final/re2/2025-11-05/lib
 ```
 
 become:

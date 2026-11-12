@@ -2,7 +2,7 @@
 
 - **Status:** shipped
 - **Status note:** soak 2026-10-19; follow-on `--cascade-local-options` escape hatch captured below — **not this PR**
-- **Related:** [`cascade-consume-ux-soak.md`](cascade-consume-ux-soak.md) (`opt-compat-early`); [`package-develop-local.md`](package-develop-local.md) (nested argv drops tip dependency-scoped flags); `tip_forward_args` / `tip_dependency_option_flags` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); [`../plans/console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (`--amend-cascade-manifests`); [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (separate: tip consume forest stages); ROADMAP **1.13.0** related
+- **Related:** [`cascade-consume-ux-soak.md`](cascade-consume-ux-soak.md) (`opt-compat-early`); [`package-develop-local.md`](package-develop-local.md) (nested argv drops tip dependency-scoped flags); `tip_forward_args` / `tip_dependency_option_flags` in [`package_cascade.py`](../../cuppa/package_managers/package_cascade.py); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cascade-amend-package-manifest.md`](cascade-amend-package-manifest.md) (`--amend-cascade-manifests`); [`cascade-build-deps-tip-consume.md`](cascade-build-deps-tip-consume.md) (separate: tip consume forest stages); ROADMAP **1.13.0** related
 - **Updated:** 2026-10-29
 - **Impact:** patch — nested cascade argv filter; tip UX when custom `cuppa.add_option` flags are present
 
@@ -128,7 +128,7 @@ take a separate argv token.
 * Related soak leftover `opt-compat-early` (known incompatible cuppa
   combinations) was **superseded** by method/base `check_options` on
   [#390](https://github.com/ja11sop/cuppa/pull/390) — see
-  [`../plans/console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md).
+  [`console-stop-error-reporting.md`](console-stop-error-reporting.md).
 
 ## Remainder: opt-in forward of selected tip-local options
 

@@ -1,12 +1,12 @@
 # Coverage collection and SCons parallelism
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Coverage reporting and performance; [#236](https://github.com/ja11sop/cuppa/issues/236); [`coverage-performance.md`](coverage-performance.md)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Coverage reporting and performance; [#236](https://github.com/ja11sop/cuppa/issues/236); [`coverage-performance.md`](../plans/coverage-performance.md)
 - **Updated:** 2026-10-31
 - **Impact:** patch — `--cov --test --parallel` is supported; the configure warning is removed
 
 This records how Cuppa coverage works, and why `--cov --test --parallel` is a normal run.
-It is **not** a performance plan (that remains [`coverage-performance.md`](coverage-performance.md)).
+It is **not** a performance plan (that remains [`coverage-performance.md`](../plans/coverage-performance.md)).
 
 ## Settled decisions (1.9.1)
 

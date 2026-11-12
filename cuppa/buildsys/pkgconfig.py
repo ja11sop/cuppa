@@ -10,7 +10,7 @@ Upstream CMake records the install prefix as an absolute path. After
 into ``${pcfiledir}`` / ``${prefix}`` references. A file whose ``prefix`` is
 already ``${pcfiledir}/...`` is left alone.
 
-See ``design/plans/package-public-defines.md``.
+See ``design/archive/package-public-defines.md``.
 """
 
 from __future__ import annotations

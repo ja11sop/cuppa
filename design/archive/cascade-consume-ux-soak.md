@@ -4,7 +4,7 @@
 - **Related:**
   - [`package-build-publish-deps.md`](package-build-publish-deps.md)
   - [`cascade-enable-rename.md`](cascade-enable-rename.md)
-  - [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md)
+  - [`console-stop-error-reporting.md`](console-stop-error-reporting.md)
   - Antora [`dependencies/publishing/cascade.adoc`](../../docs/modules/ROOT/pages/dependencies/publishing/cascade.adoc)
   - Antora [`dependencies/managing/list-dependencies.adoc`](../../docs/modules/ROOT/pages/dependencies/managing/list-dependencies.adoc)
   - Antora [`dependencies/using/packages.adoc`](../../docs/modules/ROOT/pages/dependencies/using/packages.adoc)
@@ -135,7 +135,7 @@ and stop”). Refuse stays. Follow-on:
 
 - Detect the combination **before** the long tip resolve walk when possible
 - Remedy: explicit **did you mean `--cascade-plan`?**
-- Fits [`console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md)
+- Fits [`console-stop-error-reporting.md`](console-stop-error-reporting.md)
   (option-compat registry + guided trees)
 
 ### 5. Long tip resolve on every plan/collect attempt
@@ -181,7 +181,7 @@ a concrete `12.2.0`. No new ranges bug found here — keep tracking on
 
 | ID | Work | Priority |
 |----|------|----------|
-| `opt-compat-early` | Register incompatible option sets; fail before resolve when safe; guided tree | **Superseded** by method/base `check_options` + Options Error trees on [#390](https://github.com/ja11sop/cuppa/pull/390) — [`../plans/console-stop-error-reporting.md`](../plans/console-stop-error-reporting.md) |
+| `opt-compat-early` | Register incompatible option sets; fail before resolve when safe; guided tree | **Superseded** by method/base `check_options` + Options Error trees on [#390](https://github.com/ja11sop/cuppa/pull/390) — [`console-stop-error-reporting.md`](console-stop-error-reporting.md) |
 | `cascade-n-did-you-mean` | `--cascade` + `-n` → did you mean `--cascade-plan`? | Done — #366 |
 | `cascade-remedy-split` | Finish-line / node errors distinguish no-URL vs URL-needs-clone | Done — #366 |
 | `cascade-nest-rel` | Default nest `--rel`; opt-in `--cascade-variants` | Done — this PR |

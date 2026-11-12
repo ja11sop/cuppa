@@ -11,7 +11,7 @@
 
 Online consume HEADs the package file URL before reusing a cached archive.
 Identity is stored beside the archive after a successful download. See
-``design/plans/package-download-freshness.md``.
+``design/archive/package-download-freshness.md``.
 """
 
 from __future__ import annotations
