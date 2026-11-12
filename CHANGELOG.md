@@ -109,9 +109,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Under ``--terse-output`` with ``-Q`` (and compact terse without quiet),
   durable ``[ok]`` / ``[pass]`` lines no longer glue onto a live ``[....]``
-  heartbeat caption during ``--parallel``. Durable lines prefer the owned
-  progress TTY whenever that stream ``isatty()`` (even if
-  ``CUPPA_STDOUT_IS_TTY=0``), each write carries its own ``\\r``+erase prefix
+  heartbeat caption during ``--parallel``. On POSIX, durable lines prefer the
+  owned progress TTY whenever that stream ``isatty()`` (even if
+  ``CUPPA_STDOUT_IS_TTY=0``). On Windows, ``CONOUT$`` can ``isatty()`` while
+  CI only captures the pipe, so owned durable still needs
+  ``CUPPA_STDOUT_IS_TTY=1``. Each write carries its own ``\\r``+erase prefix
   so a desynced ``WRAP_OFF`` status row cannot append onto ``N/M · [ok]``, and
   the ``cuppa`` launcher erases the current row in the **same** ``write`` as
   each child pipe echo on a TTY (a separate erase write raced with sticky

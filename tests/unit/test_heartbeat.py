@@ -667,6 +667,8 @@ def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch
     progress stream instead.
     """
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    monkeypatch.setattr( hb.sys, 'platform', 'linux' )
+    monkeypatch.setattr( hb.os, 'name', 'posix' )
     stream = _TtyStringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -693,6 +695,41 @@ def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch
     assert '\r\x1b[K\x1b[?7h   3/  8' in text
     assert '[pass]' in text
     assert 'compiling' not in _status_body( stream ) or '[pass]' not in _status_body( stream )
+    hb.reset()
+
+
+def test_write_transcript_pipe_when_windows_conout_despite_tty( monkeypatch ):
+    """Windows ``CONOUT$`` may ``isatty`` under Actions; CI captures the pipe.
+
+    With ``CUPPA_STDOUT_IS_TTY=0``, durable lines must stay on stdout so
+    integration tests still see ``[ok]`` / mode banners. Owned durable on
+    Windows needs the outer TTY flag (interactive console).
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    monkeypatch.setattr( hb.sys, 'platform', 'win32' )
+    monkeypatch.setattr( hb.os, 'name', 'nt' )
+    stream = _TtyStringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    hb.show_info(
+            '[....] compiling · concepts.cpp → <working>/concepts.o',
+            sticky=True,
+            preserve_style=True,
+    )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert '[pass]' in pipe.getvalue()
+    assert '[pass]' not in stream.getvalue()
     hb.reset()
 
 

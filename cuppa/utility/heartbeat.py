@@ -795,6 +795,25 @@ def _stream_is_tty_unlocked():
         return False
 
 
+def _prefer_progress_tty_for_durable_unlocked():
+    """Whether durable lines may ride the progress stream despite a pipe flag.
+
+    On POSIX, a live ``/dev/tty`` progress stream still owns durable ``[ok]``
+    when ``CUPPA_STDOUT_IS_TTY=0`` (launcher pipe + sticky on the real TTY).
+
+    On Windows, ``CONOUT$`` can ``isatty()`` under Actions while pytest only
+    captures the process pipe. Preferring that console would hide terse
+    checkpoints and mode banners from CI. Owned durable on Windows therefore
+    requires the outer console flag (``CUPPA_STDOUT_IS_TTY=1``), which the
+    launcher sets when its own stdout is a TTY.
+    """
+    if not _stream_is_tty_unlocked():
+        return False
+    if sys.platform == 'win32' or os.name == 'nt':
+        return _outer_stdout_is_tty()
+    return True
+
+
 def _restore_sticky_after_transcript_unlocked():
     """Paint a preserved sticky caption immediately after a durable write.
 
@@ -814,14 +833,16 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     When a status row is armed on a real progress TTY (quiet diverting *or*
     compact terse ``operation_status`` / ``[....]``), clear that row and write
     on the heartbeat stream under the same locks so a pulse cannot repaint
-    between clear and the durable line (ECG shear). Prefer that owned stream
-    whenever it ``isatty()``, even if ``CUPPA_STDOUT_IS_TTY=0`` — sticky already
-    lives there, and sending ``[ok]`` on the launcher pipe lets the parent echo
-    append onto ``WRAP_OFF`` glyphs. Interactive ``StringIO`` tests still use
-    the owned path via the env flag (``isatty()`` is false on the double).
+    between clear and the durable line (ECG shear). On POSIX, prefer that
+    owned stream whenever it ``isatty()``, even if ``CUPPA_STDOUT_IS_TTY=0`` —
+    sticky already lives there, and sending ``[ok]`` on the launcher pipe lets
+    the parent echo append onto ``WRAP_OFF`` glyphs. On Windows, ``CONOUT$``
+    may ``isatty()`` while CI only captures the pipe, so owned durable needs
+    ``CUPPA_STDOUT_IS_TTY=1``. Interactive ``StringIO`` tests still use the
+    owned path via the env flag (``isatty()`` is false on the double).
 
-    Never dual-write TTY + pipe: owned when interactive or progress-tty;
-    otherwise pipe only (after clearing any status).
+    Never dual-write TTY + pipe: owned when interactive or (POSIX progress
+    tty); otherwise pipe only (after clearing any status).
 
     With ``keep_pending=True`` on the owned stream, a sticky in-progress
     caption is preserved across the clear and painted again immediately after
@@ -870,16 +891,19 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                 # Reports drop pending INFO even when the row is blank.
                 _pending = None
                 _pending_is_sticky = False
-            # Prefer the progress TTY for durable lines whenever that stream
-            # is a real TTY — even if ``CUPPA_STDOUT_IS_TTY=0``. Sticky already
-            # paints there; sending ``[ok]`` on the launcher pipe while the
-            # status row holds ``WRAP_OFF`` lets the parent echo append
-            # (``…concepts.o   3/8 · [pass]…``). Interactive StringIO tests
-            # use the owned path via the env flag (``isatty()`` is false).
+            # Prefer the progress TTY for durable lines when that stream is a
+            # trusted console — see ``_prefer_progress_tty_for_durable_unlocked``.
+            # Sticky already paints there; sending ``[ok]`` on the launcher pipe
+            # while the status row holds ``WRAP_OFF`` lets the parent echo append
+            # (``…concepts.o   3/8 · [pass]…``). Interactive StringIO tests use
+            # the owned path via the env flag (``isatty()`` is false).
             use_owned = bool(
                     _heartbeat_active
                     and _stream is not None
-                    and ( interactive or _stream_is_tty_unlocked() )
+                    and (
+                        interactive
+                        or _prefer_progress_tty_for_durable_unlocked()
+                    )
             )
             if use_owned:
                 try:
@@ -901,7 +925,8 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                         _restore_sticky_after_transcript_unlocked()
                     return
             pipe_needs_erase_prefix = bool(
-                    _heartbeat_active and _stream_is_tty_unlocked()
+                    _heartbeat_active
+                    and _prefer_progress_tty_for_durable_unlocked()
             )
         # True pipe-only path (no usable progress TTY write): durable on
         # stdout. Do not chase sticky back here — see docstring. Still erase
@@ -923,7 +948,9 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                     except Exception:
                         pass
                 if not pipe_needs_erase_prefix:
-                    pipe_needs_erase_prefix = bool( _stream_is_tty_unlocked() )
+                    pipe_needs_erase_prefix = bool(
+                            _prefer_progress_tty_for_durable_unlocked()
+                    )
         # Prefix so the launcher echo clears a WRAP_OFF sticky even when a
         # pulse repaints between our clear and the parent write.
         payload = (
