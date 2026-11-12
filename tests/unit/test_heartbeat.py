@@ -652,6 +652,50 @@ def test_write_transcript_pipe_only_when_launcher_piped( monkeypatch ):
     assert 'ninja: no work to do.' not in stream.getvalue()
 
 
+class _TtyStringIO( io.StringIO ):
+    """Progress-stream double that reports as a TTY (``StringIO`` does not)."""
+
+    def isatty( self ):
+        return True
+
+
+def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch ):
+    """``CUPPA_STDOUT_IS_TTY=0`` must not force the pipe when sticky is on a TTY.
+
+    Soak under the launcher pipe still opens ``/dev/tty`` for ``[....]``.
+    Durable ``[pass]`` on the pipe then glues onto that row; write on the
+    progress stream instead.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    stream = _TtyStringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    hb.show_info(
+            '[....] compiling · concepts.cpp → <working>/concepts.o',
+            sticky=True,
+            preserve_style=True,
+    )
+    assert 'compiling · concepts' in _status_body( stream )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    text = stream.getvalue()
+    assert '\r\x1b[K\x1b[?7h   3/  8' in text
+    assert '[pass]' in text
+    assert 'compiling' not in _status_body( stream ) or '[pass]' not in _status_body( stream )
+    hb.reset()
+
+
 def test_pipe_path_does_not_glue_sticky_before_launcher_echo( monkeypatch ):
     """Sticky chase-back must not paint before the launcher echoes the pipe.
 

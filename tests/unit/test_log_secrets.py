@@ -147,3 +147,40 @@ def test_a_glyph_the_console_cannot_encode_does_not_stop_the_transcript( monkeyp
     printed = "".join( out.parts )
     assert "BY TOOLCHAIN VARIANT" in printed
     assert "\u251c" not in printed
+
+
+class _TtyStdout( object ):
+    encoding = "utf-8"
+
+    def __init__( self ):
+        self.parts = []
+
+    def isatty( self ):
+        return True
+
+    def write( self, text ):
+        self.parts.append( text )
+
+    def flush( self ):
+        return None
+
+
+def test_launcher_erases_status_row_before_echoing_pipe_line( monkeypatch ):
+    """Parent echo must clear WRAP_OFF sticky before a durable child line."""
+    from cuppa.__main__ import _write_transcript
+
+    out = _TtyStdout()
+    monkeypatch.setattr( "cuppa.__main__.sys.stdout", out )
+    _write_transcript( "  3/8 · 46% [pass] test/funding · test\n" )
+    assert out.parts[0] == "\r\x1b[K\x1b[?7h"
+    assert out.parts[1] == "  3/8 · 46% [pass] test/funding · test\n"
+
+
+def test_launcher_skips_erase_when_child_already_prefixed( monkeypatch ):
+    from cuppa.__main__ import _write_transcript
+
+    out = _TtyStdout()
+    monkeypatch.setattr( "cuppa.__main__.sys.stdout", out )
+    line = "\r\x1b[K\x1b[?7h  1/2 · [ok] compile\n"
+    _write_transcript( line )
+    assert out.parts == [ line ]

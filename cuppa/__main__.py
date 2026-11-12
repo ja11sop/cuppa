@@ -53,12 +53,28 @@ class MaskSecrets(object):
         return message
 
 
+# VT100: erase status-row debris before echoing a child pipe line. The SCons
+# child paints sticky ``[....]`` on ``/dev/tty`` (WRAP_OFF); durable transcript
+# often still rides this pipe. Without a leading clear, the echo appends onto
+# the live caption (``…concepts.o   3/8 · [pass]…``) and truncates mid-token.
+_ERASE_EOL = '\x1b[K'
+_WRAP_ON = '\x1b[?7h'
+
+
 def _write_transcript( line ):
     """Copy one child line to this process.
 
     The child speaks UTF-8. This console may still be cp1252. A glyph it
     cannot encode must not end the transcript or kill the build.
+
+    When this console is a TTY, erase the current row first so a quiet/terse
+    heartbeat caption on the same device cannot glue onto the echoed line.
     """
+    try:
+        if sys.stdout.isatty() and not line.startswith( '\r' ):
+            sys.stdout.write( '\r' + _ERASE_EOL + _WRAP_ON )
+    except Exception:
+        pass
     try:
         sys.stdout.write( line )
         return
