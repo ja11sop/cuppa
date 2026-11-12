@@ -140,3 +140,130 @@ def test_tip_forward_args_keeps_deep_clean_with_clean():
     assert '-c' in forwarded
     assert '--deep-clean' in forwarded
     assert '--cascade' not in forwarded
+
+
+def test_boost_deep_clean_path_cleans_extract_b2( tmp_path, monkeypatch ):
+    """``--deep-clean`` path-Cleans extract ``b2``; ordinary ``-c`` keeps NoClean."""
+    from cuppa.dependencies.boost import boost_builder
+
+    boost_builder._scheduled_b2_deep_cleans.clear()
+    location = tmp_path / 'boost' / 'patched'
+    location.mkdir( parents=True )
+    ( location / 'b2' ).write_text( 'engine', encoding='utf-8' )
+
+    cleaned = []
+    executes = []
+
+    class _RecEnv( dict ):
+        def Clean( self, target, files ):
+            cleaned.append( ( target, files ) )
+
+        def Execute( self, action ):
+            executes.append( action )
+            return 0
+
+    class _Boost:
+        def local( self ):
+            return str( location )
+
+        def numeric_version( self ):
+            return 1.86
+
+        def defines( self ):
+            return []
+
+    class _Toolchain:
+        def name( self ):
+            return 'gcc15'
+
+        def abi_flag( self, env ):
+            return '-std=c++2c'
+
+        def toolset_name( self ):
+            return 'gcc'
+
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.boost_builder.cuppa.build_platform.name',
+            lambda: 'Linux',
+    )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.boost_builder.ensure_toolset_user_config_jam',
+            lambda path, toolchain: False,
+    )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.boost_builder.b2_clean_command',
+            lambda *args, **kwargs: [ str( location / 'b2' ), '--clean' ],
+    )
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.boost_builder.find_b2_build_dir_products',
+            lambda *args, **kwargs: [],
+    )
+
+    env = _RecEnv(
+            sconstruct_path='/proj/sconstruct',
+            job_count=1,
+            parallel=False,
+            toolchain=_Toolchain(),
+            terse_output=True,
+    )
+    installed = [ 'libboost_system.a' ]
+    boost_builder._register_boost_deep_clean(
+            env,
+            boost=_Boost(),
+            toolchain=_Toolchain(),
+            variant='release',
+            target_arch='x86_64',
+            linktype='static',
+            stage_dir='build.c++2c/gcc15/release/x86_64',
+            libraries=[ 'system' ],
+            verbose_build=False,
+            verbose_config=False,
+            installed=installed,
+            built_libraries=None,
+    )
+    b2_path = str( location / 'b2' )
+    assert any(
+            target is installed and files == b2_path
+            for target, files in cleaned
+    )
+
+    # Sticky heartbeat wraps the quiet Popen; config dump stays filtered unless verbose.
+    alive = []
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _capture_alive( message ):
+        alive.append( message )
+        yield
+
+    monkeypatch.setattr(
+            'cuppa.utility.heartbeat.operation_status',
+            _capture_alive,
+    )
+    popen_kwargs = []
+
+    def _fake_popen( *args, **kwargs ):
+        popen_kwargs.append( kwargs )
+        return 0
+
+    monkeypatch.setattr(
+            'cuppa.dependencies.boost.boost_builder.IncrementalSubProcess.Popen',
+            _fake_popen,
+    )
+    monkeypatch.setattr(
+            'cuppa.progress.write_terse_launch',
+            lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+            'cuppa.progress.write_terse_delegate_close',
+            lambda *args, **kwargs: None,
+    )
+    assert len( executes ) == 1
+    action = executes[0]
+    assert action.execfunction( [], [], env ) == 0
+    assert len( alive ) == 1
+    assert alive[0].startswith( 'cleaning-b2 ·' )
+    assert '--clean' in alive[0]
+    assert len( popen_kwargs ) == 1
+    assert popen_kwargs[0].get( 'keep_heartbeat' ) is True
+    boost_builder._scheduled_b2_deep_cleans.clear()

@@ -445,7 +445,9 @@ class BoostLibraryBuilder(object):
                 kind=cuppa.progress.location_source_kind( loc ),
         )
         cuppa.progress.label_terse_action( b2, "build-b2", paths="product", shared=True )
-        env.NoClean( b2 )  # follow-up: ordinary -c should remove this (deep-clean.md)
+        # Keep extract ``b2`` on ordinary ``-c`` (bootstrap once). ``--deep-clean``
+        # path-Cleans it after cooperative ``b2 --clean`` (see ``_register_boost_deep_clean``).
+        env.NoClean( b2 )
 
         if built_libraries:
 
@@ -531,7 +533,11 @@ def _register_boost_deep_clean(
         installed,
         built_libraries,
 ):
-    """Path-Clean ``bin.*`` products and schedule cooperative ``b2 --clean`` once."""
+    """Path-Clean ``bin.*`` + extract ``b2``, and schedule cooperative ``b2 --clean`` once.
+
+    Ordinary ``-c`` keeps extract ``b2`` (``NoClean``). Deep-clean removes it via
+    ``env.Clean`` after the cooperative run can still use the binary.
+    """
     location = boost.local()
     abi_flag = toolchain.abi_flag( env )
     abi_dir = directory_from_abi_flag( abi_flag )
@@ -544,6 +550,14 @@ def _register_boost_deep_clean(
             env.Clean( installed, bin_products )
             if built_libraries:
                 env.Clean( built_libraries, bin_products )
+
+    # Always path-Clean extract ``b2`` under deep-clean (even if cooperative
+    # clean cannot run). ``NoClean`` on the build-b2 node only protects that
+    # node as a clean target; CleanTargets still delete this path.
+    b2_path = b2_exe( boost.numeric_version(), location )
+    env.Clean( installed, b2_path )
+    if built_libraries:
+        env.Clean( built_libraries, b2_path )
 
     if not libraries:
         return
@@ -561,11 +575,10 @@ def _register_boost_deep_clean(
         return
     _scheduled_b2_deep_cleans.add( clean_key )
 
-    b2_path = b2_exe( boost.numeric_version(), location )
     if not os.path.isfile( b2_path ):
         logger.warn(
                 "Deep-clean: Boost.Build binary [{}] missing; "
-                "path Clean for bin products only".format( b2_path )
+                "path Clean for bin products and b2 only".format( b2_path )
         )
         return
 
@@ -632,7 +645,16 @@ def _register_boost_deep_clean(
         )
         terse = bool( env.get( 'terse_output' ) )
         # Always suppress IncrementalSubProcess argv echo — Action cmdstr / terse launch
-        # own the one-line announcement; B2OutputProcessor filters config-check flood.
+        # own the one-line announcement. Config/component dump stays filtered unless
+        # ``--boost-verbose-config`` (and build lines unless ``--boost-verbose-build``);
+        # failures still suggest ``--boost-verbose-build``.
+        # Sticky heartbeat fills the quiet Popen span (terse and ``-Q``); normal
+        # non-quiet without a status row is a no-op from ``operation_status``.
+        from cuppa.utility.heartbeat import operation_status
+        alive = "{} · {}".format(
+                cuppa.progress.progressive_terse_action( _action ),
+                _summary,
+        )
         if terse:
             cuppa.progress.write_terse_launch(
                     _action,
@@ -648,12 +670,17 @@ def _register_boost_deep_clean(
                     cuppa.progress.write_terse_muted_child( rendered, _env )
                 return None
 
-            returncode = IncrementalSubProcess.Popen(
-                    muted_line,
-                    _args,
-                    cwd=_cwd,
-                    suppress_output=True,
-            )
+            with operation_status( alive ):
+                # ``keep_heartbeat``: default Popen suppresses the status row for
+                # the whole spawn (avoids shear onto tool lines). Here the sticky
+                # ``cleaning-b2`` caption *is* the progress — do not blank it.
+                returncode = IncrementalSubProcess.Popen(
+                        muted_line,
+                        _args,
+                        cwd=_cwd,
+                        suppress_output=True,
+                        keep_heartbeat=True,
+                )
             tool_summary = processor.summary( returncode )
             if tool_summary and returncode:
                 print( tool_summary )
@@ -668,12 +695,14 @@ def _register_boost_deep_clean(
                     command=_cmd if returncode else None,
             )
         else:
-            returncode = IncrementalSubProcess.Popen(
-                    processor,
-                    _args,
-                    cwd=_cwd,
-                    suppress_output=True,
-            )
+            with operation_status( alive ):
+                returncode = IncrementalSubProcess.Popen(
+                        processor,
+                        _args,
+                        cwd=_cwd,
+                        suppress_output=True,
+                        keep_heartbeat=True,
+                )
             tool_summary = processor.summary( returncode )
             if tool_summary:
                 print( tool_summary )
