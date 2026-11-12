@@ -816,6 +816,7 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     after a finish hook when outstanding jobs remain).
     """
     global _pending, _pending_is_sticky
+    global _wrap_disabled, _wrap_off_sent, _last_line, _last_emit
     if dwell and status_row_active():
         ensure_min_dwell()
     try:
@@ -853,8 +854,19 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                     and _stream is not None
             ):
                 try:
-                    _stream.write( text )
+                    # One write: erase + durable. A prior clear can "succeed" in
+                    # state while the TTY erase fails (or was skipped when
+                    # ``_last_line``/``_body`` looked empty). Left alone, that
+                    # keeps ``WRAP_OFF`` and the sticky glyphs; the durable
+                    # line then appends (``…o 164/260 · [pass]…``) and the
+                    # terminal truncates mid-token. Prefixing ``\r``+erase here
+                    # makes the durable line replace the row even then.
+                    _stream.write( '\r' + _ERASE_EOL + _WRAP_ON + text )
                     _stream.flush()
+                    _wrap_disabled = False
+                    _wrap_off_sent = False
+                    _last_line = ''
+                    _last_emit = 0.0
                 except Exception:
                     pass
                 else:
@@ -863,6 +875,24 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                     return
         # Piped launcher (or owned-stream write failed): durable on the pipe
         # only. Do not chase sticky back here — see docstring.
+        # Still erase the status row first when it is armed — the launcher
+        # echo lands on the same TTY; a live ``WRAP_OFF`` sticky would glue.
+        if _heartbeat_active and _stream is not None:
+            with _draw_lock:
+                if _last_line or _body is not None:
+                    _clear_unlocked(
+                            advance=False,
+                            keep_pending=keep_pending,
+                            preserve_spin=False,
+                    )
+                else:
+                    try:
+                        _stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
+                        _stream.flush()
+                        _wrap_disabled = False
+                        _wrap_off_sent = False
+                    except Exception:
+                        pass
         sys.stdout.write( text )
         try:
             sys.stdout.flush()

@@ -704,6 +704,69 @@ def test_pipe_path_does_not_glue_sticky_before_launcher_echo( monkeypatch ):
     hb.reset()
 
 
+def test_durable_replaces_sticky_when_state_cleared_without_erase( monkeypatch ):
+    """Desynced state (blank bookkeeping, sticky still on the TTY) must not glue.
+
+    Soak under ``--terse-output -Q --parallel`` showed
+    ``|---------| … compiling …o 164/260 · [pass]…`` when a clear updated
+    ``_last_line``/``_body`` without a successful TTY erase (``WRAP_OFF`` left
+    on). The durable write must carry its own ``\\r``+erase prefix.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    import cuppa.utility.heartbeat as heartbeat_module
+
+    hb.show_info(
+            '[....] compiling · accept_orders.cpp → <working>/accept_orders.o',
+            sticky=True,
+            preserve_style=True,
+    )
+    assert 'compiling · accept_orders' in _status_body( stream )
+    # Simulate a clear that dropped bookkeeping without erasing the row.
+    hb._last_line = ''
+    hb._body = None
+    hb._sticky = False
+    hb._pending = '[....] compiling · accept_orders.cpp → <working>/accept_orders.o'
+    hb._pending_is_sticky = True
+    hb._wrap_disabled = True
+    hb._wrap_off_sent = True
+
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                ' 164/260 ·  46% [pass] test/order_management · test · <final>/time_to_live\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    text = stream.getvalue()
+    # Durable must be preceded by CR+erase so it replaces the sticky row.
+    assert '\r\x1b[K\x1b[?7h 164/260' in text
+    # No append glue: compiling … then [pass] on the same CR-free span.
+    glued = False
+    index = 0
+    while True:
+        found = text.find( 'compiling', index )
+        if found < 0:
+            break
+        passed = text.find( '[pass]', found )
+        if (
+                passed > found
+                and '\n' not in text[found:passed]
+                and '\r' not in text[found:passed]
+        ):
+            glued = True
+            break
+        index = found + 1
+    assert not glued, text[-500:]
+    hb.reset()
+
+
 def test_resolve_cuppa_stdout_is_tty_preserves_inherited():
     assert resolve_cuppa_stdout_is_tty(
             environ={ 'CUPPA_STDOUT_IS_TTY': '1' },
