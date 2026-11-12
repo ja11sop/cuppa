@@ -2795,10 +2795,10 @@ def write_terse_stopped_action(
             # Wall time is for completed work; a stop has no done duration.
             duration="",
     )
+    refresh_terse_executing()
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
     note_terse_status_emitted()
-    refresh_terse_executing()
 
 
 def stash_terse_command( cmd, target, source, env ):
@@ -3434,11 +3434,11 @@ def write_terse_launch( action, summary, env, command=None, target=None ):
         _terse_launch.command = command
     line = format_terse_launch( action, summary, env, target=target )
     note_terse_build_activity()
+    # Other outstanding jobs before the durable ``[launch]`` so chase-back
+    # keeps their caption, not the stash-time ``[....]`` we just dropped.
+    refresh_terse_executing( advance=False )
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
-    # Repaint another outstanding job (or clear the parallel bridge) after the
-    # durable ``[launch]`` line owns the transcript row.
-    refresh_terse_executing( advance=False )
 
 
 def write_terse_delegate_close(
@@ -3460,11 +3460,11 @@ def write_terse_delegate_close(
             action, summary, env, status=status, target=target,
     )
     note_terse_build_activity()
+    refresh_terse_executing( advance=False )
     _write_terse_stdout( line + "\n" )
     sys.stdout.flush()
     take_terse_launch()
     note_terse_execute_closed()
-    refresh_terse_executing( advance=False )
 
 
 def format_terse_muted_child( text, env ):
@@ -3623,9 +3623,8 @@ def flush_unconsumed_terse_command():
         return
     if cmd:
         end_terse_executing()
-    _write_command( cmd )
-    if cmd:
         refresh_terse_executing()
+    _write_command( cmd )
 
 def _factory_args( body ):
     """Arguments of a ``Copy("dest", "src")`` style command."""
@@ -4643,6 +4642,7 @@ def write_terse_transfer_action(
         closes_parent = bool( closes_parent )
     if closes_parent:
         end_terse_executing()
+        refresh_terse_executing()
     holder = type( "T", (), {} )()
     holder.path = dest
     attributes = type( "A", (), {} )()
@@ -4661,7 +4661,6 @@ def write_terse_transfer_action(
     sys.stdout.flush()
     if closes_parent:
         note_terse_status_emitted()
-        refresh_terse_executing()
     elif not count:
         note_terse_nested_action()
     return True
@@ -4926,9 +4925,12 @@ def _report_python_action( target, source, env, failed ):
         elif command and not _is_python_action_dump( command ):
             _write_command( command )
     note_terse_build_activity()
+    # Repaint outstanding *before* the durable line so write_transcript's
+    # sticky chase-back restores the next in-flight caption (not the job that
+    # just ended). Pipe-path chase is deferred further inside write_line.
+    refresh_terse_executing()
     _write_terse_stdout( status_line + "\n" )
     sys.stdout.flush()
-    refresh_terse_executing()
     if severity == "error":
         note_build_failure_draining()
 

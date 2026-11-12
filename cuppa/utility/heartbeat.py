@@ -780,6 +780,40 @@ def finish_at_exit():
 atexit.register( finish_at_exit )
 
 
+def _stream_is_tty_unlocked():
+    """Whether the heartbeat progress stream is a real TTY.
+
+    ``StringIO`` test doubles return false (use ``CUPPA_STDOUT_IS_TTY`` for the
+    owned path in those tests). A live ``/dev/tty`` progress stream returns
+    true even when the launcher set ``CUPPA_STDOUT_IS_TTY=0``.
+    """
+    if _stream is None:
+        return False
+    try:
+        return bool( _stream.isatty() )
+    except Exception:
+        return False
+
+
+def _prefer_progress_tty_for_durable_unlocked():
+    """Whether durable lines may ride the progress stream despite a pipe flag.
+
+    On POSIX, a live ``/dev/tty`` progress stream still owns durable ``[ok]``
+    when ``CUPPA_STDOUT_IS_TTY=0`` (launcher pipe + sticky on the real TTY).
+
+    On Windows, ``CONOUT$`` can ``isatty()`` under Actions while pytest only
+    captures the process pipe. Preferring that console would hide terse
+    checkpoints and mode banners from CI. Owned durable on Windows therefore
+    requires the outer console flag (``CUPPA_STDOUT_IS_TTY=1``), which the
+    launcher sets when its own stdout is a TTY.
+    """
+    if not _stream_is_tty_unlocked():
+        return False
+    if sys.platform == 'win32' or os.name == 'nt':
+        return _outer_stdout_is_tty()
+    return True
+
+
 def _restore_sticky_after_transcript_unlocked():
     """Paint a preserved sticky caption immediately after a durable write.
 
@@ -796,24 +830,37 @@ def _restore_sticky_after_transcript_unlocked():
 def write_line( text, *, dwell=False, keep_pending=False ):
     """Durable console line — one owner for transcript and console reports.
 
-    Under quiet diverting on an interactive console, clear the status row and
-    write on the heartbeat stream under the same locks so a pulse cannot
-    repaint between clear and the durable line (ECG shear). Never dual-write
-    TTY + pipe: interactive → owned stream only; CI / piped launcher → pipe
-    only (after clearing any status).
+    When a status row is armed on a real progress TTY (quiet diverting *or*
+    compact terse ``operation_status`` / ``[....]``), clear that row and write
+    on the heartbeat stream under the same locks so a pulse cannot repaint
+    between clear and the durable line (ECG shear). On POSIX, prefer that
+    owned stream whenever it ``isatty()``, even if ``CUPPA_STDOUT_IS_TTY=0`` —
+    sticky already lives there, and sending ``[ok]`` on the launcher pipe lets
+    the parent echo append onto ``WRAP_OFF`` glyphs. On Windows, ``CONOUT$``
+    may ``isatty()`` while CI only captures the pipe, so owned durable needs
+    ``CUPPA_STDOUT_IS_TTY=1``. Interactive ``StringIO`` tests still use the
+    owned path via the env flag (``isatty()`` is false on the double).
 
-    When not diverting, write ``sys.stdout`` after clearing any armed status
-    row (compact terse ``operation_status`` shares that row) and any active
-    ProgressReporter so rows cannot glue.
+    Never dual-write TTY + pipe: owned when interactive or (POSIX progress
+    tty); otherwise pipe only (after clearing any status).
 
-    With ``keep_pending=True``, a sticky in-progress caption is preserved across
-    the clear and painted again immediately after the durable line so armed
-    ``[....]`` jobs chase back onto the status row while fast ``[ok]`` lines
-    scroll the transcript (they must not wait on the idle gate). That chase
-    also keeps the ECG / spinner phase (``_spin``) so consecutive heartbeat
-    lines continue the animation instead of restarting at rest.
+    With ``keep_pending=True`` on the owned stream, a sticky in-progress
+    caption is preserved across the clear and painted again immediately after
+    the durable line so armed ``[....]`` jobs chase back while fast ``[ok]``
+    lines scroll. That chase also keeps the ECG / spinner phase (``_spin``).
+
+    On the true pipe-only path, do **not** restore sticky immediately after
+    the durable write: the launcher echoes the pipe onto the same TTY the
+    status row uses, so a chase-back paint before that echo glues
+    ``[....] compiling …`` onto ``N/M · [ok]``. Sticky pending waits on the
+    transcript idle gate instead (``refresh_terse_executing`` still repaints
+    after a finish hook when outstanding jobs remain). Pipe payloads that may
+    still share a console with a progress TTY carry a ``\\r``+erase+wrap-on
+    prefix so the launcher echo clears the status row even if a pulse repaints
+    between clear and echo.
     """
     global _pending, _pending_is_sticky
+    global _wrap_disabled, _wrap_off_sent, _last_line, _last_emit
     if dwell and status_row_active():
         ensure_min_dwell()
     try:
@@ -823,6 +870,7 @@ def write_line( text, *, dwell=False, keep_pending=False ):
         pass
     with _transcript_lock:
         interactive = _outer_stdout_is_tty()
+        pipe_needs_erase_prefix = False
         with _draw_lock:
             _mark_transcript_unlocked()
             if _last_line or _body is not None:
@@ -843,32 +891,81 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                 # Reports drop pending INFO even when the row is blank.
                 _pending = None
                 _pending_is_sticky = False
-            # Quiet diverting + interactive: durable line on the owned TTY.
-            if (
-                    diverting()
-                    and interactive
-                    and _heartbeat_active
+            # Prefer the progress TTY for durable lines when that stream is a
+            # trusted console — see ``_prefer_progress_tty_for_durable_unlocked``.
+            # Sticky already paints there; sending ``[ok]`` on the launcher pipe
+            # while the status row holds ``WRAP_OFF`` lets the parent echo append
+            # (``…concepts.o   3/8 · [pass]…``). Interactive StringIO tests use
+            # the owned path via the env flag (``isatty()`` is false).
+            use_owned = bool(
+                    _heartbeat_active
                     and _stream is not None
-            ):
+                    and (
+                        interactive
+                        or _prefer_progress_tty_for_durable_unlocked()
+                    )
+            )
+            if use_owned:
                 try:
-                    _stream.write( text )
+                    # One write: erase + durable. A prior clear can "succeed" in
+                    # state while the TTY erase fails (or was skipped when
+                    # ``_last_line``/``_body`` looked empty). Left alone, that
+                    # keeps ``WRAP_OFF`` and the sticky glyphs; the durable
+                    # line then appends and the terminal truncates mid-token.
+                    _stream.write( '\r' + _ERASE_EOL + _WRAP_ON + text )
                     _stream.flush()
+                    _wrap_disabled = False
+                    _wrap_off_sent = False
+                    _last_line = ''
+                    _last_emit = 0.0
                 except Exception:
                     pass
                 else:
                     if keep_pending:
                         _restore_sticky_after_transcript_unlocked()
                     return
-        # Non-diverting (incl. compact terse status row) or piped launcher,
-        # or diverting write failed: durable line on the pipe / stdout only.
-        sys.stdout.write( text )
+            pipe_needs_erase_prefix = bool(
+                    _heartbeat_active
+                    and _prefer_progress_tty_for_durable_unlocked()
+            )
+        # True pipe-only path (no usable progress TTY write): durable on
+        # stdout. Do not chase sticky back here — see docstring. Still erase
+        # any armed row before the launcher can echo onto it.
+        if _heartbeat_active and _stream is not None:
+            with _draw_lock:
+                if _last_line or _body is not None:
+                    _clear_unlocked(
+                            advance=False,
+                            keep_pending=keep_pending,
+                            preserve_spin=False,
+                    )
+                else:
+                    try:
+                        _stream.write( '\r' + _ERASE_EOL + _WRAP_ON )
+                        _stream.flush()
+                        _wrap_disabled = False
+                        _wrap_off_sent = False
+                    except Exception:
+                        pass
+                if not pipe_needs_erase_prefix:
+                    pipe_needs_erase_prefix = bool(
+                            _prefer_progress_tty_for_durable_unlocked()
+                    )
+        # Prefix so the launcher echo clears a WRAP_OFF sticky even when a
+        # pulse repaints between our clear and the parent write.
+        payload = (
+                ( '\r' + _ERASE_EOL + _WRAP_ON + text )
+                if pipe_needs_erase_prefix else text
+        )
+        sys.stdout.write( payload )
         try:
             sys.stdout.flush()
         except Exception:
             pass
         if keep_pending:
             with _draw_lock:
-                _restore_sticky_after_transcript_unlocked()
+                if _pending is not None and _pending_is_sticky:
+                    _arm_idle_flush_unlocked()
 
 
 def write_transcript( text, *, dwell=True ):

@@ -599,6 +599,39 @@ def test_write_transcript_owned_stream_when_interactive( monkeypatch ):
     assert 'Updating [libfoo]' not in _status_body( stream )
 
 
+def test_write_transcript_owned_stream_for_terse_status_row( monkeypatch ):
+    """Compact terse arms the status row without quiet diverting — still owned."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    import cuppa.utility.heartbeat as heartbeat_module
+
+    hb.set_presentation( style='pulse', compact=True )
+    monkeypatch.setattr(
+            hb, 'open_progress_stream',
+            lambda: ( stream, True, False ),
+    )
+    monkeypatch.setattr( hb, '_clock', clock )
+    monkeypatch.setattr( hb, '_columns', 120 )
+    assert hb.ensure_status_row() is True
+    assert hb.diverting() is False
+    assert hb.status_row_active() is True
+
+    hb.show_info( '[....] compiling · big.cpp', sticky=True, preserve_style=True )
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript( '  1/2 · 50% [ok]   · compile · big.cpp\n' )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    assert '[ok]' in stream.getvalue()
+    assert 'compiling · big.cpp' in _status_body( stream )
+    hb.reset()
+
+
 def test_write_transcript_pipe_only_when_launcher_piped( monkeypatch ):
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
     stream = io.StringIO()
@@ -617,6 +650,202 @@ def test_write_transcript_pipe_only_when_launcher_piped( monkeypatch ):
 
     assert pipe.getvalue() == '              → ninja: no work to do.\n'
     assert 'ninja: no work to do.' not in stream.getvalue()
+
+
+class _TtyStringIO( io.StringIO ):
+    """Progress-stream double that reports as a TTY (``StringIO`` does not)."""
+
+    def isatty( self ):
+        return True
+
+
+def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch ):
+    """``CUPPA_STDOUT_IS_TTY=0`` must not force the pipe when sticky is on a TTY.
+
+    Soak under the launcher pipe still opens ``/dev/tty`` for ``[....]``.
+    Durable ``[pass]`` on the pipe then glues onto that row; write on the
+    progress stream instead.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    monkeypatch.setattr( hb.sys, 'platform', 'linux' )
+    monkeypatch.setattr( hb.os, 'name', 'posix' )
+    stream = _TtyStringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    hb.show_info(
+            '[....] compiling · concepts.cpp → <working>/concepts.o',
+            sticky=True,
+            preserve_style=True,
+    )
+    assert 'compiling · concepts' in _status_body( stream )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    text = stream.getvalue()
+    assert '\r\x1b[K\x1b[?7h   3/  8' in text
+    assert '[pass]' in text
+    assert 'compiling' not in _status_body( stream ) or '[pass]' not in _status_body( stream )
+    hb.reset()
+
+
+def test_write_transcript_pipe_when_windows_conout_despite_tty( monkeypatch ):
+    """Windows ``CONOUT$`` may ``isatty`` under Actions; CI captures the pipe.
+
+    With ``CUPPA_STDOUT_IS_TTY=0``, durable lines must stay on stdout so
+    integration tests still see ``[ok]`` / mode banners. Owned durable on
+    Windows needs the outer TTY flag (interactive console).
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    monkeypatch.setattr( hb.sys, 'platform', 'win32' )
+    monkeypatch.setattr( hb.os, 'name', 'nt' )
+    stream = _TtyStringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    hb.show_info(
+            '[....] compiling · concepts.cpp → <working>/concepts.o',
+            sticky=True,
+            preserve_style=True,
+    )
+
+    import cuppa.utility.heartbeat as heartbeat_module
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert '[pass]' in pipe.getvalue()
+    assert '[pass]' not in stream.getvalue()
+    hb.reset()
+
+
+def test_pipe_path_does_not_glue_sticky_before_launcher_echo( monkeypatch ):
+    """Sticky chase-back must not paint before the launcher echoes the pipe.
+
+    ``CUPPA_STDOUT_IS_TTY=0`` clears on ``/dev/tty`` then writes durable lines
+    to the stdout pipe. Immediate sticky restore on the TTY lets the parent
+    echo glue ``[....] compiling …`` onto ``N/M · [ok]``.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    stream = io.StringIO()
+    clock = FakeClock( start=1000.0 )
+    _configure( stream, clock )
+    import cuppa.utility.heartbeat as heartbeat_module
+
+    hb.show_info(
+            '[....] compiling · account_removed.cpp → <working>/account_removed.o',
+            sticky=True,
+            preserve_style=True,
+    )
+    assert 'compiling · account_removed' in _status_body( stream )
+
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                '  63/164 ·   4% [pass] test/account_management · test · <final>/x\n'
+        )
+        # Simulate the cuppa launcher echoing the pipe onto the same TTY.
+        stream.write( pipe.getvalue() )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    text = stream.getvalue()
+    # After clear + pipe echo, the status row must not still hold compiling
+    # on the same visual line as [pass] (no sticky restore before echo).
+    assert 'compiling' not in _status_body( stream ) or '[pass]' not in _status_body( stream )
+    glued = False
+    index = 0
+    while True:
+        found = text.find( 'compiling', index )
+        if found < 0:
+            break
+        passed = text.find( '[pass]', found )
+        if passed > found and '\n' not in text[found:passed] and '\r' not in text[found:passed]:
+            glued = True
+            break
+        index = found + 1
+    assert not glued, text[-400:]
+    assert '[pass]' in pipe.getvalue()
+    hb.reset()
+
+
+def test_durable_replaces_sticky_when_state_cleared_without_erase( monkeypatch ):
+    """Desynced state (blank bookkeeping, sticky still on the TTY) must not glue.
+
+    Soak under ``--terse-output -Q --parallel`` showed
+    ``|---------| … compiling …o 164/260 · [pass]…`` when a clear updated
+    ``_last_line``/``_body`` without a successful TTY erase (``WRAP_OFF`` left
+    on). The durable write must carry its own ``\\r``+erase prefix.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
+    stream = io.StringIO()
+    clock = FakeClock()
+    _configure( stream, clock )
+    import cuppa.utility.heartbeat as heartbeat_module
+
+    hb.show_info(
+            '[....] compiling · accept_orders.cpp → <working>/accept_orders.o',
+            sticky=True,
+            preserve_style=True,
+    )
+    assert 'compiling · accept_orders' in _status_body( stream )
+    # Simulate a clear that dropped bookkeeping without erasing the row.
+    hb._last_line = ''
+    hb._body = None
+    hb._sticky = False
+    hb._pending = '[....] compiling · accept_orders.cpp → <working>/accept_orders.o'
+    hb._pending_is_sticky = True
+    hb._wrap_disabled = True
+    hb._wrap_off_sent = True
+
+    pipe = io.StringIO()
+    real = heartbeat_module.sys.stdout
+    heartbeat_module.sys.stdout = pipe
+    try:
+        hb.write_transcript(
+                ' 164/260 ·  46% [pass] test/order_management · test · <final>/time_to_live\n'
+        )
+    finally:
+        heartbeat_module.sys.stdout = real
+
+    assert pipe.getvalue() == ''
+    text = stream.getvalue()
+    # Durable must be preceded by CR+erase so it replaces the sticky row.
+    assert '\r\x1b[K\x1b[?7h 164/260' in text
+    # No append glue: compiling … then [pass] on the same CR-free span.
+    glued = False
+    index = 0
+    while True:
+        found = text.find( 'compiling', index )
+        if found < 0:
+            break
+        passed = text.find( '[pass]', found )
+        if (
+                passed > found
+                and '\n' not in text[found:passed]
+                and '\r' not in text[found:passed]
+        ):
+            glued = True
+            break
+        index = found + 1
+    assert not glued, text[-500:]
+    hb.reset()
 
 
 def test_resolve_cuppa_stdout_is_tty_preserves_inherited():

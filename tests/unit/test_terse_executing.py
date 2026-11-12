@@ -212,8 +212,10 @@ def test_wrapped_execute_copy_does_not_leak_outstanding( monkeypatch, capsys ):
 
     # Nested copies finished — only the parent compile may remain in-flight.
     assert list( progress._outstanding.keys() ) == [ parent_key ]  # noqa: SLF001
-    out = capsys.readouterr().out
+    # Interactive + armed status row: durable lines ride the owned stream.
+    out = strip_ansi( stream.getvalue() )
     assert out.count( " · copy · " ) == 2
+    assert capsys.readouterr().out == ""
 
     progress.end_terse_executing( parent_key )
     progress.refresh_terse_executing()
@@ -248,8 +250,9 @@ def test_closes_parent_transfer_ends_packaging_outstanding( monkeypatch, capsys 
     assert list( progress._outstanding ) == []  # noqa: SLF001
     assert list( progress._pending_outstanding ) == []  # noqa: SLF001
     assert progress.take_terse_status_emitted() is True
-    out = strip_ansi( capsys.readouterr().out )
+    out = strip_ansi( stream.getvalue() )
     assert "· compress ·" in out
+    assert capsys.readouterr().out == ""
 
 
 def test_counted_transfer_can_leave_parent_outstanding( monkeypatch, capsys ):
@@ -279,8 +282,9 @@ def test_counted_transfer_can_leave_parent_outstanding( monkeypatch, capsys ):
     )
     assert list( progress._outstanding.keys() ) == [ key ]  # noqa: SLF001
     assert progress.take_terse_status_emitted() is False
-    out = strip_ansi( capsys.readouterr().out )
+    out = strip_ansi( stream.getvalue() )
     assert "· compress ·" in out
+    assert capsys.readouterr().out == ""
 
     progress.end_terse_executing( key )
     progress.refresh_terse_executing()
@@ -420,14 +424,17 @@ def test_interrupt_drain_skips_progress_keeps_stopped_chrome( monkeypatch, capsy
     progress.write_terse_stopped_action(
             "g++ -c order.cpp", [ "order.o" ], [ "order.cpp" ], env,
     )
-    stopped = strip_ansi( capsys.readouterr().out )
+    stopped = strip_ansi( stream.getvalue() )
     assert "[stopped]" in stopped
     assert " · compiling · " in stopped
     assert "[interrupted]" not in stopped
+    assert capsys.readouterr().out == ""
 
+    stream.seek( 0 )
+    stream.truncate( 0 )
     progress.write_terse_interrupt_finish()
-    closed = strip_ansi( capsys.readouterr().out )
-    assert closed.startswith( "stopped in-flight actions" )
+    closed = strip_ansi( stream.getvalue() )
+    assert "stopped in-flight actions" in closed
     assert "[interrupted]" in closed
 
 
