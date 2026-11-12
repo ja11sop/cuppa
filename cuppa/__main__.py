@@ -61,30 +61,44 @@ _ERASE_EOL = '\x1b[K'
 _WRAP_ON = '\x1b[?7h'
 
 
+def _launcher_echo_payload( line ):
+    """One TTY write: optional status-row erase + the child line.
+
+    Erase and content must be a single ``write``. A separate erase write leaves
+    a window where the SCons child can repaint sticky ``[....]`` on
+    ``/dev/tty`` (WRAP_OFF) before this process echoes; the following content
+    then appends onto that caption and ``\\n`` commits a truncated sticky row
+    into scrollback instead of overwriting it.
+    """
+    try:
+        if sys.stdout.isatty() and not line.startswith( '\r' ):
+            return '\r' + _ERASE_EOL + _WRAP_ON + line
+    except Exception:
+        pass
+    return line
+
+
 def _write_transcript( line ):
     """Copy one child line to this process.
 
     The child speaks UTF-8. This console may still be cp1252. A glyph it
     cannot encode must not end the transcript or kill the build.
 
-    When this console is a TTY, erase the current row first so a quiet/terse
-    heartbeat caption on the same device cannot glue onto the echoed line.
+    When this console is a TTY, erase the current row in the same write as the
+    echoed line so a quiet/terse heartbeat caption on the same device cannot
+    glue onto the echo.
     """
+    payload = _launcher_echo_payload( line )
     try:
-        if sys.stdout.isatty() and not line.startswith( '\r' ):
-            sys.stdout.write( '\r' + _ERASE_EOL + _WRAP_ON )
-    except Exception:
-        pass
-    try:
-        sys.stdout.write( line )
+        sys.stdout.write( payload )
         return
     except UnicodeEncodeError:
         pass
     encoding = getattr( sys.stdout, "encoding", None ) or "ascii"
     try:
-        safe = line.encode( encoding, errors="replace" ).decode( encoding, errors="replace" )
+        safe = payload.encode( encoding, errors="replace" ).decode( encoding, errors="replace" )
     except LookupError:
-        safe = line.encode( "ascii", errors="replace" ).decode( "ascii" )
+        safe = payload.encode( "ascii", errors="replace" ).decode( "ascii" )
     sys.stdout.write( safe )
 
 

@@ -166,14 +166,19 @@ class _TtyStdout( object ):
 
 
 def test_launcher_erases_status_row_before_echoing_pipe_line( monkeypatch ):
-    """Parent echo must clear WRAP_OFF sticky before a durable child line."""
+    """Parent echo must clear WRAP_OFF sticky in the same write as the line.
+
+    Two writes (erase, then content) let the child repaint sticky ``[....]`` on
+    ``/dev/tty`` between them; content then appends under ``WRAP_OFF`` and the
+    truncated caption stays in scrollback instead of being overwritten.
+    """
     from cuppa.__main__ import _write_transcript
 
     out = _TtyStdout()
     monkeypatch.setattr( "cuppa.__main__.sys.stdout", out )
-    _write_transcript( "  3/8 · 46% [pass] test/funding · test\n" )
-    assert out.parts[0] == "\r\x1b[K\x1b[?7h"
-    assert out.parts[1] == "  3/8 · 46% [pass] test/funding · test\n"
+    line = "  3/8 · 46% [pass] test/funding · test\n"
+    _write_transcript( line )
+    assert out.parts == [ "\r\x1b[K\x1b[?7h" + line ]
 
 
 def test_launcher_skips_erase_when_child_already_prefixed( monkeypatch ):
