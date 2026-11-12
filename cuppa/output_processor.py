@@ -474,7 +474,7 @@ class SpawnedProcessor(object):
             return
 
         command, target, source, env = take_terse_command()
-        for line in render_terse_spawn(
+        lines = list( render_terse_spawn(
                 returncode,
                 self._processor.errors,
                 self._processor.warnings,
@@ -484,9 +484,12 @@ class SpawnedProcessor(object):
                 source,
                 env,
                 self.summary( returncode ),
-        ):
-            _emit_transcript( line, dwell=False )
+        ) )
+        # Outstanding caption before durable lines so sticky chase-back keeps
+        # the next in-flight job (not the spawn that just finished).
         refresh_terse_executing()
+        for line in lines:
+            _emit_transcript( line, dwell=False )
         if returncode or self._processor.errors:
             note_build_failure_draining()
 

@@ -107,6 +107,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Under ``--terse-output`` with ``-Q`` (and compact terse without quiet),
+  durable ``[ok]`` / ``[pass]`` lines no longer glue onto a live ``[....]``
+  heartbeat caption during ``--parallel``. Interactive sessions write those
+  lines on the owned status stream (not only when quiet diverting). When the
+  launcher pipe owns durable output (``CUPPA_STDOUT_IS_TTY=0``), sticky
+  chase-back waits on the transcript idle gate so the parent echo cannot
+  append onto the status row. Finish hooks repaint outstanding jobs before
+  the durable line so chase-back keeps the next in-flight caption.
+
 - Under ``--terse-output``, ``--refresh-downloads`` prints a durable resolve
   child ``→ [refresh]  <token> · <version> · cache re-fetched`` only after the
   re-download finishes (download heartbeat first; then ``[refresh]``, then

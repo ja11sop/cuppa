@@ -796,22 +796,24 @@ def _restore_sticky_after_transcript_unlocked():
 def write_line( text, *, dwell=False, keep_pending=False ):
     """Durable console line — one owner for transcript and console reports.
 
-    Under quiet diverting on an interactive console, clear the status row and
-    write on the heartbeat stream under the same locks so a pulse cannot
-    repaint between clear and the durable line (ECG shear). Never dual-write
-    TTY + pipe: interactive → owned stream only; CI / piped launcher → pipe
-    only (after clearing any status).
+    When the ultimate console is interactive and a status row is armed (quiet
+    diverting *or* compact terse ``operation_status`` / ``[....]``), clear the
+    status row and write on the heartbeat stream under the same locks so a
+    pulse cannot repaint between clear and the durable line (ECG shear).
+    Never dual-write TTY + pipe: interactive → owned stream only; CI / piped
+    launcher → pipe only (after clearing any status).
 
-    When not diverting, write ``sys.stdout`` after clearing any armed status
-    row (compact terse ``operation_status`` shares that row) and any active
-    ProgressReporter so rows cannot glue.
+    With ``keep_pending=True`` on the owned stream, a sticky in-progress
+    caption is preserved across the clear and painted again immediately after
+    the durable line so armed ``[....]`` jobs chase back while fast ``[ok]``
+    lines scroll. That chase also keeps the ECG / spinner phase (``_spin``).
 
-    With ``keep_pending=True``, a sticky in-progress caption is preserved across
-    the clear and painted again immediately after the durable line so armed
-    ``[....]`` jobs chase back onto the status row while fast ``[ok]`` lines
-    scroll the transcript (they must not wait on the idle gate). That chase
-    also keeps the ECG / spinner phase (``_spin``) so consecutive heartbeat
-    lines continue the animation instead of restarting at rest.
+    On the pipe path (``CUPPA_STDOUT_IS_TTY=0``), do **not** restore sticky
+    immediately after the durable write: the launcher echoes the pipe onto the
+    same TTY the status row uses, so a chase-back paint before that echo glues
+    ``[....] compiling …`` onto ``N/M · [ok]``. Sticky pending waits on the
+    transcript idle gate instead (``refresh_terse_executing`` still repaints
+    after a finish hook when outstanding jobs remain).
     """
     global _pending, _pending_is_sticky
     if dwell and status_row_active():
@@ -843,10 +845,10 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                 # Reports drop pending INFO even when the row is blank.
                 _pending = None
                 _pending_is_sticky = False
-            # Quiet diverting + interactive: durable line on the owned TTY.
+            # Interactive + armed status row: durable line on the owned TTY
+            # (quiet diverting and compact-terse-only both arm that row).
             if (
-                    diverting()
-                    and interactive
+                    interactive
                     and _heartbeat_active
                     and _stream is not None
             ):
@@ -859,8 +861,8 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                     if keep_pending:
                         _restore_sticky_after_transcript_unlocked()
                     return
-        # Non-diverting (incl. compact terse status row) or piped launcher,
-        # or diverting write failed: durable line on the pipe / stdout only.
+        # Piped launcher (or owned-stream write failed): durable on the pipe
+        # only. Do not chase sticky back here — see docstring.
         sys.stdout.write( text )
         try:
             sys.stdout.flush()
@@ -868,7 +870,8 @@ def write_line( text, *, dwell=False, keep_pending=False ):
             pass
         if keep_pending:
             with _draw_lock:
-                _restore_sticky_after_transcript_unlocked()
+                if _pending is not None and _pending_is_sticky:
+                    _arm_idle_flush_unlocked()
 
 
 def write_transcript( text, *, dwell=True ):
