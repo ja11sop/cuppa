@@ -2,55 +2,62 @@
 
 - **Status:** in progress
 - **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-action-tally`; [`archive/terse-build-output.md`](../archive/terse-build-output.md) (ledger / up-to-date credit); `_ProgressLedger` in `cuppa/progress.py`; [#403](https://github.com/ja11sop/cuppa/pull/403) soak
-- **Updated:** 2026-11-12
-- **Impact:** `patch` — candidate polish for 1.14.0 if a small fix lands; otherwise ship 1.14.0 without it
+- **Updated:** 2026-11-13
+- **Impact:** `patch` — candidate polish for 1.14.0
 
-## Observed
+## Observed (tip soak)
 
-On a tip soak with `--terse-output -Q --test --parallel`, sticky/durable shear was clean, but the closing checkpoints finished a few actions short of the planned total, for example:
+On a tip soak with `--terse-output -Q --test --parallel` (and again after clean full rebuild), sticky/durable shear was clean, but closing checkpoints finished a few actions short of the planned total:
 
 ```text
 … · 2242/2245 actions
-… <one sconscript/variant cell> … · 308/311 actions
+… test/reference_data … · 308/311 actions
+terse-tally-dump: 0 uncredited executors
+[completed] build succeeded · 2242 ran · …
 ```
 
-Same shortfall size (**3**) at both that leaf cell and the sconstruct end. Nested parallel `→ [ok]` interleaving is **out of scope** here — that matches when separate actions finish under `--parallel`.
+Same shortfall size (**3**) at that leaf cell and at sconstruct end. Nested parallel `→ [ok]` interleaving is **out of scope** — that matches when separate actions finish under `--parallel`.
 
-## What that shortfall means
+### Missing display numbers are not the shortfall
 
-`_ProgressLedger` registers **slots per executor** when `NotifyProgress.add` sees a target (`register_terse_actions`). Credits move only through:
+After `test-report`, CollateTestReportIndex runs nested `env.Execute(Copy)` lines:
 
-| Path | Effect |
-|------|--------|
-| Spawn / Python status line | `credit_and_prefix(..., count=True)` → **+1** slot |
-| `BuildTask.make_ready` when SCons state is up-to-date | `credit_all_remaining(node)` → **all** remaining on that executor |
-| First terse begin checkpoint | `credit_currently_up_to_date()` lookahead once (same all-remaining when `is_up_to_date()`) |
+```text
+   5/  8 · … test-report · <final>/protocol.report.html
+              → [ok]   … copy · …report.html → …
+              → [ok]   … copy · …report-summary.json → …
+   7/  8 · … copy · …report.json → …
+```
 
-End checkpoints **sample** `done`/`total`; they do not sweep remaining. `Finished` / `sconstruct_end` already `Depends`/`Requires` the notified targets, so a lasting `done < total` is not “end printed too early while work was still running” in the usual progress graph — it is **registered slots that never received a credit**.
+The skipped `6/8` is **silent credit**: nested copies set `status_emitted`, so the parent Python action still `credit_and_prefix(+1)` without printing its own counted line. Those slots are in `done`. That pattern is **not** the `2242/2245` / `308/311` desync.
 
-The matching Δ at the leaf cell (308/311) and sconstruct (2242/2245) is the useful constraint: the three missing credits sit in that **one cell**. The global tally is not independently wrong; it is that cell’s residual.
+### Why the first dump said little
 
-So at close, three slots under that cell still had `remaining > 0`. Not a percent-rounding artefact, and not nested `Execute` / `test-case` lines (those are deliberately off the action total).
+`CUPPA_TERSE_TALLY_DUMP` only walked live `_nodes` for `remaining > 0`. The soak shape was **every live entry fully credited** (`remaining_sum == 0`) while `_total` / cell `total` stayed inflated — so the dump correctly reported `0 uncredited` and could not name the phantoms. Integrity / orphan reporting is required.
 
-## Likely buckets (ordered for investigation)
+## Root cause
 
-1. **Multi-slot under-credit** — `_action_slots` / `_slots_in` walks the executor action list (including `ListAction` children) and counts every leaf. Each status line only credits **one** slot. If the list is wider than the spawn/Python exits that actually print (or one leaf never runs and never becomes `up_to_date` in `make_ready`), residual slots stick. Archive+index (=2) is covered by unit tests when both exits happen; three leftovers could be three such gaps or one executor with `slots >= 3`.
+`register_terse_actions` keys executors by `id(executor)` (or `id(node)` fallback). When the same File node is re-notified under a **new** executor (builder replace — e.g. a sconscript listing the same `BuildTest` name twice), tip behaviour was:
 
-2. **Registered but never visited** — node counted at `NotifyProgress.add` and kept by `keep_reachable`, yet `BuildTask.make_ready` never sees it (and nothing spawns). Unusual if `Finished` truly `Depends` that target; still worth checking for side-effect / alias / replaced-node cases where the depended node is not the registered id.
+1. Write a **new** ledger entry and `total += slots` again.
+2. Remap `_nodes[id(node)]` to the new entry.
+3. Leave the old entry only in `_executors` (orphaned from `_nodes`).
 
-3. **Credit miss on visit** — `make_ready` or spawn runs, but `_nodes.get(id(node))` misses (node identity churn) and `credit_and_prefix`’s `target` / `_current_action_nodes()` fallback also misses. Leaves `remaining` untouched while the build still “completed”.
+Credits hit the live entry → `remaining == 0` on everything dump could see. `_total` still included the orphaned slots → close as `N-k/N` with matching cell Δ.
 
-4. **`--parallel` as amplifier, not root** — ledger updates are lock-guarded; a pure race that drops credits is unlikely. Parallel changes visit/finish interleaving and which nodes look current at lookahead time. Serial vs parallel soaks still matter to classify.
+`keep_reachable` used to return early when the reachability walk found nothing **without** `_rebuild_totals()`, which preserved that inflation even when orphans could have been dropped by recomputing from `_nodes`.
 
-Out of scope for the bug hunt: nested `→ [ok]` order under `-j`; `[completed]` clauses (`ran` / `up to date` / `nested`); shear / WRAP_OFF (fixed on [#403](https://github.com/ja11sop/cuppa/pull/403)).
+Arithmetic check for the leaf: unique test names × (compile + link + test + three log/report copies) plus report collate work ≈ **308** real actions; **+3** matches one remapped three-slot test (object / program / test) left as phantoms.
 
-## Approach on this PR
+## Fix (this PR)
 
-1. **Sanitize / deepen the plan** (this doc) — public wording only.
-2. **Instrument** — expose uncredited ledger entries and dump them at `sconstruct_end` under a narrow debug path (or once when `remaining > 0`) so a tip soak names the three slots.
-3. **Classify and fix** if the dump points at a small contract bug (slots vs exits, visit miss).
-4. **Else** leave the reminder, merge what is safe, and ship 1.14.0 without waiting on a deep dig.
+1. **Reuse** the existing `_nodes` entry when the same node is registered under a new executor id (remap `_executors`, do not `total +=` again unless slots grow).
+2. **`keep_reachable`** always prune `_executors` to live entries and `_rebuild_totals()` (including when the walk finds nothing / leaves the full set).
+3. **Reconcile** before terse end / finished checkpoints so late remaps cannot print `N-k/N`.
+4. **Dump** prints integrity (`done`/`total`/`remaining_sum`/`orphans`/`cell_shortfalls`) before the uncredited list.
 
-## Reproduce matrix (tip)
+Out of scope: nested `→ [ok]` order under `-j`; `[completed]` clause wording; shear / WRAP_OFF (fixed on [#403](https://github.com/ja11sop/cuppa/pull/403)); consumer sconscript duplicate names (call-site hygiene — cuppa must still tally correctly).
 
-Serial vs `--parallel`; cold vs mostly up-to-date; with/without `--test`. Confirm Δ stays in one cell. Prefer a smaller selection when possible so the dump is short.
+## Reproduce / verify
+
+Serial vs `--parallel`; cold vs mostly up-to-date; with/without `--test`. With `CUPPA_TERSE_TALLY_DUMP=1`, expect integrity `done == total`, `orphans=0`, `0 uncredited`, and end lines `N/N`.

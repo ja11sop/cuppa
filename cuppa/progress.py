@@ -750,6 +750,25 @@ class _ProgressLedger(object):
                     existing[ "nodes" ].append( node )
                     self._nodes[ id( node ) ] = existing
                     continue
+                # Same node under a new executor id (e.g. builder replaced on a
+                # duplicate BuildTest name, or fallback ``id(node)`` then the
+                # real executor). Reuse the entry — a second total+= would
+                # orphan the first from ``_nodes`` while leaving ``_total``
+                # inflated (dump of remaining then shows 0 uncredited).
+                prev = self._nodes.get( id( node ) )
+                if prev is not None:
+                    self._executors[ executor_id ] = prev
+                    prev[ "nodes" ].append( node )
+                    self._nodes[ id( node ) ] = prev
+                    if slots > prev[ "slots" ]:
+                        delta = slots - prev[ "slots" ]
+                        prev[ "slots" ] = slots
+                        prev[ "remaining" ] += delta
+                        bucket = self._cells.get( prev[ "cell" ] )
+                        if bucket is not None:
+                            bucket[ "total" ] += delta
+                        self._total += delta
+                    continue
                 entry = {
                         "slots": slots,
                         "remaining": slots,
@@ -765,8 +784,10 @@ class _ProgressLedger(object):
     def keep_reachable( self, roots ):
         """Drop actions that are not under the targets about to be built.
 
-        An empty walk leaves the full set in place. A failed lookup must not
-        turn the tally into zero.
+        An empty walk leaves the full ``_nodes`` set in place (must not turn
+        the tally into zero). Always recompute totals and prune ``_executors``
+        so remapped-executor orphans cannot leave ``done < total`` with
+        ``remaining == 0`` on every live entry.
         """
         with self._lock:
             if self._narrowed:
@@ -777,21 +798,82 @@ class _ProgressLedger(object):
             if self._narrowed:
                 return
             self._narrowed = True
-            if not found:
-                return
-            entry_ids = set()
-            for ident in found:
-                entry = self._nodes.get( ident )
-                if entry is not None:
-                    entry_ids.add( id( entry ) )
-            if not entry_ids:
-                return
-            self._nodes = {
-                    ident: entry
-                    for ident, entry in self._nodes.items()
-                    if id( entry ) in entry_ids
+            if found:
+                entry_ids = set()
+                for ident in found:
+                    entry = self._nodes.get( ident )
+                    if entry is not None:
+                        entry_ids.add( id( entry ) )
+                if entry_ids:
+                    self._nodes = {
+                            ident: entry
+                            for ident, entry in self._nodes.items()
+                            if id( entry ) in entry_ids
+                    }
+            live = { id( entry ) for entry in self._nodes.values() }
+            self._executors = {
+                    eid: entry
+                    for eid, entry in self._executors.items()
+                    if id( entry ) in live
             }
             self._rebuild_totals()
+
+    def reconcile_totals( self ):
+        """Recompute ``_total`` / ``_cells`` from live ``_nodes``; drop orphans.
+
+        Safe to call more than once. Used before end checkpoints so a desync
+        cannot close the build as ``N-k/N``.
+        """
+        with self._lock:
+            live = { id( entry ) for entry in self._nodes.values() }
+            self._executors = {
+                    eid: entry
+                    for eid, entry in self._executors.items()
+                    if id( entry ) in live
+            }
+            self._rebuild_totals()
+
+    def tally_integrity( self ):
+        """Snapshot for ``CUPPA_TERSE_TALLY_DUMP`` — catches ``done < total`` with
+        no remaining on live nodes (orphaned executor remaps).
+        """
+        with self._lock:
+            live = { id( entry ) for entry in self._nodes.values() }
+            remaining_sum = 0
+            seen = set()
+            for entry in self._nodes.values():
+                if id( entry ) in seen:
+                    continue
+                seen.add( id( entry ) )
+                remaining_sum += entry[ "remaining" ]
+            orphans = []
+            for eid, entry in self._executors.items():
+                if id( entry ) in live:
+                    continue
+                script, variant = entry[ "cell" ]
+                orphans.append( {
+                        "executor_id": eid,
+                        "script": script,
+                        "variant": variant,
+                        "slots": entry[ "slots" ],
+                        "remaining": entry[ "remaining" ],
+                } )
+            cell_shortfalls = []
+            for ( script, variant ), bucket in self._cells.items():
+                if bucket[ "done" ] < bucket[ "total" ]:
+                    cell_shortfalls.append( {
+                            "script": script,
+                            "variant": variant,
+                            "done": bucket[ "done" ],
+                            "total": bucket[ "total" ],
+                    } )
+            return {
+                    "done": self._done,
+                    "total": self._total,
+                    "remaining_sum": remaining_sum,
+                    "orphans": orphans,
+                    "cell_shortfalls": cell_shortfalls,
+            }
 
     def credit_and_prefix( self, target, current, env, count ):
         with self._lock:
@@ -1142,14 +1224,52 @@ def uncredited_terse_actions():
 
 
 def dump_uncredited_terse_actions_if_requested():
-    """When ``CUPPA_TERSE_TALLY_DUMP=1``, print uncredited ledger rows at build end.
+    """When ``CUPPA_TERSE_TALLY_DUMP=1``, print ledger diagnosis at build end.
 
-    Tip soaks use this to name leftover slots without guessing. Off by default
-    so ordinary builds stay quiet. Output is subdued on the transcript.
+    Tip soaks use this to name leftover slots and catch ``done < total`` with
+    ``remaining == 0`` (orphaned executor remaps). Off by default so ordinary
+    builds stay quiet. Output is subdued on the transcript.
     """
     flag = os.environ.get( "CUPPA_TERSE_TALLY_DUMP", "" ).strip().lower()
     if flag not in ( "1", "true", "yes", "on" ):
         return
+    integrity = _progress_ledger.tally_integrity()
+    orphans = integrity[ "orphans" ]
+    shortfalls = integrity[ "cell_shortfalls" ]
+    _write_terse_stdout(
+            as_subdued(
+                    "terse-tally-dump: integrity done={}/{} remaining_sum={} "
+                    "orphans={} cell_shortfalls={}".format(
+                            integrity[ "done" ],
+                            integrity[ "total" ],
+                            integrity[ "remaining_sum" ],
+                            len( orphans ),
+                            len( shortfalls ),
+                    )
+            ) + "\n"
+    )
+    for orphan in orphans:
+        _write_terse_stdout(
+                as_subdued(
+                        "  orphan remaining {}/{} · {} · {}".format(
+                                orphan[ "remaining" ],
+                                orphan[ "slots" ],
+                                orphan[ "script" ] or "?",
+                                orphan[ "variant" ] or "?",
+                        )
+                ) + "\n"
+        )
+    for cell in shortfalls:
+        _write_terse_stdout(
+                as_subdued(
+                        "  cell shortfall {}/{} · {} · {}".format(
+                                cell[ "done" ],
+                                cell[ "total" ],
+                                cell[ "script" ] or "?",
+                                cell[ "variant" ] or "?",
+                        )
+                ) + "\n"
+        )
     entries = uncredited_terse_actions()
     if not entries:
         _write_terse_stdout(
@@ -1179,6 +1299,11 @@ def dump_uncredited_terse_actions_if_requested():
                         )
                 ) + "\n"
         )
+
+
+def reconcile_terse_tally():
+    """Drop orphan inflation from ``_total`` / ``_cells`` before end lines."""
+    _progress_ledger.reconcile_totals()
 
 
 def remember_terse_action_target( target ):
@@ -4063,11 +4188,15 @@ def write_terse_progress_checkpoint( event, sconscript, variant, env ):
         return
     if event in ( "sconstruct_begin", "begin", "started" ):
         credit_terse_up_to_date_lookahead()
+    phase = _CHECKPOINT_PHASE.get( event )
+    # End lines sample done/total. Reconcile first so remapped-executor orphans
+    # cannot print ``N-k/N`` after every live slot was already credited.
+    if phase and phase[1] in ( "end", "finished" ):
+        reconcile_terse_tally()
     line = format_terse_progress_checkpoint( event, sconscript, variant, env )
     if not line:
         return
     _write_terse_stdout( line + "\n" )
-    phase = _CHECKPOINT_PHASE.get( event )
     if phase and phase[1] == "begin" and phase[0] != "sconstruct":
         for map_line in format_terse_location_maps( phase[0], env ):
             if _interrupt_announced:
