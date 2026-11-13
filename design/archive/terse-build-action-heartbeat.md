@@ -187,6 +187,12 @@ in-flight process actions use the same `[....]` outstanding set as toolchain
 spawns. Python callables and `env.Execute` are wrapped so they enter and
 leave that set.
 
+**Follow-on (1.14.1):** test runners and `env.Run` must pass
+`keep_heartbeat=True` under terse when calling `IncrementalSubProcess`, or
+`Popen2` suppresses the status row for the whole child and blanks
+`[....] · running-test` / process captions. See
+[`../plans/terse-test-keep-heartbeat.md`](../plans/terse-test-keep-heartbeat.md).
+
 Under `--terse-output`, toolchain compiles already get a durable
 `N/M · % [ok] … · compile · …` line, but `Run()` process helpers still emit the
 verbose `Running Process […]` / `= done =` block. The durable follow-up is often

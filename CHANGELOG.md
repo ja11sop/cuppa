@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1] - unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Under ``--terse-output``, long ``Test`` / ``BuildTest`` and ``env.Run``
+  children keep the sticky ``[....]`` caption (``running-test``, ``running``,
+  …) for the whole process lifetime. ``IncrementalSubProcess`` no longer
+  suppresses the heartbeat for those terse spawns (same ``keep_heartbeat``
+  pattern as toolchain ``SPAWN`` and coverage ``gcov``). Plan:
+  ``design/plans/terse-test-keep-heartbeat.md``.
+
+### Security
+
 ## [1.14.0] - 2026-11-13
 
 ### Added
@@ -2770,6 +2791,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.14.1]: https://github.com/ja11sop/cuppa/compare/v1.14.0...HEAD
 [1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...v1.12.0

@@ -856,13 +856,15 @@ class RunPatchedBoostTest:
         process_stdout = ProcessStdout( stdout_file_name_from( program_path ), branch_root, notifier, preprocess )
         process_stderr = ProcessStderr( stderr_file_name_from( program_path ), notifier, preprocess )
 
+        terse = terse_tests( env )
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ),
+                                                    suppress_output=terse,
+                                                    keep_heartbeat=terse,
                                                     prepare_env=coverage_env_step( env, program_path ) )
 
         return return_code, process_stdout.tests()

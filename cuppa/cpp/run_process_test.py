@@ -464,13 +464,17 @@ class RunProcessTest(object):
         process_stdout = ProcessStdout( test_case, show_test_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( test_case, show_test_output, stderr_file_name_from( program_path ) )
 
+        terse = terse_tests( env )
         return_code = IncrementalSubProcess.Popen2( process_stdout,
                                                     process_stderr,
                                                     shlex.split( test_command ),
                                                     cwd=working_dir,
                                                     scons_env=env,
                                                     inherit_process_env=self._inherit_process_env,
-                                                    suppress_output=terse_tests( env ),
+                                                    suppress_output=terse,
+                                                    # Same as toolchain SPAWN / gcov: keep sticky
+                                                    # ``[....] · running-test`` pulsing for long tests.
+                                                    keep_heartbeat=terse,
                                                     prepare_env=coverage_env_step( env, program_path ) )
         return return_code
 
