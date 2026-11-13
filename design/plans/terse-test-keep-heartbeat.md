@@ -36,3 +36,9 @@ CMake / `b2` `[launch]` paths stay out of scope (bookend owns that cue).
 
 - Changing durable `[pass]` / `[ok]` spelling or action tallies.
 - Re-opening deferred delegated-builder `[....]` beside `[launch]`.
+
+## Hygiene (same PR)
+
+POSIX hosts must not `open("CONOUT$", "w")` when resolving a progress TTY —
+Windows device name, ordinary filename on Linux — and `CONOUT$` stays
+gitignored so a stray cwd file cannot ride `git add -A`.

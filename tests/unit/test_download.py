@@ -229,6 +229,27 @@ def test_progress_tty_popen_kwargs_omits_pass_fds_on_windows( monkeypatch ):
     assert env[term.PROGRESS_TTY_ENV] == "CONOUT$"
 
 
+def test_ensure_progress_tty_fd_does_not_create_conout_file_on_posix(
+        monkeypatch, tmp_path,
+):
+    """``CONOUT$`` is a device on Windows; on POSIX ``open(..., "w")`` makes a file."""
+    from cuppa.utility import terminal as term
+
+    if term._HOST_IS_WINDOWS:  # noqa: SLF001
+        pytest.skip( "host is Windows; CONOUT$ is the console device" )
+
+    _reset_progress_tty_state( monkeypatch )
+    monkeypatch.chdir( tmp_path )
+    monkeypatch.setattr( term.sys, "platform", "win32" )
+    monkeypatch.setattr( term.os, "name", "nt" )
+    monkeypatch.setenv( term.PROGRESS_TTY_ENV, "CONOUT$" )
+    monkeypatch.setattr( term.os, "isatty", lambda fd: False )
+
+    assert term.ensure_progress_tty_fd() is None
+    assert not ( tmp_path / "CONOUT$" ).exists()
+    assert term.resolve_progress_tty_path() is None
+
+
 def test_open_progress_stream_ignores_progress_fd_on_windows( monkeypatch ):
     """Stale CUPPA_PROGRESS_FD must not be consumed without pass_fds."""
     import builtins

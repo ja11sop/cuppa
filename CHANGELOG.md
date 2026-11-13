@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pattern as toolchain ``SPAWN`` and coverage ``gcov``). Plan:
   ``design/plans/terse-test-keep-heartbeat.md``.
 
+- On POSIX, Cuppa no longer ``open("CONOUT$", "w")`` when resolving a progress
+  TTY (leaked ``CUPPA_PROGRESS_TTY`` or win32-monkeypatched unit tests). That
+  Windows console name is an ordinary filename on Linux and was leaving an
+  empty ``CONOUT$`` in the working tree. ``CONOUT$`` is also gitignored.
+
 ### Security
 
 ## [1.14.0] - 2026-11-13
