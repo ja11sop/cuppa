@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Document that SCons ``num_jobs ≥ 2`` (Cuppa ``--parallel`` / ``-j``) can
+  spuriously rebuild heavy C++ translation units on very large include graphs
+  even when sources are unchanged; Antora NOTE + TIP on
+  ``cli/building.adoc``. Plan:
+  ``design/plans/parallel-scons-large-graph-rebuilds.md``.
+
 ### Deprecated
 
 ### Removed
