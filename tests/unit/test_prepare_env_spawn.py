@@ -165,3 +165,29 @@ def test_runner_has_no_step_without_cov( monkeypatch, tmp_path, module ):
     _run( module, tmp_path, env )
 
     assert seen["prepare_env"] is None
+
+
+@pytest.mark.parametrize( "module", RUNNERS, ids=_runner_id )
+def test_runner_keeps_heartbeat_under_terse( monkeypatch, tmp_path, module ):
+    """Long tests must not suppress sticky ``[....] · running-test`` for the spawn."""
+    seen = _capture_spawn( monkeypatch, module )
+    env = _SconsEnv(
+            terse_output=True,
+            variant_actions={ "test": True },
+            abs_build_dir=str( tmp_path / "_build" ),
+    )
+
+    _run( module, tmp_path, env )
+
+    assert seen.get( "suppress_output" ) is True
+    assert seen.get( "keep_heartbeat" ) is True
+
+
+@pytest.mark.parametrize( "module", RUNNERS, ids=_runner_id )
+def test_runner_does_not_keep_heartbeat_without_terse( monkeypatch, tmp_path, module ):
+    seen = _capture_spawn( monkeypatch, module )
+    env = _SconsEnv( variant_actions={ "test": True }, abs_build_dir=str( tmp_path / "_build" ) )
+
+    _run( module, tmp_path, env )
+
+    assert seen.get( "keep_heartbeat" ) is not True

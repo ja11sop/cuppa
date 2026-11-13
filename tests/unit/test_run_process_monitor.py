@@ -200,3 +200,28 @@ def test_run_passes_suppress_output_to_popen2( monkeypatch, tmp_path ):
             env=_Env( terse_output=True ),
     )
     assert captured.get( "suppress_output" ) is True
+    assert captured.get( "keep_heartbeat" ) is True
+
+
+def test_run_does_not_keep_heartbeat_without_terse( monkeypatch, tmp_path ):
+    captured = {}
+
+    def _fake_popen2( stdout_processor, stderr_processor, args_list, **kwargs ):
+        captured.update( kwargs )
+        return 0
+
+    monkeypatch.setattr(
+            rp.IncrementalSubProcess, "Popen2", staticmethod( _fake_popen2 )
+    )
+    action = rp.RunProcessAction( str( tmp_path ) )
+    program = str( tmp_path / "tool" )
+    ( tmp_path / "tool.stdout.log" ).write_text( "", encoding="utf-8" )
+    ( tmp_path / "tool.stderr.log" ).write_text( "", encoding="utf-8" )
+    action._run(
+            suppress_output=False,
+            program_path=program,
+            command="true",
+            working_dir=str( tmp_path ),
+            env=_Env(),
+    )
+    assert captured.get( "keep_heartbeat" ) is not True

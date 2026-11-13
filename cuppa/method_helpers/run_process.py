@@ -420,6 +420,7 @@ class RunProcessAction(object):
         process_stdout = ProcessStdout( not suppress_output, stdout_file_name_from( program_path ) )
         process_stderr = ProcessStderr( not suppress_output, stderr_file_name_from( program_path ) )
 
+        terse = _env_terse( env )
         return_code = IncrementalSubProcess.Popen2(
                 process_stdout,
                 process_stderr,
@@ -428,8 +429,11 @@ class RunProcessAction(object):
                 scons_env=env,
                 inherit_process_env=self._inherit_process_env,
                 # ``Popen2`` echoes argv when not suppressed — under terse that
-                # duplicated the durable ``[ok] · test · docker …`` file cell.
+                # duplicated the durable ``[ok] · run · docker …`` file cell.
                 suppress_output=suppress_output,
+                # Keep sticky ``[....]`` pulsing for long ``env.Run`` children
+                # (same pattern as toolchain SPAWN / test runners / gcov).
+                keep_heartbeat=terse,
         )
         return return_code
 

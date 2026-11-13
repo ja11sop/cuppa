@@ -30,6 +30,20 @@ you can see which layer owns each decision.
 | `--develop` | Prefer configured local develop paths for dependencies
 |===
 
+NOTE: On very large C++ graphs (deep Boost / Asio / package include trees), SCons with
+`num_jobs ≥ 2` (`--parallel`, `--parallel=N`, or `-j`) can **spuriously rebuild** the same
+heavy translation units on every multi-job run even when sources and headers are unchanged.
+`--debug=explain` then reports large implicit-dependency churn and thousands of headers
+"changed" while file mtimes on disk stay put; `.sconsign.dblite` is what moves. A following
+serial build (or `--parallel=1`) usually does one cleanup rebuild and then stays up to date
+until the next multi-job run. Cuppa does not disable parallel builds for this; it is an
+SCons concurrency / sconsign limitation we may try to soften later. Design:
+https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-graph-rebuilds.md[parallel-scons-large-graph-rebuilds].
+
+TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits, run once
+without `--parallel` (or with `--parallel=1`) to restabilise `.sconsign`, then resume
+parallel for wall-clock wins on cold or genuinely dirty trees.
+
 Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
 xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
 Those bindings are **variant-aware** (per toolchain/variant/arch/abi), so the same export
@@ -92,7 +106,7 @@ same top-level default selection regardless of the directory from which you invo
 
 | `-j N` / `--jobs=N`
 | Execute up to `N` jobs concurrently
-| SCons-native job count **without** Cuppa affinity. Prefer `--parallel=N` when you want affinity plus an explicit job count (mask unchanged; `N` may oversubscribe); `--parallel --jobs=N` still works. Do not combine with `--parallel=N`
+| SCons-native job count **without** Cuppa affinity. Prefer `--parallel=N` when you want affinity plus an explicit job count (mask unchanged; `N` may oversubscribe); `--parallel --jobs=N` still works. Do not combine with `--parallel=N`. Same multi-job sconsign caveat as `--parallel` on very large C++ graphs (see NOTE above)
 
 | `-n` / `--no-exec`
 | Print actions without executing them

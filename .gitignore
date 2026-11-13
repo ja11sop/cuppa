@@ -79,3 +79,7 @@ cscope.*
 
 # Agent .env
 .env*
+
+# Windows console device name; on POSIX a leaked CUPPA_PROGRESS_TTY or a
+# win32-monkeypatched unit test used to create this as a cwd file.
+CONOUT$

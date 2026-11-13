@@ -155,6 +155,10 @@ PROGRESS_FD_ENV = "CUPPA_PROGRESS_FD"
 _progress_tty_stream = None
 _progress_tty_fd = None
 
+# Frozen at import so unit tests that monkeypatch ``sys.platform`` / ``os.name``
+# cannot make POSIX ``open("CONOUT$", "w")`` create a cwd file named ``CONOUT$``.
+_HOST_IS_WINDOWS = sys.platform == 'win32' or os.name == 'nt'
+
 
 def controlling_tty_paths():
     """Device paths to try for the interactive console (platform order)."""
@@ -166,6 +170,18 @@ def controlling_tty_paths():
 def progress_fd_inheritance_supported():
     """``pass_fds`` + inherited fileno only works on POSIX."""
     return not ( sys.platform == 'win32' or os.name == 'nt' )
+
+
+def _is_windows_console_path( path ):
+    """True for the Windows console device name ``CONOUT$``."""
+    return str( path or "" ) == "CONOUT$"
+
+
+def _may_open_progress_path( path ):
+    """Refuse ``CONOUT$`` on a real POSIX host (it is a normal filename there)."""
+    if _is_windows_console_path( path ) and not _HOST_IS_WINDOWS:
+        return False
+    return True
 
 
 def stream_writable( stream ):
@@ -220,8 +236,9 @@ def _publish_progress_tty_env( stream ):
 def resolve_progress_tty_path():
     """Absolute tty device path for rewriting progress, or ``None``."""
     existing = os.environ.get( PROGRESS_TTY_ENV )
-    if existing and ( existing == 'CONOUT$' or os.path.exists( existing ) ):
-        return existing
+    if existing and _may_open_progress_path( existing ):
+        if _is_windows_console_path( existing ) or os.path.exists( existing ):
+            return existing
     fd = ensure_progress_tty_fd()
     if fd is None:
         return None
@@ -237,6 +254,10 @@ def ensure_progress_tty_fd():
     Cascade nests use ``start_new_session`` and lose ``/dev/tty``. The tip keeps
     an open progress fd and forwards it with ``pass_fds`` + :data:`PROGRESS_FD_ENV`
     on POSIX. Windows nests reopen ``CONOUT$`` / :data:`PROGRESS_TTY_ENV`.
+
+    On a real POSIX host, never ``open("CONOUT$", "w")`` — that name is an
+    ordinary filename there and creates a cwd file when Windows-oriented tests
+    or a leaked ``CUPPA_PROGRESS_TTY`` ask for it.
     """
     global _progress_tty_stream, _progress_tty_fd
 
@@ -265,6 +286,8 @@ def ensure_progress_tty_fd():
         candidates.append( env_tty )
 
     for path in candidates:
+        if not _may_open_progress_path( path ):
+            continue
         try:
             stream = open( path, 'w' )
         except ( OSError, IOError ):

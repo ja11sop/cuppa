@@ -15,6 +15,21 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
+## 1.14.1 cycle focus (open)
+
+Patch cycle after **1.14.0**. Keep sticky terse `[....]` alive for long test /
+`env.Run` children (same `keep_heartbeat` hand-off as compile SPAWN).
+
+| Area | Status in 1.14.1 |
+|------|------------------|
+| Terse test / Run keep-heartbeat | **Done** (unreleased) — sticky `running-test` / process captions no longer blank for the child lifetime — [`terse-test-keep-heartbeat.md`](design/plans/terse-test-keep-heartbeat.md) |
+| SCons `-j` spurious rebuilds on large C++ graphs | **Documented** (proposal) — Antora NOTE on `cli/building.adoc`; mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+---
+
 ## 1.14.0 cycle focus (shipped 2026-11-13)
 
 Minor cycle after **1.13.0**. `--deep-clean`, package public defines + download
@@ -647,6 +662,8 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-quiet-heartbeat-exit` | Quiet heartbeat leaves the last INFO on the status row when the process exits | Low | **Shipped in 1.14.0** — [#393](https://github.com/ja11sop/cuppa/pull/393). `finish_at_exit` promotes the last event INFO to a durable line, clears the row, and restores wrap. Not the chase. [`quiet-heartbeat-exit.md`](design/archive/quiet-heartbeat-exit.md) |
 | `console-terse-refresh-ledger` | Terse durable ``→ [refresh]`` for ``--refresh-downloads``; demote Stored / Downloading archive INFO under ``--terse-output`` | Low | **Shipped in 1.14.0** — [#397](https://github.com/ja11sop/cuppa/pull/397). Durable after re-download completes; force stays force. [`terse-refresh-ledger.md`](design/archive/terse-refresh-ledger.md) |
 | `console-terse-action-tally` | Closing terse checkpoints can finish a few actions short of N/N (e.g. 2242/2245); nested parallel `[ok]` interleave is expected | Low | **Shipped in 1.14.0** — [#404](https://github.com/ja11sop/cuppa/pull/404). Remapped-executor orphans inflated `_total`; reuse register + reconcile; opt-in `CUPPA_TERSE_TALLY_DUMP`. Tip soak `2241/2241`. [`terse-action-tally-shortfall.md`](design/archive/terse-action-tally-shortfall.md) |
+| `console-terse-test-keep-heartbeat` | Long terse `Test` / `BuildTest` / `env.Run` children blank the sticky `[....]` for the whole spawn | Low | Done (unreleased) 2026-11-13 — `keep_heartbeat` on test / Run `Popen2` (same as SPAWN / gcov). Archive when 1.14.1 ships. [`terse-test-keep-heartbeat.md`](design/plans/terse-test-keep-heartbeat.md) |
+| `parallel-scons-large-graph` | SCons `num_jobs ≥ 2` can spuriously rebuild heavy C++ TUs on large include graphs (`.sconsign` / implicit-dep churn) | Low | Proposal / documented 2026-11-13 — Antora NOTE + TIP on `cli/building.adoc`. Mitigation (ImplicitCache, decider, upstream) TBD. [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | `cascade-tip-local-options` | Drop tip-only `cuppa.add_option` flags from nest argv (`--tip-local-flag`, …) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-tip-local-options.md`](design/archive/cascade-tip-local-options.md); optional `--cascade-local-options` allowlist is a follow-on |
 | `cascade-amend-package-manifest` | Cascade nests metadata-amend via tip `--amend-cascade-manifests` (DAG retar, no CMake) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-amend-package-manifest.md`](design/archive/cascade-amend-package-manifest.md); tip-only amend remains [`package-metadata-amend.md`](design/archive/package-metadata-amend.md) |
 | `cascade-build-deps-tip-consume` | Under `--build-cascade-dependencies`, tip consumes publisher-root stages (not extracts); pre-`BuildWith` nest like `--stage-develop` | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-build-deps-tip-consume.md`](design/archive/cascade-build-deps-tip-consume.md); develop ranking unchanged; scoped `--develop` later |

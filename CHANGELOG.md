@@ -5,6 +5,38 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1] - unreleased
+
+### Added
+
+### Changed
+
+- Document that SCons ``num_jobs ≥ 2`` (Cuppa ``--parallel`` / ``-j``) can
+  spuriously rebuild heavy C++ translation units on very large include graphs
+  even when sources are unchanged; Antora NOTE + TIP on
+  ``cli/building.adoc``. Plan:
+  ``design/plans/parallel-scons-large-graph-rebuilds.md``.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Under ``--terse-output``, long ``Test`` / ``BuildTest`` and ``env.Run``
+  children keep the sticky ``[....]`` caption (``running-test``, ``running``,
+  …) for the whole process lifetime. ``IncrementalSubProcess`` no longer
+  suppresses the heartbeat for those terse spawns (same ``keep_heartbeat``
+  pattern as toolchain ``SPAWN`` and coverage ``gcov``). Plan:
+  ``design/plans/terse-test-keep-heartbeat.md``.
+
+- On POSIX, Cuppa no longer ``open("CONOUT$", "w")`` when resolving a progress
+  TTY (leaked ``CUPPA_PROGRESS_TTY`` or win32-monkeypatched unit tests). That
+  Windows console name is an ordinary filename on Linux and was leaving an
+  empty ``CONOUT$`` in the working tree. ``CONOUT$`` is also gitignored.
+
+### Security
+
 ## [1.14.0] - 2026-11-13
 
 ### Added
@@ -2770,6 +2802,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.14.1]: https://github.com/ja11sop/cuppa/compare/v1.14.0...HEAD
 [1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...v1.12.0
