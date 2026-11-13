@@ -1,9 +1,11 @@
 # Note: terse long tests must keep `[....] · running-test`
 
-- **Status:** done
-- **Related:** [`archive/terse-build-action-heartbeat.md`](../archive/terse-build-action-heartbeat.md); ROADMAP `console-terse-test-keep-heartbeat`; `_ProgressLedger` / `begin_terse_executing`; `IncrementalSubProcess.keep_heartbeat`
+- **Status:** shipped
+- **Related:** [`terse-build-action-heartbeat.md`](terse-build-action-heartbeat.md); ROADMAP `console-terse-test-keep-heartbeat`; `_ProgressLedger` / `begin_terse_executing`; `IncrementalSubProcess.keep_heartbeat`
 - **Updated:** 2026-11-13
-- **Impact:** `patch` — ships with 1.14.1
+- **Impact:** `patch` — shipped in 1.14.1 — [#405](https://github.com/ja11sop/cuppa/pull/405)
+
+Done on master via [#405](https://github.com/ja11sop/cuppa/pull/405). Archived with 1.14.1.
 
 ## Observed
 
