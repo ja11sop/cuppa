@@ -1,6 +1,6 @@
 # Note: `--show-global-conf` for `~/.cuppaconfig`
 
-- **Status:** proposal
+- **Status:** done
 - **Related:** ROADMAP `cli-show-global-conf`; `cuppa/configure.py`; Antora
   [`configuration.adoc`](../../docs/modules/ROOT/pages/configuration.adoc) /
   [`cli/storage-and-configuration.adoc`](../../docs/modules/ROOT/pages/cli/storage-and-configuration.adoc);
@@ -59,5 +59,5 @@ project overrides, or when no project `configure.conf` exists.
 
 | Slice | Status |
 |-------|--------|
-| Plan + ROADMAP / design index | **This PR** (cycle open) |
-| Implement flag + docs + tests | Todo |
+| Plan + ROADMAP / design index | Done (cycle open) |
+| Implement flag + docs + tests | **Done** — option wired; Antora + unit/integration coverage |

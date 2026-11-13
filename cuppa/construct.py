@@ -819,10 +819,20 @@ class Construct(object):
 
         if self._configure.handle_conf_only():
             print( "cuppa: Handling configuration only, so no builds will be attempted." )
-            print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
-            print( "" )
-            print( "cuppa -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) ) )
-            print( "" )
+            show_global = self._configure.showing_global_conf()
+            if show_global:
+                print( "cuppa: With the global configuration (~/.cuppaconfig) "
+                       "executing 'cuppa -D' would be equivalent to:" )
+                print( "" )
+                print( "cuppa -D {}".format( self._command_line_from_settings(
+                        self._configure.global_configured_options() ) ) )
+                print( "" )
+            if self._configure.showing_conf() or not show_global:
+                print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
+                print( "" )
+                print( "cuppa -D {}".format( self._command_line_from_settings(
+                        cuppa_env['configured_options'] ) ) )
+                print( "" )
             print( "cuppa: Nothing to be done. Exiting." )
             SCons.Script.Exit()
 

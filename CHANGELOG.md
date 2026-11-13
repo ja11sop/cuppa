@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``--show-global-conf``: conf-only inspect of ``~/.cuppaconfig`` (pair with
+  ``--show-conf`` and the other ``*-global-conf`` flags). Prints an equivalent
+  ``cuppa -D`` line from the global file alone. ``--show-conf`` stays the merged
+  effective view; Antora clarifies both. Plan:
+  ``design/plans/show-global-conf.md``.
+
 ### Changed
 
 ### Deprecated

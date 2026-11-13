@@ -23,7 +23,12 @@ from cuppa.log import logger
 
 
 cuppa.core.options.add_option( '--show-conf', dest='show_conf', action='store_true',
-                               help='Show the current values in the configuration file if one exists' )
+                               help='Show the merged settings from the global and project '
+                                    'configuration files (effective cuppa -D line)' )
+
+cuppa.core.options.add_option( '--show-global-conf', dest='show_global_conf', action='store_true',
+                               help='Show the settings in the global configuration file '
+                                    '(~/.cuppaconfig) only' )
 
 cuppa.core.options.add_option( '--save-conf', dest='save_conf', action='store_true',
                                help='Save the current command-line as a configuration file' )
@@ -87,6 +92,7 @@ class Configure(object):
 
     def load( self ):
         self._show          = self._env.get_option( 'show_conf' )
+        self._show_global   = self._env.get_option( 'show_global_conf' )
         self._save          = self._env.get_option( 'save_conf' )
         self._save_global   = self._env.get_option( 'save_global_conf' )
         self._remove        = self._env.get_option( 'remove_settings' )
@@ -95,6 +101,7 @@ class Configure(object):
         self._update_global = self._env.get_option( 'update_global_conf' )
         self._clear         = self._env.get_option( 'clear_conf' )
         self._clear_global  = self._env.get_option( 'clear_global_conf' )
+        self._global_options = {}
 
         self._configure = (
                 self._save
@@ -133,6 +140,9 @@ class Configure(object):
             self._loaded_options = {}
         self._env['configured_options'] = self._loaded_options
         self._env['default_options'].update( self._loaded_options )
+        if self._show_global and not os.path.exists( self._global_conf_path ):
+            logger.info( "Global configure file [{}] does not exist".format(
+                    as_info( self._global_conf_path ) ) )
 
 
     def save( self ):
@@ -164,7 +174,20 @@ class Configure(object):
             or  self._clear
             or  self._clear_global
             or  self._show
+            or  self._show_global
         )
+
+
+    def showing_conf( self ):
+        return bool( self._show )
+
+
+    def showing_global_conf( self ):
+        return bool( self._show_global )
+
+
+    def global_configured_options( self ):
+        return dict( self._global_options )
 
 
     def action( self ):
@@ -184,6 +207,8 @@ class Configure(object):
             return "clear"
         elif self._clear_global:
             return "clear_global"
+        elif self._show_global and not self._show:
+            return "show_global"
         elif self._show:
             return "show"
 
@@ -232,10 +257,13 @@ class Configure(object):
 
     def _load_conf( self ):
         settings = {}
+        self._global_options = {}
 
         if os.path.exists( self._global_conf_path ):
             with open( self._global_conf_path ) as conf_file:
-                self._load_settings_from_file( self._global_conf_path, conf_file, settings )
+                self._load_settings_from_file(
+                        self._global_conf_path, conf_file, self._global_options )
+            settings.update( self._global_options )
 
         if os.path.exists( self._conf_path ):
             with open(self._conf_path) as conf_file:
@@ -272,6 +300,7 @@ class Configure(object):
                 and not key == 'clear_conf'
                 and not key == 'remove_settings'
                 and not key == 'show_conf'
+                and not key == 'show_global_conf'
                 and not key == 'use_conf' )
 
 

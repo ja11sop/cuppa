@@ -21,12 +21,13 @@ Format is `key = value` lines; values are parsed with `ast.literal_eval`.
 |===
 | Option | Effect
 
-| `--show-conf` | Print loaded settings
+| `--show-conf` | Print the merged effective settings from the global and project files
+| `--show-global-conf` | Print settings from `~/.cuppaconfig` only
 | `--save-conf` | Write current CLI options to the project conf
 | `--update-conf` | Merge current CLI into the project conf
 | `--remove-settings=a,b` | Drop listed keys from the project conf
 | `--clear-conf` | Delete the project conf
-| `--save-global-conf` / `--update-global-conf` / `--clear-global-conf` / `--remove-global-settings` | Same operations on `~/.cuppaconfig`
+| `--save-global-conf` / `--update-global-conf` / `--clear-global-conf` / `--remove-global-settings` | Write / clear operations on `~/.cuppaconfig`
 | `--use-conf=PATH` | Use an alternate project conf path
 |===
 
@@ -138,7 +139,8 @@ cuppa -D --reports-link-style=remote \
 ----
 
 Then commit `configure.conf`. Later builds and CI jobs pick up the same settings with no extra
-flags. Inspect loaded values with `--show-conf`.
+flags. Inspect the merged effective values with `--show-conf`, or `~/.cuppaconfig` alone with
+`--show-global-conf`.
 
 **Option B — set defaults in the `sconstruct`:**
 
