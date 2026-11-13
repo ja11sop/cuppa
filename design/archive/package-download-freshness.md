@@ -1,11 +1,11 @@
 # Plan: online conditional freshness for GitLab package downloads
 
-- **Status:** done
-- **Related:** [`package-download-refresh.md`](../archive/package-download-refresh.md) (force `--refresh-downloads`, deferred `pkg-dl-refresh-conditional`); [#296](https://github.com/ja11sop/cuppa/issues/296); [`unverified-latest.md`](unverified-latest.md) (warn-and-reuse when a check cannot run); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md) (durable resolve children); `GitlabPackageDependency` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py); [`ROADMAP.md`](../../ROADMAP.md) — storage `package-download-freshness`; [#389](https://github.com/ja11sop/cuppa/pull/389)
+- **Status:** shipped
+- **Related:** [`package-download-refresh.md`](package-download-refresh.md) (force `--refresh-downloads`, deferred `pkg-dl-refresh-conditional`); [#296](https://github.com/ja11sop/cuppa/issues/296); [`unverified-latest.md`](unverified-latest.md) (warn-and-reuse when a check cannot run); [`terse-dependency-locations.md`](terse-dependency-locations.md) (durable resolve children); `GitlabPackageDependency` in [`gitlab.py`](../../cuppa/package_managers/gitlab.py); [`ROADMAP.md`](../../ROADMAP.md) — storage `package-download-freshness`; [#389](https://github.com/ja11sop/cuppa/pull/389)
 - **Updated:** 2026-11-04
 - **Impact:** `minor` (online consume may re-fetch after a same-version registry overwrite without a new flag)
 
-Done in [#389](https://github.com/ja11sop/cuppa/pull/389). Ships with 1.14.0. The notes below are the record of the gap.
+Done in [#389](https://github.com/ja11sop/cuppa/pull/389). Shipped in 1.14.0. The notes below are the record of the gap.
 
 ## Problem
 
@@ -41,7 +41,7 @@ published for that URL. If it changed, drop cache and download + extract as
 today. If it matches, reuse. No new flag for the happy path.
 
 This is the deferred `pkg-dl-refresh-conditional` slice from
-[`package-download-refresh.md`](../archive/package-download-refresh.md), scoped
+[`package-download-refresh.md`](package-download-refresh.md), scoped
 as the normal online policy rather than an opt-in.
 
 ## Current behaviour (authoritative)

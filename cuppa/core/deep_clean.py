@@ -6,7 +6,7 @@
 """``--deep-clean`` modifier on ``-c`` / ``--clean``.
 
 Expands out-of-tree / native product clean for the current selection. Does not
-delete dependency extracts. See ``design/plans/deep-clean.md``.
+delete dependency extracts. See ``design/archive/deep-clean.md``.
 """
 
 from __future__ import annotations

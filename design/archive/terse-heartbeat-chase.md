@@ -1,11 +1,11 @@
 # Note: terse heartbeat should chase, not dwell
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-heartbeat-chase`; [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`terse-build-action-heartbeat.md`](../archive/terse-build-action-heartbeat.md)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-heartbeat-chase`; [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-build-action-heartbeat.md`](terse-build-action-heartbeat.md)
 - **Updated:** 2026-11-10
 - **Impact:** `patch` — ships with 1.14.0 — [#395](https://github.com/ja11sop/cuppa/pull/395)
 
-Done on master via [#395](https://github.com/ja11sop/cuppa/pull/395). Archive when 1.14.0 ships. Dwell was already off; this slice preserved ECG phase across sticky chase-back.
+Done on master via [#395](https://github.com/ja11sop/cuppa/pull/395). Archived with 1.14.0. Dwell was already off; this slice preserved ECG phase across sticky chase-back.
 
 ## What happened
 

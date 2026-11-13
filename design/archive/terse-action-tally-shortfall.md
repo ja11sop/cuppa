@@ -1,9 +1,11 @@
 # Note: terse action tally can finish short of N/N
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-action-tally`; [`archive/terse-build-output.md`](../archive/terse-build-output.md) (ledger / up-to-date credit); `_ProgressLedger` in `cuppa/progress.py`; [#403](https://github.com/ja11sop/cuppa/pull/403) soak; [#404](https://github.com/ja11sop/cuppa/pull/404)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-terse-action-tally`; [`terse-build-output.md`](terse-build-output.md) (ledger / up-to-date credit); `_ProgressLedger` in `cuppa/progress.py`; [#403](https://github.com/ja11sop/cuppa/pull/403) soak; [#404](https://github.com/ja11sop/cuppa/pull/404)
 - **Updated:** 2026-11-13
-- **Impact:** `patch` — candidate polish for 1.14.0
+- **Impact:** `patch` — ships with 1.14.0 — [#404](https://github.com/ja11sop/cuppa/pull/404)
+
+Done on master via [#404](https://github.com/ja11sop/cuppa/pull/404). Archived with 1.14.0. Remapped-executor reuse keeps closing checkpoints at N/N; opt-in `CUPPA_TERSE_TALLY_DUMP` remains for integrity dumps.
 
 ## Observed (pre-fix soak)
 

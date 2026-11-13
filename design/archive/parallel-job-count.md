@@ -136,5 +136,5 @@ notice or honour N (SCons can oversubscribe). Provisional: **honour N**, warn on
 
 - Changing the leave-N-cores-for-OS affinity table itself
 - Making `--jobs` apply Cuppa affinity (keep SCons-native meaning)
-- Coverage `--parallel` collection policy ([`../plans/coverage-parallel.md`](../plans/coverage-parallel.md))
+- Coverage `--parallel` collection policy ([`coverage-parallel.md`](coverage-parallel.md))
 - Forcing `CMakeInstall` onto `--parallel 1` (keeps `jobs=False` omit unless a soak shows install pegging cores)

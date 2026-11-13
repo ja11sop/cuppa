@@ -356,4 +356,4 @@ dependency's resolved tree.
 - Location map grammar: [`terse-delegated-output.md`](terse-delegated-output.md)
 - Terse status lines: [`terse-build-output.md`](terse-build-output.md)
 - Channel map: [`../plans/console-channels.md`](../plans/console-channels.md)
-- Boost `-c` / extract `b2`: [`deep-clean.md`](../plans/deep-clean.md)
+- Boost `-c` / extract `b2`: [`deep-clean.md`](deep-clean.md)

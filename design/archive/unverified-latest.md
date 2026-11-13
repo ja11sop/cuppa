@@ -1,7 +1,7 @@
 # Plan: registry `latest` when the check cannot run
 
-- **Status:** done
-- **Related:** [`gitlab-package-latest.md`](../archive/gitlab-package-latest.md); `cuppa/package_managers/gitlab_latest.py`; `cuppa/package_managers/package_version_bound.py`; [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cxx-profiles-report.md`](cxx-profiles-report.md) (end-of-build diagnostics — different pattern, see below)
+- **Status:** shipped
+- **Related:** [`gitlab-package-latest.md`](gitlab-package-latest.md); `cuppa/package_managers/gitlab_latest.py`; `cuppa/package_managers/package_version_bound.py`; [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`cxx-profiles-report.md`](../plans/cxx-profiles-report.md) (end-of-build diagnostics — different pattern, see below)
 - **Updated:** 2026-10-31
 - **Impact:** `patch` if consume reuses a remembered pin; no flag required for the recommended option
 

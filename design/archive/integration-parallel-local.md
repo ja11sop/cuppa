@@ -66,7 +66,7 @@ at once (order of **3–4 workers**), without thrashing the machine or flaking.
 
 ## Couples with / not
 
-- **Not** [`coverage-parallel.md`](../plans/coverage-parallel.md) / `GCOV_PREFIX` — that is
+- **Not** [`coverage-parallel.md`](coverage-parallel.md) / `GCOV_PREFIX` — that is
   parallel **collection inside one Cuppa cov run**, not pytest workers.
 - **Not** [`parallel-job-count.md`](parallel-job-count.md) — product CLI for
   one build’s job count.

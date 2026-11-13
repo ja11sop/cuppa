@@ -1,7 +1,7 @@
 # Plan: console channels (log, report, transcript, heartbeat)
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](../archive/console-mode-banners.md); [`terse-build-output.md`](../archive/terse-build-output.md); [`terse-delegated-output.md`](../archive/terse-delegated-output.md); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md); [`native-toolchain-output.md`](../archive/native-toolchain-output.md); [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`build-log-hygiene.md`](../archive/build-log-hygiene.md); [`console-stop-error-reporting.md`](console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Build console output; [`console-mode-banners.md`](../archive/console-mode-banners.md); [`terse-build-output.md`](../archive/terse-build-output.md); [`terse-delegated-output.md`](../archive/terse-delegated-output.md); [`terse-dependency-locations.md`](../archive/terse-dependency-locations.md); [`native-toolchain-output.md`](../archive/native-toolchain-output.md); [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`build-log-hygiene.md`](../archive/build-log-hygiene.md); [`console-stop-error-reporting.md`](../archive/console-stop-error-reporting.md); [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
 - **Updated:** 2026-10-10
 - **Impact:** none for this index; individual console slices keep their own impact labels
 
@@ -58,7 +58,7 @@ Even `--scons-output` is not byte-identical to bare `scons`. `NotifyProgress` st
 | [`build-log-hygiene.md`](../archive/build-log-hygiene.md) | Log (which info lines exist) | Done on master |
 | [`cuppa-info.md`](../archive/cuppa-info.md) | A one-line console report that exits before SCons | Done on master ([#350](https://github.com/ja11sop/cuppa/pull/350)) |
 | [`console-mode-banners.md`](../archive/console-mode-banners.md) | Mode chips move from log to console report | Done on master ([#351](https://github.com/ja11sop/cuppa/pull/351)) |
-| [`console-stop-error-reporting.md`](console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | In progress; keep that split |
+| [`console-stop-error-reporting.md`](../archive/console-stop-error-reporting.md) | Options Error tree (report) plus a one-line critical log | Shipped in 1.14.0 ([#390](https://github.com/ja11sop/cuppa/pull/390)); keep that split |
 | [`archive/console-report-patterns.md`](../archive/console-report-patterns.md) | Shape of console reports (judgement trees) | Shipped |
 | [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md) | Heartbeat. Done on [#356](https://github.com/ja11sop/cuppa/pull/356): logger INFO diversion + throttle under quiet+TTY | Not a report. Honour non-TTY and `NO_COLOR`. Clear before a console report. Do not treat `--raw-output` as "this is a report" |
 | [`console-write-ownership.md`](../archive/console-write-ownership.md) | **Which FD owns durable lines vs status** under quiet+TTY (and nested cascade). One `write_line` on the heartbeat stream; stop pipe/TTY dual-write races | Done on [#360](https://github.com/ja11sop/cuppa/pull/360) |

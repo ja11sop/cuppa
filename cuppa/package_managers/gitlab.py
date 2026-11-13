@@ -2061,7 +2061,7 @@ class GitlabPackageDependency:
 
         # Online conditional freshness: HEAD before reuse when an archive is
         # already cached. Force --refresh-downloads already handled above.
-        # Plan: design/plans/package-download-freshness.md.
+        # Plan: design/archive/package-download-freshness.md.
         no_exec = bool(
                 self.is_option_set( "no_exec" )
                 or self._cuppa_env.get( 'no_exec' )

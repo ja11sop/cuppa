@@ -12,7 +12,7 @@
 Surprising flag combinations print an **Options Error** tree on stdout
 (unprefixed so tree glyphs survive), then raise a short ``StopError`` so the
 critical logger line stays a one-line summary. See
-``design/plans/console-stop-error-reporting.md``.
+``design/archive/console-stop-error-reporting.md``.
 """
 
 import SCons.Errors

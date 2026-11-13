@@ -1,11 +1,11 @@
 # Note: quiet heartbeat leaves its last line at exit
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-quiet-heartbeat-exit`; [`quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md); [`terse-heartbeat-chase.md`](terse-heartbeat-chase.md) (a different later change)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `console-quiet-heartbeat-exit`; [`quiet-tty-heartbeat.md`](quiet-tty-heartbeat.md); [`terse-heartbeat-chase.md`](terse-heartbeat-chase.md) (a different later change)
 - **Updated:** 2026-11-10
 - **Impact:** `patch` — ships with 1.14.0 — [#393](https://github.com/ja11sop/cuppa/pull/393)
 
-Done on master via [#393](https://github.com/ja11sop/cuppa/pull/393). Archive when 1.14.0 ships.
+Done on master via [#393](https://github.com/ja11sop/cuppa/pull/393). Archived with 1.14.0.
 
 ## What happened
 

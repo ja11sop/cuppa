@@ -157,11 +157,11 @@ tree for flag refusals.
 
 Do **not** graduate every configure refuse (missing toolchain, 404, corrupt
 manifest) into an Options Error tree — only surprising flag combinations.
-Design: `design/plans/console-stop-error-reporting.md`.
+Design: `design/archive/console-stop-error-reporting.md`.
 
 == Where to go next
 
 * Managing wipe / remove flags → xref:dependencies/managing.adoc[Managing dependencies]
 * Versioning and changelog → xref:contributing/versioning.adoc[Versioning and changelog]
 * Repository design plan → `design/archive/console-report-patterns.md`
-* Options Error / StopError plan → `design/plans/console-stop-error-reporting.md`
+* Options Error / StopError plan → `design/archive/console-stop-error-reporting.md`

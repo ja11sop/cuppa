@@ -1,7 +1,7 @@
 # Plan: `--deep-clean` as a modifier on `-c` / `--clean`
 
-- **Status:** done
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); [#399](https://github.com/ja11sop/cuppa/pull/399); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326); [`removal-options.md`](removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](../archive/terse-delegated-output.md)
+- **Status:** shipped
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — `deep-clean`; [#135](https://github.com/ja11sop/cuppa/issues/135) (`artefact-removal`); [#399](https://github.com/ja11sop/cuppa/pull/399); Boost stage `env.Clean` on [#326](https://github.com/ja11sop/cuppa/pull/326); [`removal-options.md`](../plans/removal-options.md); CMake `-B` Clean ([`cmake.py`](../../cuppa/methods/cmake.py)); Boost `storage_clean` / `b2_command` ([`build_with_boost.py`](../../cuppa/dependencies/build_with_boost.py), [`b2.py`](../../cuppa/dependencies/boost/b2.py)); soak note from [`terse-delegated-output.md`](terse-delegated-output.md)
 - **Updated:** 2026-11-11
 - **Impact:** `minor` (new CLI flag / opt-in clean scope)
 

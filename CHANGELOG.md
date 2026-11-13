@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.14.0] - unreleased
+## [1.14.0] - 2026-11-13
 
 ### Added
 
@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   CMake methods run ``cmake --build … --target clean`` before the existing
   ``-B`` path Clean. Headers and downloads stay. Alone without ``-c`` it is
   refused. Nested cascade sessions forward the flag. Plan:
-  ``design/plans/deep-clean.md``.
+  ``design/archive/deep-clean.md``.
 
 - Online GitLab package consume checks whether a cached archive is still the
   file on the registry (``HEAD``, preferring ``X-Checksum-Sha256``) before
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without ``--refresh-downloads``. When the check cannot run, consume warns
   once and keeps the cached extract. ``--offline`` skips the check;
   ``--refresh-downloads`` still force-refetches. Plan:
-  ``design/plans/package-download-freshness.md``.
+  ``design/archive/package-download-freshness.md``.
 
 - ``CMakeInstall`` rewrites installed ``*.pc`` files so ``prefix`` is
   ``${pcfiledir}`` relative to the package root. Paths under that prefix
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   A file that already uses ``${pcfiledir}`` is left alone, as is a prefix
   outside the package tree. ``env.RelocatePkgConfig`` does the same rewrite
   for a tree that was not installed by CMake.
-  Plan: ``design/plans/package-public-defines.md``.
+  Plan: ``design/archive/package-public-defines.md``.
 
 - GitLab packages can carry ``pkg_config_dir`` in ``cuppa-publish.json``
   (``lib/pkgconfig``, ``share/pkgconfig``, and so on). The directory is
@@ -51,13 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   remove them. A publisher sets the list directly, or passes
   ``cmake_public_defines()`` so publish asks CMake for the installed
   targets' ``INTERFACE_COMPILE_DEFINITIONS`` instead of writing the tokens
-  again. Plan: ``design/plans/package-public-defines.md``.
+  again. Plan: ``design/archive/package-public-defines.md``.
 
 - ``--cov`` test and benchmark runs set ``GCOV_PREFIX`` per binary
   (``gcov-data/{program}``) so parallel tests that link the same objects do not
   share one ``.gcda``. ``gcov`` does not read that variable: the ``.gcno`` is
   linked beside the ``.gcda``, and ``gcov`` is started in ``gcov-run`` so its
-  ``*.gcov`` files stay per binary. Plan: ``design/plans/coverage-parallel.md``.
+  ``*.gcov`` files stay per binary. Plan: ``design/archive/coverage-parallel.md``.
 
 ### Changed
 
@@ -68,14 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   caption (``cleaning-b2 · …``) covers the quiet Popen span (``keep_heartbeat``
   so the spawn does not blank the status row); config dump stays filtered
   unless ``--boost-verbose-config`` / ``--boost-verbose-build``.
-  Plan: ``design/plans/deep-clean.md``.
+  Plan: ``design/archive/deep-clean.md``.
 
 - ``--terse-output`` + ``-c`` / ``--clean``: SCons path-Clean ``Removed …`` lines
   (via ``display()``, including after ``--deep-clean`` native cleans) fold onto
   the shared status-row heartbeat instead of flooding the transcript, then one
   tip-wide durable ``sconstruct → [clean] removed N paths`` summary on
   completion. ``-Q -c`` without terse still forces classic quiet (no heartbeat)
-  so the flood cannot shear onto a pulse. Plan: ``design/plans/deep-clean.md``.
+  so the flood cannot shear onto a pulse. Plan: ``design/archive/deep-clean.md``.
 
 - Online consume of registry ``latest`` continues when the registry check
   cannot run (DNS, connection, HTTP 401/403/5xx) and the remembered version's
@@ -88,14 +88,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the warning again. HTTP 404, a missing extract, and publish stay hard stops. A
   ``>=`` refresh that cannot run uses the same warn when a local version
   already satisfies the bound; a 404 on that path is now a hard stop.
-  Plan: ``design/plans/unverified-latest.md``.
+  Plan: ``design/archive/unverified-latest.md``.
 
 - Terse action lines no longer wait out a full heartbeat cycle before they
   replace a visible caption. A run of short actions (coverage, collate, copy)
   was paying that cycle on every line. The parallel outstanding-action
   carousel is unchanged.
-
-### Deprecated
 
 ### Removed
 
@@ -131,7 +129,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reconciles before end checkpoints. ``CUPPA_TERSE_TALLY_DUMP=1`` prints
   integrity (done/total, orphans, cell shortfalls) so a ``0 uncredited`` dump
   cannot hide phantom slots. Plan:
-  ``design/plans/terse-action-tally-shortfall.md``.
+  ``design/archive/terse-action-tally-shortfall.md``.
 
 - Under ``--terse-output``, ``--refresh-downloads`` prints a durable resolve
   child ``→ [refresh]  <token> · <version> · cache re-fetched`` only after the
@@ -139,13 +137,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``[collect]`` / ``[extract]``), including with ``-Q``. ``Stored … in
   [.cuppaconfig]`` and ``Downloading package archive […]…`` are demoted to
   debug so they do not punch the ledger. Force refresh still always re-fetches
-  (no HEAD). Plan: ``design/plans/terse-refresh-ledger.md``.
+  (no HEAD). Plan: ``design/archive/terse-refresh-ledger.md``.
 
 - Under ``--terse-output``, sticky heartbeat captions that chase back after a
   durable ``[ok]`` line keep the ECG / spinner phase. Consecutive heartbeat
   lines continue the animation instead of restarting at rest every time.
   Ordinary clears (warn/report, leave-the-row) still reset to rest. Plan:
-  ``design/plans/terse-heartbeat-chase.md``.
+  ``design/archive/terse-heartbeat-chase.md``.
 
 - Under ``-Q`` / ``-s`` on a TTY, process exit finishes the quiet heartbeat
   status row. The last event INFO caption (for example coverage ``No lines of
@@ -153,7 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   row is cleared and terminal autowrap restored. Sticky in-progress captions
   are cleared without promoting. Previously ``atexit`` only restored wrap, so
   the shell prompt shared the heartbeat bar with that caption. Plan:
-  ``design/plans/quiet-heartbeat-exit.md``.
+  ``design/archive/quiet-heartbeat-exit.md``.
 
 - Surprising option refusals for ``--stage-package`` with ``--publish-package``,
   and for ``--parallel=N`` with ``--jobs`` / ``-j``, print an **Options Error**
@@ -170,7 +168,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   output flag conflicts use the same trees. ``--parallel=N`` with
   ``--jobs`` / ``-j`` is refused from ``base_options.check_options``
   (construct asks beside method ``check_options``). Plan:
-  ``design/plans/console-stop-error-reporting.md``.
+  ``design/archive/console-stop-error-reporting.md``.
 
 - Under ``--terse-output``, GitLab package build / amend / publish staging
   chatter (refreshed include/lib, wrote manifest, seeded publisher-tree,
@@ -218,8 +216,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``--terse-output`` the gcov and gcovr command lines and the
   ``lines:`` / ``functions:`` / ``branches:`` summary stay off the transcript
   unless that step fails.
-
-### Security
 
 ## [1.13.0] - 2026-10-29
 
@@ -2774,7 +2770,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
-[1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...HEAD
+[1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/ja11sop/cuppa/compare/v1.11.0...v1.12.0
 [1.11.0]: https://github.com/ja11sop/cuppa/compare/v1.10.0...v1.11.0
