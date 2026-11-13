@@ -15,6 +15,21 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
+## 1.14.2 cycle focus (open)
+
+Patch cycle after **1.14.1**. First slice: `--show-global-conf` to complete the
+project / global conf option pairs. Carry-forwards from 1.14.1 stay available.
+
+| Area | Status in 1.14.2 |
+|------|------------------|
+| `--show-global-conf` | **Proposal** — inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/plans/show-global-conf.md) |
+| SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+---
+
 ## 1.14.1 cycle focus (shipped 2026-11-13)
 
 Patch cycle after **1.14.0**. Sticky terse `[....]` for long test / `env.Run`
@@ -672,6 +687,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/archive/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
+| `cli-show-global-conf` | `--show-global-conf`: conf-only inspect of `~/.cuppaconfig` (pair with `--show-conf` / other `*-global-conf` flags) | Low | Proposal — 1.14.2 opener. Keep `--show-conf` as merged effective view; global-only equivalent CLI from the home file. [`show-global-conf.md`](design/plans/show-global-conf.md) |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | **Shipped in 1.13.0** [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298) (CMake/Ninja job-count earlier [#319](https://github.com/ja11sop/cuppa/pull/319)). Design: [`parallel-job-count.md`](design/archive/parallel-job-count.md). |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | **Shipped in 1.12.0** [#354](https://github.com/ja11sop/cuppa/pull/354). [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) |
 | `console-terse-dep-locations` | Terse nested location maps for dependency/package trees (`<dependencies>/<fmt>/…`, shared `<variant>`) | Medium | **Shipped in 1.12.0** [#355](https://github.com/ja11sop/cuppa/pull/355). [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) |
