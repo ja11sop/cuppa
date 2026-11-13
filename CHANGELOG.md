@@ -124,6 +124,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the same erase prefix for the parent echo. Finish hooks repaint outstanding
   jobs before the durable line so chase-back keeps the next in-flight caption.
 
+- Terse action tallies no longer close a few slots short of ``N/N`` when the
+  same File node is re-registered under a new executor (builder replace /
+  duplicate ``BuildTest`` name). The ledger reuses the existing entry instead
+  of inflating ``_total``, prunes orphaned executors when narrowing, and
+  reconciles before end checkpoints. ``CUPPA_TERSE_TALLY_DUMP=1`` prints
+  integrity (done/total, orphans, cell shortfalls) so a ``0 uncredited`` dump
+  cannot hide phantom slots. Plan:
+  ``design/plans/terse-action-tally-shortfall.md``.
+
 - Under ``--terse-output``, ``--refresh-downloads`` prints a durable resolve
   child ``→ [refresh]  <token> · <version> · cache re-fetched`` only after the
   re-download finishes (download heartbeat first; then ``[refresh]``, then
