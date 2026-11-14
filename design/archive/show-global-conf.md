@@ -1,12 +1,13 @@
 # Note: `--show-global-conf` for `~/.cuppaconfig`
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** ROADMAP `cli-show-global-conf`; `cuppa/configure.py`; Antora
   [`configuration.adoc`](../../docs/modules/ROOT/pages/configuration.adoc) /
   [`cli/storage-and-configuration.adoc`](../../docs/modules/ROOT/pages/cli/storage-and-configuration.adoc);
-  integration [`test_configure_conf.py`](../../tests/integration/test_configure_conf.py)
-- **Updated:** 2026-11-13
-- **Impact:** `patch` — new conf-only CLI flag; ships with 1.14.2
+  integration [`test_configure_conf.py`](../../tests/integration/test_configure_conf.py);
+  companion [`show-conf-latest-labels.md`](show-conf-latest-labels.md)
+- **Updated:** 2026-11-14
+- **Impact:** `patch` — shipped in 1.14.2 — [#407](https://github.com/ja11sop/cuppa/pull/407)
 
 ## Gap
 
