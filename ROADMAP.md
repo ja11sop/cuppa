@@ -11,7 +11,24 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-11-13
+**As of:** 2026-11-14
+
+---
+
+## 1.15.0 cycle focus (open)
+
+Minor cycle after **1.14.2**. No single opener locked yet — pick up the
+1.14.2 carry-forwards (topic help, shareable Antora supplemental UI) and
+longer-running candidates as capacity allows.
+
+| Area | Status in 1.15.0 |
+|------|------------------|
+| Topic / group / single-option `--help` | **Candidate** — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Candidate** — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
 ---
 
@@ -19,15 +36,15 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 Patch cycle after **1.14.1**. `--show-global-conf`, conf-show labels for
 `gitlab_package_latest_*`, storage-legacy / CONFIGURE banner polish; design
-plans under `design/archive/`. Topic help and supplemental-ui extract remain
-proposals for a later cycle.
+plans under `design/archive/`. Topic help and supplemental-ui extract carried
+to **1.15.0**.
 
 | Area | Status in 1.14.2 |
 |------|------------------|
 | `--show-global-conf` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/archive/show-global-conf.md) |
 | Conf-show labels for `gitlab_package_latest_*` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/archive/show-conf-latest-labels.md) |
-| Topic / group / single-option `--help` | **Proposal** (carry-forward) — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
-| Shareable Antora supplemental UI repo | **Proposal** (carry-forward) — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| Topic / group / single-option `--help` | **Carry-forward** → **1.15.0** — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Carry-forward** → **1.15.0** — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
 | SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
