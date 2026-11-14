@@ -1,8 +1,8 @@
 # Plan: custom Antora UI bundle
 
 - **Status:** in progress
-- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md)
-- **Updated:** 2026-09-03
+- **Related:** [`ROADMAP.md`](../../ROADMAP.md) — Documentation tooling (`doc-antora-ui`); [#229](https://github.com/ja11sop/cuppa/issues/229); PR [#228](https://github.com/ja11sop/cuppa/pull/228); [`docs/playbook.yml`](../../docs/playbook.yml); supplemental UI [`docs/supplemental-ui/`](../../docs/supplemental-ui/); companions [`colourised-doc-samples.md`](../archive/colourised-doc-samples.md), [`shiki-syntax-highlighting.md`](shiki-syntax-highlighting.md); extract to shareable repo [`antora-supplemental-ui-repo.md`](antora-supplemental-ui-repo.md) (`doc-antora-supplemental-ui-repo`)
+- **Updated:** 2026-11-14
 - **Impact:** none — site presentation only (unless a UI change breaks the docs CI build)
 
 ## Why
