@@ -827,35 +827,45 @@ class Construct(object):
             ) )
             show_global = self._configure.showing_global_conf()
             if show_global:
-                global_settings = self._configure.global_configured_options()
-                print( "cuppa: With the global configuration (~/.cuppaconfig) "
-                       "executing 'cuppa -D' would be equivalent to:" )
-                print( "" )
-                print( "cuppa -D {}".format(
-                        self._command_line_from_settings( global_settings ) ) )
-                print( "" )
-                self._emit_registry_latest_map( global_settings )
+                self._emit_conf_equivalent_block(
+                        "cuppa: With the global configuration (~/.cuppaconfig) "
+                        "executing 'cuppa -D' would be equivalent to:",
+                        self._configure.global_configured_options(),
+                )
             if self._configure.showing_conf() or not show_global:
-                merged = cuppa_env['configured_options']
-                print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
-                print( "" )
-                print( "cuppa -D {}".format(
-                        self._command_line_from_settings( merged ) ) )
-                print( "" )
-                self._emit_registry_latest_map( merged )
-            print( "cuppa: Nothing to be done. Exiting." )
+                self._emit_conf_equivalent_block(
+                        "cuppa: With the current configuration executing "
+                        "'cuppa -D' would be equivalent to:",
+                        cuppa_env['configured_options'],
+                )
+            # Same report channel as the CONFIGURE banner so -Q cannot reorder
+            # buffered stdout prints relative to write_report trees.
+            from cuppa.utility.console_report import write_report_lines
+            write_report_lines( [ "cuppa: Nothing to be done. Exiting." ] )
             SCons.Script.Exit()
 
 
-    def _emit_registry_latest_map( self, settings ):
+    def _emit_conf_equivalent_block( self, intro, settings ):
+        """Equivalent ``cuppa -D`` line plus optional latest-pin tree, in order.
+
+        One ``write_report_lines`` call so under ``-Q`` the mapping tree cannot
+        flush ahead of a still-buffered ``print`` of the equivalent line.
+        """
         from cuppa.package_managers.gitlab_latest import (
                 format_registry_latest_report_lines,
         )
         from cuppa.utility.console_report import write_report_lines
-        lines = format_registry_latest_report_lines( settings )
-        if not lines:
-            return
-        # Lines already include leading/trailing blanks (judgement-tree chrome).
+        lines = [
+                intro,
+                "",
+                "cuppa -D {}".format( self._command_line_from_settings( settings ) ),
+        ]
+        tree = format_registry_latest_report_lines( settings )
+        if tree:
+            # tree starts/ends with blank lines (judgement-tree chrome).
+            lines.extend( tree )
+        else:
+            lines.append( "" )
         write_report_lines( lines )
 
 
