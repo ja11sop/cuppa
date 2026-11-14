@@ -43,6 +43,7 @@ def test_show_global_conf_reports_home_file_only(tmp_path, isolate_cuppa_home):
     shown = run_cuppa(project, "--show-global-conf")
     assert_success(shown)
     out = shown.stdout or ""
+    assert "Running in CONFIGURE mode" in out
     assert "global configuration" in out.lower() or "~/.cuppaconfig" in out
     assert "offline" in out
     assert "toolchains" in out

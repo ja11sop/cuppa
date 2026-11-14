@@ -822,7 +822,9 @@ class Construct(object):
             # before the conf-only banners so nothing trails after Exit under -Q.
             from cuppa.utility.heartbeat import finish_at_exit
             finish_at_exit()
-            print( "cuppa: Handling configuration only, so no builds will be attempted." )
+            report_mode_banner( as_info_label(
+                    "Running in CONFIGURE mode, no building will be attempted"
+            ) )
             show_global = self._configure.showing_global_conf()
             if show_global:
                 print( "cuppa: With the global configuration (~/.cuppaconfig) "

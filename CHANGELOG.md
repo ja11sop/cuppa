@@ -23,7 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   skips grandfathering older ``_cuppa`` / ``~/_cuppa/_download`` trees and
   derives dependencies/downloads under that storage root. Conf-only exits
   (``--show-conf`` / ``--show-global-conf`` / …) flush quiet+TTY diverted INFO
-  before the banners so advisories do not trail after ``Exiting`` under ``-Q``.
+  before the banners so advisories do not trail after ``Exiting`` under ``-Q``,
+  and announce ``Running in CONFIGURE mode, no building will be attempted`` via
+  the same mode-banner surface as DUMP / OFFLINE.
 
 ### Deprecated
 
