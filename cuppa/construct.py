@@ -818,6 +818,10 @@ class Construct(object):
             ProfilesDiagnosticCollector.finalize_inventory_session()
 
         if self._configure.handle_conf_only():
+            # Promote any quiet+TTY diverted INFO (e.g. storage legacy advisories)
+            # before the conf-only banners so nothing trails after Exit under -Q.
+            from cuppa.utility.heartbeat import finish_at_exit
+            finish_at_exit()
             print( "cuppa: Handling configuration only, so no builds will be attempted." )
             show_global = self._configure.showing_global_conf()
             if show_global:

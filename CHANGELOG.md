@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Legacy storage-root advisories name the new default path (for example
+  ``_artefacts``, ``<storage-root>/dependencies``) so the move is obvious.
+  An explicit ``--storage-root`` (including one saved in ``~/.cuppaconfig``)
+  skips grandfathering older ``_cuppa`` / ``~/_cuppa/_download`` trees and
+  derives dependencies/downloads under that storage root. Conf-only exits
+  (``--show-conf`` / ``--show-global-conf`` / …) flush quiet+TTY diverted INFO
+  before the banners so advisories do not trail after ``Exiting`` under ``-Q``.
+
 ### Deprecated
 
 ### Removed
