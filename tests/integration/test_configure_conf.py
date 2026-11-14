@@ -61,7 +61,7 @@ def test_show_global_conf_reports_home_file_only(tmp_path, isolate_cuppa_home):
     ]
     assert equivalent
     assert "gitlab_package_latest_label_" not in equivalent[0]
-    assert "remembered registry latest" in out
+    assert "registry latest mapping" in out
     assert "boost" in out
     assert "(unknown package)" in out
     assert "Nothing to be done" in out

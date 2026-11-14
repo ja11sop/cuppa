@@ -165,17 +165,38 @@ def registry_latest_pin_rows( settings ):
     return rows
 
 
+def _format_registry_latest_digest( digest ):
+    """Plain head/tail (4 hex each), subdued middle — ends stand out in the tree."""
+    from cuppa.colourise import as_subdued
+
+    text = str( digest )
+    if len( text ) <= 8:
+        return text
+    return "{}{}{}".format( text[ : 4 ], as_subdued( text[ 4 : -4 ] ), text[ -4 : ] )
+
+
 def format_registry_latest_report_lines( settings, encoding=None ):
-    """Console-report lines naming remembered registry-latest pins, or ``[]``."""
+    """Console-report lines naming remembered registry-latest pins, or ``[]``.
+
+    Judgement-tree chrome: emphasised info count intro, muted stem, then leaves
+    (same family as Options Error / storage judgement trees).
+    """
     rows = registry_latest_pin_rows( settings )
     if not rows:
         return []
-    from cuppa.colourise import as_info, as_notice, as_subdued
+    from cuppa.colourise import as_emphasised, as_info, as_notice, as_subdued
     from cuppa.utility.storage import glyphs
 
-    tee, elbow, _pipe, _gap = glyphs( encoding )
-    lines = [ 'remembered registry latest' ]
-    last = len( rows ) - 1
+    tee, elbow, pipe, _gap = glyphs( encoding )
+    stub = pipe.rstrip()
+    count = len( rows )
+    noun = 'registry latest mapping' if count == 1 else 'registry latest mappings'
+    lines = [
+            '',
+            "{} {}:".format( as_emphasised( as_info( str( count ) ) ), noun ),
+            as_subdued( stub ),
+    ]
+    last = count - 1
     for index, ( digest, package, version ) in enumerate( rows ):
         branch = elbow if index == last else tee
         if package:
@@ -183,11 +204,12 @@ def format_registry_latest_report_lines( settings, encoding=None ):
         else:
             name = as_subdued( '(unknown package)' )
         lines.append( "{}{} · {} = {}".format(
-                branch,
-                as_subdued( digest ),
+                as_subdued( branch ),
+                _format_registry_latest_digest( digest ),
                 name,
                 as_info( str( version ) ),
         ) )
+    lines.append( '' )
     return lines
 
 

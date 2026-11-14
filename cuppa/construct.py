@@ -855,8 +855,8 @@ class Construct(object):
         lines = format_registry_latest_report_lines( settings )
         if not lines:
             return
+        # Lines already include leading/trailing blanks (judgement-tree chrome).
         write_report_lines( lines )
-        print( "" )
 
 
     def _command_line_from_settings( self, settings ):

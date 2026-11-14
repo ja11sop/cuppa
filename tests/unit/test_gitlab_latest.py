@@ -160,14 +160,22 @@ def test_registry_latest_pin_rows_and_report_lines():
             ( digest_a, 'boost', '1.92' ),
     ]
     lines = gl.format_registry_latest_report_lines( settings, encoding='ascii' )
-    assert lines[0] == 'remembered registry latest'
-    plain = '\n'.join( lines )
+    from cuppa.output_processor import strip_ansi
+    plain = strip_ansi( '\n'.join( lines ) )
+    assert '2 registry latest mappings:' in plain
     assert digest_a in plain
     assert digest_b in plain
     assert 'boost' in plain
     assert '(unknown package)' in plain
     assert '1.92' in plain
+    # Muted stem hangs under the intro before the first leaf.
+    assert plain.splitlines()[2].strip() in ( '|', '│' )
     assert gl.format_registry_latest_report_lines( { 'dbg': True } ) == []
+
+    digest_fmt = gl._format_registry_latest_digest( '2c97352080a3c10c' )
+    assert strip_ansi( digest_fmt ).startswith( '2c97' )
+    assert strip_ansi( digest_fmt ).endswith( 'c10c' )
+    assert digest_fmt.index( '2c97' ) < digest_fmt.index( '3520' )
 
 
 def test_registry_latest_conf_path_project_when_downloads_under_sconstruct( tmp_path ):

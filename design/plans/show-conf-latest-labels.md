@@ -32,12 +32,14 @@ Keep the conf keys and the equivalent CLI line as version pins only. After that
 line (when any `gitlab_package_latest_*` keys are present), print a **display-only**
 console-report mapping that names each pin.
 
-Example shape (glyphs / colour follow existing judgement-tree helpers):
+Example shape (judgement-tree chrome: emphasised info count, muted stem,
+plain hash ends so the digest stays scannable):
 
 ```text
-remembered registry latest
-├── 3e9aca8814a24728 · boost = 1.92
-└── 2c97352080a3c10c · c-ares = 1.34.8
+2 registry latest mappings:
+│
+├── 2c97352080a3c10c · (unknown package) = 1.34.8
+└── 3e9aca8814a24728 · boost = 1.92
 ```
 
 Optional muted child or suffix for registry host when it helps disambiguate
