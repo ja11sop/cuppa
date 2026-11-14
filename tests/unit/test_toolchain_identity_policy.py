@@ -97,7 +97,10 @@ def test_migrate_creates_major_when_file_missing( tmp_path ):
     path = str( tmp_path / '.cuppaconfig' )
     assert identity.migrate_global_toolchain_identity( path ) == 'major'
     text = ( tmp_path / '.cuppaconfig' ).read_text( encoding='utf-8' )
-    assert 'toolchain_identity = major' in text
+    assert (
+            "toolchain_identity = 'major'" in text
+            or "toolchain_identity = major" in text
+    )
 
 
 def test_migrate_grandfathers_full_when_key_missing( tmp_path ):
@@ -105,7 +108,10 @@ def test_migrate_grandfathers_full_when_key_missing( tmp_path ):
     conf.write_text( 'offline = True\n', encoding='utf-8' )
     assert identity.migrate_global_toolchain_identity( str( conf ) ) == 'full'
     text = conf.read_text( encoding='utf-8' )
-    assert 'toolchain_identity = full' in text
+    assert (
+            "toolchain_identity = 'full'" in text
+            or "toolchain_identity = full" in text
+    )
     assert 'offline = True' in text
 
 

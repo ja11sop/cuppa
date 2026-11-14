@@ -106,6 +106,10 @@ registry, so it needs a remembered concrete version to honour the same dependenc
 After a successful registry list/select, Cuppa stores that **version string** (for example
 `1.10`) under a `gitlab_package_latest_*` key. The suffix is a short hash of
 `registry|package` so keys stay unique; it is **not** a content hash of the archive.
+A parallel `gitlab_package_latest_label_*` key stores the package name for display only —
+`--show-conf` / `--show-global-conf` print a short mapping tree under the equivalent
+`cuppa -D` line so those hashes are readable. Label keys are not part of the equivalent
+command line.
 
 Where the key is written follows the same downloads-root scoping as source Boost’s
 `boost_latest_version`:

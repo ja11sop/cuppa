@@ -15,6 +15,24 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
+## 1.14.2 cycle focus (open)
+
+Patch cycle after **1.14.1**. First slice: `--show-global-conf` to complete the
+project / global conf option pairs. Carry-forwards from 1.14.1 stay available.
+
+| Area | Status in 1.14.2 |
+|------|------------------|
+| `--show-global-conf` | **Done** (unreleased) — inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/plans/show-global-conf.md) |
+| Conf-show labels for `gitlab_package_latest_*` | **Done** (unreleased) — display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
+| Topic / group / single-option `--help` | **Proposal** (next) — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Proposal** (next) — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
+
+---
+
 ## 1.14.1 cycle focus (shipped 2026-11-13)
 
 Patch cycle after **1.14.0**. Sticky terse `[....]` for long test / `env.Run`
@@ -672,6 +690,9 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/archive/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
+| `cli-show-global-conf` | `--show-global-conf`: conf-only inspect of `~/.cuppaconfig` (pair with `--show-conf` / other `*-global-conf` flags) | Low | **Done** (unreleased) — 1.14.2. Keep `--show-conf` as merged effective view; global-only equivalent CLI from the home file. [`show-global-conf.md`](design/plans/show-global-conf.md) |
+| `cli-show-conf-latest-labels` | Name `gitlab_package_latest_*` pins on conf show (display tree; label sidecar at remember time) | Low | **Done** (unreleased) — 1.14.2 / [#407](https://github.com/ja11sop/cuppa/pull/407). Pin keys and equivalent CLI unchanged. [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
+| `cli-help-topics` | Topic / group / single-option help; better chrome than a flat SCons `--help` dump | Medium | Proposal — explore `--help-topic=` / `cuppa help`, registration tags, Antora-aligned topic ids. [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | **Shipped in 1.13.0** [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298) (CMake/Ninja job-count earlier [#319](https://github.com/ja11sop/cuppa/pull/319)). Design: [`parallel-job-count.md`](design/archive/parallel-job-count.md). |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | **Shipped in 1.12.0** [#354](https://github.com/ja11sop/cuppa/pull/354). [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) |
 | `console-terse-dep-locations` | Terse nested location maps for dependency/package trees (`<dependencies>/<fmt>/…`, shared `<variant>`) | Medium | **Shipped in 1.12.0** [#355](https://github.com/ja11sop/cuppa/pull/355). [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) |
@@ -741,6 +762,7 @@ Design: [#213](https://github.com/ja11sop/cuppa/issues/213) (compile object path
 | `doc-site-release-default` | Public docs default to **`/latest/`** (released Cuppa), not `master` tip | — | **Shipped** [#238](https://github.com/ja11sop/cuppa/pull/238) — verified 2026-09-10 (`/latest/` → **1.10.0**); [`docs-site-release-default.md`](design/archive/docs-site-release-default.md) |
 | `doc-llms-txt` | Agent Markdown: `llms.txt` + per-page MD + `llms-full.txt` from Antora HTML (Pandoc) | — | **Shipped** [#238](https://github.com/ja11sop/cuppa/pull/238) — corpus on `/latest/`; [`docs-llms-txt.md`](design/archive/docs-llms-txt.md) |
 | `doc-antora-ui` | Supplemental CSS polish (keep default Antora bundle) | Low | [`antora-ui-bundle.md`](design/plans/antora-ui-bundle.md); [#229](https://github.com/ja11sop/cuppa/issues/229); CSS pass in [#228](https://github.com/ja11sop/cuppa/pull/228); `ui-pin` still open; **1.9.0** docs-only |
+| `doc-antora-supplemental-ui-repo` | Extract `docs/supplemental-ui/` into a shareable repo (core candy + theme packs; brand stays per site) | Low | Proposal — multi-repo reuse; Cuppa keeps palettes/brand. [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md); builds on `doc-antora-ui` |
 | `doc-output-samples` | Capture report output as semantic HTML for Antora and local preview | Low | **Shipped** [#253](https://github.com/ja11sop/cuppa/pull/253) / [#252](https://github.com/ja11sop/cuppa/issues/252); [`colourised-doc-samples.md`](design/archive/colourised-doc-samples.md); not Shiki `ansi` |
 | `doc-shiki` | Build-time Shiki for `[source,…]` listings; optional ANSI preview | Low | [`shiki-syntax-highlighting.md`](design/plans/shiki-syntax-highlighting.md); **deferred past 1.9.0** — Phase A spike after UI chrome stable |
 | `doc-folder-layout` | Page folders mirroring nav (dependencies/, cxx-profiles/, toolchains/) | Low | **Shipped** — [`doc-folder-layout.md`](design/archive/doc-folder-layout.md) |

@@ -140,12 +140,13 @@ def resolve_root( option, alias, legacy, derived, anchor=None ):
     return Resolved( normal_path( derived ), 'derived', None )
 
 
-def report( resolved, name, deprecated_option, replaced_by ):
+def report( resolved, name, deprecated_option, replaced_by, new_default=None ):
     """Say how a root was decided when the reason is something to act on.
 
     Using an old option name is a deprecation, which is the reader's to fix. Keeping an older
     folder is cuppa choosing for them so that nothing is re-fetched, which they have not done
-    anything wrong to deserve, but do need to know about.
+    anything wrong to deserve, but do need to know about. Legacy advisories name the new
+    default path so the move is obvious.
     """
     if resolved.source == 'deprecated':
         logger.warn( "[{}] is deprecated, use [{}] instead. Using [{}] for {}".format(
@@ -155,12 +156,25 @@ def report( resolved, name, deprecated_option, replaced_by ):
                 name
         ) )
     elif resolved.source == 'legacy':
-        logger.info( "Using the existing [{}] for {} rather than the new default. Move it and"
-                     " set [{}] when you want the new location".format(
-                as_notice( resolved.origin ),
-                name,
-                as_info( replaced_by )
-        ) )
+        if new_default is not None:
+            logger.info(
+                "Using the existing [{}] for {} rather than the new default of [{}]. "
+                "Move it and set [{}] when you want the new location".format(
+                    as_notice( resolved.origin ),
+                    name,
+                    as_notice( new_default ),
+                    as_info( replaced_by ),
+                )
+            )
+        else:
+            logger.info(
+                "Using the existing [{}] for {} rather than the new default. Move it and"
+                " set [{}] when you want the new location".format(
+                    as_notice( resolved.origin ),
+                    name,
+                    as_info( replaced_by ),
+                )
+            )
 
 
 def resolve_artefacts_root( cuppa_env ):
@@ -188,6 +202,12 @@ def process_storage_options( cuppa_env ):
 
     build_root = cuppa_env.get_option( 'build_root', default=default.build_root )
     anchor = cuppa_env.get( 'sconstruct_dir' )
+    # Read CLI/configure options before writing env keys. FakeEnv-style wrappers
+    # (and any env that backs get_option with the same dict) would otherwise see
+    # the resolved artefacts_root as an "explicit" --artifacts-root and skip the
+    # legacy advisory.
+    artefacts_option = cuppa_env.get_option( 'artefacts_root' )
+    artifacts_option = cuppa_env.get_option( 'artifacts_root' )
     artefacts_root = resolve_artefacts_root( cuppa_env )
 
     cuppa_env['build_root']     = normal_path( build_root )
@@ -197,43 +217,54 @@ def process_storage_options( cuppa_env ):
     cuppa_env['artifacts_root'] = cuppa_env['artefacts_root']
     cuppa_env['abs_artifacts_root'] = cuppa_env['abs_artefacts_root']
 
-    if (
-        not cuppa_env.get_option( 'artefacts_root' )
-        and not cuppa_env.get_option( 'artifacts_root' )
-    ):
+    if not artefacts_option and not artifacts_option:
         kept = existing_legacy_root( LEGACY_ARTEFACTS, anchor )
         if kept:
-            logger.info(
-                "Using the existing [{}] for artefacts rather than the new default. "
-                "Move it and set [{}] when you want the new location".format(
-                    as_notice( kept ),
-                    as_info( '--artefacts-root' ),
-                ),
+            report(
+                Resolved( kept, 'legacy', kept ),
+                "artefacts",
+                None,
+                "--artefacts-root",
+                new_default=default.artefacts_root,
             )
 
-    storage_root = normal_path(
-            cuppa_env.get_option( 'storage_root', default=default.storage_root ) )
+    # An explicit --storage-root names the parent of dependencies/downloads, so
+    # skip grandfathering older trees (plan: keep legacy only when "no root is
+    # named"). Defaulting storage_root without the option still honours legacy.
+    storage_root_option = cuppa_env.get_option( 'storage_root' )
+    storage_root = normal_path( storage_root_option or default.storage_root )
 
     anchor = cuppa_env.get( 'sconstruct_dir' )
+
+    legacy_dependencies = () if storage_root_option else LEGACY_DEPENDENCIES
+    legacy_downloads = () if storage_root_option else LEGACY_DOWNLOADS
+    derived_dependencies = os.path.join( storage_root, default.dependencies )
+    derived_downloads = os.path.join( storage_root, default.downloads )
 
     dependencies = resolve_root(
             cuppa_env.get_option( 'dependencies_root' ),
             cuppa_env.get_option( 'download_root' ),
-            LEGACY_DEPENDENCIES,
-            os.path.join( storage_root, default.dependencies ),
+            legacy_dependencies,
+            derived_dependencies,
             anchor
     )
 
     downloads = resolve_root(
             cuppa_env.get_option( 'downloads_root' ),
             cuppa_env.get_option( 'cache_root' ),
-            LEGACY_DOWNLOADS,
-            os.path.join( storage_root, default.downloads ),
+            legacy_downloads,
+            derived_downloads,
             anchor
     )
 
-    report( dependencies, "dependencies", "--download-root", "--dependencies-root" )
-    report( downloads, "downloads", "--cache-root", "--downloads-root" )
+    report(
+            dependencies, "dependencies", "--download-root", "--dependencies-root",
+            new_default=derived_dependencies,
+    )
+    report(
+            downloads, "downloads", "--cache-root", "--downloads-root",
+            new_default=derived_downloads,
+    )
 
     cuppa_env['storage_root']      = storage_root
     cuppa_env['dependencies_root'] = dependencies.path

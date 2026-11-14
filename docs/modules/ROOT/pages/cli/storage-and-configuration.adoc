@@ -89,7 +89,8 @@ These actions update configuration and exit instead of running a build.
 |===
 | Option | Effect
 
-| `--show-conf` | Print the settings loaded from the global and project files
+| `--show-conf` | Print the merged effective settings from the global and project files
+| `--show-global-conf` | Print settings from `~/.cuppaconfig` only
 | `--save-conf` | Replace the project configuration with values from the current command line
 | `--save-global-conf` | Replace `~/.cuppaconfig` with values from the current command line
 | `--update-conf` | Merge current command-line values into the project configuration
@@ -104,8 +105,8 @@ These actions update configuration and exit instead of running a build.
 Configuration uses each option's internal SCons destination key rather than its CLI spelling.
 Those keys are not mechanically predictable: `reports_link_style` uses underscores, while
 `show-test-output` and `propagate-env` retain hyphens. Before writing a less common key manually,
-capture it with `--save-conf`, inspect it with `--show-conf`, or use an explicit mapping on the
-relevant CLI child page.
+capture it with `--save-conf`, inspect it with `--show-conf` or `--show-global-conf`, or use an
+explicit mapping on the relevant CLI child page.
 
 To record local develop and offline choices in the project configuration, run:
 

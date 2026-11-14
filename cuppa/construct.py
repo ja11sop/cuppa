@@ -818,18 +818,63 @@ class Construct(object):
             ProfilesDiagnosticCollector.finalize_inventory_session()
 
         if self._configure.handle_conf_only():
-            print( "cuppa: Handling configuration only, so no builds will be attempted." )
-            print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
-            print( "" )
-            print( "cuppa -D {}".format( self._command_line_from_settings( cuppa_env['configured_options'] ) ) )
-            print( "" )
-            print( "cuppa: Nothing to be done. Exiting." )
+            # Promote any quiet+TTY diverted INFO (e.g. storage legacy advisories)
+            # before the conf-only banners so nothing trails after Exit under -Q.
+            from cuppa.utility.heartbeat import finish_at_exit
+            finish_at_exit()
+            report_mode_banner( as_info_label(
+                    "Running in CONFIGURE mode, no building will be attempted"
+            ) )
+            show_global = self._configure.showing_global_conf()
+            if show_global:
+                self._emit_conf_equivalent_block(
+                        "cuppa: With the global configuration (~/.cuppaconfig) "
+                        "executing 'cuppa -D' would be equivalent to:",
+                        self._configure.global_configured_options(),
+                )
+            if self._configure.showing_conf() or not show_global:
+                self._emit_conf_equivalent_block(
+                        "cuppa: With the current configuration executing "
+                        "'cuppa -D' would be equivalent to:",
+                        cuppa_env['configured_options'],
+                )
+            # Same report channel as the CONFIGURE banner so -Q cannot reorder
+            # buffered stdout prints relative to write_report trees.
+            from cuppa.utility.console_report import write_report_lines
+            write_report_lines( [ "cuppa: Nothing to be done. Exiting." ] )
             SCons.Script.Exit()
 
 
+    def _emit_conf_equivalent_block( self, intro, settings ):
+        """Equivalent ``cuppa -D`` line plus optional latest-pin tree, in order.
+
+        One ``write_report_lines`` call so under ``-Q`` the mapping tree cannot
+        flush ahead of a still-buffered ``print`` of the equivalent line.
+        """
+        from cuppa.package_managers.gitlab_latest import (
+                format_registry_latest_report_lines,
+        )
+        from cuppa.utility.console_report import write_report_lines
+        lines = [
+                intro,
+                "",
+                "cuppa -D {}".format( self._command_line_from_settings( settings ) ),
+        ]
+        tree = format_registry_latest_report_lines( settings )
+        if tree:
+            # tree starts/ends with blank lines (judgement-tree chrome).
+            lines.extend( tree )
+        else:
+            lines.append( "" )
+        write_report_lines( lines )
+
+
     def _command_line_from_settings( self, settings ):
+        from cuppa.package_managers.gitlab_latest import is_registry_latest_label_key
         commands = []
         for key, value in six.iteritems(settings):
+            if is_registry_latest_label_key( key ):
+                continue
             command = as_emphasised( "--" + key )
             if value != True and value != False:
                 if not isinstance( value, list ):

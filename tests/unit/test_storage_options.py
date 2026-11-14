@@ -261,6 +261,37 @@ def test_keeping_an_older_folder_is_reported_with_the_option_that_moves_it(elsew
 
     assert "_cuppa" in caplog.text
     assert "--dependencies-root" in caplog.text
+    assert "new default of" in caplog.text
+    assert str(home / ".cuppa" / "dependencies") in caplog.text
+
+
+def test_legacy_artefacts_folder_is_reported_with_the_new_default(elsewhere, caplog):
+    home, project = elsewhere
+    (project / "_artifacts").mkdir()
+    env = env_for(project)
+
+    with caplog.at_level("INFO"):
+        storage_options.process_storage_options(env)
+
+    assert "_artifacts" in caplog.text
+    assert "new default of" in caplog.text
+    assert default.artefacts_root in caplog.text
+    assert "--artefacts-root" in caplog.text
+
+
+def test_an_explicit_storage_root_skips_legacy_dependency_trees(elsewhere, caplog):
+    home, project = elsewhere
+    (home / "_cuppa" / "_download").mkdir(parents=True)
+    (home / "_cuppa" / "_cache").mkdir(parents=True)
+    env = env_for(project, storage_root=str(home / ".cuppa"))
+
+    with caplog.at_level("INFO"):
+        storage_options.process_storage_options(env)
+
+    assert env["dependencies_root"] == str(home / ".cuppa" / "dependencies")
+    assert env["downloads_root"] == str(home / ".cuppa" / "downloads")
+    assert "--dependencies-root" not in caplog.text
+    assert "_download" not in caplog.text
 
 
 def test_a_named_root_wins_over_an_older_folder_that_is_still_there(elsewhere):

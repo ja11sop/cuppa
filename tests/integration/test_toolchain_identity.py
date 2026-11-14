@@ -97,7 +97,12 @@ def test_missing_global_conf_persists_major( tmp_path ):
     assert_success( result )
     conf = home / '.cuppaconfig'
     assert conf.exists()
-    assert 'toolchain_identity = major' in conf.read_text( encoding='utf-8' )
+    text = conf.read_text( encoding='utf-8' )
+    # upsert quotes string values so conf does not floatify tokens like 1.10
+    assert (
+        "toolchain_identity = 'major'" in text
+        or "toolchain_identity = major" in text
+    )
 
 
 def test_existing_global_conf_grandfathers_full( tmp_path ):
@@ -109,7 +114,10 @@ def test_existing_global_conf_grandfathers_full( tmp_path ):
     result = run_cuppa( project, '--dbg', extra_env=_identity_env( home ) )
     assert_success( result )
     text = ( home / '.cuppaconfig' ).read_text( encoding='utf-8' )
-    assert 'toolchain_identity = full' in text
+    assert (
+        "toolchain_identity = 'full'" in text
+        or "toolchain_identity = full" in text
+    )
     assert 'offline = True' in text
 
 

@@ -5,6 +5,43 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.2] - unreleased
+
+### Added
+
+- ``--show-global-conf``: conf-only inspect of ``~/.cuppaconfig`` (pair with
+  ``--show-conf`` and the other ``*-global-conf`` flags). Prints an equivalent
+  ``cuppa -D`` line from the global file alone. ``--show-conf`` stays the merged
+  effective view; Antora clarifies both. Plan:
+  ``design/plans/show-global-conf.md``.
+
+- Conf show names remembered GitLab ``latest`` pins: ``remember_registry_latest``
+  writes a ``gitlab_package_latest_label_*`` sidecar, and ``--show-conf`` /
+  ``--show-global-conf`` print a ``remembered registry latest`` mapping tree
+  under the equivalent ``cuppa -D`` line (unknown labels until the next online
+  remember). Pin keys and resolve behaviour are unchanged. Plan:
+  ``design/plans/show-conf-latest-labels.md``.
+
+### Changed
+
+- Legacy storage-root advisories name the new default path (for example
+  ``_artefacts``, ``<storage-root>/dependencies``) so the move is obvious.
+  An explicit ``--storage-root`` (including one saved in ``~/.cuppaconfig``)
+  skips grandfathering older ``_cuppa`` / ``~/_cuppa/_download`` trees and
+  derives dependencies/downloads under that storage root. Conf-only exits
+  (``--show-conf`` / ``--show-global-conf`` / …) flush quiet+TTY diverted INFO
+  before the banners so advisories do not trail after ``Exiting`` under ``-Q``,
+  and announce ``Running in CONFIGURE mode, no building will be attempted`` via
+  the same mode-banner surface as DUMP / OFFLINE.
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
 ## [1.14.1] - 2026-11-13
 
 ### Changed
@@ -2794,6 +2831,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.14.2]: https://github.com/ja11sop/cuppa/compare/v1.14.1...HEAD
 [1.14.1]: https://github.com/ja11sop/cuppa/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/ja11sop/cuppa/compare/v1.12.0...v1.13.0

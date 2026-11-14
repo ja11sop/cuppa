@@ -4,7 +4,9 @@
 
 == What is tested
 
-`--save-conf` writes project settings to `configure.conf`; `--show-conf` loads and displays them.
+`--save-conf` writes project settings to `configure.conf`; `--show-conf` loads and displays the
+merged effective settings. `--show-global-conf` reports `~/.cuppaconfig` alone (project overrides
+do not appear on that equivalent `cuppa -D` line).
 
 == Generated files
 
@@ -33,11 +35,15 @@ env.BuildTest('hello_test', 'tests/hello_test.cpp')
 ----
 cuppa -D --offline --toolchains=gcc --dbg --save-conf
 cuppa -D --offline --toolchains=gcc --show-conf
+cuppa -D --show-global-conf
 ----
 
 == Expectations
 
-`configure.conf` exists after the first run; the second run succeeds and reflects the saved `dbg` setting.
+`configure.conf` exists after the first run; the second run succeeds and reflects the saved `dbg`
+setting. The global-show run succeeds and prints workstation keys from `~/.cuppaconfig` without
+project-only flags such as `--dbg`, announces CONFIGURE mode, and (when pins are present) a
+`N registry latest mappings` judgement-style tree under the equivalent line.
 
 '''
 
