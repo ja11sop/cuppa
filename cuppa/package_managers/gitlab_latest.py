@@ -114,12 +114,81 @@ def project_packages_api_base( registry ):
     return text + '/packages'
 
 
-def registry_latest_conf_key( registry, package ):
-    """Stable conf key for remembered registry latest (not ``boost_latest_version``)."""
-    digest = hashlib.sha256(
+_PIN_KEY_RE = re.compile( r'^gitlab_package_latest_([0-9a-f]{16})$' )
+_LABEL_KEY_PREFIX = 'gitlab_package_latest_label_'
+
+
+def registry_latest_digest( registry, package ):
+    """Short hash of ``registry|package`` used in pin and label conf keys."""
+    return hashlib.sha256(
             "{}|{}".format( str( registry ).rstrip( '/' ), str( package ) ).encode( 'utf-8' )
     ).hexdigest()[ : 16 ]
-    return 'gitlab_package_latest_' + digest
+
+
+def registry_latest_conf_key( registry, package ):
+    """Stable conf key for remembered registry latest (not ``boost_latest_version``)."""
+    return 'gitlab_package_latest_' + registry_latest_digest( registry, package )
+
+
+def registry_latest_label_conf_key( registry, package ):
+    """Display-only package name sidecar for a remembered registry-latest pin."""
+    return _LABEL_KEY_PREFIX + registry_latest_digest( registry, package )
+
+
+def is_registry_latest_pin_key( key ):
+    """True for ``gitlab_package_latest_<16 hex>`` (not the ``…_label_`` sidecar)."""
+    return bool( key and _PIN_KEY_RE.match( str( key ) ) )
+
+
+def is_registry_latest_label_key( key ):
+    """True for ``gitlab_package_latest_label_<16 hex>`` sidecar keys."""
+    text = str( key or '' )
+    if not text.startswith( _LABEL_KEY_PREFIX ):
+        return False
+    return bool( re.match( r'^[0-9a-f]{16}$', text[ len( _LABEL_KEY_PREFIX ) : ] ) )
+
+
+def registry_latest_pin_rows( settings ):
+    """``(digest, package_or_None, version)`` rows for conf-show mapping trees."""
+    if not settings:
+        return []
+    rows = []
+    for key, value in settings.items():
+        match = _PIN_KEY_RE.match( str( key ) )
+        if not match:
+            continue
+        digest = match.group( 1 )
+        label = settings.get( _LABEL_KEY_PREFIX + digest )
+        package = None if label is None or label == '' else str( label )
+        rows.append( ( digest, package, value ) )
+    rows.sort( key=lambda row: ( ( row[1] or '' ).lower(), row[0] ) )
+    return rows
+
+
+def format_registry_latest_report_lines( settings, encoding=None ):
+    """Console-report lines naming remembered registry-latest pins, or ``[]``."""
+    rows = registry_latest_pin_rows( settings )
+    if not rows:
+        return []
+    from cuppa.colourise import as_info, as_notice, as_subdued
+    from cuppa.utility.storage import glyphs
+
+    tee, elbow, _pipe, _gap = glyphs( encoding )
+    lines = [ 'remembered registry latest' ]
+    last = len( rows ) - 1
+    for index, ( digest, package, version ) in enumerate( rows ):
+        branch = elbow if index == last else tee
+        if package:
+            name = as_notice( package )
+        else:
+            name = as_subdued( '(unknown package)' )
+        lines.append( "{}{} · {} = {}".format(
+                branch,
+                as_subdued( digest ),
+                name,
+                as_info( str( version ) ),
+        ) )
+    return lines
 
 
 def registry_latest_conf_path( env ):
@@ -183,8 +252,11 @@ def remember_registry_latest( env, registry, package, version ):
         return
     conf_path = registry_latest_conf_path( env )
     key = registry_latest_conf_key( registry, package )
-    # Quote so configure.conf literal_eval keeps ``1.10`` as a string (not float 1.1).
-    upsert_setting( conf_path, key, repr( str( version ) ) )
+    label_key = registry_latest_label_conf_key( registry, package )
+    # Plain strings; upsert_setting quotes them so ``1.10`` stays a string on
+    # reload. Two upserts are safe because rewrite re-quotes every string.
+    upsert_setting( conf_path, key, str( version ) )
+    upsert_setting( conf_path, label_key, str( package ) )
     # Under terse the ``[version]`` resolve child already names the pin; keep
     # the store fact at debug so configure INFO does not punch the ledger.
     message = "Stored {} = [{}] in [{}]".format(

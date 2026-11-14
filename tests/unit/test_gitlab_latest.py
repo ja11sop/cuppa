@@ -128,6 +128,48 @@ def test_remember_registry_latest_demotes_under_terse( tmp_path, monkeypatch, ca
     )
 
 
+def test_remember_registry_latest_writes_label_sidecar( tmp_path, monkeypatch ):
+    conf = str( tmp_path / 'configure.conf' )
+    monkeypatch.setattr( gl, 'registry_latest_conf_path', lambda env: conf )
+    registry = 'https://gitlab.example/api/v4/projects/1'
+    env = FakeEnv( configured_options={} )
+    gl.remember_registry_latest( env, registry, 'widget', '1.10' )
+    pin = gl.registry_latest_conf_key( registry, 'widget' )
+    label = gl.registry_latest_label_conf_key( registry, 'widget' )
+    assert gl.read_setting( conf, pin ) == '1.10'
+    assert gl.read_setting( conf, label ) == 'widget'
+    assert gl.is_registry_latest_pin_key( pin )
+    assert gl.is_registry_latest_label_key( label )
+    assert not gl.is_registry_latest_pin_key( label )
+    assert not gl.is_registry_latest_label_key( pin )
+
+
+def test_registry_latest_pin_rows_and_report_lines():
+    digest_a = 'aaaaaaaaaaaaaaaa'
+    digest_b = 'bbbbbbbbbbbbbbbb'
+    settings = {
+            'gitlab_package_latest_' + digest_a: '1.92',
+            'gitlab_package_latest_label_' + digest_a: 'boost',
+            'gitlab_package_latest_' + digest_b: '1.34.8',
+            # no label for b
+            'dbg': True,
+    }
+    rows = gl.registry_latest_pin_rows( settings )
+    assert rows == [
+            ( digest_b, None, '1.34.8' ),
+            ( digest_a, 'boost', '1.92' ),
+    ]
+    lines = gl.format_registry_latest_report_lines( settings, encoding='ascii' )
+    assert lines[0] == 'remembered registry latest'
+    plain = '\n'.join( lines )
+    assert digest_a in plain
+    assert digest_b in plain
+    assert 'boost' in plain
+    assert '(unknown package)' in plain
+    assert '1.92' in plain
+    assert gl.format_registry_latest_report_lines( { 'dbg': True } ) == []
+
+
 def test_registry_latest_conf_path_project_when_downloads_under_sconstruct( tmp_path ):
     project = tmp_path / 'proj'
     downloads = project / 'downloads'

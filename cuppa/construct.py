@@ -827,25 +827,44 @@ class Construct(object):
             ) )
             show_global = self._configure.showing_global_conf()
             if show_global:
+                global_settings = self._configure.global_configured_options()
                 print( "cuppa: With the global configuration (~/.cuppaconfig) "
                        "executing 'cuppa -D' would be equivalent to:" )
                 print( "" )
-                print( "cuppa -D {}".format( self._command_line_from_settings(
-                        self._configure.global_configured_options() ) ) )
+                print( "cuppa -D {}".format(
+                        self._command_line_from_settings( global_settings ) ) )
                 print( "" )
+                self._emit_registry_latest_map( global_settings )
             if self._configure.showing_conf() or not show_global:
+                merged = cuppa_env['configured_options']
                 print( "cuppa: With the current configuration executing 'cuppa -D' would be equivalent to:" )
                 print( "" )
-                print( "cuppa -D {}".format( self._command_line_from_settings(
-                        cuppa_env['configured_options'] ) ) )
+                print( "cuppa -D {}".format(
+                        self._command_line_from_settings( merged ) ) )
                 print( "" )
+                self._emit_registry_latest_map( merged )
             print( "cuppa: Nothing to be done. Exiting." )
             SCons.Script.Exit()
 
 
+    def _emit_registry_latest_map( self, settings ):
+        from cuppa.package_managers.gitlab_latest import (
+                format_registry_latest_report_lines,
+        )
+        from cuppa.utility.console_report import write_report_lines
+        lines = format_registry_latest_report_lines( settings )
+        if not lines:
+            return
+        write_report_lines( lines )
+        print( "" )
+
+
     def _command_line_from_settings( self, settings ):
+        from cuppa.package_managers.gitlab_latest import is_registry_latest_label_key
         commands = []
         for key, value in six.iteritems(settings):
+            if is_registry_latest_label_key( key ):
+                continue
             command = as_emphasised( "--" + key )
             if value != True and value != False:
                 if not isinstance( value, list ):

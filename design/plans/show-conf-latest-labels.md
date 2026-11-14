@@ -1,6 +1,6 @@
 # Note: name remembered `gitlab_package_latest_*` pins on conf show
 
-- **Status:** proposal
+- **Status:** done
 - **Related:** ROADMAP `cli-show-conf-latest-labels`;
   [`show-global-conf.md`](show-global-conf.md);
   [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md);
@@ -9,7 +9,7 @@
   Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc)
 - **Updated:** 2026-11-14
 - **Impact:** `patch` — display + remember-time sidecar; no change to pin keys
-  or resolve behaviour
+  or resolve behaviour; ships with 1.14.2 on [#407](https://github.com/ja11sop/cuppa/pull/407)
 
 ## Observed
 
@@ -61,7 +61,7 @@ has collisions; default is package + version only.
 | Tip sconstruct scan | **Non-goal for v1** — incomplete for global conf; optional later as a best-effort fill for unknown labels in the current tip only |
 | Remove / clear | Existing `--remove-settings` / `--clear-conf` (and global twins) already drop keys by name or wipe the file; document that operators removing a pin should also remove its `…_label_*` twin (or clear both). Optional nicety: removing a pin key also drops its label key — **follow-on**, not required to ship the tree |
 | Console channel | Console report (`write_report_lines` / judgement-tree style), not `logger.info`, so `-Q` still shows it under the CONFIGURE banner |
-| PR packaging | **Open** — either fold into [#407](https://github.com/ja11sop/cuppa/pull/407) after soak of `--show-global-conf`, or a follow-up `impact:patch` PR on 1.14.2. Decide after this plan is reviewed |
+| PR packaging | **Fold into [#407](https://github.com/ja11sop/cuppa/pull/407)** |
 
 ## Non-goals
 
@@ -91,6 +91,6 @@ has collisions; default is package + version only.
 
 | Slice | Status |
 |-------|--------|
-| Plan + ROADMAP / design index | **This change** |
-| Implement sidecar + show tree + tests/docs | Todo |
-| Choose #407 vs follow-up PR | Todo (after review) |
+| Plan + ROADMAP / design index | Done |
+| Implement sidecar + show tree + tests/docs | **Done** — on [#407](https://github.com/ja11sop/cuppa/pull/407) |
+| Choose #407 vs follow-up PR | Done — folded into #407 |

@@ -44,7 +44,8 @@ def test_load_migrates_missing_global_file_to_major( tmp_path, monkeypatch ):
     conf.load()
     global_conf = tmp_path / '.cuppaconfig'
     assert global_conf.exists()
-    assert 'toolchain_identity = major' in global_conf.read_text( encoding='utf-8' )
+    text = global_conf.read_text( encoding='utf-8' )
+    assert "toolchain_identity = 'major'" in text or "toolchain_identity = major" in text
     assert env['default_options']['toolchain_identity'] == 'major'
 
 
@@ -54,7 +55,10 @@ def test_load_grandfathers_existing_global_without_key( tmp_path, monkeypatch ):
     conf, env = _configure( tmp_path )
     conf.load()
     text = ( tmp_path / '.cuppaconfig' ).read_text( encoding='utf-8' )
-    assert 'toolchain_identity = full' in text
+    assert (
+            "toolchain_identity = 'full'" in text
+            or "toolchain_identity = full" in text
+    )
     assert env['default_options']['dbg'] is True
     assert env['default_options']['toolchain_identity'] == 'full'
 
@@ -84,6 +88,9 @@ def test_is_saveable_filters_never_save_and_conf_keys(tmp_path):
     assert conf._is_saveable("save_conf", True) is False
     assert conf._is_saveable("show_conf", True) is False
     assert conf._is_saveable("show_global_conf", True) is False
+    assert conf._is_saveable(
+            "gitlab_package_latest_label_aaaaaaaaaaaaaaaa", "boost"
+    ) is False
     assert conf._is_saveable("cuppa-mode", True) is False
     assert conf._is_saveable("climb_up", never_save()) is False
     assert conf._is_saveable("debug_explain", False) is False

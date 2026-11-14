@@ -42,7 +42,8 @@ cuppa -D --show-global-conf
 
 `configure.conf` exists after the first run; the second run succeeds and reflects the saved `dbg`
 setting. The global-show run succeeds and prints workstation keys from `~/.cuppaconfig` without
-project-only flags such as `--dbg`.
+project-only flags such as `--dbg`, announces CONFIGURE mode, and (when pins are present) a
+`remembered registry latest` mapping tree under the equivalent line.
 
 '''
 

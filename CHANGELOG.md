@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   effective view; Antora clarifies both. Plan:
   ``design/plans/show-global-conf.md``.
 
+- Conf show names remembered GitLab ``latest`` pins: ``remember_registry_latest``
+  writes a ``gitlab_package_latest_label_*`` sidecar, and ``--show-conf`` /
+  ``--show-global-conf`` print a ``remembered registry latest`` mapping tree
+  under the equivalent ``cuppa -D`` line (unknown labels until the next online
+  remember). Pin keys and resolve behaviour are unchanged. Plan:
+  ``design/plans/show-conf-latest-labels.md``.
+
 ### Changed
 
 - Legacy storage-root advisories name the new default path (for example

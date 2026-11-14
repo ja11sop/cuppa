@@ -288,6 +288,9 @@ class Configure(object):
     def _is_saveable( self, key, value ):
         if not cuppa.core.output_options.is_saveable( key, value ):
             return False
+        from cuppa.package_managers.gitlab_latest import is_registry_latest_label_key
+        if is_registry_latest_label_key( key ):
+            return False
         return(     not key.startswith("__")
                 and not self._is_defaulted_scons_option( key, value )
                 and not key == 'cuppa-mode'
@@ -376,6 +379,25 @@ def load_settings_file( conf_path ):
     return settings
 
 
+def _format_conf_value( value ):
+    """Serialize a setting for ``key = value`` lines.
+
+    Strings use ``repr`` so values like ``1.10`` stay strings under
+    ``ast.literal_eval`` on the next load (not float ``1.1``). Callers may
+    still pass an already-``repr``'d string; those are left alone.
+    """
+    if isinstance( value, str ):
+        stripped = value.strip()
+        if len( stripped ) >= 2 and stripped[0] == stripped[-1] and stripped[0] in ( "'", '"' ):
+            try:
+                ast.literal_eval( stripped )
+                return stripped
+            except Exception:
+                pass
+        return repr( value )
+    return value
+
+
 def upsert_setting( conf_path, key, value ):
     """Insert or replace one key in a configure file, preserving other keys."""
     settings = load_settings_file( conf_path )
@@ -385,7 +407,7 @@ def upsert_setting( conf_path, key, value ):
         os.makedirs( directory )
     with open( conf_path, "w" ) as config_file:
         for name, stored in settings.items():
-            config_file.write( "{} = {}\n".format( name, stored ) )
+            config_file.write( "{} = {}\n".format( name, _format_conf_value( stored ) ) )
     return settings
 
 

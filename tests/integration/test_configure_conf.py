@@ -31,8 +31,15 @@ def test_show_global_conf_reports_home_file_only(tmp_path, isolate_cuppa_home):
         "Import('env')\nenv.BuildTest('hello_test', 'tests/hello_test.cpp')\n",
     )
     home = isolate_cuppa_home
+    digest = "aaaaaaaaaaaaaaaa"
     (home / ".cuppaconfig").write_text(
-        "offline = True\ntoolchains = ['gcc']\n",
+        "offline = True\n"
+        "toolchains = ['gcc']\n"
+        "gitlab_package_latest_{} = '1.92'\n"
+        "gitlab_package_latest_label_{} = 'boost'\n"
+        "gitlab_package_latest_bbbbbbbbbbbbbbbb = '1.34.8'\n".format(
+            digest, digest
+        ),
         encoding="utf-8",
     )
     (project / "configure.conf").write_text(
@@ -49,6 +56,14 @@ def test_show_global_conf_reports_home_file_only(tmp_path, isolate_cuppa_home):
     assert "toolchains" in out
     # Project-only keys must not appear on the global-only equivalent line.
     assert "--dbg" not in out
+    equivalent = [
+            line for line in out.splitlines() if line.startswith( "cuppa -D " )
+    ]
+    assert equivalent
+    assert "gitlab_package_latest_label_" not in equivalent[0]
+    assert "remembered registry latest" in out
+    assert "boost" in out
+    assert "(unknown package)" in out
     assert "Nothing to be done" in out
 
 
