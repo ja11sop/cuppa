@@ -1,15 +1,15 @@
 # Note: name remembered `gitlab_package_latest_*` pins on conf show
 
-- **Status:** done
+- **Status:** shipped
 - **Related:** ROADMAP `cli-show-conf-latest-labels`;
   [`show-global-conf.md`](show-global-conf.md);
-  [`archive/gitlab-package-latest.md`](../archive/gitlab-package-latest.md);
+  [`gitlab-package-latest.md`](gitlab-package-latest.md);
   `cuppa/package_managers/gitlab_latest.py` (`registry_latest_conf_key`,
   `remember_registry_latest`); conf-only exit in `cuppa/construct.py`;
   Antora [`dependencies/using/gitlab.adoc`](../../docs/modules/ROOT/pages/dependencies/using/gitlab.adoc)
 - **Updated:** 2026-11-14
-- **Impact:** `patch` — display + remember-time sidecar; no change to pin keys
-  or resolve behaviour; ships with 1.14.2 on [#407](https://github.com/ja11sop/cuppa/pull/407)
+- **Impact:** `patch` — shipped in 1.14.2 — [#407](https://github.com/ja11sop/cuppa/pull/407);
+  display + remember-time sidecar; pin keys and resolve behaviour unchanged
 
 ## Observed
 

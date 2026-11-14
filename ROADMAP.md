@@ -15,17 +15,19 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 ---
 
-## 1.14.2 cycle focus (open)
+## 1.14.2 cycle focus (shipped 2026-11-14)
 
-Patch cycle after **1.14.1**. First slice: `--show-global-conf` to complete the
-project / global conf option pairs. Carry-forwards from 1.14.1 stay available.
+Patch cycle after **1.14.1**. `--show-global-conf`, conf-show labels for
+`gitlab_package_latest_*`, storage-legacy / CONFIGURE banner polish; design
+plans under `design/archive/`. Topic help and supplemental-ui extract remain
+proposals for a later cycle.
 
 | Area | Status in 1.14.2 |
 |------|------------------|
-| `--show-global-conf` | **Done** (unreleased) — inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/plans/show-global-conf.md) |
-| Conf-show labels for `gitlab_package_latest_*` | **Done** (unreleased) — display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
-| Topic / group / single-option `--help` | **Proposal** (next) — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
-| Shareable Antora supplemental UI repo | **Proposal** (next) — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| `--show-global-conf` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/archive/show-global-conf.md) |
+| Conf-show labels for `gitlab_package_latest_*` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/archive/show-conf-latest-labels.md) |
+| Topic / group / single-option `--help` | **Proposal** (carry-forward) — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Proposal** (carry-forward) — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
 | SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
@@ -690,8 +692,8 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-terse-delegated` | Terse file fields (`source → product`) and delegated builders (CMake/`b2`): `delegate … [launch]` + status fields, `[done]` close, muted nested children, `[location]` maps | High | **Shipped in 1.12.0** [#353](https://github.com/ja11sop/cuppa/pull/353). [`terse-delegated-output.md`](design/archive/terse-delegated-output.md). Boost `-c` / extract `b2` is [`deep-clean.md`](design/archive/deep-clean.md) |
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
-| `cli-show-global-conf` | `--show-global-conf`: conf-only inspect of `~/.cuppaconfig` (pair with `--show-conf` / other `*-global-conf` flags) | Low | **Done** (unreleased) — 1.14.2. Keep `--show-conf` as merged effective view; global-only equivalent CLI from the home file. [`show-global-conf.md`](design/plans/show-global-conf.md) |
-| `cli-show-conf-latest-labels` | Name `gitlab_package_latest_*` pins on conf show (display tree; label sidecar at remember time) | Low | **Done** (unreleased) — 1.14.2 / [#407](https://github.com/ja11sop/cuppa/pull/407). Pin keys and equivalent CLI unchanged. [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
+| `cli-show-global-conf` | `--show-global-conf`: conf-only inspect of `~/.cuppaconfig` (pair with `--show-conf` / other `*-global-conf` flags) | Low | **Shipped in 1.14.2** — [#407](https://github.com/ja11sop/cuppa/pull/407). Keep `--show-conf` as merged effective view; global-only equivalent CLI from the home file. [`show-global-conf.md`](design/archive/show-global-conf.md) |
+| `cli-show-conf-latest-labels` | Name `gitlab_package_latest_*` pins on conf show (display tree; label sidecar at remember time) | Low | **Shipped in 1.14.2** — [#407](https://github.com/ja11sop/cuppa/pull/407). Pin keys and equivalent CLI unchanged. [`show-conf-latest-labels.md`](design/archive/show-conf-latest-labels.md) |
 | `cli-help-topics` | Topic / group / single-option help; better chrome than a flat SCons `--help` dump | Medium | Proposal — explore `--help-topic=` / `cuppa help`, registration tags, Antora-aligned topic ids. [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | **Shipped in 1.13.0** [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298) (CMake/Ninja job-count earlier [#319](https://github.com/ja11sop/cuppa/pull/319)). Design: [`parallel-job-count.md`](design/archive/parallel-job-count.md). |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | **Shipped in 1.12.0** [#354](https://github.com/ja11sop/cuppa/pull/354). [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) |
