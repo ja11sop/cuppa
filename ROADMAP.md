@@ -23,6 +23,7 @@ project / global conf option pairs. Carry-forwards from 1.14.1 stay available.
 | Area | Status in 1.14.2 |
 |------|------------------|
 | `--show-global-conf` | **Done** (unreleased) — inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/plans/show-global-conf.md) |
+| Conf-show labels for `gitlab_package_latest_*` | **Proposal** — display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
 | SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
@@ -688,6 +689,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-log-hygiene` | Configure-time log demotion; fix variant/action default messages | High | **Shipped in 1.12.0**. [`build-log-hygiene.md`](design/archive/build-log-hygiene.md) |
 | `cli-info` | `cuppa --info`: package version without sconstruct / build | Medium | **Shipped in 1.12.0** [#350](https://github.com/ja11sop/cuppa/pull/350). [`cuppa-info.md`](design/archive/cuppa-info.md) |
 | `cli-show-global-conf` | `--show-global-conf`: conf-only inspect of `~/.cuppaconfig` (pair with `--show-conf` / other `*-global-conf` flags) | Low | **Done** (unreleased) — 1.14.2. Keep `--show-conf` as merged effective view; global-only equivalent CLI from the home file. [`show-global-conf.md`](design/plans/show-global-conf.md) |
+| `cli-show-conf-latest-labels` | Name `gitlab_package_latest_*` pins on conf show (display tree; label sidecar at remember time) | Low | Proposal — 1.14.2. Pin keys and equivalent CLI unchanged. [`show-conf-latest-labels.md`](design/plans/show-conf-latest-labels.md) |
 | `parallel-job-count` | Optional `--parallel=N` (affinity + explicit job count); today’s workaround `--parallel --jobs=N` | Medium | **Shipped in 1.13.0** [#378](https://github.com/ja11sop/cuppa/pull/378) / [#298](https://github.com/ja11sop/cuppa/issues/298) (CMake/Ninja job-count earlier [#319](https://github.com/ja11sop/cuppa/pull/319)). Design: [`parallel-job-count.md`](design/archive/parallel-job-count.md). |
 | `console-native-output` | `--native-output`: enable toolchain native colour; passthrough spawn | Medium | **Shipped in 1.12.0** [#354](https://github.com/ja11sop/cuppa/pull/354). [`native-toolchain-output.md`](design/archive/native-toolchain-output.md) |
 | `console-terse-dep-locations` | Terse nested location maps for dependency/package trees (`<dependencies>/<fmt>/…`, shared `<variant>`) | Medium | **Shipped in 1.12.0** [#355](https://github.com/ja11sop/cuppa/pull/355). [`terse-dependency-locations.md`](design/archive/terse-dependency-locations.md) |
