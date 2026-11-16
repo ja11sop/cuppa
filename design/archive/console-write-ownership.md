@@ -75,7 +75,9 @@ One Cuppa rule for **every durable console line** under quiet+TTY:
 Ephemeral status (heartbeat / progress bar / cmake Up-to-date pulse) may only
 paint on that stream while the idle gate says the transcript is quiet.
 
-Non-TTY / CI stays pipe-only (no `/dev/tty`).
+Non-TTY / CI stays pipe-only (no `/dev/tty`). Follow-on when POSIX still prefers
+a progress TTY for durable lines under `CUPPA_STDOUT_IS_TTY=0`:
+[`../plans/ci-console-progress.md`](../plans/ci-console-progress.md).
 
 ## Non-goals
 
