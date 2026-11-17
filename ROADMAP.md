@@ -11,7 +11,26 @@ Use this document to see what is shipped today, what is planned next, and what i
 
 When code and this roadmap disagree on *current* behaviour, **code and the Antora docs are authoritative**; update this file in the same change.
 
-**As of:** 2026-11-13
+**As of:** 2026-11-14
+
+---
+
+## 1.15.0 cycle focus (open)
+
+Minor cycle after **1.14.2**. Restore durable console progress for CI /
+non-interactive consumers (pipe capture) without undoing interactive TTY UX;
+also carry topic help / shareable Antora supplemental UI and longer-running
+candidates as capacity allows.
+
+| Area | Status in 1.15.0 |
+|------|------------------|
+| CI / non-interactive console progress | **Done** (unreleased) — durable transcript on the pipe when `CUPPA_STDOUT_IS_TTY=0`; no `/dev/tty` sticky; launcher flush; interactive UX unchanged — [`ci-console-progress.md`](design/plans/ci-console-progress.md) |
+| Topic / group / single-option `--help` | **Candidate** — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Candidate** — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
+| GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
+| Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
+| Sconscript dynamic `Import(name)` / MSVC `/Fd` under `--parallel` | **Deferred** |
 
 ---
 
@@ -19,15 +38,15 @@ When code and this roadmap disagree on *current* behaviour, **code and the Antor
 
 Patch cycle after **1.14.1**. `--show-global-conf`, conf-show labels for
 `gitlab_package_latest_*`, storage-legacy / CONFIGURE banner polish; design
-plans under `design/archive/`. Topic help and supplemental-ui extract remain
-proposals for a later cycle.
+plans under `design/archive/`. Topic help and supplemental-ui extract carried
+to **1.15.0**.
 
 | Area | Status in 1.14.2 |
 |------|------------------|
 | `--show-global-conf` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); inspect `~/.cuppaconfig` alone (pair with `--show-conf`) — [`show-global-conf.md`](design/archive/show-global-conf.md) |
 | Conf-show labels for `gitlab_package_latest_*` | **Shipped** — [#407](https://github.com/ja11sop/cuppa/pull/407); display-only mapping under the equivalent `cuppa -D` line; remember-time label sidecar — [`show-conf-latest-labels.md`](design/archive/show-conf-latest-labels.md) |
-| Topic / group / single-option `--help` | **Proposal** (carry-forward) — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
-| Shareable Antora supplemental UI repo | **Proposal** (carry-forward) — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
+| Topic / group / single-option `--help` | **Carry-forward** → **1.15.0** — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
+| Shareable Antora supplemental UI repo | **Carry-forward** → **1.15.0** — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
 | SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | GitLab CMake staging / drive CMake | **Carry-forward** — Option E inplace + publish-cli: [`cmake-drive-and-package-staging.md`](design/plans/cmake-drive-and-package-staging.md) |
 | Boost package identity (`-patched` / `-clean`) | **Deferred** — [`boost-updates.md`](design/plans/boost-updates.md) |
@@ -684,6 +703,7 @@ Design: [`console-channels.md`](design/plans/console-channels.md) (channel map),
 | `console-terse-refresh-ledger` | Terse durable ``→ [refresh]`` for ``--refresh-downloads``; demote Stored / Downloading archive INFO under ``--terse-output`` | Low | **Shipped in 1.14.0** — [#397](https://github.com/ja11sop/cuppa/pull/397). Durable after re-download completes; force stays force. [`terse-refresh-ledger.md`](design/archive/terse-refresh-ledger.md) |
 | `console-terse-action-tally` | Closing terse checkpoints can finish a few actions short of N/N (e.g. 2242/2245); nested parallel `[ok]` interleave is expected | Low | **Shipped in 1.14.0** — [#404](https://github.com/ja11sop/cuppa/pull/404). Remapped-executor orphans inflated `_total`; reuse register + reconcile; opt-in `CUPPA_TERSE_TALLY_DUMP`. Tip soak `2241/2241`. [`terse-action-tally-shortfall.md`](design/archive/terse-action-tally-shortfall.md) |
 | `console-terse-test-keep-heartbeat` | Long terse `Test` / `BuildTest` / `env.Run` children blank the sticky `[....]` for the whole spawn | Low | **Shipped in 1.14.1** — [#405](https://github.com/ja11sop/cuppa/pull/405). `keep_heartbeat` on test / Run `Popen2` (same as SPAWN / gcov). [`terse-test-keep-heartbeat.md`](design/archive/terse-test-keep-heartbeat.md) |
+| `console-ci-progress` | CI / non-interactive job logs see no durable Cuppa progress for long stretches (normal and terse); interactive TTY UX stays good | High | **Done** (unreleased) — when `CUPPA_STDOUT_IS_TTY=0`: no `/dev/tty` sticky, no substitute ephemeral lines, durable transcript on the pipe; launcher flushes each echo; `PYTHONUNBUFFERED=1` on SCons child. Tip soak confirmed. Not the same as per-action terse coalesce. [`ci-console-progress.md`](design/plans/ci-console-progress.md); follow-on to [`console-write-ownership.md`](design/archive/console-write-ownership.md) |
 | `parallel-scons-large-graph` | SCons `num_jobs ≥ 2` can spuriously rebuild heavy C++ TUs on large include graphs (`.sconsign` / implicit-dep churn) | Low | Proposal / documented 2026-11-13 — Antora NOTE + TIP on `cli/building.adoc`. Mitigation (ImplicitCache, decider, upstream) TBD. [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
 | `cascade-tip-local-options` | Drop tip-only `cuppa.add_option` flags from nest argv (`--tip-local-flag`, …) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-tip-local-options.md`](design/archive/cascade-tip-local-options.md); optional `--cascade-local-options` allowlist is a follow-on |
 | `cascade-amend-package-manifest` | Cascade nests metadata-amend via tip `--amend-cascade-manifests` (DAG retar, no CMake) | Medium | **Shipped in 1.13.0** [#373](https://github.com/ja11sop/cuppa/pull/373). [`cascade-amend-package-manifest.md`](design/archive/cascade-amend-package-manifest.md); tip-only amend remains [`package-metadata-amend.md`](design/archive/package-metadata-amend.md) |

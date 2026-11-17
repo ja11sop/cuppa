@@ -189,3 +189,34 @@ def test_launcher_skips_erase_when_child_already_prefixed( monkeypatch ):
     line = "\r\x1b[K\x1b[?7h  1/2 · [ok] compile\n"
     _write_transcript( line )
     assert out.parts == [ line ]
+
+
+class _PipedStdout( object ):
+    """Non-TTY stdout that records flush (CI / ``| cat``)."""
+
+    encoding = "utf-8"
+
+    def __init__( self ):
+        self.parts = []
+        self.flushes = 0
+
+    def isatty( self ):
+        return False
+
+    def write( self, text ):
+        self.parts.append( text )
+
+    def flush( self ):
+        self.flushes += 1
+
+
+def test_launcher_flushes_each_echoed_line_when_piped( monkeypatch ):
+    """Piped stdout is block-buffered; without flush CI sees nothing until exit."""
+    from cuppa.__main__ import _write_transcript
+
+    out = _PipedStdout()
+    monkeypatch.setattr( "cuppa.__main__.sys.stdout", out )
+    line = "sconstruct   0% [prepare] /path/to/example/sconstruct · resolve\n"
+    _write_transcript( line )
+    assert out.parts == [ line ]
+    assert out.flushes == 1

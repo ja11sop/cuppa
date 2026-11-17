@@ -87,10 +87,19 @@ def _write_transcript( line ):
     When this console is a TTY, erase the current row in the same write as the
     echoed line so a quiet/terse heartbeat caption on the same device cannot
     glue onto the echo.
+
+    Always flush. Piped consumers (``| cat``, CI job logs) block-buffer
+    stdout; without a flush the durable transcript sits invisible until the
+    process exits — the same starvation ``CUPPA_STDOUT_IS_TTY=0`` is meant to
+    fix in the SCons child.
     """
     payload = _launcher_echo_payload( line )
     try:
         sys.stdout.write( payload )
+        try:
+            sys.stdout.flush()
+        except Exception:
+            pass
         return
     except UnicodeEncodeError:
         pass
@@ -100,6 +109,10 @@ def _write_transcript( line ):
     except LookupError:
         safe = payload.encode( "ascii", errors="replace" ).decode( "ascii" )
     sys.stdout.write( safe )
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
 
 
 def _decode_child_line( line ):
@@ -177,6 +190,11 @@ def run_scons( args_list ):
         # cp1252, and the reader, which expects UTF-8, would stop there.
         propagated_env = os.environ.copy()
         propagated_env["PYTHONIOENCODING"] = "utf-8"
+        # Child stdout is a pipe; without this Python may block-buffer durable
+        # lines and CI logs look hung until the process exits (cascade nests
+        # already set the same). Explicit flushes cover Cuppa writers; this
+        # hardens anything that still uses print / unflushed stdout.
+        propagated_env.setdefault( "PYTHONUNBUFFERED", "1" )
         # Glyphs follow the console the wrapper is writing to. The child's
         # own stdout is the UTF-8 pipe, which would otherwise look capable
         # of box drawing that this console cannot print.

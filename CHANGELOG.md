@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - unreleased
+
+### Added
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Durable console progress for CI / redirected logs
+  (``CUPPA_STDOUT_IS_TTY=0``): do not open ``/dev/tty`` for quiet/terse
+  sticky status, and do not emit substitute ephemeral “alive” lines.
+  Classic quiet applies; ``operation_status`` / ``[....]`` are no-ops.
+  Durable transcript (``[prepare]``, ``→ [location]``, ``[update]``,
+  ``[progress]``, ``[ok]``, …) still writes to the captured stdout pipe as
+  each line is produced. The ``cuppa`` launcher flushes each echoed child
+  line so piped consumers (``| cat``, CI logs) are not block-buffered until
+  process exit. Interactive owned-TTY UX is unchanged when the outer
+  console is a TTY. The launcher also sets ``PYTHONUNBUFFERED=1`` on the
+  SCons child (same as cascade nests). Plan:
+  ``design/plans/ci-console-progress.md``.
+
+### Security
+
 ## [1.14.2] - 2026-11-14
 
 ### Added
@@ -2823,6 +2850,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Baseline release on `master` before the modules work landed.
 Detailed notes for 1.1.x and earlier were not maintained in this file; start recording notable changes here from 1.2.0 onward.
 
+[1.15.0]: https://github.com/ja11sop/cuppa/compare/v1.14.2...HEAD
 [1.14.2]: https://github.com/ja11sop/cuppa/compare/v1.14.1...v1.14.2
 [1.14.1]: https://github.com/ja11sop/cuppa/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/ja11sop/cuppa/compare/v1.13.0...v1.14.0
