@@ -1,6 +1,6 @@
 # Note: CI / non-interactive console progress starvation
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** ROADMAP `console-ci-progress`;
   [`archive/console-write-ownership.md`](../archive/console-write-ownership.md);
   [`archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md);
@@ -261,4 +261,4 @@ line appears when the action finishes — not a whole-build stall.
 | Launcher `PYTHONUNBUFFERED=1` on SCons child | Done — `__main__.run_scons` |
 | No `/dev/tty` / no ephemeral when flag `0` (classic quiet; status row off) | Done — durable-only on the pipe |
 | Launcher flush each echoed child line (piped stdout block-buffer) | Done — `__main__._write_transcript` |
-| Tip / CI soak confirmation | Pending — re-soak `CUPPA_STDOUT_IS_TTY=0 … 2>&1 \| cat` |
+| Tip soak: `CUPPA_STDOUT_IS_TTY=0 … 2>&1 \| cat` | Done — durable `[prepare]` / location / `[update]` / `[ok]` stream under `-Q`; non-quiet and `--normal-output` also reach the pipe |
