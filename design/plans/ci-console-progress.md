@@ -260,4 +260,5 @@ Revisit C only if interactive launcher soak regresses glue that the erase-prefix
 | Unit: pipe when flag `0` + progress TTY; owned when flag `1` | Done — `test_heartbeat.py` |
 | Launcher `PYTHONUNBUFFERED=1` on SCons child | Done — `__main__.run_scons` |
 | Pipe-progress: no `/dev/tty` when flag `0`; INFO → durable newlines | Done — `_arm_pipe_progress` / `_draw_unlocked` |
+| Launcher flush each echoed child line (piped stdout block-buffer) | Done — `__main__._write_transcript` |
 | Tip / CI soak confirmation | Pending — re-soak `CUPPA_STDOUT_IS_TTY=0 … 2>&1 \| cat` |

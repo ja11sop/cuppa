@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ``/dev/tty`` (invisible to job capture). Diverted INFO and
   ``operation_status`` captions become throttled durable newlines on the
   captured stdout pipe; transcript / ``[ok]`` / mode banners stay on that
-  pipe too. Interactive owned-TTY UX is unchanged when the outer console is
-  a TTY. The launcher also sets ``PYTHONUNBUFFERED=1`` on the SCons child
-  (same as cascade nests). Plan: ``design/plans/ci-console-progress.md``.
+  pipe too. The ``cuppa`` launcher flushes each echoed child line so piped
+  consumers (``| cat``, CI logs) are not block-buffered until process exit.
+  Interactive owned-TTY UX is unchanged when the outer console is a TTY. The
+  launcher also sets ``PYTHONUNBUFFERED=1`` on the SCons child (same as
+  cascade nests). Plan: ``design/plans/ci-console-progress.md``.
 
 ### Security
 
