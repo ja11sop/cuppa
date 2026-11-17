@@ -177,6 +177,11 @@ def run_scons( args_list ):
         # cp1252, and the reader, which expects UTF-8, would stop there.
         propagated_env = os.environ.copy()
         propagated_env["PYTHONIOENCODING"] = "utf-8"
+        # Child stdout is a pipe; without this Python may block-buffer durable
+        # lines and CI logs look hung until the process exits (cascade nests
+        # already set the same). Explicit flushes cover Cuppa writers; this
+        # hardens anything that still uses print / unflushed stdout.
+        propagated_env.setdefault( "PYTHONUNBUFFERED", "1" )
         # Glyphs follow the console the wrapper is writing to. The child's
         # own stdout is the UTF-8 pipe, which would otherwise look capable
         # of box drawing that this console cannot print.

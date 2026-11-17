@@ -1,6 +1,6 @@
 # Note: CI / non-interactive console progress starvation
 
-- **Status:** proposal
+- **Status:** in progress
 - **Related:** ROADMAP `console-ci-progress`;
   [`archive/console-write-ownership.md`](../archive/console-write-ownership.md);
   [`archive/quiet-tty-heartbeat.md`](../archive/quiet-tty-heartbeat.md);
@@ -9,9 +9,9 @@
   `cuppa/__main__.py` launcher; `cuppa.utility.heartbeat.write_line`;
   `cuppa.utility.terminal` (`CUPPA_STDOUT_IS_TTY`, progress TTY);
   `cuppa.output_processor` (`IncrementalSubProcess`, `_emit_transcript`)
-- **Updated:** 2026-11-16
-- **Impact:** likely `patch` — restore durable progress on the captured pipe for
-  non-interactive consumers; interactive TTY UX should stay as it is
+- **Updated:** 2026-11-17
+- **Impact:** `patch` — restore durable progress on the captured pipe for
+  non-interactive consumers; interactive TTY UX unchanged
 
 ## Problem
 
@@ -255,5 +255,9 @@ Revisit C only if interactive launcher soak regresses glue that the erase-prefix
 | Item | Status |
 |------|--------|
 | CI soak symptom + mode clarification | Done — this document |
-| Root-cause review vs write-ownership / Windows pipe fix | Done — proposal |
-| Implementation | Not started |
+| Root-cause review vs write-ownership / Windows pipe fix | Done |
+| Owned durable requires `CUPPA_STDOUT_IS_TTY=1` (all platforms) | Done — `_prefer_progress_tty_for_durable_unlocked` |
+| Unit: pipe when flag `0` + progress TTY; owned when flag `1` | Done — `test_heartbeat.py` |
+| Launcher `PYTHONUNBUFFERED=1` on SCons child | Done — `__main__.run_scons` |
+| Optional: skip arming progress TTY when flag `0` | Deferred — sticky may still paint; durable already on pipe |
+| Tip / CI soak confirmation | Pending |

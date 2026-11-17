@@ -659,16 +659,15 @@ class _TtyStringIO( io.StringIO ):
         return True
 
 
-def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch ):
-    """``CUPPA_STDOUT_IS_TTY=0`` must not force the pipe when sticky is on a TTY.
+def test_write_transcript_pipe_when_progress_tty_but_outer_piped( monkeypatch ):
+    """CI may open a progress TTY while the job log only captures the pipe.
 
-    Soak under the launcher pipe still opens ``/dev/tty`` for ``[....]``.
-    Durable ``[pass]`` on the pipe then glues onto that row; write on the
-    progress stream instead.
+    With ``CUPPA_STDOUT_IS_TTY=0``, durable lines must stay on stdout (POSIX
+    and Windows) so ``[ok]`` / mode banners reach the captured log. Sticky
+    may still paint on the progress stream; owned durable needs the outer
+    TTY flag.
     """
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
-    monkeypatch.setattr( hb.sys, 'platform', 'linux' )
-    monkeypatch.setattr( hb.os, 'name', 'posix' )
     stream = _TtyStringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -685,29 +684,19 @@ def test_write_transcript_owned_when_progress_tty_despite_pipe_flag( monkeypatch
     heartbeat_module.sys.stdout = pipe
     try:
         hb.write_transcript(
-                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+                '   3/  8 ·  46% [pass] test/example_suite · test\n'
         )
     finally:
         heartbeat_module.sys.stdout = real
 
-    assert pipe.getvalue() == ''
-    text = stream.getvalue()
-    assert '\r\x1b[K\x1b[?7h   3/  8' in text
-    assert '[pass]' in text
-    assert 'compiling' not in _status_body( stream ) or '[pass]' not in _status_body( stream )
+    assert '[pass]' in pipe.getvalue()
+    assert '[pass]' not in stream.getvalue()
     hb.reset()
 
 
-def test_write_transcript_pipe_when_windows_conout_despite_tty( monkeypatch ):
-    """Windows ``CONOUT$`` may ``isatty`` under Actions; CI captures the pipe.
-
-    With ``CUPPA_STDOUT_IS_TTY=0``, durable lines must stay on stdout so
-    integration tests still see ``[ok]`` / mode banners. Owned durable on
-    Windows needs the outer TTY flag (interactive console).
-    """
-    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
-    monkeypatch.setattr( hb.sys, 'platform', 'win32' )
-    monkeypatch.setattr( hb.os, 'name', 'nt' )
+def test_write_transcript_owned_when_progress_tty_and_interactive( monkeypatch ):
+    """Interactive outer console: durable rides the progress TTY with sticky."""
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     stream = _TtyStringIO()
     clock = FakeClock()
     _configure( stream, clock )
@@ -716,6 +705,7 @@ def test_write_transcript_pipe_when_windows_conout_despite_tty( monkeypatch ):
             sticky=True,
             preserve_style=True,
     )
+    assert 'compiling · concepts' in _status_body( stream )
 
     import cuppa.utility.heartbeat as heartbeat_module
     pipe = io.StringIO()
@@ -723,13 +713,15 @@ def test_write_transcript_pipe_when_windows_conout_despite_tty( monkeypatch ):
     heartbeat_module.sys.stdout = pipe
     try:
         hb.write_transcript(
-                '   3/  8 ·  46% [pass] test/reference_data/funding_specs · test\n'
+                '   3/  8 ·  46% [pass] test/example_suite · test\n'
         )
     finally:
         heartbeat_module.sys.stdout = real
 
-    assert '[pass]' in pipe.getvalue()
-    assert '[pass]' not in stream.getvalue()
+    assert pipe.getvalue() == ''
+    text = stream.getvalue()
+    assert '\r\x1b[K\x1b[?7h   3/  8' in text
+    assert '[pass]' in text
     hb.reset()
 
 

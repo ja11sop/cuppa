@@ -17,6 +17,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Durable console lines (transcript, progress completion, terse ``[ok]`` /
+  ``[pass]``, mode banners) follow ``CUPPA_STDOUT_IS_TTY``: when the outer
+  console is not a TTY (CI / redirected logs), they write to the captured
+  stdout pipe with flush even if a progress ``/dev/tty`` is open. Interactive
+  owned-TTY UX is unchanged. The launcher also sets ``PYTHONUNBUFFERED=1`` on
+  the SCons child (same as cascade nests). Plan:
+  ``design/plans/ci-console-progress.md``.
+
 ### Security
 
 ## [1.14.2] - 2026-11-14

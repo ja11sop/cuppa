@@ -15,7 +15,7 @@ Cuppa is a SCons extension for C++ builds. This repository is the **cuppa packag
 
 These apply to **every** agent and human working on this repo. Details and exceptions live in the sections linked below — do not skip them when drafting plans, PR bodies, commits, or changelog entries.
 
-1. **Private consumer names stay out of the public tree** — no private project, group, host, dependency, or package names, and no personal absolute paths (`/home/<you>/...`). Use **project A** / **project B**, `widget`, `gitlab.example`, `/home/user/...`. Map labels via gitignored [`design/INTERNAL_PROJECTS.local.md`](design/INTERNAL_PROJECTS.local.md). Never paste raw soak logs into tracked files or PR text. See [Private projects](#private-projects--never-name-them-here).
+1. **Private consumer names stay out of the public tree** — no private project, group, host, dependency, or package names, and no personal absolute paths (`/home/<you>/...`). Use **project A** / **project B**, `widget`, `gitlab.example`, `/home/user/...`. Map labels via gitignored [`design/INTERNAL_PROJECTS.local.md`](design/INTERNAL_PROJECTS.local.md). **Chat paste ≠ public paste:** when a human pastes real CI logs, tip paths, branch names, or other consumer output into the agent chat, treat that as private evidence — rewrite it into an anonymised “like” example **before** any plan, PR body, commit, test, or other tracked text. Never copy chat paste verbatim into the public tree or PR text, even briefly. See [Private projects](#private-projects--never-name-them-here).
 2. **Run the public-prose gate before every `git commit` and every `git push`** — `python -m scripts.check_public_prose` must exit 0 on the pending tree (and on any PR body via `--file`) **before** history moves. Prefer `python -m scripts.local_gate --unit` (or full `local_gate`) so prose + lint + unit all pass first. A go-ahead to commit/push does **not** waive this. Fixing a leak after push means rewriting history; do not put private names on the remote even briefly. See [Private projects](#private-projects--never-name-them-here).
 3. **Land work through a PR** — never push commits directly to `master`. See [Commit messages](#commit-messages).
 4. **No commit trailers** — no `Co-authored-by`, `Signed-off-by`, or tool attribution lines. See [Commit messages](#commit-messages).
@@ -148,7 +148,9 @@ names must not appear in anything tracked here — no private repository, group,
 dependency, or package names, and no personal absolute paths (`/home/<user>/<...>`).
 
 That applies to code, tests, docs, `CHANGELOG.md`, `ROADMAP.md`, and plan documents, including
-pasted build output. Instead:
+build output. **Anything pasted into chat is still private until rewritten.** Do not re-paste
+chat evidence into tracked files or PR bodies; invent a public “like” stand-in that keeps only
+the technical shape (counts, flags, failure mode). Instead:
 
 - Refer to a consumer project by a stable label (**project A**, **project B**) plus the part
   that is technically relevant — its shape: file counts, test style, run times.

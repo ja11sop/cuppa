@@ -796,22 +796,23 @@ def _stream_is_tty_unlocked():
 
 
 def _prefer_progress_tty_for_durable_unlocked():
-    """Whether durable lines may ride the progress stream despite a pipe flag.
+    """Whether durable lines may ride the progress stream.
 
-    On POSIX, a live ``/dev/tty`` progress stream still owns durable ``[ok]``
-    when ``CUPPA_STDOUT_IS_TTY=0`` (launcher pipe + sticky on the real TTY).
+    Owned durable requires the **ultimate consumer** to be a TTY
+    (``CUPPA_STDOUT_IS_TTY=1``). A live ``/dev/tty`` or ``CONOUT$`` progress
+    stream alone is not enough: CI often can open a controlling console while
+    the job log only captures the launcher pipe. Writing ``[ok]`` / progress /
+    mode banners only on that console starves the log (see
+    ``design/plans/ci-console-progress.md``).
 
-    On Windows, ``CONOUT$`` can ``isatty()`` under Actions while pytest only
-    captures the process pipe. Preferring that console would hide terse
-    checkpoints and mode banners from CI. Owned durable on Windows therefore
-    requires the outer console flag (``CUPPA_STDOUT_IS_TTY=1``), which the
-    launcher sets when its own stdout is a TTY.
+    When the outer flag is ``0``, durable lines stay on stdout (with flush)
+    even if sticky/ephemeral status still paints on the progress stream.
+    Interactive StringIO tests use the owned path via the flag when
+    ``isatty()`` is false on the double (``use_owned`` checks the flag first).
     """
-    if not _stream_is_tty_unlocked():
+    if not _outer_stdout_is_tty():
         return False
-    if sys.platform == 'win32' or os.name == 'nt':
-        return _outer_stdout_is_tty()
-    return True
+    return _stream_is_tty_unlocked()
 
 
 def _restore_sticky_after_transcript_unlocked():
@@ -833,16 +834,17 @@ def write_line( text, *, dwell=False, keep_pending=False ):
     When a status row is armed on a real progress TTY (quiet diverting *or*
     compact terse ``operation_status`` / ``[....]``), clear that row and write
     on the heartbeat stream under the same locks so a pulse cannot repaint
-    between clear and the durable line (ECG shear). On POSIX, prefer that
-    owned stream whenever it ``isatty()``, even if ``CUPPA_STDOUT_IS_TTY=0`` —
-    sticky already lives there, and sending ``[ok]`` on the launcher pipe lets
-    the parent echo append onto ``WRAP_OFF`` glyphs. On Windows, ``CONOUT$``
-    may ``isatty()`` while CI only captures the pipe, so owned durable needs
-    ``CUPPA_STDOUT_IS_TTY=1``. Interactive ``StringIO`` tests still use the
-    owned path via the env flag (``isatty()`` is false on the double).
+    between clear and the durable line (ECG shear). Prefer that owned stream
+    only when ``CUPPA_STDOUT_IS_TTY=1`` (ultimate consumer is a TTY) — sticky
+    already lives there, and sending ``[ok]`` on the launcher pipe lets the
+    parent echo append onto ``WRAP_OFF`` glyphs. When the outer flag is ``0``
+    (CI / redirected logs), durable lines stay on the stdout pipe even if a
+    progress TTY is open, so job capture is not starved. Interactive
+    ``StringIO`` tests still use the owned path via the env flag
+    (``isatty()`` is false on the double).
 
-    Never dual-write TTY + pipe: owned when interactive or (POSIX progress
-    tty); otherwise pipe only (after clearing any status).
+    Never dual-write TTY + pipe: owned when interactive (outer flag); otherwise
+    pipe only (after clearing any status).
 
     With ``keep_pending=True`` on the owned stream, a sticky in-progress
     caption is preserved across the clear and painted again immediately after
@@ -891,12 +893,11 @@ def write_line( text, *, dwell=False, keep_pending=False ):
                 # Reports drop pending INFO even when the row is blank.
                 _pending = None
                 _pending_is_sticky = False
-            # Prefer the progress TTY for durable lines when that stream is a
-            # trusted console — see ``_prefer_progress_tty_for_durable_unlocked``.
-            # Sticky already paints there; sending ``[ok]`` on the launcher pipe
-            # while the status row holds ``WRAP_OFF`` lets the parent echo append
-            # (``…concepts.o   3/8 · [pass]…``). Interactive StringIO tests use
-            # the owned path via the env flag (``isatty()`` is false).
+            # Prefer the progress TTY for durable lines only when the ultimate
+            # consumer is a TTY — see ``_prefer_progress_tty_for_durable_unlocked``.
+            # Sticky may still paint there under CI; durable must not, or the
+            # job log starves. Interactive StringIO tests use the owned path
+            # via the env flag (``isatty()`` is false on the double).
             use_owned = bool(
                     _heartbeat_active
                     and _stream is not None
