@@ -1521,11 +1521,12 @@ def test_terse_clean_removed_fold_without_quiet( monkeypatch, capsys ):
     assert 'removed 1 path' in summary
 
 
-def test_pipe_progress_emits_durable_info_when_outer_piped( monkeypatch ):
-    """``CUPPA_STDOUT_IS_TTY=0`` must not hide quiet progress on ``/dev/tty``.
+def test_outer_piped_skips_ephemeral_keeps_durable_transcript( monkeypatch ):
+    """``CUPPA_STDOUT_IS_TTY=0``: no sticky/alive cues; durable lines still flow.
 
-    Diverted INFO / operation_status become throttled durable newlines on the
-    captured stdout pipe so CI logs move during long ``-Q`` retrieves.
+    CI must not open ``/dev/tty`` for heartbeat, and must not stall inventing
+    substitute alive lines. ``operation_status`` is a no-op; ``write_transcript``
+    still reaches the captured pipe immediately.
     """
     monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
     hb.reset()
@@ -1541,23 +1542,26 @@ def test_pipe_progress_emits_durable_info_when_outer_piped( monkeypatch ):
     hb.sys.stdout = pipe
     try:
         hb.configure_quiet_console( 'warn', pulse=False, style='pulse', compact=True )
-        assert hb.diverting() is True
-        assert hb._pipe_progress is True
+        assert hb.diverting() is False
+        assert hb.ensure_status_row() is False
         logger.info( 'Updating [example_lib]' )
         with hb.operation_status( 'Fetching [example_lib]' ):
             pass
+        hb.write_transcript(
+                'sconstruct   0% [prepare] /path/to/example/sconstruct · resolve\n'
+        )
         hb.write_transcript( '              → [update]   <example_lib> · main\n' )
     finally:
         hb.sys.stdout = real
 
     raw = pipe.getvalue()
     text = strip_ansi( raw )
-    assert 'Updating [example_lib]' in text
-    assert 'Fetching [example_lib]' in text
+    # Ephemeral / diverted INFO must not appear; durable transcript must.
+    assert 'Updating [example_lib]' not in text
+    assert 'Fetching [example_lib]' not in text
+    assert '[prepare]' in text
     assert '[update]' in text
-    # No in-place sticky erase sequences on the captured pipe.
     assert '\r' not in raw
-    assert '\x1b[K' not in raw
     hb.reset()
 
 

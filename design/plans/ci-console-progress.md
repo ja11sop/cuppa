@@ -189,22 +189,22 @@ Parent owns the human TTY; child only writes structured events on the pipe.
 - Audit durable call sites for missing `flush`.
 - Does **not** fix lines written only to `/dev/tty`, but hardens the pipe path.
 
-## Proposed direction (lean)
+## Proposed direction (lean) — settled from soak
 
-1. **Treat `CUPPA_STDOUT_IS_TTY` as the durable-consumer flag** (already the
-   nested-cascade contract). If `0`, durable transcript/report/progress
-   completion lines go to **stdout pipe only**, with flush — **POSIX and
-   Windows**. Progress TTY may still exist for ephemeral sticky when a human
-   is somehow attached, but must not own durable lines in that mode.
-2. **Keep owned durable on the progress TTY only when `CUPPA_STDOUT_IS_TTY=1`**
-   (interactive ultimate console), preserving today’s good terminal UX and
-   anti-shear locking.
-3. **Harden pipe path (F)** on the main launcher child.
-4. **Do not** dual-write as the default fix.
-5. **Document** the distinction: per-action terse coalesce vs CI starvation.
+1. **`CUPPA_STDOUT_IS_TTY=0` → durable-only on the captured pipe.** No
+   `/dev/tty` sticky, no substitute ephemeral “alive” lines (no pipe-progress
+   INFO dump). Classic quiet; `operation_status` / `[....]` are no-ops. Durable
+   `[prepare]` / `→ [location]` / `[update]` / `[progress]` / `[ok]` still emit
+   as each line is written.
+2. **`CUPPA_STDOUT_IS_TTY=1` → today’s interactive UX** (owned progress TTY,
+   sticky overwrite, anti-shear locking).
+3. **Launcher flushes** each echoed child line (piped stdout is otherwise
+   block-buffered until exit).
+4. **`PYTHONUNBUFFERED=1`** on the SCons child (same as cascade nests).
+5. **Do not** dual-write TTY + pipe.
 
-Revisit C only if interactive launcher soak regresses glue that the erase-prefix
-/ idle-gate path cannot absorb after (1).
+Ephemeral silence during a long git fetch under CI is expected; the next durable
+line appears when the action finishes — not a whole-build stall.
 
 ## Acceptance
 
@@ -259,6 +259,6 @@ Revisit C only if interactive launcher soak regresses glue that the erase-prefix
 | Owned durable requires `CUPPA_STDOUT_IS_TTY=1` (all platforms) | Done — `_prefer_progress_tty_for_durable_unlocked` |
 | Unit: pipe when flag `0` + progress TTY; owned when flag `1` | Done — `test_heartbeat.py` |
 | Launcher `PYTHONUNBUFFERED=1` on SCons child | Done — `__main__.run_scons` |
-| Pipe-progress: no `/dev/tty` when flag `0`; INFO → durable newlines | Done — `_arm_pipe_progress` / `_draw_unlocked` |
+| No `/dev/tty` / no ephemeral when flag `0` (classic quiet; status row off) | Done — durable-only on the pipe |
 | Launcher flush each echoed child line (piped stdout block-buffer) | Done — `__main__._write_transcript` |
 | Tip / CI soak confirmation | Pending — re-soak `CUPPA_STDOUT_IS_TTY=0 … 2>&1 \| cat` |

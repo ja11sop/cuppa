@@ -18,15 +18,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Durable console progress for CI / redirected logs
-  (``CUPPA_STDOUT_IS_TTY=0``): do not paint quiet/terse sticky status on
-  ``/dev/tty`` (invisible to job capture). Diverted INFO and
-  ``operation_status`` captions become throttled durable newlines on the
-  captured stdout pipe; transcript / ``[ok]`` / mode banners stay on that
-  pipe too. The ``cuppa`` launcher flushes each echoed child line so piped
-  consumers (``| cat``, CI logs) are not block-buffered until process exit.
-  Interactive owned-TTY UX is unchanged when the outer console is a TTY. The
-  launcher also sets ``PYTHONUNBUFFERED=1`` on the SCons child (same as
-  cascade nests). Plan: ``design/plans/ci-console-progress.md``.
+  (``CUPPA_STDOUT_IS_TTY=0``): do not open ``/dev/tty`` for quiet/terse
+  sticky status, and do not emit substitute ephemeral “alive” lines.
+  Classic quiet applies; ``operation_status`` / ``[....]`` are no-ops.
+  Durable transcript (``[prepare]``, ``→ [location]``, ``[update]``,
+  ``[progress]``, ``[ok]``, …) still writes to the captured stdout pipe as
+  each line is produced. The ``cuppa`` launcher flushes each echoed child
+  line so piped consumers (``| cat``, CI logs) are not block-buffered until
+  process exit. Interactive owned-TTY UX is unchanged when the outer
+  console is a TTY. The launcher also sets ``PYTHONUNBUFFERED=1`` on the
+  SCons child (same as cascade nests). Plan:
+  ``design/plans/ci-console-progress.md``.
 
 ### Security
 

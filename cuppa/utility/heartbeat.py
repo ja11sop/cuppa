@@ -99,9 +99,10 @@ _heartbeat_active = False
 _stream = None
 _owns_stream = False
 # When the ultimate consumer is not a TTY (``CUPPA_STDOUT_IS_TTY=0``), do not
-# open ``/dev/tty`` for sticky ``\r`` paints — CI only captures the pipe.
-# Diverted INFO / operation_status then become throttled durable newlines on
-# stdout instead (see ``design/plans/ci-console-progress.md``).
+# open ``/dev/tty`` for sticky ``\r`` paints and do not invent substitute
+# "alive" lines — CI only wants durable transcript on the captured pipe
+# (see ``design/plans/ci-console-progress.md``). Quiet becomes classic quiet;
+# ``operation_status`` / ``[....]`` are no-ops until a durable line is written.
 _pipe_progress = False
 _last_emit = 0.0
 _pending = None
@@ -1149,22 +1150,6 @@ def release_sticky_caption():
     _release_sticky_caption()
 
 
-def _arm_pipe_progress():
-    """Arm quiet/terse progress as durable newlines on the captured stdout pipe.
-
-    Used when ``CUPPA_STDOUT_IS_TTY=0`` so CI job logs see Updating / ``[....]``
-    captions instead of an invisible ``/dev/tty`` status row. No ECG pulse —
-    each ``show_info`` is already throttled.
-    """
-    global _stream, _owns_stream, _heartbeat_active, _pipe_progress, _pulse_enabled
-    _pipe_progress = True
-    _stream = sys.stdout
-    _owns_stream = False
-    _heartbeat_active = True
-    _pulse_enabled = False
-    _ensure_scons_display_routed()
-
-
 def reset():
     """Stop diversion and restore a clean status line."""
     global _quiet_console, _suppress_below, _heartbeat_active
@@ -1283,11 +1268,12 @@ def configure_quiet_console(
         set_logging_level( quiet_kind )
         return
 
-    # CI / redirected logs: never open ``/dev/tty`` for sticky paints. Explicit
-    # ``stream=`` (unit tests) still arms a real status row for shear tests.
+    # CI / redirected logs: never open ``/dev/tty`` for sticky paints. Classic
+    # quiet (no INFO diversion, no status row). Durable transcript still goes
+    # to the stdout pipe via ``write_line``. Explicit ``stream=`` (unit tests)
+    # may still arm a real status row for shear tests.
     if stream is None and not _outer_stdout_is_tty():
-        _arm_pipe_progress()
-        set_logging_level( 'info' )
+        set_logging_level( quiet_kind )
         return
 
     if stream is None:
@@ -1323,16 +1309,15 @@ def ensure_status_row():
 
     Quiet already arms via :func:`configure_quiet_console`. Compact
     ``--terse-output`` without ``-Q`` needs the same painter for retrieve
-    ``operation_status`` captions. When ``CUPPA_STDOUT_IS_TTY=0``, arms
-    pipe-progress (durable newlines) instead of ``/dev/tty``.
+    ``operation_status`` captions. When ``CUPPA_STDOUT_IS_TTY=0``, stay
+    unarmed — CI gets durable transcript only, not ephemeral alive cues.
     """
     global _stream, _owns_stream, _heartbeat_active, _pipe_progress
     if _style == _STYLE_OFF or not _compact:
         return False
-    if _heartbeat_active and _stream is not None:
-        return True
     if not _outer_stdout_is_tty():
-        _arm_pipe_progress()
+        return False
+    if _heartbeat_active and _stream is not None:
         return True
     stream, is_tty, owns = open_progress_stream()
     if not is_tty:
