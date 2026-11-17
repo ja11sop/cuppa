@@ -259,5 +259,5 @@ Revisit C only if interactive launcher soak regresses glue that the erase-prefix
 | Owned durable requires `CUPPA_STDOUT_IS_TTY=1` (all platforms) | Done — `_prefer_progress_tty_for_durable_unlocked` |
 | Unit: pipe when flag `0` + progress TTY; owned when flag `1` | Done — `test_heartbeat.py` |
 | Launcher `PYTHONUNBUFFERED=1` on SCons child | Done — `__main__.run_scons` |
-| Optional: skip arming progress TTY when flag `0` | Deferred — sticky may still paint; durable already on pipe |
-| Tip / CI soak confirmation | Pending |
+| Pipe-progress: no `/dev/tty` when flag `0`; INFO → durable newlines | Done — `_arm_pipe_progress` / `_draw_unlocked` |
+| Tip / CI soak confirmation | Pending — re-soak `CUPPA_STDOUT_IS_TTY=0 … 2>&1 \| cat` |

@@ -98,6 +98,11 @@ _suppress_below = logging.WARN
 _heartbeat_active = False
 _stream = None
 _owns_stream = False
+# When the ultimate consumer is not a TTY (``CUPPA_STDOUT_IS_TTY=0``), do not
+# open ``/dev/tty`` for sticky ``\r`` paints — CI only captures the pipe.
+# Diverted INFO / operation_status then become throttled durable newlines on
+# stdout instead (see ``design/plans/ci-console-progress.md``).
+_pipe_progress = False
 _last_emit = 0.0
 _pending = None
 # Plain caption without working/pulse. ``None`` = status off; ``''`` = anchor
@@ -901,6 +906,7 @@ def write_line( text, *, dwell=False, keep_pending=False ):
             use_owned = bool(
                     _heartbeat_active
                     and _stream is not None
+                    and not _pipe_progress
                     and (
                         interactive
                         or _prefer_progress_tty_for_durable_unlocked()
@@ -931,8 +937,9 @@ def write_line( text, *, dwell=False, keep_pending=False ):
             )
         # True pipe-only path (no usable progress TTY write): durable on
         # stdout. Do not chase sticky back here — see docstring. Still erase
-        # any armed row before the launcher can echo onto it.
-        if _heartbeat_active and _stream is not None:
+        # any armed TTY row before the launcher can echo onto it. Pipe-progress
+        # mode has no in-place row — never write ``\r`` erase onto stdout.
+        if _heartbeat_active and _stream is not None and not _pipe_progress:
             with _draw_lock:
                 if _last_line or _body is not None:
                     _clear_unlocked(
@@ -1142,10 +1149,26 @@ def release_sticky_caption():
     _release_sticky_caption()
 
 
+def _arm_pipe_progress():
+    """Arm quiet/terse progress as durable newlines on the captured stdout pipe.
+
+    Used when ``CUPPA_STDOUT_IS_TTY=0`` so CI job logs see Updating / ``[....]``
+    captions instead of an invisible ``/dev/tty`` status row. No ECG pulse —
+    each ``show_info`` is already throttled.
+    """
+    global _stream, _owns_stream, _heartbeat_active, _pipe_progress, _pulse_enabled
+    _pipe_progress = True
+    _stream = sys.stdout
+    _owns_stream = False
+    _heartbeat_active = True
+    _pulse_enabled = False
+    _ensure_scons_display_routed()
+
+
 def reset():
     """Stop diversion and restore a clean status line."""
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _last_emit, _pending, _body, _last_line
+    global _stream, _owns_stream, _pipe_progress, _last_emit, _pending, _body, _last_line
     global _columns, _spin, _pulse_enabled, _clock, _suppress_depth
     global _message_shown_at, _visible_since, _style, _sleep, _compact
     global _compact_bridge
@@ -1177,6 +1200,7 @@ def reset():
     _heartbeat_active = False
     _stream = None
     _owns_stream = False
+    _pipe_progress = False
     _last_emit = 0.0
     _pending = None
     _body = None
@@ -1234,8 +1258,8 @@ def configure_quiet_console(
     from cuppa.log import set_logging_level
 
     global _quiet_console, _suppress_below, _heartbeat_active
-    global _stream, _owns_stream, _clock, _columns, _pulse_enabled, _style, _sleep
-    global _compact
+    global _stream, _owns_stream, _pipe_progress, _clock, _columns, _pulse_enabled
+    global _style, _sleep, _compact
 
     chosen_style = normalize_style( style )
     reset()
@@ -1259,6 +1283,13 @@ def configure_quiet_console(
         set_logging_level( quiet_kind )
         return
 
+    # CI / redirected logs: never open ``/dev/tty`` for sticky paints. Explicit
+    # ``stream=`` (unit tests) still arms a real status row for shear tests.
+    if stream is None and not _outer_stdout_is_tty():
+        _arm_pipe_progress()
+        set_logging_level( 'info' )
+        return
+
     if stream is None:
         stream, detected_tty, opened_owns = open_progress_stream()
         if is_tty is None:
@@ -1278,6 +1309,7 @@ def configure_quiet_console(
         set_logging_level( quiet_kind )
         return
 
+    _pipe_progress = False
     _stream = stream
     _owns_stream = bool( owns_stream )
     _heartbeat_active = True
@@ -1287,17 +1319,20 @@ def configure_quiet_console(
 
 
 def ensure_status_row():
-    """Arm the owned TTY status row for compact terse without INFO diversion.
+    """Arm the status row for compact terse without INFO diversion.
 
-    Quiet+TTY already arms via :func:`configure_quiet_console`. Compact
-    ``--terse-output`` without ``-Q`` needs the same row for retrieve
-    ``operation_status`` captions so there is one painter (columns, wrap,
-    pulse) — not a second ``open_progress_stream`` loop.
+    Quiet already arms via :func:`configure_quiet_console`. Compact
+    ``--terse-output`` without ``-Q`` needs the same painter for retrieve
+    ``operation_status`` captions. When ``CUPPA_STDOUT_IS_TTY=0``, arms
+    pipe-progress (durable newlines) instead of ``/dev/tty``.
     """
-    global _stream, _owns_stream, _heartbeat_active
+    global _stream, _owns_stream, _heartbeat_active, _pipe_progress
     if _style == _STYLE_OFF or not _compact:
         return False
     if _heartbeat_active and _stream is not None:
+        return True
+    if not _outer_stdout_is_tty():
+        _arm_pipe_progress()
         return True
     stream, is_tty, owns = open_progress_stream()
     if not is_tty:
@@ -1307,6 +1342,7 @@ def ensure_status_row():
             except Exception:
                 pass
         return False
+    _pipe_progress = False
     _stream = stream
     _owns_stream = bool( owns )
     _heartbeat_active = True
@@ -1559,15 +1595,16 @@ def _clear_unlocked( advance=False, keep_pending=False, preserve_spin=False ):
     # chase-back (``preserve_spin``) keeps the phase across clear→restore.
     if not preserve_spin:
         _spin = 0
-    if not _heartbeat_active or _stream is None:
+    if _pipe_progress or not _heartbeat_active or _stream is None:
+        # Pipe-progress has no in-place row to erase; durable lines already
+        # scrolled. Still clear wrap bookkeeping if a prior TTY paint leaked.
         _last_line = ''
-        # Still owe the TTY a wrap-on if a prior paint sent wrap-off.
         if _wrap_disabled or _wrap_off_sent:
             _wrap_disabled = False
             _wrap_off_sent = False
-            # Stream may already be gone — caller / atexit uses restore.
         else:
             _wrap_disabled = False
+        _last_emit = 0.0
         return
     try:
         # Erase the status row and restore autowrap. ``advance`` ends the row
@@ -1617,12 +1654,30 @@ def _flush_unlocked( now ):
 
 
 def _draw_unlocked( body ):
-    """Write one status line fitted to the TTY width."""
+    """Write one status line fitted to the TTY width (or a durable pipe line)."""
     global _last_line, _wrap_disabled, _wrap_off_sent, _visible_since
     if _stream is None or body is None or _suppress_depth:
         return
     from cuppa.colourise import as_subdued
     from cuppa.output_processor import strip_ansi
+
+    if _pipe_progress:
+        # Captured logs cannot show ``\r`` sticky paints — emit a throttled
+        # durable newline so CI sees Updating / ``[....]`` progress.
+        stripped = strip_ansi( body ).strip()
+        if not stripped:
+            return
+        if _body_preserve_style:
+            line = body.rstrip( '\n' ) + '\n'
+        else:
+            line = as_subdued( stripped ) + '\n'
+        try:
+            sys.stdout.write( line )
+            sys.stdout.flush()
+        except Exception:
+            pass
+        _last_line = ''
+        return
 
     starting = not _last_line
     cols = _terminal_columns()

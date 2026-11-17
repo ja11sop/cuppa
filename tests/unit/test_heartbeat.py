@@ -1341,7 +1341,9 @@ def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monke
             hb, 'open_progress_stream',
             lambda: ( stream, True, False ),
     )
-    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    # Interactive flag so ensure_status_row opens the progress TTY (pipe
+    # consumers use durable newlines instead — see pipe-progress tests).
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
 
     out = io.StringIO()
     real_stdout = hb.sys.stdout
@@ -1362,8 +1364,11 @@ def test_resolve_transcript_skips_full_cycle_dwell_after_operation_status( monke
 
     cycle = hb._cycle_duration_s()
     assert sum( sleeps ) < cycle * 0.5
-    assert '[update]' in out.getvalue()
-    assert '[location]' in out.getvalue()
+    # Interactive owned stream: durable resolve children land on the TTY
+    # progress stream (not the launcher pipe).
+    owned = strip_ansi( stream.getvalue() )
+    assert '[update]' in owned
+    assert '[location]' in owned
     hb.reset()
 
 
@@ -1498,7 +1503,7 @@ def test_terse_clean_removed_fold_without_quiet( monkeypatch, capsys ):
             hb, 'open_progress_stream',
             lambda: ( stream, True, False ),
     )
-    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '1' )
     hb.arm_scons_removed_folding()
     assert hb.diverting() is False
     assert hb.status_row_active() is True
@@ -1510,9 +1515,50 @@ def test_terse_clean_removed_fold_without_quiet( monkeypatch, capsys ):
     assert 'Removed alone.o' in _status_body( stream )
 
     hb.flush_scons_removed_summary()
-    summary = strip_ansi( capsys.readouterr().out )
+    # Interactive: durable summary is written on the owned progress stream.
+    summary = strip_ansi( stream.getvalue() )
     assert '[clean]' in summary
     assert 'removed 1 path' in summary
+
+
+def test_pipe_progress_emits_durable_info_when_outer_piped( monkeypatch ):
+    """``CUPPA_STDOUT_IS_TTY=0`` must not hide quiet progress on ``/dev/tty``.
+
+    Diverted INFO / operation_status become throttled durable newlines on the
+    captured stdout pipe so CI logs move during long ``-Q`` retrieves.
+    """
+    monkeypatch.setenv( 'CUPPA_STDOUT_IS_TTY', '0' )
+    hb.reset()
+    hb.set_presentation( style='pulse', compact=True )
+
+    def _no_tty():
+        raise AssertionError( 'must not open a progress TTY when outer is piped' )
+
+    monkeypatch.setattr( hb, 'open_progress_stream', _no_tty )
+
+    pipe = io.StringIO()
+    real = hb.sys.stdout
+    hb.sys.stdout = pipe
+    try:
+        hb.configure_quiet_console( 'warn', pulse=False, style='pulse', compact=True )
+        assert hb.diverting() is True
+        assert hb._pipe_progress is True
+        logger.info( 'Updating [example_lib]' )
+        with hb.operation_status( 'Fetching [example_lib]' ):
+            pass
+        hb.write_transcript( '              → [update]   <example_lib> · main\n' )
+    finally:
+        hb.sys.stdout = real
+
+    raw = pipe.getvalue()
+    text = strip_ansi( raw )
+    assert 'Updating [example_lib]' in text
+    assert 'Fetching [example_lib]' in text
+    assert '[update]' in text
+    # No in-place sticky erase sequences on the captured pipe.
+    assert '\r' not in raw
+    assert '\x1b[K' not in raw
+    hb.reset()
 
 
 def test_reset_and_atexit_restore_terminal_wrap():
