@@ -611,6 +611,46 @@ def test_a_child_error_line_is_summarised_without_failing_the_action( capsys ):
     )
 
 
+def test_a_clean_child_is_not_dumped_when_the_python_around_it_fails( capsys ):
+    def _action( target, source, env ):
+        progress.note_terse_child(
+                "gcov -o widget -l -p -r -c -b src/widget.cpp",
+                [ "File 'src/widget.cpp'", "Lines executed:100.00% of 3" ] * 200
+                + [ "src/widget.cpp: warning: profile data may be out of date" ],
+        )
+        raise OSError( 36, "File name too long" )
+
+    node = _LabelledNode( "coverage", "widget_gcov.log" )
+    env = _terse_env()
+    progress.stash_terse_command( "RunGcovCoverage()", [node], ["widget.cpp"], env )
+    wrapped = progress._TersePythonCallable( _action )
+    with pytest.raises( OSError ):
+        wrapped( target=[node], source=["widget.cpp"], env=env )
+    out = capsys.readouterr().out
+    assert "gcov -o widget" in out
+    assert "warning: profile data" in out
+    assert "Lines executed" not in out
+    assert "[error]" in out
+
+
+def test_a_failed_child_still_prints_all_its_output( capsys ):
+    def _action( target, source, env ):
+        progress.note_terse_child(
+                "gcov -o widget src/widget.cpp",
+                [ "File 'src/widget.cpp'", "Lines executed:100.00% of 3" ],
+                failed=True,
+        )
+        return 1
+
+    node = _LabelledNode( "coverage", "widget_gcov.log" )
+    env = _terse_env()
+    progress.stash_terse_command( "RunGcovCoverage()", [node], ["widget.cpp"], env )
+    wrapped = progress._TersePythonCallable( _action )
+    assert wrapped( target=[node], source=["widget.cpp"], env=env ) == 1
+    out = capsys.readouterr().out
+    assert "Lines executed" in out
+
+
 def test_install_methods_wrap_the_action_on_the_returned_node():
     action = SCons.Action.Action( lambda target, source, env: 0, 'Install file: "a" as "b"' )
     node = SimpleNamespace(

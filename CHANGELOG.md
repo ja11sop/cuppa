@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Coverage no longer fails with ``[Errno 36] File name too long`` when
+  ``gcov -l -p`` names a header under a long dependency path. The moved
+  ``.gcov`` file name is bounded to 240 bytes (less on Windows when the
+  build directory path is long) by replacing the middle of the name with a
+  short stable digest. The leading ``source##`` and the trailing
+  ``##program.gcov`` are kept, so cleanup and the gcovr filter still match.
+- ``--terse-output`` no longer dumps the whole output of a tool that exited
+  cleanly when the Python action around it fails. Only the tool's command and
+  its warning or error lines are printed before the ``[error]`` line, so the
+  real error is not buried.
 - Durable console progress for CI / redirected logs
   (``CUPPA_STDOUT_IS_TTY=0``): do not open ``/dev/tty`` for quiet/terse
   sticky status, and do not emit substitute ephemeral “alive” lines.

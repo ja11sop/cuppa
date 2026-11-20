@@ -8,10 +8,70 @@ import os
 
 import pytest
 
-from cuppa.cpp.run_gcov_coverage import detail_html_pattern, emit_tool_summary, run_command
+from cuppa.cpp.run_gcov_coverage import (
+        GCOV_NAME_LIMIT,
+        bounded_gcov_filename,
+        detail_html_pattern,
+        emit_tool_summary,
+        gcov_name_limit,
+        run_command,
+)
 from cuppa.progress import take_terse_children
 
 pytestmark = pytest.mark.unit
+
+_TAIL = "##widget_test.gcov"
+
+
+def _long_header_stem( padding=0 ):
+    """Like the name ``gcov -l -p`` gives a header under a long package path."""
+    header = "#".join( [
+            "_cuppa", "example_lib@feature_a_long_branch_name_for_widgets",
+            "include", "example", "widget", "detail", "widget_traits" + "x" * padding + ".hpp",
+    ] )
+    return "src#widget_test.cpp##" + header
+
+
+def test_a_short_gcov_name_is_unchanged():
+    assert bounded_gcov_filename( "src#widget_test.cpp##x.hpp", _TAIL ) == "src#widget_test.cpp##x.hpp" + _TAIL
+
+
+def test_a_long_gcov_name_is_bounded_and_keeps_its_ends():
+    stem = _long_header_stem( padding=300 )
+    name = bounded_gcov_filename( stem, _TAIL )
+    assert len( name.encode() ) <= GCOV_NAME_LIMIT
+    assert name.startswith( "src#widget_test.cpp##" )
+    assert name.endswith( _TAIL )
+    assert "~" in name
+
+
+def test_a_bounded_gcov_name_is_stable_and_distinct():
+    first = bounded_gcov_filename( _long_header_stem( padding=300 ), _TAIL )
+    again = bounded_gcov_filename( _long_header_stem( padding=300 ), _TAIL )
+    other = bounded_gcov_filename( _long_header_stem( padding=301 ), _TAIL )
+    assert first == again
+    assert first != other
+
+
+def test_a_bounded_gcov_name_counts_bytes_not_characters():
+    stem = "src#widget_test.cpp##" + "\u00e9" * 200
+    name = bounded_gcov_filename( stem, _TAIL )
+    assert len( name.encode() ) <= GCOV_NAME_LIMIT
+    assert name.endswith( _TAIL )
+
+
+def test_the_limit_is_unchanged_off_windows( tmp_path ):
+    if os.name != "nt":
+        assert gcov_name_limit( str( tmp_path ) ) == GCOV_NAME_LIMIT
+
+
+def test_a_bounded_name_can_be_created_where_the_long_one_cannot( tmp_path ):
+    stem = _long_header_stem( padding=300 )
+    with pytest.raises( OSError ):
+        ( tmp_path / ( stem + _TAIL ) ).write_text( "x" )
+    bounded = tmp_path / bounded_gcov_filename( stem, _TAIL )
+    bounded.write_text( "x" )
+    assert bounded.exists()
 
 
 def test_detail_pattern_does_not_treat_a_shorter_name_as_a_prefix():
