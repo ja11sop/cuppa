@@ -16,6 +16,7 @@ import shutil
 import re
 import itertools
 import glob
+import hashlib
 import sys
 import six
 import collections
@@ -60,6 +61,71 @@ def gcov_offset_path( file_path, env ):
         offset_path = offset_path[1:]
     offset_path = offset_path and offset_path.replace( os.path.sep, '#' ) + '#' or ""
     return offset_path + filename + '##'
+
+
+# ``gcov -l -p`` names a header's data after the source that included it and
+# the header's own preserved path, so a header under a long dependency
+# directory is already close to the 255 byte file name limit (NAME_MAX on
+# Linux, the per-component limit on Windows). The program suffix is appended
+# when the file is moved. Stay below the limit so a short suffix by a later tool
+# does not tip a name over, and keep the leading ``source##`` and the trailing
+# ``##program.gcov`` that the cleanup glob and the gcovr filter match on.
+GCOV_NAME_LIMIT = 240
+_GCOV_NAME_MIN = 80
+_WINDOWS_PATH_LIMIT = 259
+
+
+def _utf8_len( text ):
+    return len( text.encode( "utf-8", "surrogateescape" ) )
+
+
+def _fit_prefix( text, limit ):
+    while text and _utf8_len( text ) > limit:
+        text = text[:-1]
+    return text
+
+
+def _fit_suffix( text, limit ):
+    while text and _utf8_len( text ) > limit:
+        text = text[1:]
+    return text
+
+
+def gcov_name_limit( directory="" ):
+    """Longest file name to give a moved ``.gcov`` file in ``directory``.
+
+    Windows also limits the whole path. The name gets what is left of it, but
+    never less than a usable minimum.
+    """
+    if os.name == "nt" and directory:
+        room = _WINDOWS_PATH_LIMIT - len( os.path.abspath( directory ) ) - 1
+        return max( _GCOV_NAME_MIN, min( GCOV_NAME_LIMIT, room ) )
+    return GCOV_NAME_LIMIT
+
+
+def bounded_gcov_filename( stem, tail, limit=GCOV_NAME_LIMIT ):
+    """``stem + tail``, shortened in the middle when it exceeds ``limit`` bytes.
+
+    ``tail`` is the ``##program.gcov`` part and is always kept. The stem keeps
+    the leading ``source##`` and the end of the header path, and a short digest
+    of the whole name stands in for the part that is dropped, so two long names
+    that share both ends stay distinct and the result is the same every run.
+    """
+    full = stem + tail
+    if _utf8_len( full ) <= limit:
+        return full
+
+    digest = hashlib.sha1( full.encode( "utf-8", "surrogateescape" ) ).hexdigest()[:8]
+    marker = "~" + digest + "~"
+    budget = max( limit - _utf8_len( tail ) - len( marker ), 0 )
+
+    separator = stem.find( "##" )
+    head = stem[:separator + 2] if separator >= 0 else ""
+    if _utf8_len( head ) > budget // 2:
+        head = _fit_prefix( head, budget // 2 )
+    rest = stem[len( head ):]
+    kept = _fit_suffix( rest, budget - _utf8_len( head ) )
+    return head + marker + kept + tail
 
 
 #def coverage_output( source, env ):
@@ -472,8 +538,12 @@ class RunGcovCoverage(object):
             for gcov_file in gcov_files:
 
                 filename, ext = os.path.splitext( os.path.basename( str(gcov_file) ) )
-                filename = filename + self._program_id + ext
-                new_filename = filename[len(qualified_base)+1:]
+                stem = filename[len(qualified_base)+1:]
+                new_filename = bounded_gcov_filename(
+                        stem,
+                        self._program_id + ext,
+                        gcov_name_limit( build_dir ),
+                )
 
                 logger.trace( "Move GCOV [{}] to [{}]...".format( as_notice(str(gcov_file)), as_notice(new_filename) ) )
 

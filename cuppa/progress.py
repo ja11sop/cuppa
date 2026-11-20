@@ -5093,6 +5093,19 @@ def _is_python_action_dump( command ):
     return name.replace( "_", "" ).isalnum() and ( name[0].isalpha() or name[0] == "_" )
 
 
+def _child_lines_to_show( lines, child_failed ):
+    """The part of a noted tool's output worth printing with a failed action.
+
+    A tool that failed prints everything it said. A tool that exited cleanly
+    while the Python around it failed (for example ``gcov`` ran and the move
+    of its output did not) prints only its warning and error lines. Its
+    routine output would bury the real error under a wall of text.
+    """
+    if child_failed:
+        return list( lines or [] )
+    return [ line for line in lines or [] if _output_severity( [ line ] ) != "ok" ]
+
+
 def _report_python_action( target, source, env, failed ):
     """Consume the stashed description. A clean run is one line.
 
@@ -5137,9 +5150,9 @@ def _report_python_action( target, source, env, failed ):
         if launched and launch_command:
             _write_command( launch_command )
         elif children:
-            for child_command, lines, _child_failed in children:
+            for child_command, lines, child_failed in children:
                 _write_command( child_command )
-                for line in lines:
+                for line in _child_lines_to_show( lines, child_failed ):
                     _write_command( line )
         elif command and not _is_python_action_dump( command ):
             _write_command( command )
