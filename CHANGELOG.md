@@ -17,6 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Consume pkg-config for a GitLab package now searches the traveling
+  dependency closure as well as the package's own ``pkg_config_dir``.
+  Repeated ``--with-path`` entries prefer Cuppa extracts over system
+  ``.pc`` files, so a parent ``Requires:`` (for example a client library
+  requiring ``grpc++``) resolves to the Cuppa dependency instead of a
+  distro package that can mix Abseil or OpenSSL. Dependency extracts that
+  install ``*.pc`` files but omit ``pkg_config_dir`` still contribute
+  ``lib/pkgconfig`` or ``share/pkgconfig`` when those directories contain
+  modules.
 - Coverage no longer fails with ``[Errno 36] File name too long`` when
   ``gcov -l -p`` names a header under a long dependency path. The moved
   ``.gcov`` file name is bounded to 240 bytes (less on Windows when the
