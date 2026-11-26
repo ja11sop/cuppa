@@ -25,7 +25,8 @@ candidates as capacity allows.
 | Area | Status in 1.15.0 |
 |------|------------------|
 | CI / non-interactive console progress | **Done** (unreleased) — durable transcript on the pipe when `CUPPA_STDOUT_IS_TTY=0`; no `/dev/tty` sticky; launcher flush; interactive UX unchanged — [`ci-console-progress.md`](design/plans/ci-console-progress.md) |
-| Pkg-config search path for package deps | **In progress** — compose `--with-path` from the traveling closure so parent `.pc` `Requires:` hit Cuppa extracts, not `/usr` — [`pkgconfig-dependency-search-path.md`](design/plans/pkgconfig-dependency-search-path.md) |
+| Pkg-config search path for package deps | **Done** (unreleased) — compose `--with-path` from the traveling closure; Antora `pkg_config_dir` vs `use_libs` — [#411](https://github.com/ja11sop/cuppa/pull/411) — [`pkgconfig-dependency-search-path.md`](design/plans/pkgconfig-dependency-search-path.md) |
+| Package runtime deploy / `$ORIGIN` stage | **Candidate** — stage shared package libs so tip binaries run outside Cuppa `ENV` and in images — [`package-runtime-deploy.md`](design/plans/package-runtime-deploy.md) |
 | Topic / group / single-option `--help` | **Candidate** — structured help instead of a flat dump — [`cli-help-topics.md`](design/plans/cli-help-topics.md) |
 | Shareable Antora supplemental UI repo | **Candidate** — extract candy for multi-repo reuse; Cuppa keeps themes — [`antora-supplemental-ui-repo.md`](design/plans/antora-supplemental-ui-repo.md) |
 | SCons `-j` spurious rebuilds on large C++ graphs | **Carry-forward** (documented) — mitigation TBD — [`parallel-scons-large-graph-rebuilds.md`](design/plans/parallel-scons-large-graph-rebuilds.md) |
