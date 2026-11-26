@@ -2544,6 +2544,18 @@ class GitlabPackageDependency:
         self.use_libs( defaults, dependency_name=dependency_name )
 
 
+    def _resolve_dependency_package_dir( self, name ):
+        """Package root for a BuildWith dependency name, or ``None``."""
+        env = getattr( self, "_env", None )
+        if env is None or not name:
+            return None
+        try:
+            from cuppa.package_managers.package_paths import package_dir
+            return package_dir( env, name )
+        except Exception:
+            return None
+
+
     def parse_pkg_config( self, libs ):
         env = self._env
         library_prefix = self._resolved_library_prefix()
@@ -2566,8 +2578,33 @@ class GitlabPackageDependency:
             prefix = lib.startswith( library_prefix ) and "" or library_prefix
             libraries.append( prefix + lib )
 
-        command = 'pkg-config --with-path={pkg_config_dir} --libs --cflags {libraries}'.format(
-                pkg_config_dir=pkg_config_dir,
+        from cuppa.package_managers.pkgconfig_paths import (
+                dependency_pkg_config_dirs,
+                merge_pkg_config_search_dirs,
+                pkg_config_with_path_args,
+        )
+
+        # Parent .pc Requires: modules may live in other Cuppa extracts.
+        # Compose repeated --with-path so those resolve before /usr.
+        search_dirs = merge_pkg_config_search_dirs(
+                pkg_config_dir,
+                dependency_pkg_config_dirs(
+                        getattr( self, "_package_dir", None ),
+                        self._resolve_dependency_package_dir,
+                ),
+        )
+        with_path = pkg_config_with_path_args( search_dirs )
+        if not with_path:
+            logger.error(
+                    "Package [{}] has no pkg-config search path for libraries {}".format(
+                            as_info( self._package_id ),
+                            as_notice( str( libraries ) ),
+                    )
+            )
+            return
+
+        command = 'pkg-config {with_path} --libs --cflags {libraries}'.format(
+                with_path=with_path,
                 libraries=" ".join( libraries )
         )
 
