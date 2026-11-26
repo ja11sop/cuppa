@@ -8,9 +8,10 @@
   [`archive/gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md);
   `cuppa/package_managers/gitlab.py` (`parse_pkg_config`);
   `cuppa/buildsys/pkgconfig.py` (relocate only)
-- **Updated:** 2026-11-25
+- **Updated:** 2026-11-26
 - **Impact:** `patch` — correct consume for packages whose installed `.pc`
-  files `Requires:` other Cuppa packages; no new public flags
+  files `Requires:` other Cuppa packages; no new public flags; Antora
+  Using GitLab packages clarifies `pkg_config_dir` vs `use_libs`
 
 ## Problem
 

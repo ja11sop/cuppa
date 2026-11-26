@@ -324,35 +324,86 @@ guess. The answer is stored as a list:
 "public_defines": ["USE_OS_TZDB=1", "ONLY_C_LOCALE=0", "HAS_STRING_VIEW=1"]
 ----
 
-==== Pkg-config (defines and cflags)
+[#pkg-config-vs-use-libs]
+==== Pkg-config vs ``use_libs``
 
-Pkg-config remains valid when a package ships a usable ``.pc``. It is not
-how ``public_defines`` is filled.
-When a package needs other cflags alongside linking, publish the directory
-that holds the ``.pc`` files. The path is relative to the package root, and
-it is written even when that path is ``lib/pkgconfig``. A missing key means
-do not run pkg-config.
+Consumers always link through ``use_libs`` / ``default_use_libs`` /
+``use_all_libs`` (or group tokens). That is the Cuppa API. Pkg-config is an
+optional **mechanism** behind those calls when the package opts in — not a
+separate consumer workflow, and not how ``public_defines`` is filled.
+
+[cols="3,7"]
+|===
+| Situation | What Cuppa does
+
+| No ``pkg_config_dir`` on the package
+| ``use_libs`` / defaults resolve **static or shared** artefacts under
+  ``lib/`` (and headers). Cuppa does **not** run pkg-config for that
+  package's own link. A missing key does **not** mean ``lib/pkgconfig``.
+
+| ``pkg_config_dir`` set (for example ``lib/pkgconfig`` or
+  ``share/pkgconfig``)
+| ``use_libs`` / defaults run
+  ``pkg-config --libs --cflags`` through SCons ``ParseConfig`` for the
+  requested stems (including ``-D`` / ``Cflags`` from the ``.pc``).
+
+| Parent ``.pc`` files ``Requires:`` other Cuppa packages
+| Cuppa also passes those dependencies' pkg-config directories as extra
+  ``--with-path`` entries (traveling closure, Cuppa paths first). System
+  modules such as ``openssl`` / ``zlib`` can still come from the OS.
+|===
+
+Choose publisher metadata from the link contract you want:
+
+* **Stem linking only** — omit ``pkg_config_dir``. Typical for Boost-like
+  archives and packages with no usable ``.pc``.
+* **Pkg-config is the public link contract** — set ``pkg_config_dir`` to the
+  directory that holds the ``.pc`` files (relative to the package root). Keep
+  a non-empty ``default_use_libs`` when primary ``BuildWith`` / auto-enable
+  should link those modules (for example a single ``fmt`` stem that matches
+  ``fmt.pc``).
+* **Ship ``.pc`` files mainly so parents can ``Requires:`` them, but do not
+  auto-link on ``BuildWith``** — set ``pkg_config_dir`` **and**
+  ``default_use_libs=[]``. Fat or multi-lib stacks (many ``absl_*.pc``,
+  ``grpc++``, client libraries) should use an empty default so auto-enable
+  never guesses a stem. Consumers still call ``use_libs([...])`` /
+  groups when they want a link.
+
+Setting ``pkg_config_dir`` without an explicit empty default can change
+behaviour: the narrow default heuristic may pick a stem (for example
+``grpc``) and then run pkg-config for it on primary ``BuildWith``. Prefer
+``default_use_libs=[]`` whenever auto-link is not intended.
+
+Do not hand-export ``PKG_CONFIG_PATH`` for Cuppa package dependencies, and do
+not rely on distro ``.pc`` files for libraries that Cuppa already extracts —
+that mixes toolchains (Abseil sonames, OpenSSL symbol versions). Cuppa's
+composed ``--with-path`` list is the supported path.
+
+When a dependency extract installs ``*.pc`` files but omits
+``pkg_config_dir``, Cuppa may still add ``lib/pkgconfig`` or
+``share/pkgconfig`` to the **search path** for a parent that already opted
+into pkg-config (only if that directory contains ``*.pc``). That fallback
+does not turn pkg-config on for the dependency's own ``use_libs``. Prefer
+publishing an honest ``pkg_config_dir`` when you ship modules.
 
 [source,python]
 ----
 publisher = GitlabPackagePublisher(
     env,
     # ...
-    pkg_config_dir = 'lib/pkgconfig',
+    pkg_config_dir     = 'lib/pkgconfig',
+    default_use_libs   = [],   # search / explicit use_libs only
 )
 ----
 
 [source,json]
 ----
-"pkg_config_dir": "lib/pkgconfig"
+"pkg_config_dir": "lib/pkgconfig",
+"default_use_libs": []
 ----
 
 A consumer ``pkg_config_dir`` replaces the published directory. ``""`` turns
-pkg-config off for that dependency. With a directory in force, ``use_libs`` /
-defaults run ``pkg-config --libs --cflags`` through SCons ``ParseConfig`` for
-the requested stems (including any ``-D`` entries in the ``.pc``). Without
-one, Cuppa links resolved static/shared artefacts under ``lib/`` and adds
-includes only.
+pkg-config off for that dependency (back to ``lib/`` stem linking).
 
 ``CMakeInstall`` rewrites ``*.pc`` files under the install prefix so
 ``prefix=${pcfiledir}/...`` and paths under that prefix use ``${prefix}``.
@@ -361,8 +412,8 @@ machine. A prefix outside the package tree is left alone. A file that
 already uses ``${pcfiledir}`` is left alone. A tree that was not installed
 by CMake can call ``env.RelocatePkgConfig(source, prefix=...)``.
 Consume does not rewrite: a published ``.pc`` that still has an absolute
-prefix keeps that path. Use ``use_libs`` / ``default_use_libs`` when you
-only need stems and headers.
+prefix keeps that path — republish after relocate if consumers see build-host
+``-L`` paths.
 
 To link every static or shared library present under a GitLab package's ``lib/`` directory,
 call ``use_all_libs()`` (do not pass an empty ``use_libs([])`` when you mean “all” — empty
@@ -425,7 +476,7 @@ package-level fields on the same publisher / manifest:
 * ``link`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``
 * ``lib_groups`` — mapping of group name → concrete library stems (see above)
 * ``library_prefix`` — prepended to ``use_libs`` stems and ``.pc`` names (``boost_``). A consumer ``library_prefix`` replaces it; ``""`` clears it
-* ``pkg_config_dir`` — directory of ``.pc`` files, relative to the package root (``lib/pkgconfig``, ``share/pkgconfig``). Written whenever the package uses pkg-config. A missing key does not mean ``lib/pkgconfig``. A consumer ``pkg_config_dir`` replaces it; ``""`` turns pkg-config off
+* ``pkg_config_dir`` — directory of ``.pc`` files, relative to the package root (``lib/pkgconfig``, ``share/pkgconfig``). Written whenever the package uses pkg-config for its own ``use_libs`` / defaults. A missing key does not mean ``lib/pkgconfig``. When set, consume also searches this package's traveling dependency closure so parent ``Requires:`` resolve to Cuppa extracts. A consumer ``pkg_config_dir`` replaces it; ``""`` turns pkg-config off
 
 Publishers always stage ``cuppa-publish.json`` (at least ``package`` / ``version``).
 Omit ``dependencies`` / ``default_use_libs`` / ``link`` when the package is standalone

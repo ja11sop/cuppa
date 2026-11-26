@@ -89,6 +89,12 @@ Optional package-level fields on the same publisher (written into the same manif
 * ``default_use_libs=[...]`` — stems linked when a consumer primary-``BuildWith``s / auto-enables
   the package (not when it is pulled only as a transitive include). Use ``[]`` for fat packages
   that must not link by default.
+* ``pkg_config_dir=`` — relative directory of ``.pc`` files when pkg-config should drive
+  ``use_libs`` / defaults (for example ``lib/pkgconfig`` or ``share/pkgconfig``). A missing
+  key means stem linking under ``lib/``, not an implied ``lib/pkgconfig``. Pair with
+  ``default_use_libs=[]`` when you ship modules for parents' ``Requires:`` but do not want
+  auto-link on ``BuildWith``. See
+  xref:dependencies/using/gitlab.adoc#pkg-config-vs-use-libs[Pkg-config vs ``use_libs``].
 * ``link=`` — ``prefer_static`` (default), ``prefer_shared``, ``static``, or ``shared``.
 
 Omit ``dependencies`` and those fields when the package is standalone with no defaults — then no

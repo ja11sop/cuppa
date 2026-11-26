@@ -25,7 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   distro package that can mix Abseil or OpenSSL. Dependency extracts that
   install ``*.pc`` files but omit ``pkg_config_dir`` still contribute
   ``lib/pkgconfig`` or ``share/pkgconfig`` when those directories contain
-  modules.
+  modules. Antora Using GitLab packages documents when to set
+  ``pkg_config_dir`` versus stem ``use_libs`` / empty ``default_use_libs``.
 - Coverage no longer fails with ``[Errno 36] File name too long`` when
   ``gcov -l -p`` names a header under a long dependency path. The moved
   ``.gcov`` file name is bounded to 240 bytes (less on Windows when the
