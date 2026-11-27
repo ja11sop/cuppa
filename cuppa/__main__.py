@@ -300,6 +300,7 @@ def main():
             argv_wants_info,
             report_info,
     )
+    from cuppa.core.help_topics import parse_help_argv, render_help_request
     args = sys.argv[1:]
     if argv_wants_info( args ):
         report_info(
@@ -307,6 +308,10 @@ def main():
                 list_format=argv_list_format( args ),
         )
         sys.exit( 0 )
+    help_request = parse_help_argv( args )
+    if help_request is not None:
+        kind, payload = help_request
+        sys.exit( render_help_request( kind, payload ) )
     sys.exit( run_scons( args ) )
 
 

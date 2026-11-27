@@ -22,44 +22,50 @@ from cuppa.colourise import as_info, as_notice
 from cuppa.log import logger
 
 
-cuppa.core.options.add_option( '--show-conf', dest='show_conf', action='store_true',
+def add_configure_options():
+    """Register configure.conf / ~/.cuppaconfig flags (safe to call again for help)."""
+    add_option = cuppa.core.options.add_option
+    add_option( '--show-conf', dest='show_conf', action='store_true',
                                help='Show the merged settings from the global and project '
                                     'configuration files (effective cuppa -D line)' )
 
-cuppa.core.options.add_option( '--show-global-conf', dest='show_global_conf', action='store_true',
+    add_option( '--show-global-conf', dest='show_global_conf', action='store_true',
                                help='Show the settings in the global configuration file '
                                     '(~/.cuppaconfig) only' )
 
-cuppa.core.options.add_option( '--save-conf', dest='save_conf', action='store_true',
+    add_option( '--save-conf', dest='save_conf', action='store_true',
                                help='Save the current command-line as a configuration file' )
 
-cuppa.core.options.add_option( '--save-global-conf', dest='save_global_conf', action='store_true',
+    add_option( '--save-global-conf', dest='save_global_conf', action='store_true',
                                help='Save the current command-line as a global configuration file' )
 
-cuppa.core.options.add_option( '--update-conf', dest='update_conf', action='store_true',
+    add_option( '--update-conf', dest='update_conf', action='store_true',
                                help='Update the configuration file with the current command-line' )
 
-cuppa.core.options.add_option( '--update-global-conf', dest='update_global_conf', action='store_true',
+    add_option( '--update-global-conf', dest='update_global_conf', action='store_true',
                                help='Update the global configuration file with the current command-line' )
 
-cuppa.core.options.add_option( '--remove-settings', type='string', nargs=1,
+    add_option( '--remove-settings', type='string', nargs=1,
                                action='callback', callback=cuppa.core.options.list_parser( 'remove_settings' ),
                                help='Remove the listed settings from the configuration file' )
 
-cuppa.core.options.add_option( '--remove-global-settings', type='string', nargs=1,
+    add_option( '--remove-global-settings', type='string', nargs=1,
                                action='callback', callback=cuppa.core.options.list_parser( 'remove_global_settings' ),
                                help='Remove the listed settings from the global configuration file' )
 
-cuppa.core.options.add_option( '--clear-conf', dest='clear_conf', action='store_true',
+    add_option( '--clear-conf', dest='clear_conf', action='store_true',
                                help='Clear the configuration file' )
 
-cuppa.core.options.add_option( '--clear-global-conf', dest='clear_global_conf', action='store_true',
+    add_option( '--clear-global-conf', dest='clear_global_conf', action='store_true',
                                help='Clear the global configuration file' )
 
-cuppa.core.options.add_option( '--use-conf', dest='use_conf', action='store',
+    add_option( '--use-conf', dest='use_conf', action='store',
                                type='string', nargs=1,
                                help='Read and write this configuration file path instead of the '
                                     'project configure.conf' )
+
+
+add_configure_options()
 
 
 class never_save(object):
