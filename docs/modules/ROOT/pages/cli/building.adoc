@@ -36,7 +36,9 @@ heavy translation units on every multi-job run even when sources and headers are
 `--debug=explain` then reports large implicit-dependency churn and thousands of headers
 "changed" while file mtimes on disk stay put; `.sconsign.dblite` is what moves. A following
 serial build (or `--parallel=1`) usually does one cleanup rebuild and then stays up to date
-until the next multi-job run. Cuppa does not disable parallel builds for this; it is an
+until the next multi-job run. Soaks show the loop more readily when **several sconscripts**
+build in one session; a single-sconscript `--scripts=` slice can stay stable under
+`--parallel` on the same tip. Cuppa does not disable parallel builds for this; it is an
 SCons concurrency / sconsign limitation we may try to soften later. Design:
 https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-graph-rebuilds.md[parallel-scons-large-graph-rebuilds].
 
