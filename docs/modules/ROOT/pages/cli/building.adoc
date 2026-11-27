@@ -30,26 +30,16 @@ you can see which layer owns each decision.
 | `--develop` | Prefer configured local develop paths for dependencies
 |===
 
-NOTE: On very large C++ graphs (deep Boost / Asio / package include trees),
-`num_jobs ≥ 2` (`--parallel`, `--parallel=N`, or `-j`) together with
-**`--terse-output`** (including when terse comes from `~/.cuppaconfig`) can
-**spuriously rebuild** the same heavy translation units even when sources and
-headers are unchanged. Soaks on the same tip stay stable under
-`--parallel=2 --normal-output` and dirty under `--parallel=2 --terse-output`.
-`--debug=explain` then reports dependency membership churn and headers
-"changed" while file mtimes stay put; `.sconsign.dblite` is what moves. A
-following serial / `--parallel=1` pass usually heals once. The loop shows more
-readily with **several sconscripts** in one session. Under investigation as a
-Cuppa terse + parallel interaction with SCons decide/sconsign — not assumed to
-be upstream-only. Design:
+NOTE: On very large C++ graphs, an older Cuppa bug made **`--terse-output`**
+together with `num_jobs ≥ 2` (`--parallel` / `-j`) **spuriously rebuild** heavy
+translation units (terse called `Node.is_up_to_date()` on the whole action set
+before parallel decide). That lookahead is skipped under `-j` as of this
+release; serial `-j1` still uses it for the first progress percent. Design:
 https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-graph-rebuilds.md[parallel-scons-large-graph-rebuilds].
 
-TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits,
-prefer **`--normal-output`** for that session, or heal with `--parallel=1`.
-SCons **`--implicit-cache`** on the `cuppa` line also stopped the loop while
-staying on terse (Cuppa forwards it; no separate Cuppa flag) — it can miss a
-new `#include` until **`--implicit-deps-changed`**. Cuppa does not default
-ImplicitCache on.
+TIP: SCons **`--implicit-cache`** / **`--implicit-deps-changed`** remain available
+on the `cuppa` line (forwarded; no Cuppa duplicate) for other incremental-scan
+workflows. Cuppa does not default ImplicitCache on.
 
 Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
 xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).

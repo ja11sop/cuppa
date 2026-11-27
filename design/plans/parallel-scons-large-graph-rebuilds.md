@@ -1,9 +1,9 @@
 # Note: SCons `-j` can spuriously rebuild heavy C++ objects
 
-- **Status:** open investigation — **Cuppa `--terse-output` + `num_jobs ≥ 2`** is now the leading trigger (2026-11-27 control); ImplicitCache is a workaround, not proof of “upstream-only”
-- **Related:** terse parallel progress / outstanding timers (`cuppa/progress.py`, [#404](https://github.com/ja11sop/cuppa/pull/404) executor tally); [`archive/parallel-job-count.md`](../archive/parallel-job-count.md); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
+- **Status:** **fixed** — skip terse `is_up_to_date()` lookahead when `num_jobs > 1`
+- **Related:** `cuppa/progress.py` `credit_terse_up_to_date_lookahead`; `CUPPA_TERSE_BISECT` soak switch; [#404](https://github.com/ja11sop/cuppa/pull/404); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
 - **Updated:** 2026-11-27
-- **Impact:** `none` while documenting; a Cuppa terse/`-j` fix would be `patch`
+- **Impact:** `patch`
 
 ## Observed
 
@@ -105,15 +105,9 @@ on disk being wrong.
 implicit set on every decide, so a fragile concurrent update under terse+`-j`
 gets less chance to disagree. That is a **workaround**, not a root-cause fix.
 
-**Leading Cuppa hypothesis:** terse parallel machinery (PRINT_CMD_LINE_FUNC,
-SPAWN processor, outstanding `[....]` timers/locks, progress ledger / executor
-id churn) interacts with SCons’ concurrent decide/sconsign updates. Serial terse
-is fine; multi-job without terse is fine on this tip. Multi-sconscript increases
-concurrent compile + shared include pressure, which matches earlier soaks.
-
-Still possible: an upstream SCons `-j` sconsign race that terse’s extra threads
-make much more likely. Need a pure-SCons (no Cuppa terse) stress before filing
-upstream.
+**Resolved:** the terse up-to-date **lookahead** (`is_up_to_date()` on every
+registered action before `Jobs.run`) was the Cuppa trigger under `-j`. See
+Root cause and fix below.
 
 ### Related class: Boost `STATICLIBS` order (#267 / #269) — similar symptom, different bug
 
@@ -134,8 +128,8 @@ so repeats stay legal.
 | What rebuilds | **Programs** (link only) | **`.o` files** (compile) |
 | Explain shape | Link deps / action surface for archives + driver | Source “no longer” + “new” dependency; headers “changed” |
 | Trigger | Cross-process order flip (`set` / hash seed) | **`--terse-output` + `num_jobs ≥ 2`** (+ large multi-sconscript graph) |
-| Mitigated by | Deterministic `STATICLIBS` order (#269) | `--normal-output`; or `--implicit-cache` under terse |
-| Layer | Cuppa Boost expand | Cuppa terse parallel path ↔ SCons decide/sconsign (under investigation) |
+| Mitigated by | Deterministic `STATICLIBS` order (#269) | Skip terse `is_up_to_date` lookahead under `-j` |
+| Layer | Cuppa Boost expand | Cuppa terse lookahead + parallel decide |
 
 Same **symptom family**, not the same **error**. Keep #267 in mind for unordered
 env lists; it does not explain these `.o` rebuilds.
@@ -148,31 +142,41 @@ env lists; it does not explain these `.o` rebuilds.
   still rebuild for good reasons).
 - Blindly defaulting ImplicitCache without documenting include-graph staleness risk.
 
+## Root cause and fix (2026-11-27)
+
+`CUPPA_TERSE_BISECT` soak on the multi-sconscript tip:
+
+| Disable | `--parallel=2 --terse-output` |
+|---------|-------------------------------|
+| (full terse) | Dirties |
+| `hooks` / `outstanding` / `python_actions` / `flush` / `pending_dict` | Still dirties |
+| `lookahead` | **Stable** |
+| `print_cmd` / `stash` / `drop_at_take` | **Stable** (masks; not the preferred fix) |
+| `drop_nodes_at_take` (keep argv, drop Node refs) | Still dirties |
+
+So the failure mode is **`credit_terse_up_to_date_lookahead` → `Node.is_up_to_date()`
+on the whole registered set before `Jobs.run`**, interacting with terse finish
+formatting on worker threads under `-j` (large compile argv / transform field
+path amplifies it). Holding Node refs across SPAWN alone is not sufficient;
+dropping the stashed argv at finish also masks. Decider is not wrong on disk
+bytes; explain removed+added remains node-identity noise.
+
+**Fix:** `credit_terse_up_to_date_lookahead` returns immediately when
+`GetOption('num_jobs') > 1`. Serial `-j1` keeps the lookahead so the first
+`[progress]` percent still includes already-current work. `make_ready` credits
+still cover up-to-date actions under `-j`. Tip soak: five× `--parallel=2` and
+bare `--parallel` with terse — 0 spurious compiles.
+
+`CUPPA_TERSE_BISECT` remains a soak-only switch (like `CUPPA_TERSE_TALLY_DUMP`).
+
 ## Direction
-
-The private soak tip is enough to ship Cuppa guidance. A shareable tree is **not**
-a gate for docs — only for filing upstream against SCons (they need a runnable
-case without our private tips). We can still **develop that case ourselves**: a
-synthetic multi-sconscript + deep include graph that shows the spurious `-j`
-rebuild loop (and that `--implicit-cache` stops it). Ideal shape:
-
-1. **Cuppa integration fixture** (generated headers / several sconscripts) —
-   CI-guarded repro without the private tip.
-2. **Strip to pure SCons** (same layout, no Cuppa) when filing upstream — same
-   evidence, SCons-maintainer-friendly.
 
 | Probe | State |
 |-------|--------|
-| Multi-sconscript vs `--scripts=` control | Done (soak) |
-| `--parallel=1` vs `≥2`; dirty during `-j` | Done (soak) — **with terse on** |
-| `--decider=MD5` | Done — no help |
-| `--implicit-cache` | Done — stops loop under terse; caveat on new includes |
-| **`--normal-output` vs `--terse-output` under `-j≥2`** | Done — **normal stable; terse dirties** |
-| Document ImplicitCache opt-in | Done this PR — still a valid workaround; do not treat as root cause |
-| Isolate which terse subsystem (SPAWN / PRINT_CMD / outstanding timers / ledger) | **Next** |
-| Synthetic repro (terse+`-j`, no private tip) | Open |
-| Default ImplicitCache on | Deferred — prefer fixing Cuppa terse+`-j` if that is causal |
-| Upstream SCons | Only after a **no-terse** pure-SCons repro exists |
-
-**Operator workarounds today:** `--normal-output` under `--parallel`; or serial /
-`--parallel=1` heal; or SCons `--implicit-cache` while staying on terse.
+| Multi-sconscript / `-j` / terse vs normal | Done |
+| Bisect terse subsystems | Done — **lookahead** |
+| Skip lookahead under `num_jobs > 1` | **Done** — tip verified |
+| Unit tests for skip / bisect helper | Done |
+| Synthetic CI repro | Optional follow-up (fixed without it) |
+| Default ImplicitCache on | Not needed for this bug |
+| Upstream SCons | Not indicated |

@@ -23,11 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Document spurious rebuilds under ``--terse-output`` + multi-job builds on
-  very large C++ include graphs (Antora ``cli/building.adoc``; ``--parallel``
-  help). Workarounds: ``--normal-output``, serial / ``--parallel=1`` heal, or
-  SCons ``--implicit-cache`` / ``--implicit-deps-changed`` (forwarded; not
-  default-on). Plan:
+- ``--parallel`` help and Antora ``cli/building.adoc`` note the (now fixed)
+  terse + multi-job spurious-rebuild class and point at SCons
+  ``--implicit-cache`` / ``--implicit-deps-changed`` as optional tools
+  (forwarded; not default-on). Plan:
   ``design/plans/parallel-scons-large-graph-rebuilds.md``.
 
 ### Deprecated
@@ -35,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 ### Fixed
+
+- Spurious recompiles under ``--terse-output`` with ``num_jobs ≥ 2`` on large
+  C++ include graphs: skip the terse up-to-date ``is_up_to_date()`` lookahead
+  when SCons ``num_jobs > 1`` (serial ``-j1`` keeps it for the first progress
+  percent). Tip soak: repeated ``--parallel=2`` / bare ``--parallel`` stay
+  clean. Plan: ``design/plans/parallel-scons-large-graph-rebuilds.md``.
+
 
 - Consume pkg-config for a GitLab package now searches the traveling
   dependency closure as well as the package's own ``pkg_config_dir``.
