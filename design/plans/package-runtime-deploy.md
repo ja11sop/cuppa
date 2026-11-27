@@ -174,4 +174,4 @@ Reuse the platform split in `runtime_paths.py`:
 | Helper + standalone methods | Implemented |
 | Default on ``env.Build`` | Implemented (same PR) |
 | Antora / CHANGELOG | Written |
-| Tip soak without ``LD_LIBRARY_PATH`` | Pending |
+| Tip soak without ``LD_LIBRARY_PATH`` | Done (local: shared ``widget`` develop tip; ``env -i`` run; disable flag; Collect) |
