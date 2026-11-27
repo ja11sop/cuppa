@@ -6,9 +6,10 @@
   policy); [`pkgconfig-dependency-search-path.md`](pkgconfig-dependency-search-path.md)
   (link/Requires closure); `cuppa/package_managers/runtime_paths.py`;
   Antora Using GitLab packages; ROADMAP `package-runtime-deploy`
-- **Updated:** 2026-11-26
-- **Impact:** likely `minor` (new `Deploy` / collect API and optional default
-  RPATH behaviour); could be `patch` if everything is opt-in methods only
+- **Updated:** 2026-11-27
+- **Impact:** likely `minor` (new stage/collect methods + later default on
+  `env.Build`); first slice can be additive methods only (`patch`-shaped) until
+  the Build default lands
 
 ## Problem
 
@@ -38,90 +39,115 @@ also placed relative to the binary.
             ──► ENV LD_LIBRARY_PATH=<deps>/…/lib   # Cuppa children only
 
   ./_build/…/final/widget_server                  # detached run
-       └── loader: cannot find libgrpc.so.56
+       └── loader: cannot find libwidget_core.so
 ```
 
 ## Goals
 
-1. **Canonical approach** so a tip that links shared Cuppa package libs can
-   run (and be copied into an image) with one or two small sconscript changes —
-   not hand-maintained `LD_LIBRARY_PATH` to extract finals.
-2. **Default “build so it can run”** path for ordinary programs when that is
-   safe, without forcing every Install/copy in the graph to duplicate libs.
-3. **Docker-friendly** layout: a directory tree (or flat lib folder) that can
-   be `COPY`’d and either uses `$ORIGIN` or a single, intentional loader path.
-4. Keep **absolute dependency-cache RPATH** out of policy.
-5. Keep existing construction-ENV injection for `--test` / `--run` / tools.
+1. **Canonical approach** limited to **Cuppa package dynamic libraries** so a
+   tip that linked them can run (and be copied into an image) without
+   hand-maintained `LD_LIBRARY_PATH` to extract finals.
+2. **Standalone methods first** aimed at tip programs from ``env.Build()``.
+   Implementation should accept ordinary program nodes (not Build-only
+   wrappers). A node from ``env.Program()`` may work the same way if Cuppa
+   package link contributions are already on the env — that is incidental,
+   not a documented product pattern and not a requirement to support
+   ``StagePackageLibraries( env.Program( ... ) )`` as an API.
+3. **Later default on ``env.Build()``** (with a disable flag) so ordinary tips
+   “just work” with no sconscript change; Build calls the same helper as the
+   standalone stage.
+4. **Docker-friendly** collect into a chosen folder (always copy).
+5. Keep **absolute dependency-cache RPATH** out of policy.
+6. Keep existing construction-ENV injection for `--test` / `--run` / tools.
 
 ## Non-goals
 
 - Replacing `apply_package_runtime_paths` for Cuppa-spawned processes.
 - Vendoring system libs (`libssl`, `libstdc++`, …) into the stage set by
   default.
-- A full distro packaging / FHS product (deb/rpm); staging is enough.
+- A full product “deploy” (configs, images, systemd). Do **not** take the
+  name ``Deploy`` for this slice — save it for a possible future broader
+  verb.
 - Changing how publishers install their own `bin/` → `lib/` RPATH.
 
-## Settled direction (proposal)
-
-Treat **A + B** as the product pair; **C/D** stay workarounds or non-goals.
+## Settled direction
 
 | Id | Approach | Role |
 |----|----------|------|
-| **A** | Link with `$ORIGIN` and/or `$ORIGIN/lib`; **Deploy** copies or symlinks the needed package `.so` set beside the program (or under `./lib/`) | Canonical local + image-relocatable run |
-| **B** | **CollectRuntimeLibraries** (name TBD) gathers the same set into a chosen folder for Docker layers / `ldconfig` | Assembly companion when the image layout is not “bin + sibling lib” |
+| **A** | Link with `$ORIGIN` and/or `$ORIGIN/lib`; **`StagePackageLibraries`** **copies** the needed package shared libs beside the program (or under `./lib/`) | Canonical runnable tree |
+| **B** | **`CollectPackageLibraries`** **copies** the same set into a chosen folder | Docker / assembly companion |
 | **C** | Absolute `-Wl,-rpath,<deps>/…` | Out of policy |
 | **D** | Generated wrapper / `.env` with `LD_LIBRARY_PATH` | Optional later; not the headline story |
 
+### Naming
+
+Use **`StagePackageLibraries`** / **`CollectPackageLibraries`**:
+
+- Symmetric; clearly limited to package dynamic libraries.
+- Avoids burning **`Deploy`** on a narrow staging step.
+
 ### Consumer API sketch
 
-```python
-prog = env.Program( 'widget_server', sources )
-# Opt-in stage (first slice — safest):
-env.Deploy( prog )   # or env.DeployRuntime( prog, layout='beside'|'lib' )
+Standalone first; documented tip shape uses ``env.Build``:
 
-# Docker / explicit assembly:
-env.CollectRuntimeLibraries(
+```python
+prog = env.Build( 'widget_server', sources )
+env.StagePackageLibraries( prog )   # copy package .so next to prog / under lib/
+# ensure RPATH includes $ORIGIN / $ORIGIN/lib (method or Build default later)
+
+# Docker / explicit assembly (always copy)
+env.CollectPackageLibraries(
         '_artifacts/runtime-libs',
-        programs=[ prog ],   # or infer from package link contributions
+        programs=[ prog ],
 )
 ```
 
-Exact method names TBD (`Deploy` may collide with mental model of “install to
-prefix”; prefer a Cuppa-specific name if SCons/docs noise is high).
+``StagePackageLibraries`` takes program node(s) (or a list). It keys off
+Cuppa package link contributions on the env / executor, not on a Build-only
+wrapper type — so a ``Program`` node *can* work if those contributions are
+present, without designing the API around ``Program``.
 
-### Default behaviour (second slice or flag)
+### Default on ``env.Build()`` (second slice)
 
-When a consumer program’s link contribution includes **shared** Cuppa package
-libs:
+After the standalone methods soak:
 
-- add `$ORIGIN` / `$ORIGIN/lib` to RPATH if not already present, and/or
-- auto-Deploy into the program’s final directory.
+- When ``env.Build`` produces a **program** whose link contribution includes
+  **shared** Cuppa package libs, automatically stage those libs (same helper
+  as ``StagePackageLibraries``) and ensure `$ORIGIN` / `$ORIGIN/lib` RPATH.
+- Provide a **disable** flag (Build kwarg and/or cuppa option) for odd layouts
+  and bisect.
+- Do **not** auto-stage for static-only links, library targets, or every
+  intermediate object compile — only the program node (typically under
+  `final/`).
 
-Make the default **narrow** (programs in `final/`, not every intermediate
-`.o` link) so build trees do not explode. First implementation may be
-**opt-in only**; document the one-liner as the supported fix.
+Implementation order: **standalone methods → default inside Build**.
 
 ### Computing the library set
 
-Prefer a **closure of shared artefacts the program actually needs**:
+Closure of **package shared** artefacts the program needs:
 
-1. Start from Cuppa package link contributions recorded for this env /
-   program (stems from `use_libs` / defaults / transitive edge `use_libs`).
+1. Cuppa package link contributions for this env / program (`use_libs` /
+   defaults / transitive edge `use_libs`).
 2. Resolve to shared files under each package `lib/` (soname + real file).
-3. Optionally refine with ELF `NEEDED` (and Darwin/Windows equivalents) so
-   unused stems are not copied.
-4. Recurse package dependencies the same way link and pkg-config search
-   already walk the traveling manifest (grpc → abseil / protobuf / …).
+3. Optionally refine with ELF `NEEDED` (and Darwin/Windows equivalents).
+4. Recurse traveling package dependencies (same shape as link / pkg-config
+   search).
 
-Do **not** stage the entire package `lib/` tree unless the author asks
-(`all=True` or similar).
+Do **not** stage the entire package `lib/` tree unless asked (`all=True`).
+Do **not** include system libs by default.
 
-### Copy vs symlink
+### Copy, not symlink (default)
 
-- **Local Deploy:** symlink by default on POSIX (fast, updates with
-  `--refresh-downloads`); copy when `copy=True` or when the filesystem
-  cannot symlink.
-- **Collect for Docker:** copy by default (portable layers).
+Package roots move between **develop**, **publisher-root** stages, and
+**download/dependencies** extracts. Symlinks from `_build/…/final/` into
+whichever tree was current go stale or point at the wrong tree after
+`--develop`, cascade restage, or refresh, while RPATH still says `$ORIGIN`.
+
+- **`StagePackageLibraries`:** **copy** by default (and for the Build
+  default).
+- **`CollectPackageLibraries`:** **copy** always.
+- Symlink only as a possible later opt-in for tight local loops, with clear
+  invalidation rules — not the product default.
 
 ### Platforms
 
@@ -129,50 +155,50 @@ Reuse the platform split in `runtime_paths.py`:
 
 - Linux: `$ORIGIN`, `DT_NEEDED`, `.so*`
 - Darwin: `@loader_path`, dylibs
-- Windows: side-by-side DLLs / `PATH` beside the exe (no RPATH); Deploy
-  copies DLLs next to the binary
+- Windows: side-by-side DLLs beside the exe (no RPATH); stage copies DLLs
 
 ## Open questions
 
-1. Method naming: `Deploy` vs `DeployRuntime` vs `StagePackageLibraries`.
-2. Default-on for `final/` programs in the first PR, or opt-in only until
-   soaked?
-3. Should Collect accept package names (`['grpc', 'protobuf']`) as well as
-   program nodes?
-4. Interaction with tips that already pass `-Wl,-rpath,.` — Deploy should
-   make that sufficient; avoid stacking absolute paths.
-5. Cleaning: staged libs under `final/` must be `Clean`ed / removal-options
+1. Exact RPATH API: always set inside ``StagePackageLibraries``, or split
+   “add rpath” vs “copy libs”?
+2. Should ``CollectPackageLibraries`` also accept package names
+   (`['widget_core']`) as well as program nodes?
+3. Layout default for Stage: libs **beside** the binary vs under ``lib/``
+   next to it (`$ORIGIN` vs `$ORIGIN/lib`)?
+4. Cleaning: staged copies under `final/` must be `Clean`ed / removal-options
    aware.
+5. Disable flag spelling for Build default (`stage_package_libraries=False`
+   vs cuppa option).
 
 ## Implementation sketch
 
-1. Plan + ROADMAP row; Antora note under Using GitLab packages (runtime
-   outside Cuppa).
-2. Helper: given env + program (or package names), list shared files to stage.
-3. `CollectRuntimeLibraries` → directory of files (unit-tested).
-4. `DeployRuntime` → beside program / `lib/` + ensure RPATH `$ORIGIN` /
-   `$ORIGIN/lib` on that program’s link.
-5. Optional default for final programs once soak is green.
-6. Tests with like-example fixtures (`widget`, fake `.so` names); no private
-   host or package paste.
-7. Soak: tip binary that links a shared multi-lib stack; run from a clean
-   env without `LD_LIBRARY_PATH`; copy `final/` into a minimal container and
-   run the entrypoint.
+1. Plan + ROADMAP (this document).
+2. Helper: list package shared files for a program / env.
+3. ``StagePackageLibraries`` + ``CollectPackageLibraries`` (copy; unit tests;
+   like-example fixtures only).
+4. Soak with an explicit ``StagePackageLibraries`` call on a tip that links a
+   shared multi-lib stack; run from a clean env without `LD_LIBRARY_PATH`.
+5. Wire the same helper as the default step inside ``env.Build`` + disable
+   flag; Antora + CHANGELOG.
+6. Optional: Collect into an image and run the entrypoint without host
+   `LD_LIBRARY_PATH`.
 
 ## Risks
 
 | Risk | Mitigation |
 |------|------------|
 | Staging too many libs | Closure from link contributions + optional NEEDED filter |
-| Symlinks break in images | Collect copies; Deploy `copy=True` for release layouts |
-| Duplicate RPATH noise | Dedupe; don’t add absolute cache paths |
-| Windows differs | Side-by-side DLL Deploy; document PATH inheritance for `--run` |
-| Name clash with “deploy” | Prefer Cuppa-specific method name if confusing |
+| Stale symlinks after develop / refresh | Copy by default for Stage and Collect |
+| ``Deploy`` name collision / overreach | Use Stage/Collect PackageLibraries |
+| Default Build surprises | Disable flag; narrow to programs with shared package links |
+| Windows differs | Side-by-side DLL copy; document `--run` PATH inheritance |
+| Duplicate RPATH noise | Dedupe; never add absolute cache paths |
 
 ## Progress snapshot
 
 | Item | State |
 |------|--------|
-| Problem / A+B direction | Written (proposal) |
-| Implementation | Not started |
+| Problem / Stage+Collect direction | Written (proposal) |
+| Standalone methods | Not started |
+| Default on ``env.Build`` | Not started (after standalone) |
 | Antora / CHANGELOG | Not started |
