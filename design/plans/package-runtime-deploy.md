@@ -1,14 +1,15 @@
 # Note: stage shared package libs so consumer binaries run outside Cuppa ENV
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`archive/package-runtime-paths.md`](../archive/package-runtime-paths.md)
   (construction `ENV` + publisher `$ORIGIN/../lib`; absolute cache RPATH out of
   policy); [`pkgconfig-dependency-search-path.md`](pkgconfig-dependency-search-path.md)
   (link/Requires closure); `cuppa/package_managers/runtime_paths.py`;
-  Antora Using GitLab packages; ROADMAP `package-runtime-deploy`
+  Antora Using GitLab packages; ROADMAP `package-runtime-deploy`;
+  [#413](https://github.com/ja11sop/cuppa/pull/413)
 - **Updated:** 2026-11-27
 - **Impact:** `minor` (`StagePackageLibraries` / `CollectPackageLibraries` +
-  default-on inside `env.Build` with disable flag)
+  default-on inside `env.Build` with disable flag) — shipped on master in #413
 
 ## Problem
 
@@ -171,8 +172,8 @@ Reuse the platform split in `runtime_paths.py`:
 |------|--------|
 | Problem / Stage+Collect direction | Written |
 | First-slice defaults locked | Written |
-| Helper + standalone methods | Implemented |
-| Default on ``env.Build`` | Implemented (same PR) |
-| Antora / CHANGELOG | Written |
+| Helper + standalone methods | Done (#413) |
+| Default on ``env.Build`` | Done (#413) |
+| Antora / CHANGELOG | Done (#413) |
 | Tip soak without ``LD_LIBRARY_PATH`` | Done (local + integration ``test_build_stage_package_libraries``) |
 | Build RPATH scoped to program node | Done (no shared-env ``AppendUnique`` bleed) |
