@@ -44,7 +44,10 @@ https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-g
 
 TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits, run once
 without `--parallel` (or with `--parallel=1`) to restabilise `.sconsign`, then resume
-parallel for wall-clock wins on cold or genuinely dirty trees.
+parallel for wall-clock wins on cold or genuinely dirty trees. Soaks also stopped the
+loop by passing SCons `--implicit-cache` alongside `--parallel`; that can miss a newly
+added `#include` until `--implicit-deps-changed` (or an equivalent cache bust) — treat
+it as an experimental workaround until Cuppa decides on a product default.
 
 Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
 xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
