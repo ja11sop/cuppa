@@ -34,6 +34,16 @@ env.Build('hello', ['hello.cpp'])
 `source` is a file, list of files, or nodes from `Compile()` / `Module()`.
 Additional keyword arguments are forwarded to the underlying link step (for example `LIBS`, `LIBPATH`).
 
+When the env has **shared** Cuppa package link contributions (from
+`BuildWith` / `use_libs` / package defaults), `Build()` also **stages** those
+libraries beside the program (sibling `lib/` on POSIX; next to the exe on
+Windows) and embeds relocatable `$ORIGIN` / `$ORIGIN/lib` RPATH (Darwin
+`@loader_path`) so the binary runs outside Cuppa's construction `ENV`. Pass
+`stage_package_libraries=False` (or set `env['stage_package_libraries'] = False`)
+to disable. Explicit `StagePackageLibraries` / `CollectPackageLibraries` are
+documented under xref:methods/staging-files.adoc[Staging files] and
+xref:dependencies/using/gitlab.adoc#detached-runs-and-images-stage-collect[Using GitLab packages].
+
 [WARNING]
 ====
 Using vanilla SCons https://scons.org/doc/production/HTML/scons-man.html#b-Program[`Program()`]
@@ -83,7 +93,8 @@ env.Build(
 ----
 
 For packaging order after the binary exists (copy into a docker or artefacts tree), see
-xref:methods/depends.adoc[`Requires()`] with xref:methods/staging-files.adoc[`CopyFiles()`].
+xref:methods/depends.adoc[`Requires()`] with xref:methods/staging-files.adoc[`CopyFiles()`]
+or xref:methods/staging-files.adoc[`CollectPackageLibraries()`].
 
 == Compiling objects with `Compile()`
 

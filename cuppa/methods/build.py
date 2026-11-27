@@ -1,5 +1,5 @@
 
-#          Copyright Jamie Allsop 2011-2024
+#          Copyright Jamie Allsop 2011-2026
 # Distributed under the Boost Software License, Version 1.0.
 #    (See accompanying file LICENSE_1_0.txt or copy at
 #          http://www.boost.org/LICENSE_1_0.txt)
@@ -20,7 +20,21 @@ from cuppa.log import logger
 class BuildMethod:
 
     @classmethod
-    def build( cls, env, target, source, final_dir=None, append_variant=False, depends_on=None, LIBS=[], SHAREDLIBS=[], DYNAMICLIBS=[], STATICLIBS=[], **kwargs ):
+    def build(
+            cls,
+            env,
+            target,
+            source,
+            final_dir=None,
+            append_variant=False,
+            depends_on=None,
+            LIBS=[],
+            SHAREDLIBS=[],
+            DYNAMICLIBS=[],
+            STATICLIBS=[],
+            stage_package_libraries=None,
+            **kwargs
+    ):
         if final_dir == None:
             final_dir = env['abs_final_dir']
         exe = os.path.join( final_dir, target )
@@ -41,6 +55,21 @@ class BuildMethod:
                 as_notice( str( [str(l) for l in Flatten(all_libs) ] ) )
         ) )
 
+        from cuppa.package_managers.stage_package_libraries import (
+                ensure_package_runtime_rpath,
+                package_shared_library_files,
+                should_stage_package_libraries,
+                stage_package_libraries_for_programs,
+        )
+
+        do_stage = should_stage_package_libraries(
+                env, stage_package_libraries=stage_package_libraries,
+        )
+        stage_sources = package_shared_library_files( env ) if do_stage else []
+        if stage_sources:
+            # RPATH on the construction env so Program picks it up at link time.
+            ensure_package_runtime_rpath( env )
+
         objects = Flatten( [ env.Compile( source, depends_on=depends_on ) ] )
         # Objects from prior env.Module(...) calls in this sconscript.
         objects.extend( Flatten( [ env.get( '_cuppa_module_objects', [] ) ] ) )
@@ -51,6 +80,16 @@ class BuildMethod:
                                DYNAMICLIBS = env['DYNAMICLIBS'] + LIBS + DYNAMICLIBS + SHAREDLIBS,
                                STATICLIBS = env['STATICLIBS'] + STATICLIBS,
                                **kwargs )
+
+        if stage_sources:
+            # apply_rpath=False: already ensured on env before Program.
+            staged = stage_package_libraries_for_programs(
+                    env, program, apply_rpath=False,
+            )
+            if staged:
+                cuppa.progress.label_terse_action(
+                        staged, "copy", paths="transfer",
+                )
 
         cuppa.progress.NotifyProgress.add( env, program )
 

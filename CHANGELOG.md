@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- ``StagePackageLibraries`` / ``CollectPackageLibraries`` copy Cuppa package
+  shared libraries next to tip programs (sibling ``lib/``; Windows: beside the
+  exe) or into an explicit folder for Docker / assembly. ``env.Build`` stages
+  by default when the env has shared package link contributions, and embeds
+  relocatable ``$ORIGIN`` / ``$ORIGIN/lib`` RPATH (Darwin ``@loader_path``).
+  Disable with ``stage_package_libraries=False`` (or
+  ``env['stage_package_libraries'] = False``). Absolute dependency-cache RPATH
+  stays out of policy; construction ``ENV`` injection for ``--test`` /
+  ``--run`` is unchanged. Plan: ``design/plans/package-runtime-deploy.md``.
+
 ### Changed
 
 ### Deprecated

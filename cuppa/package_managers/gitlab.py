@@ -2709,6 +2709,7 @@ class GitlabPackageDependency:
                     static=contrib["static"],
                     shared=contrib["shared"],
                     libpath=contrib["libpath"],
+                    library_prefix=contrib.get( "library_prefix" ) or "",
             )
 
         apply_name = dependency_name or self._package

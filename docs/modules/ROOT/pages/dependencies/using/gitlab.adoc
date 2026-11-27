@@ -242,6 +242,36 @@ env.BuildWith('boost_package').use_libs([
 exists) to the construction environment so shared libraries resolve for host
 tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
 
+==== Detached runs and images (stage / collect)
+
+Construction ``ENV`` covers processes Cuppa spawns. A tip binary started from a
+shell, IDE, or container entrypoint does **not** see that ``ENV``. When
+``use_libs`` (or package defaults) link **shared** Cuppa package libraries,
+``env.Build`` **stages** those ``.so`` / dylib / DLL files next to the program
+(under sibling ``lib/`` on POSIX; beside the exe on Windows) and embeds
+relocatable ``$ORIGIN`` / ``$ORIGIN/lib`` RPATH (Darwin ``@loader_path``). Absolute
+paths into the dependency cache stay out of policy.
+
+Disable staging for an odd layout or bisect:
+
+[source,python]
+----
+env.Build( 'widget_server', sources, stage_package_libraries=False )
+# or: env['stage_package_libraries'] = False
+----
+
+Call the same helper explicitly, or copy the set into an assembly folder for
+Docker:
+
+[source,python]
+----
+prog = env.Build( 'widget_server', sources )
+env.StagePackageLibraries( prog )   # same as Build default
+env.CollectPackageLibraries( '#/_artifacts/runtime-libs', programs=[ prog ] )
+----
+
+See xref:methods/build.adoc[Build] and xref:methods/staging-files.adoc[Staging files].
+
 To **publish** Boost into the registry from the source ``boost`` dependency, see
 xref:dependencies/publishing/gitlab.adoc#publishing-boost-from-source[Publishing Boost from source].
 

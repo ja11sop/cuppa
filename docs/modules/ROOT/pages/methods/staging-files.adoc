@@ -4,10 +4,12 @@
 
 Cuppa projects stage files into destinations as build actions — test artefacts under
 `env['abs_artefacts_root']` (default `_artefacts/`; legacy `_artifacts/` when present), package
-trees for `PublishPackage()`, or a renamed file in `final/`. Four calls do that work:
+trees for `PublishPackage()`, or a renamed file in `final/`. Calls that do that work:
 
 * `CopyFiles()` / `CopyFilesAs()` — helpers with variant-aware destinations and optional filtering
 * `Install()` / `InstallAs()` — progress-wrapped on sconscript envs
+* `StagePackageLibraries()` / `CollectPackageLibraries()` — copy Cuppa package shared
+  libraries for detached tip runs / images (also the default inside `env.Build`)
 
 [NOTE]
 ====
@@ -57,10 +59,36 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
 | `InstallAs()`
 | Explicit destination file path with `InstallAs()` semantics. Prefer `CopyFilesAs()` when
   staying inside Cuppa artefact / `final/` workflows.
+
+| `StagePackageLibraries()`
+| Copy Cuppa package **shared** libraries next to a tip program (sibling `lib/` on POSIX;
+  beside the exe on Windows) and ensure relocatable `$ORIGIN` / `@loader_path` RPATH.
+  `env.Build` does this by default; call explicitly after a custom link if needed.
+
+| `CollectPackageLibraries()`
+| Copy the same package shared set into an explicit folder (Docker / assembly). Always copies.
 |===
 
 Both families create real build edges. For “copy the binary into docker only after it links”,
 wrap the copy with xref:methods/depends.adoc[`Requires()`] regardless of which helper you chose.
+
+== Package shared libraries for detached runs
+
+When a tip links shared Cuppa package libs, stage them for runs outside construction `ENV`:
+
+[source,python]
+----
+Import('env')
+
+prog = env.Build( 'widget_server', sources )  # stages by default
+# env.Build( 'widget_server', sources, stage_package_libraries=False )
+
+env.StagePackageLibraries( prog )
+env.CollectPackageLibraries( '#/_artifacts/runtime-libs', programs=[ prog ] )
+----
+
+See xref:dependencies/using/gitlab.adoc#detached-runs-and-images-stage-collect[Using GitLab packages]
+and xref:methods/build.adoc[Build].
 
 == How `Copy*` relates to `Install*`
 
