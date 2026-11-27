@@ -1,13 +1,16 @@
 # Note: compose pkg-config search paths from Cuppa package dependencies
 
-- **Status:** in progress
+- **Status:** done
 - **Related:** [`archive/package-public-defines.md`](../archive/package-public-defines.md)
   (relocatable `.pc`, traveling `pkg_config_dir`);
   [`archive/cmake-package-prefix.md`](../archive/cmake-package-prefix.md)
   (`CMAKE_PREFIX_PATH` for *build*);
   [`archive/gitlab-package-transitive.md`](../archive/gitlab-package-transitive.md);
+  [`package-runtime-deploy.md`](package-runtime-deploy.md) (detached binary /
+  image runtime — follow-on);
   `cuppa/package_managers/gitlab.py` (`parse_pkg_config`);
-  `cuppa/buildsys/pkgconfig.py` (relocate only)
+  `cuppa/buildsys/pkgconfig.py` (relocate only);
+  [#411](https://github.com/ja11sop/cuppa/pull/411)
 - **Updated:** 2026-11-26
 - **Impact:** `patch` — correct consume for packages whose installed `.pc`
   files `Requires:` other Cuppa packages; no new public flags; Antora

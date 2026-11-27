@@ -454,7 +454,11 @@ Consumers that `BuildWith` a GitLab package get `lib/` (and `bin/` when present)
 prepended to the construction environment automatically (`LD_LIBRARY_PATH` /
 `DYLD_LIBRARY_PATH` / `PATH`), matching Conan. That covers `--test` / `--run`
 and tools invoked from a package prefix; it does **not** replace build-tree
-RPATH inside the publisher's own unfinished CMake tree.
+RPATH inside the publisher's own unfinished CMake tree. Tip programs from
+`env.Build` that link shared package libs also stage those libs under
+`$ORIGIN/lib` by default (`BuildTest` does not — it keeps using construction
+`ENV`). See
+xref:dependencies/using/gitlab.adoc#how-tests-find-package-shared-libraries-vs-tip-programs[Using GitLab packages].
 
 [NOTE]
 =====

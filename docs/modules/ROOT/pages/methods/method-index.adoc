@@ -319,6 +319,14 @@ For tutorials and Related-method chains, start from the xref:methods.adoc[Method
 | Install with explicit destination names
 |
 
+| xref:methods/staging-files.adoc[`StagePackageLibraries()`]
+| Copy Cuppa package shared libs beside a tip program (`$ORIGIN/lib`)
+| Also the default inside xref:methods/build.adoc[`Build()`]
+
+| xref:methods/staging-files.adoc[`CollectPackageLibraries()`]
+| Copy package shared libs into an explicit folder (Docker / assembly)
+|
+
 | link:{scons-man}#b-InstallVersionedLib[`InstallVersionedLib()`]
 | Install a versioned shared library name set
 |

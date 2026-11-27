@@ -314,6 +314,7 @@ def clear_package_link_contribution( env, contrib_key ):
 
 def record_package_link_contribution(
         env, contrib_key, static=None, shared=None, libpath=None,
+        library_prefix="",
 ):
     """Remember what this package added so a later ``use_libs`` can replace it."""
     store = env.setdefault( _LINK_CONTRIB_KEY, {} )
@@ -321,6 +322,7 @@ def record_package_link_contribution(
             "static": list( static or [] ),
             "shared": list( shared or [] ),
             "libpath": list( libpath or [] ),
+            "library_prefix": library_prefix or "",
     }
 
 
@@ -379,4 +381,5 @@ def apply_resolved_libs( env, lib_dir, libs, library_prefix="", link=LINK_PREFER
             "static": static_nodes,
             "shared": shared_stems,
             "libpath": libpath,
+            "library_prefix": library_prefix or "",
     }
