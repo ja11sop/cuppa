@@ -56,7 +56,6 @@ class BuildMethod:
         ) )
 
         from cuppa.package_managers.stage_package_libraries import (
-                ensure_package_runtime_rpath,
                 package_shared_library_files,
                 should_stage_package_libraries,
                 stage_package_libraries_for_programs,
@@ -66,9 +65,6 @@ class BuildMethod:
                 env, stage_package_libraries=stage_package_libraries,
         )
         stage_sources = package_shared_library_files( env ) if do_stage else []
-        if stage_sources:
-            # RPATH on the construction env so Program picks it up at link time.
-            ensure_package_runtime_rpath( env )
 
         objects = Flatten( [ env.Compile( source, depends_on=depends_on ) ] )
         # Objects from prior env.Module(...) calls in this sconscript.
@@ -82,9 +78,11 @@ class BuildMethod:
                                **kwargs )
 
         if stage_sources:
-            # apply_rpath=False: already ensured on env before Program.
+            # RPATH on the program node only — do not AppendUnique onto the
+            # shared construction env (that would bleed into later Builds that
+            # pass stage_package_libraries=False in the same sconscript).
             staged = stage_package_libraries_for_programs(
-                    env, program, apply_rpath=False,
+                    env, program, apply_rpath=True,
             )
             if staged:
                 cuppa.progress.label_terse_action(
