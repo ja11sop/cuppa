@@ -1,6 +1,6 @@
 # Note: SCons `-j` can spuriously rebuild heavy C++ objects
 
-- **Status:** **fixed** — skip terse `is_up_to_date()` lookahead when `num_jobs > 1`
+- **Status:** done
 - **Related:** `cuppa/progress.py` `credit_terse_up_to_date_lookahead`; [#404](https://github.com/ja11sop/cuppa/pull/404); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
 - **Updated:** 2026-11-27
 - **Impact:** `patch`
