@@ -1487,7 +1487,23 @@ def _node_is_currently_up_to_date( node ):
 
 
 def credit_terse_up_to_date_lookahead():
-    """Count up-to-date actions before the first terse begin line."""
+    """Count up-to-date actions before the first terse begin line.
+
+    Under ``num_jobs > 1``, skip this. Calling ``Node.is_up_to_date()`` on the
+    whole registered set before ``Jobs.run``, then formatting terse finish
+    lines on worker threads while other tasks decide, spuriously rebuilds
+    heavy C++ TUs on large include graphs (``.sconsign`` / decide disagree;
+    files on disk unchanged). Serial ``-j1`` keeps the lookahead so the first
+    ``[progress]`` percent still includes already-current work. Make_ready
+    credits still cover up-to-date actions under ``-j``. See
+    ``design/plans/parallel-scons-large-graph-rebuilds.md``.
+    """
+    try:
+        import SCons.Script
+        if int( SCons.Script.GetOption( "num_jobs" ) or 1 ) > 1:
+            return
+    except Exception:
+        pass
     _progress_ledger.credit_currently_up_to_date()
 
 

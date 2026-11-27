@@ -140,7 +140,10 @@ def add_base_options():
                                  "from the affinity-aware CPU count. Pass --parallel=N to keep "
                                  "that same affinity mask and set the job count to N only "
                                  "(short form of --parallel --jobs=N; N may oversubscribe). "
-                                 "Do not combine --parallel=N with --jobs / -j" )
+                                 "Do not combine --parallel=N with --jobs / -j. With "
+                                 "--terse-output, Cuppa skips the up-to-date is_up_to_date "
+                                 "lookahead when num_jobs > 1 so large C++ graphs do not "
+                                 "spuriously rebuild — see cuppa CLI building docs" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 
