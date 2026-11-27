@@ -1,9 +1,9 @@
 # Note: SCons `-j` can spuriously rebuild heavy C++ objects
 
-- **Status:** documented opt-in workaround (SCons `--implicit-cache`); default-on still open
-- **Related:** [`archive/parallel-job-count.md`](../archive/parallel-job-count.md); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269) Boost `STATICLIBS` order (related symptom, different root — see below); [`archive/gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md) determinism note; ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); SCons `--debug=explain`, `--implicit-cache`, `.sconsign.dblite`, default `MD5-timestamp` decider
+- **Status:** open investigation — **Cuppa `--terse-output` + `num_jobs ≥ 2`** is now the leading trigger (2026-11-27 control); ImplicitCache is a workaround, not proof of “upstream-only”
+- **Related:** terse parallel progress / outstanding timers (`cuppa/progress.py`, [#404](https://github.com/ja11sop/cuppa/pull/404) executor tally); [`archive/parallel-job-count.md`](../archive/parallel-job-count.md); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
 - **Updated:** 2026-11-27
-- **Impact:** `none` for docs / discoverability (SCons already owns `--implicit-cache`; Cuppa forwards it). Defaulting ImplicitCache on would be `patch` (or higher if it changes rebuild semantics broadly)
+- **Impact:** `none` while documenting; a Cuppa terse/`-j` fix would be `patch`
 
 ## Observed
 
@@ -23,8 +23,8 @@ while sampled header/source mtimes and sizes stay fixed across the rebuild. Only
 `.sconsign.dblite` changes.
 
 Control: after a stable serial up-to-date tree, `--parallel=1` stays up to date;
-`--parallel=2` (or bare `--parallel`) spuriously rebuilds. So the trigger is
-**multi-job SCons** (`num_jobs ≥ 2`), not Cuppa’s affinity mask by itself.
+`--parallel=2` (or bare `--parallel`) spuriously rebuilds **when `--terse-output`
+is on** (including via `~/.cuppaconfig`). Affinity alone is not the bug.
 
 ### Multi-sconscript vs single-sconscript (2026-11-27 soak)
 
@@ -62,35 +62,58 @@ After a clean serial baseline on the multi-sconscript tip:
 | Bare `--parallel --implicit-cache` (repeat) | **Stable** | **Stable** |
 | Drop `--implicit-cache`, bare `--parallel` again | Loop returns immediately | — |
 
-So the race is not only “next session disagrees”: under `-j≥2` the **same**
-session already decides some heavy TUs are out of date. Serial then rewrites a
-coherent `.sconsign` (one more rebuild), until the next multi-job run.
+### Terse vs normal (2026-11-27 control — corrects earlier theory)
 
-`--implicit-cache` reproducibly stopped the loop on this tip (including repeating
-`--parallel` / serial while leaving the flag on). Removing the flag brings the
-bug back. That is the leading Cuppa-side mitigation candidate.
+Earlier soaks all inherited **`terse_output = True`** from `~/.cuppaconfig`, so
+they never separated Cuppa terse parallel chrome from bare SCons `-j`. On the
+same multi-sconscript tip, after a clean serial heal:
 
-**Caveat:** SCons ImplicitCache can miss newly added `#include` edges until
-`--implicit-deps-changed` (or an equivalent cache bust). Any product default must
-document that and/or pair with a safe invalidation story.
+| Flow | Result |
+|------|--------|
+| `--parallel=2 --normal-output` | **Stable** (0 compiles) |
+| `--parallel=2 --terse-output` | **Spurious compiles** of the heavy TUs |
+| Serial `--terse-output` after that | Same TUs compile again (heal) |
+| After terse serial heal: `--parallel=2 --normal-output` | **Stable** |
+| Then `--parallel=2 --terse-output` again | **Dirties again** |
 
-## Working theory
+So the loop is **`--terse-output` + `num_jobs ≥ 2`** on this tip, not
+`num_jobs ≥ 2` alone. `--implicit-cache` still stops the loop *under terse*
+(masks the decide/scan disagreement); `--normal-output` stops it without
+ImplicitCache. That reopens Cuppa parallel progress / SPAWN / outstanding-timer
+synchronisation as a prime suspect (recent terse `-j` work: heartbeat,
+outstanding carousel, executor tally #404) — not ruled out as “SCons only”.
 
-Under `-j`, SCons updates / compares a huge shared implicit-dependency picture and
-`.sconsign` while several compile tasks run. Decide then disagrees with what was
-stored (dep-set churn and “changed” CSIGs that do not match disk) and rebuilds the
-heaviest scanners — **in that session and the next**. Serial (or `-j1`) writes a
-coherent sconsign, which is why one single-job pass heals until the next multi-job
-run.
+## Working theory (revised)
 
-Multi-sconscript sessions increase concurrent compile/scanner load and the size of
-the shared dependency picture relative to a single-script `--scripts=` slice.
-`--implicit-cache` avoids re-scanning / re-recording the full implicit set on every
-decide, which would explain why it breaks the loop if the bug is scanner/sconsign
-churn under concurrency (still consistent with upstream SCons, not Cuppa output).
+**Not** “Decider is broken on disk content.” Sampled sources/headers keep stable
+mtimes/sizes. `MD5-timestamp` still decides from **stored** `.sconsign` build-info
+vs current nodes. Something under **terse + `-j`** makes that comparison fail for
+heavy TUs (false “changed” CSIGs and/or dep-set membership), in-session and on
+the next decide.
 
-Not a Cuppa terse / heartbeat issue. Cuppa’s `--parallel` only sets affinity +
-`num_jobs` the same way operators already use `-j`.
+**Explain caveats:** SCons `--debug=explain` runs *after* decide already chose to
+rebuild. The familiar ``foo.cpp`` **is no longer a dependency** / **is a new
+dependency** pair for the *same* path is a known explain/node-identity
+confusion (VariantDir / stored vs live Node), not proof that the source was
+removed from the graph. It should **not** by itself mean “rebuild.” The
+accompanying thousands of headers **changed** is the more serious claim — and
+with unchanged files on disk that points at bad/stale stored binfo or a
+mismatched Node identity when looking up signatures, not at `MD5` of the bytes
+on disk being wrong.
+
+**Why ImplicitCache helped:** it avoids re-deriving / re-writing the huge
+implicit set on every decide, so a fragile concurrent update under terse+`-j`
+gets less chance to disagree. That is a **workaround**, not a root-cause fix.
+
+**Leading Cuppa hypothesis:** terse parallel machinery (PRINT_CMD_LINE_FUNC,
+SPAWN processor, outstanding `[....]` timers/locks, progress ledger / executor
+id churn) interacts with SCons’ concurrent decide/sconsign updates. Serial terse
+is fine; multi-job without terse is fine on this tip. Multi-sconscript increases
+concurrent compile + shared include pressure, which matches earlier soaks.
+
+Still possible: an upstream SCons `-j` sconsign race that terse’s extra threads
+make much more likely. Need a pure-SCons (no Cuppa terse) stress before filing
+upstream.
 
 ### Related class: Boost `STATICLIBS` order (#267 / #269) — similar symptom, different bug
 
@@ -110,18 +133,12 @@ so repeats stay legal.
 | Unchanged files on disk | Yes | Yes |
 | What rebuilds | **Programs** (link only) | **`.o` files** (compile) |
 | Explain shape | Link deps / action surface for archives + driver | Source “no longer” + “new” dependency; headers “changed” |
-| Trigger | Cross-process order flip (`set` / hash seed) | `num_jobs ≥ 2` + large multi-sconscript graph |
-| Mitigated by | Deterministic `STATICLIBS` order (#269) | `--implicit-cache` on soak tip |
-| Layer | Cuppa Boost expand | SCons implicit scan / `.sconsign` under `-j` |
+| Trigger | Cross-process order flip (`set` / hash seed) | **`--terse-output` + `num_jobs ≥ 2`** (+ large multi-sconscript graph) |
+| Mitigated by | Deterministic `STATICLIBS` order (#269) | `--normal-output`; or `--implicit-cache` under terse |
+| Layer | Cuppa Boost expand | Cuppa terse parallel path ↔ SCons decide/sconsign (under investigation) |
 
-So: same **symptom family** (sconsign/build-info disagrees while bytes on disk are
-stable), not the same **error**. Parallel explain never cites a flipped link
-action; it cites implicit-dep membership and false “changed” headers. A Boost-
-style order bug would not explain `.o` rebuilds, and ImplicitCache stopping the
-loop points at scanner/sconsign churn rather than an unstable `STATICLIBS`
-construction. Still worth keeping #267 in mind when hunting any Cuppa path that
-feeds sets into env lists without a fixed order — that class is real; this tip’s
-evidence just does not match it.
+Same **symptom family**, not the same **error**. Keep #267 in mind for unordered
+env lists; it does not explain these `.o` rebuilds.
 
 ## Non-goals (for now)
 
@@ -147,14 +164,15 @@ rebuild loop (and that `--implicit-cache` stops it). Ideal shape:
 | Probe | State |
 |-------|--------|
 | Multi-sconscript vs `--scripts=` control | Done (soak) |
-| `--parallel=1` vs `≥2`; dirty during `-j` | Done (soak) |
+| `--parallel=1` vs `≥2`; dirty during `-j` | Done (soak) — **with terse on** |
 | `--decider=MD5` | Done — no help |
-| `--implicit-cache` | Done — **stops loop** on soak tip; caveat on new includes |
-| Document opt-in (Antora + `--parallel` help) | **Done** this PR — SCons owns `--implicit-cache`; Cuppa forwards it (no duplicate Cuppa flag) |
-| Synthetic multi-sconscript repro (Cuppa test) | Open — develop next; also feeds upstream |
-| Default ImplicitCache on | Open — needs synthetic confidence + include-invalidation story |
-| Upstream SCons | Open — after synthetic pure-SCons case exists |
+| `--implicit-cache` | Done — stops loop under terse; caveat on new includes |
+| **`--normal-output` vs `--terse-output` under `-j≥2`** | Done — **normal stable; terse dirties** |
+| Document ImplicitCache opt-in | Done this PR — still a valid workaround; do not treat as root cause |
+| Isolate which terse subsystem (SPAWN / PRINT_CMD / outstanding timers / ledger) | **Next** |
+| Synthetic repro (terse+`-j`, no private tip) | Open |
+| Default ImplicitCache on | Deferred — prefer fixing Cuppa terse+`-j` if that is causal |
+| Upstream SCons | Only after a **no-terse** pure-SCons repro exists |
 
-**Operator workaround today (documented):** serial / `--parallel=1` heal pass; or
-pass SCons `--implicit-cache` on the `cuppa` command line (and
-`--implicit-deps-changed` after new `#include` edges).
+**Operator workarounds today:** `--normal-output` under `--parallel`; or serial /
+`--parallel=1` heal; or SCons `--implicit-cache` while staying on terse.

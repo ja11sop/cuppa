@@ -30,24 +30,26 @@ you can see which layer owns each decision.
 | `--develop` | Prefer configured local develop paths for dependencies
 |===
 
-NOTE: On very large C++ graphs (deep Boost / Asio / package include trees), SCons with
-`num_jobs ≥ 2` (`--parallel`, `--parallel=N`, or `-j`) can **spuriously rebuild** the same
-heavy translation units on every multi-job run even when sources and headers are unchanged.
-`--debug=explain` then reports large implicit-dependency churn and thousands of headers
-"changed" while file mtimes on disk stay put; `.sconsign.dblite` is what moves. A following
-serial build (or `--parallel=1`) usually does one cleanup rebuild and then stays up to date
-until the next multi-job run. Soaks show the loop more readily when **several sconscripts**
-build in one session; a single-sconscript `--scripts=` slice can stay stable under
-`--parallel` on the same tip. Cuppa does not disable parallel builds for this; it is an
-SCons concurrency / sconsign limitation. Design:
+NOTE: On very large C++ graphs (deep Boost / Asio / package include trees),
+`num_jobs ≥ 2` (`--parallel`, `--parallel=N`, or `-j`) together with
+**`--terse-output`** (including when terse comes from `~/.cuppaconfig`) can
+**spuriously rebuild** the same heavy translation units even when sources and
+headers are unchanged. Soaks on the same tip stay stable under
+`--parallel=2 --normal-output` and dirty under `--parallel=2 --terse-output`.
+`--debug=explain` then reports dependency membership churn and headers
+"changed" while file mtimes stay put; `.sconsign.dblite` is what moves. A
+following serial / `--parallel=1` pass usually heals once. The loop shows more
+readily with **several sconscripts** in one session. Under investigation as a
+Cuppa terse + parallel interaction with SCons decide/sconsign — not assumed to
+be upstream-only. Design:
 https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-graph-rebuilds.md[parallel-scons-large-graph-rebuilds].
 
-TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits, either
-heal with a serial / `--parallel=1` pass, or pass SCons **`--implicit-cache`** on the
-`cuppa` command line (Cuppa forwards it; there is no separate Cuppa flag — SCons owns
-the option). That stopped the loop on soak tips. Caveat: ImplicitCache can miss a newly
-added `#include` until you also pass **`--implicit-deps-changed`** (or otherwise bust
-the cache). Cuppa does **not** default ImplicitCache on.
+TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits,
+prefer **`--normal-output`** for that session, or heal with `--parallel=1`.
+SCons **`--implicit-cache`** on the `cuppa` line also stopped the loop while
+staying on terse (Cuppa forwards it; no separate Cuppa flag) — it can miss a
+new `#include` until **`--implicit-deps-changed`**. Cuppa does not default
+ImplicitCache on.
 
 Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
 xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
