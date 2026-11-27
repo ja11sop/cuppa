@@ -1,15 +1,14 @@
 # Note: topic / group / single-option help instead of a flat `--help` dump
 
-- **Status:** proposal
-- **Related:** ROADMAP `cli-help-topics`; `cuppa/core/options.py`, `cuppa/core/base_options.py`,
-  `cuppa/core/storage_options.py`, `cuppa/configure.py`, dependency/method
-  `add_options`; Antora CLI hub
+- **Status:** in progress
+- **Related:** ROADMAP `cli-help-topics`; `cuppa/core/help_topics.py`,
+  `cuppa/core/options.py`, `cuppa/__main__.py`, `cuppa/configure.py`; Antora CLI hub
   [`cli-reference.adoc`](../../docs/modules/ROOT/pages/cli-reference.adoc) and children;
   console report patterns
   [`archive/console-report-patterns.md`](../archive/console-report-patterns.md)
-- **Updated:** 2026-11-14
-- **Impact:** likely `minor` if the default `--help` shape changes or new public
-  flags appear; `patch` if additive only (`--help-topic=…` beside today’s dump)
+- **Updated:** 2026-11-27
+- **Impact:** `patch` while additive (`cuppa help` / `--help-topic=`); `minor` if bare
+  `--help` becomes a TOC later
 
 ## Problem
 
@@ -74,9 +73,10 @@ owns `--help`.
 | `A-subcommand` | `cuppa help`, `cuppa help configure`, `cuppa help --offline` via `__main__` before SCons | Clean UX; pager-friendly | Two entry paths (`cuppa --help` vs `cuppa help`); document both |
 | `A-filter-prefix` | `--help --boost` or `--help boost*` | Cheap | Ambiguous vs real flags; poor for cross-cutting groups |
 
-**Lean (not settled):** prefer **additive** first (`--help-topic=` and/or `cuppa help …`) while
-deciding whether bare `--help` becomes a TOC (`A-help-default-toc`) in the same release or a
-follow-on. Keep a documented escape hatch for the full dump.
+**Settled for v1 ship:** additive **`cuppa help`** (index / topic / `--flag`) and
+**`--help-topic=`** via `__main__` (same early-exit pattern as `--info`). Bare
+`--help` / `-h` stay SCons’ full dump after `-D`. TOC-as-default (`A-help-default-toc`)
+is a follow-on product call.
 
 ### B. Group / topic model
 
@@ -159,8 +159,10 @@ Candidate topics (draft — refine when implementing):
 
 | Slice | Status |
 |-------|--------|
-| Problem / design space | **This plan** |
-| Spike intercept + 3-topic registry | Todo |
-| Product call on bare `--help` default | Todo |
-| Ship additive topic / single-option help | Todo |
-| Antora topic id alignment | Todo |
+| Problem / design space | Done |
+| Spike intercept + 3-topic registry | **Done** — `cuppa help` / `--help-topic=`; topics `configure`, `storage`, `output`; option catalog on `add_option`; related conf twins |
+| Product call on bare `--help` default | Deferred — keep SCons dump |
+| Ship additive topic / single-option help | **In this PR** (bootstrap topics only) |
+| More topics (develop, cascade, boost, …) | Todo |
+| Antora topic id alignment | Partial — note on `cli-reference.adoc` |
+| Pager / fuzzy match | Todo |

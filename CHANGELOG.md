@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Additive structured CLI help without ``-D``: ``cuppa help`` (topic index),
+  ``cuppa help <topic>``, ``cuppa help --flag``, and ``--help-topic=``. Bootstrap
+  topics are ``configure``, ``storage``, and ``output``; single-option help
+  shows related global/project twins. Bare ``cuppa --help`` / ``-h`` still use
+  SCons' flat dump after ``-D``. Plan: ``design/plans/cli-help-topics.md``.
+
 - ``StagePackageLibraries`` / ``CollectPackageLibraries`` copy Cuppa package
   shared libraries next to tip programs (sibling ``lib/``; Windows: beside the
   exe) or into an explicit folder for Docker / assembly. ``env.Build`` stages

@@ -48,8 +48,24 @@ their own options, so the authoritative list is project-specific. Running `cuppa
 `cuppa --help` outside a project tree, or from a nested directory without `-D`, shows only
 SCons-native options.
 
+For a **structured** path that does not need `-D`, use the additive help entry points (no change
+to bare `--help` yet):
+
+[source,sh]
+----
+cuppa help
+cuppa help configure
+cuppa help --save-conf
+cuppa --help-topic=output
+----
+
+Topics today: `configure`, `storage`, `output`. More families follow the
+https://github.com/ja11sop/cuppa/blob/master/design/plans/cli-help-topics.md[cli-help-topics]
+plan. Single-option help shows related global/project twins when they exist
+(for example `--save-conf` / `--save-global-conf`).
+
 Running the following command from anywhere in a Cuppa project tree will correctly load the project
-and print its Cuppa options:
+and print SCons' **full** flat dump of registered options:
 
 [source,sh]
 ----

@@ -16,10 +16,24 @@ import SCons.Script
 # drop these — the child sconstruct never registered them.
 _tip_local_flags: dict[str, bool] = {}
 
+# Cuppa-owned and tip registrations for structured help (``cuppa help``).
+# Keyed by dest; later registration with the same dest replaces the entry.
+_option_catalog: dict[str, dict] = {}
+
 
 def reset_tip_local_options() -> None:
     """Clear tip-local option tracking (tests / process boundaries)."""
     _tip_local_flags.clear()
+
+
+def reset_option_catalog() -> None:
+    """Clear the structured-help catalog (tests / process boundaries)."""
+    _option_catalog.clear()
+
+
+def option_catalog() -> dict[str, dict]:
+    """Return ``dest → record`` for options registered via ``add_option``."""
+    return dict( _option_catalog )
 
 
 def _option_strings( args ) -> list[str]:
@@ -27,6 +41,17 @@ def _option_strings( args ) -> list[str]:
             arg for arg in args
             if isinstance( arg, str ) and arg.startswith( "-" )
     ]
+
+
+def _dest_from_registration( args, kwargs: dict ) -> str:
+    dest = kwargs.get( "dest" )
+    if dest:
+        return str( dest )
+    for flag in _option_strings( args ):
+        if flag.startswith( "--" ):
+            # optparse-style: ``--remove-settings`` → ``remove_settings``
+            return flag[2:].replace( "-", "_" )
+    return ""
 
 
 def _option_takes_separate_value( kwargs: dict ) -> bool:
@@ -51,7 +76,19 @@ def _option_takes_separate_value( kwargs: dict ) -> bool:
 def _register_option( args, kwargs, *, tip_local: bool ) -> None:
     SCons.Script.AddOption( *args, **kwargs )
     takes_value = _option_takes_separate_value( kwargs )
-    for flag in _option_strings( args ):
+    flags = _option_strings( args )
+    dest = _dest_from_registration( args, kwargs )
+    if dest:
+        _option_catalog[ dest ] = {
+                "dest": dest,
+                "flags": tuple( flags ),
+                "help": kwargs.get( "help" ) or "",
+                "metavar": kwargs.get( "metavar" ),
+                "action": kwargs.get( "action" ),
+                "tip_local": tip_local,
+                "takes_value": takes_value,
+        }
+    for flag in flags:
         # Normalise short forms out of tip-local tracking (tips use long opts).
         if not flag.startswith( "--" ):
             continue
