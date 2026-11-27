@@ -140,7 +140,10 @@ def add_base_options():
                                  "from the affinity-aware CPU count. Pass --parallel=N to keep "
                                  "that same affinity mask and set the job count to N only "
                                  "(short form of --parallel --jobs=N; N may oversubscribe). "
-                                 "Do not combine --parallel=N with --jobs / -j" )
+                                 "Do not combine --parallel=N with --jobs / -j. On very large "
+                                 "C++ include graphs, multi-job runs can spuriously rebuild; "
+                                 "SCons --implicit-cache (pass-through on the cuppa line) is "
+                                 "the opt-in workaround — see cuppa CLI building docs" )
 
     verbosity_choices = ( 'trace', 'debug', 'exception', 'info', 'warn', 'error' )
 

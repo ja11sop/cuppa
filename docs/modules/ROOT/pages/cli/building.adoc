@@ -39,15 +39,15 @@ serial build (or `--parallel=1`) usually does one cleanup rebuild and then stays
 until the next multi-job run. Soaks show the loop more readily when **several sconscripts**
 build in one session; a single-sconscript `--scripts=` slice can stay stable under
 `--parallel` on the same tip. Cuppa does not disable parallel builds for this; it is an
-SCons concurrency / sconsign limitation we may try to soften later. Design:
+SCons concurrency / sconsign limitation. Design:
 https://github.com/ja11sop/cuppa/blob/master/design/plans/parallel-scons-large-graph-rebuilds.md[parallel-scons-large-graph-rebuilds].
 
-TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits, run once
-without `--parallel` (or with `--parallel=1`) to restabilise `.sconsign`, then resume
-parallel for wall-clock wins on cold or genuinely dirty trees. Soaks also stopped the
-loop by passing SCons `--implicit-cache` alongside `--parallel`; that can miss a newly
-added `#include` until `--implicit-deps-changed` (or an equivalent cache bust) — treat
-it as an experimental workaround until Cuppa decides on a product default.
+TIP: If the same `.cpp` keeps recompiling under `--parallel` with no real edits, either
+heal with a serial / `--parallel=1` pass, or pass SCons **`--implicit-cache`** on the
+`cuppa` command line (Cuppa forwards it; there is no separate Cuppa flag — SCons owns
+the option). That stopped the loop on soak tips. Caveat: ImplicitCache can miss a newly
+added `#include` until you also pass **`--implicit-deps-changed`** (or otherwise bust
+the cache). Cuppa does **not** default ImplicitCache on.
 
 Sharing between sconscripts uses `env.ExportShared` / `env.ImportShared` (see
 xref:concepts.adoc#sconscript-discovery[Concepts — Sconscript discovery and sharing]).
@@ -136,6 +136,18 @@ same top-level default selection regardless of the directory from which you invo
 | `-q` / `--question`
 | Execute nothing; exit status reports whether targets are current
 | Suitable for scripts that only need the up-to-date result
+
+| `--implicit-cache`
+| Cache implicit dependencies (headers) between decides
+| **Opt-in** workaround for spurious multi-job rebuilds on very large C++ graphs (see NOTE above). Pass on the `cuppa` line; SCons owns the flag. Not on by default
+
+| `--implicit-deps-changed`
+| Ignore cached implicit dependencies for this run
+| Use after adding `#include` edges while `--implicit-cache` is in play, so scanners re-derive the set
+
+| `--implicit-deps-unchanged`
+| Ignore changes in implicit dependencies
+| Rare; prefer `--implicit-deps-changed` when the cache is wrong
 |===
 
 WARNING: Do not use `-i` as a routine build option. It can leave dependent actions running after a

@@ -23,6 +23,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Document SCons ``--implicit-cache`` (and ``--implicit-deps-changed``) as the
+  opt-in workaround for spurious multi-job rebuilds on very large C++ include
+  graphs: Antora ``cli/building.adoc`` NOTE/TIP + options table, and a pointer
+  from Cuppa ``--parallel`` help. Cuppa forwards the SCons flags; it does not
+  add a duplicate option or default ImplicitCache on. Plan:
+  ``design/plans/parallel-scons-large-graph-rebuilds.md``.
+
 ### Deprecated
 
 ### Removed

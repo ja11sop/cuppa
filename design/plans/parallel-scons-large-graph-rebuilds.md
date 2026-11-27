@@ -1,9 +1,9 @@
 # Note: SCons `-j` can spuriously rebuild heavy C++ objects
 
-- **Status:** proposal (mitigation candidate: SCons `--implicit-cache`)
-- **Related:** [`archive/parallel-job-count.md`](../archive/parallel-job-count.md); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); SCons `--debug=explain`, `--implicit-cache`, `.sconsign.dblite`, default `MD5-timestamp` decider
+- **Status:** documented opt-in workaround (SCons `--implicit-cache`); default-on still open
+- **Related:** [`archive/parallel-job-count.md`](../archive/parallel-job-count.md); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269) Boost `STATICLIBS` order (related symptom, different root — see below); [`archive/gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md) determinism note; ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc); SCons `--debug=explain`, `--implicit-cache`, `.sconsign.dblite`, default `MD5-timestamp` decider
 - **Updated:** 2026-11-27
-- **Impact:** `none` while documenting; enabling `--implicit-cache` by default (or behind a Cuppa flag) would be `patch`
+- **Impact:** `none` for docs / discoverability (SCons already owns `--implicit-cache`; Cuppa forwards it). Defaulting ImplicitCache on would be `patch` (or higher if it changes rebuild semantics broadly)
 
 ## Observed
 
@@ -92,6 +92,37 @@ churn under concurrency (still consistent with upstream SCons, not Cuppa output)
 Not a Cuppa terse / heartbeat issue. Cuppa’s `--parallel` only sets affinity +
 `num_jobs` the same way operators already use `-j`.
 
+### Related class: Boost `STATICLIBS` order (#267 / #269) — similar symptom, different bug
+
+[#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269)
+(and the determinism note in
+[`archive/gitlab-package-lib-groups.md`](../archive/gitlab-package-lib-groups.md))
+was another “files unchanged, SCons still rebuilds” loop. Root cause there was
+**Cuppa-owned nondeterminism of an explicit dependency list**: remainder Boost
+libs were appended by iterating a `set`, so `PYTHONHASHSEED` flipped
+`STATICLIBS` / Program dependency order across processes. SCons treated that as
+a changed build-info signature and **relinked every Program** (0 compiles). Fix:
+stable master order in `boost_dependency_order()` + `Append` (not `AppendUnique`)
+so repeats stay legal.
+
+| | #267 Boost order | This parallel / multi-sconscript loop |
+|--|------------------|--------------------------------------|
+| Unchanged files on disk | Yes | Yes |
+| What rebuilds | **Programs** (link only) | **`.o` files** (compile) |
+| Explain shape | Link deps / action surface for archives + driver | Source “no longer” + “new” dependency; headers “changed” |
+| Trigger | Cross-process order flip (`set` / hash seed) | `num_jobs ≥ 2` + large multi-sconscript graph |
+| Mitigated by | Deterministic `STATICLIBS` order (#269) | `--implicit-cache` on soak tip |
+| Layer | Cuppa Boost expand | SCons implicit scan / `.sconsign` under `-j` |
+
+So: same **symptom family** (sconsign/build-info disagrees while bytes on disk are
+stable), not the same **error**. Parallel explain never cites a flipped link
+action; it cites implicit-dep membership and false “changed” headers. A Boost-
+style order bug would not explain `.o` rebuilds, and ImplicitCache stopping the
+loop points at scanner/sconsign churn rather than an unstable `STATICLIBS`
+construction. Still worth keeping #267 in mind when hunting any Cuppa path that
+feeds sets into env lists without a fixed order — that class is real; this tip’s
+evidence just does not match it.
+
 ## Non-goals (for now)
 
 - Disabling `--parallel` or forcing `-j1` by default.
@@ -102,18 +133,28 @@ Not a Cuppa terse / heartbeat issue. Cuppa’s `--parallel` only sets affinity +
 
 ## Direction
 
+The private soak tip is enough to ship Cuppa guidance. A shareable tree is **not**
+a gate for docs — only for filing upstream against SCons (they need a runnable
+case without our private tips). We can still **develop that case ourselves**: a
+synthetic multi-sconscript + deep include graph that shows the spurious `-j`
+rebuild loop (and that `--implicit-cache` stops it). Ideal shape:
+
+1. **Cuppa integration fixture** (generated headers / several sconscripts) —
+   CI-guarded repro without the private tip.
+2. **Strip to pure SCons** (same layout, no Cuppa) when filing upstream — same
+   evidence, SCons-maintainer-friendly.
+
 | Probe | State |
 |-------|--------|
 | Multi-sconscript vs `--scripts=` control | Done (soak) |
 | `--parallel=1` vs `≥2`; dirty during `-j` | Done (soak) |
 | `--decider=MD5` | Done — no help |
 | `--implicit-cache` | Done — **stops loop** on soak tip; caveat on new includes |
-| Cuppa flag or default for ImplicitCache | Next — product decision + docs + tests |
-| Minimal public repro (≥2 sconscripts, Boost-sized includes) | Open |
-| Upstream SCons | Open — file/track once public repro exists |
+| Document opt-in (Antora + `--parallel` help) | **Done** this PR — SCons owns `--implicit-cache`; Cuppa forwards it (no duplicate Cuppa flag) |
+| Synthetic multi-sconscript repro (Cuppa test) | Open — develop next; also feeds upstream |
+| Default ImplicitCache on | Open — needs synthetic confidence + include-invalidation story |
+| Upstream SCons | Open — after synthetic pure-SCons case exists |
 
-**Operator workaround today:** serial / `--parallel=1` heal pass; or pass SCons
-`--implicit-cache` on Cuppa command lines (experimental on our soak; watch for
-missed new headers).
-
-Until a Cuppa default lands: document the quirk; Antora NOTE on `cli/building.adoc`.
+**Operator workaround today (documented):** serial / `--parallel=1` heal pass; or
+pass SCons `--implicit-cache` on the `cuppa` command line (and
+`--implicit-deps-changed` after new `#include` edges).
