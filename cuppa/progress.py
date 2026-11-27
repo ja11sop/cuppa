@@ -59,23 +59,6 @@ _terse_activity_lock = threading.Lock()
 _summary_enabled = False
 
 
-def _terse_bisect_disabled( token ):
-    """True when ``CUPPA_TERSE_BISECT`` lists ``token`` (soak / debug only).
-
-    Comma-separated tokens disable one terse subsystem so we can find which
-    piece dirties large graphs under ``-j``. Unknown tokens are ignored.
-    Recognised: ``hooks``, ``lookahead``, ``outstanding``, ``python_actions``,
-    ``print_cmd``, ``stash``, ``flush``, ``pending_dict``, ``stash_nodes``,
-    ``drop_at_take``, ``drop_nodes_at_take``. Not a product flag — see
-    ``design/plans/parallel-scons-large-graph-rebuilds.md``.
-    """
-    raw = os.environ.get( "CUPPA_TERSE_BISECT", "" ).strip()
-    if not raw:
-        return False
-    disabled = { part.strip().lower() for part in raw.split( "," ) if part.strip() }
-    return token.lower() in disabled
-
-
 def reset_terse_build_activity():
     """Start a build with no tool or Python action reported yet."""
     global _terse_activity_seen
@@ -1513,11 +1496,8 @@ def credit_terse_up_to_date_lookahead():
     files on disk unchanged). Serial ``-j1`` keeps the lookahead so the first
     ``[progress]`` percent still includes already-current work. Make_ready
     credits still cover up-to-date actions under ``-j``. See
-    ``design/plans/parallel-scons-large-graph-rebuilds.md`` and
-    ``CUPPA_TERSE_BISECT=lookahead``.
+    ``design/plans/parallel-scons-large-graph-rebuilds.md``.
     """
-    if _terse_bisect_disabled( "lookahead" ):
-        return
     try:
         import SCons.Script
         if int( SCons.Script.GetOption( "num_jobs" ) or 1 ) > 1:
@@ -1544,8 +1524,6 @@ def _credit_up_to_date_targets( targets ):
 
 def install_terse_progress_hooks():
     """Count up-to-date nodes, and ignore actions outside this build."""
-    if _terse_bisect_disabled( "hooks" ):
-        return
     import SCons.Script.Main as main
     current = main.BuildTask.make_ready
     if getattr( current, "_cuppa_terse_ledger", False ):
@@ -3056,20 +3034,9 @@ def write_terse_stopped_action(
 
 def stash_terse_command( cmd, target, source, env ):
     _terse_command.cmd = cmd
-    if _terse_bisect_disabled( "stash_nodes" ):
-        # Soak probe: keep argv only — do not retain Node / env refs across SPAWN.
-        _terse_command.target = None
-        _terse_command.source = None
-        _terse_command.env = None
-        if not _terse_bisect_disabled( "pending_dict" ):
-            with _pending_lock:
-                _pending_commands[ threading.get_ident() ] = ( cmd, None, None, None )
-        return
     _terse_command.target = target
     _terse_command.source = source
     _terse_command.env = env
-    if _terse_bisect_disabled( "pending_dict" ):
-        return
     with _pending_lock:
         _pending_commands[ threading.get_ident() ] = ( cmd, target, source, env )
 
@@ -3507,8 +3474,6 @@ def begin_terse_executing( command, target, source, env ):
     """
     if not _env_get( env, "terse_output" ) or _interrupt_announced:
         return None
-    if _terse_bisect_disabled( "outstanding" ):
-        return None
     try:
         from cuppa.utility.heartbeat import normalize_style, style as heartbeat_style
         if normalize_style( heartbeat_style() ) == "off":
@@ -3865,10 +3830,6 @@ def take_terse_command():
     _terse_command.env = None
     with _pending_lock:
         _pending_commands.pop( threading.get_ident(), None )
-    if _terse_bisect_disabled( "drop_at_take" ):
-        return None, None, None, None
-    if _terse_bisect_disabled( "drop_nodes_at_take" ):
-        return cmd, None, None, None
     return cmd, target, source, env
 
 
@@ -4989,13 +4950,7 @@ def terse_print_cmd_line( cmd, target, source, env ):
 
     Also arms the sticky ``[....]`` caption for the in-flight action.
     """
-    if _terse_bisect_disabled( "stash" ):
-        if _is_progress_command( cmd ):
-            return
-        begin_terse_executing( cmd, target, source, env )
-        return
-    if not _terse_bisect_disabled( "flush" ):
-        flush_unconsumed_terse_command()
+    flush_unconsumed_terse_command()
     if _is_progress_command( cmd ):
         return
     stash_terse_command( cmd, target, source, env )
@@ -5286,8 +5241,6 @@ def _wrap_factory( env, name, after ):
 def enable_terse_python_actions( env ):
     """Give Python actions a terse status line. No effect unless ``--terse-output``."""
     if not _env_get( env, "terse_output" ):
-        return
-    if _terse_bisect_disabled( "python_actions" ):
         return
     if getattr( env, "_cuppa_terse_python_actions", False ):
         return

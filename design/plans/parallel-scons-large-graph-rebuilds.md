@@ -1,7 +1,7 @@
 # Note: SCons `-j` can spuriously rebuild heavy C++ objects
 
 - **Status:** **fixed** — skip terse `is_up_to_date()` lookahead when `num_jobs > 1`
-- **Related:** `cuppa/progress.py` `credit_terse_up_to_date_lookahead`; `CUPPA_TERSE_BISECT` soak switch; [#404](https://github.com/ja11sop/cuppa/pull/404); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
+- **Related:** `cuppa/progress.py` `credit_terse_up_to_date_lookahead`; [#404](https://github.com/ja11sop/cuppa/pull/404); [#267](https://github.com/ja11sop/cuppa/issues/267) / [#269](https://github.com/ja11sop/cuppa/pull/269); ROADMAP `parallel-scons-large-graph`; Antora [`cli/building.adoc`](../../docs/modules/ROOT/pages/cli/building.adoc)
 - **Updated:** 2026-11-27
 - **Impact:** `patch`
 
@@ -144,30 +144,27 @@ env lists; it does not explain these `.o` rebuilds.
 
 ## Root cause and fix (2026-11-27)
 
-`CUPPA_TERSE_BISECT` soak on the multi-sconscript tip:
+Soak bisect (temporary `CUPPA_TERSE_BISECT` hooks, since removed from the
+tree) on the multi-sconscript tip:
 
 | Disable | `--parallel=2 --terse-output` |
 |---------|-------------------------------|
 | (full terse) | Dirties |
-| `hooks` / `outstanding` / `python_actions` / `flush` / `pending_dict` | Still dirties |
-| `lookahead` | **Stable** |
-| `print_cmd` / `stash` / `drop_at_take` | **Stable** (masks; not the preferred fix) |
-| `drop_nodes_at_take` (keep argv, drop Node refs) | Still dirties |
+| hooks / outstanding / python_actions / flush / pending_dict | Still dirties |
+| lookahead | **Stable** |
+| print_cmd / stash / drop_at_take | **Stable** (masks; not the fix) |
+| drop_nodes_at_take (keep argv, drop Node refs) | Still dirties |
 
-So the failure mode is **`credit_terse_up_to_date_lookahead` → `Node.is_up_to_date()`
+Failure mode: **`credit_terse_up_to_date_lookahead` → `Node.is_up_to_date()`
 on the whole registered set before `Jobs.run`**, interacting with terse finish
-formatting on worker threads under `-j` (large compile argv / transform field
-path amplifies it). Holding Node refs across SPAWN alone is not sufficient;
-dropping the stashed argv at finish also masks. Decider is not wrong on disk
-bytes; explain removed+added remains node-identity noise.
+formatting on worker threads under `-j`. Decider is not wrong on disk bytes;
+explain removed+added remains node-identity noise.
 
 **Fix:** `credit_terse_up_to_date_lookahead` returns immediately when
 `GetOption('num_jobs') > 1`. Serial `-j1` keeps the lookahead so the first
 `[progress]` percent still includes already-current work. `make_ready` credits
 still cover up-to-date actions under `-j`. Tip soak: five× `--parallel=2` and
 bare `--parallel` with terse — 0 spurious compiles.
-
-`CUPPA_TERSE_BISECT` remains a soak-only switch (like `CUPPA_TERSE_TALLY_DUMP`).
 
 ## Direction
 
@@ -176,7 +173,8 @@ bare `--parallel` with terse — 0 spurious compiles.
 | Multi-sconscript / `-j` / terse vs normal | Done |
 | Bisect terse subsystems | Done — **lookahead** |
 | Skip lookahead under `num_jobs > 1` | **Done** — tip verified |
-| Unit tests for skip / bisect helper | Done |
+| Unit tests for skip | Done |
+| Strip soak bisect hooks from tree | Done |
 | Synthetic CI repro | Optional follow-up (fixed without it) |
 | Default ImplicitCache on | Not needed for this bug |
 | Upstream SCons | Not indicated |

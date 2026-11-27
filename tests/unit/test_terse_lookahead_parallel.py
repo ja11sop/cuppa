@@ -21,7 +21,6 @@ def test_terse_lookahead_skipped_when_num_jobs_gt_1( monkeypatch ):
             called.append( True )
 
     monkeypatch.setattr( progress, "_progress_ledger", _Ledger() )
-    monkeypatch.delenv( "CUPPA_TERSE_BISECT", raising=False )
 
     import SCons.Script
     monkeypatch.setattr( SCons.Script, "GetOption", lambda name: 2 if name == "num_jobs" else None )
@@ -38,7 +37,6 @@ def test_terse_lookahead_runs_when_num_jobs_is_1( monkeypatch ):
             called.append( True )
 
     monkeypatch.setattr( progress, "_progress_ledger", _Ledger() )
-    monkeypatch.delenv( "CUPPA_TERSE_BISECT", raising=False )
 
     import SCons.Script
     monkeypatch.setattr( SCons.Script, "GetOption", lambda name: 1 if name == "num_jobs" else None )

@@ -1060,8 +1060,7 @@ class Construct(object):
                             if flags:
                                 env.AppendUnique( CCFLAGS = flags )
                         if 'terse_output' in cuppa_env and cuppa_env['terse_output']:
-                            if not cuppa.progress._terse_bisect_disabled( 'print_cmd' ):
-                                env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
+                            env['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
                             env['terse_output'] = True
                             env['terse_output_show_actions'] = bool(
                                     'terse_output_show_actions' in cuppa_env
@@ -1170,8 +1169,7 @@ class Construct(object):
             cuppa.progress.install_terse_progress_hooks()
             cuppa.progress.install_terse_interrupt_filter()
             cuppa_env['empty_env']['terse_output'] = True
-            if not cuppa.progress._terse_bisect_disabled( 'print_cmd' ):
-                cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
+            cuppa_env['empty_env']['PRINT_CMD_LINE_FUNC'] = cuppa.progress.terse_print_cmd_line
             cuppa_env['empty_env']['sconstruct_file'] = cuppa_env.get( 'sconstruct_file' ) or "sconstruct"
             cuppa_env['empty_env']['sconstruct_dir'] = cuppa_env.get( 'sconstruct_dir' ) or ""
             cuppa_env['empty_env']['base_path'] = cuppa_env.get( 'base_path' ) or ""
