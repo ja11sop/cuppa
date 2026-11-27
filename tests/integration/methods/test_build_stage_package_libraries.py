@@ -32,6 +32,8 @@ _PUBLISHER_SCONSCRIPT = """\
 Import('env')
 from cuppa.package_managers.gitlab import GitlabPackagePublisher
 env.AppendUnique(CPPPATH=['#/include'])
+# MSVC only emits an import .lib when the DLL exports symbols.
+env.AppendUnique(CPPDEFINES=['WIDGET_BUILDING'])
 lib = env.BuildSharedLib('widget', 'src/widget.cpp')
 publisher = GitlabPackagePublisher(
     env,
@@ -56,16 +58,26 @@ def own_home( tmp_path ):
 def _write_shared_publisher( root: Path ):
     ( root / "include" / "widget" ).mkdir( parents=True )
     ( root / "src" ).mkdir( parents=True )
+    # dllexport/dllimport so MSVC produces widget.lib for the tip link.
     ( root / "include" / "widget" / "api.hpp" ).write_text(
             "#ifndef WIDGET_API_HPP\n"
             "#define WIDGET_API_HPP\n"
-            "int widget_answer();\n"
+            "#if defined(_WIN32)\n"
+            "#  if defined(WIDGET_BUILDING)\n"
+            "#    define WIDGET_API __declspec(dllexport)\n"
+            "#  else\n"
+            "#    define WIDGET_API __declspec(dllimport)\n"
+            "#  endif\n"
+            "#else\n"
+            "#  define WIDGET_API\n"
+            "#endif\n"
+            "WIDGET_API int widget_answer();\n"
             "#endif\n",
             encoding="utf-8",
     )
     ( root / "src" / "widget.cpp" ).write_text(
             '#include "widget/api.hpp"\n'
-            "int widget_answer() { return 42; }\n",
+            "WIDGET_API int widget_answer() { return 42; }\n",
             encoding="utf-8",
     )
     write_sconstruct( root )
@@ -113,26 +125,45 @@ cuppa.run(
 
 
 def _staged_shared_libs( tip: Path ):
-    """Return staged package shared libs under tip ``final/`` (sibling ``lib/`` or beside)."""
+    """Return staged package shared libs under tip ``final/`` (sibling ``lib/`` or beside).
+
+    POSIX uses ``libwidget.so``; MSVC uses ``widget.dll`` beside the exe.
+    """
     matches = []
-    for path in find_under_build( tip, "libwidget*" ):
-        if not path.is_file():
-            continue
-        if "final" not in path.parts:
-            continue
-        # Prefer staged copy next to the program, not the package extract.
-        if path.suffix in ( ".so", ".dylib", ".dll" ) or ".so." in path.name:
-            matches.append( path )
-    return matches
+    for pattern in ( "libwidget*", "widget.dll", "widget.dylib" ):
+        for path in find_under_build( tip, pattern ):
+            if not path.is_file():
+                continue
+            if "final" not in path.parts:
+                continue
+            # Skip publisher package extract trees nested under tip storage.
+            if path.suffix in ( ".so", ".dylib", ".dll" ) or ".so." in path.name:
+                matches.append( path )
+    # Stable unique preserve order
+    seen = set()
+    unique = []
+    for path in matches:
+        key = str( path )
+        if key not in seen:
+            seen.add( key )
+            unique.append( path )
+    return unique
 
 
 def _run_detached( binary: Path ):
     """Run without package search-path ENV (loader must use ORIGIN / side-by-side)."""
-    env = {
-            "PATH": os.environ.get( "PATH", "/usr/bin:/bin" ),
-            "SystemRoot": os.environ.get( "SystemRoot", "" ),
-            "SYSTEMROOT": os.environ.get( "SYSTEMROOT", "" ),
-    }
+    if platform.system() == "Windows":
+        # Keep the runner PATH for the CRT; Windows still searches the exe
+        # directory first for DLLs (where Stage places widget.dll).
+        env = {
+                "PATH": os.environ.get( "PATH", "" ),
+                "SystemRoot": os.environ.get( "SystemRoot", "" ),
+                "SYSTEMROOT": os.environ.get( "SYSTEMROOT", "" ),
+        }
+    else:
+        env = {
+                "PATH": os.environ.get( "PATH", "/usr/bin:/bin" ),
+        }
     # Drop any inherited library path so the soak matches a clean shell.
     return subprocess.run(
             [ str( binary ) ],
@@ -168,6 +199,15 @@ def test_build_stages_shared_package_libs_for_detached_run( tmp_path ):
     assert_success(
             run_cuppa( publisher, "--dbg", timeout=360, extra_env=own_home( tmp_path ) )
     )
+    if platform.system() == "Windows":
+        import_libs = [
+                path for path in find_under_build( publisher, "widget.lib" )
+                if path.is_file() and "final" in path.parts
+        ]
+        assert import_libs, (
+                "MSVC shared package needs widget.lib (import library) under final/; "
+                "export symbols with WIDGET_BUILDING / dllexport"
+        )
 
     tip = tmp_path / "tip"
     tip.mkdir()
@@ -193,7 +233,7 @@ def test_build_stages_shared_package_libs_for_detached_run( tmp_path ):
             path for path in _staged_shared_libs( tip )
             if path.parent.name == "lib" or path.parent == binary.parent
     ]
-    assert staged, "expected staged libwidget under final/lib/ (or beside exe on Windows)"
+    assert staged, "expected staged libwidget under final/lib/ (or widget.dll beside exe on Windows)"
 
     runpath = _elf_runpath( binary )
     if runpath is not None:
@@ -248,11 +288,10 @@ def test_build_stage_package_libraries_false_skips_stage( tmp_path ):
 
     sibling_lib = binary.parent / "lib"
     assert not sibling_lib.exists() or not any( sibling_lib.iterdir() )
+    if platform.system() == "Windows":
+        assert not ( binary.parent / "widget.dll" ).exists()
 
     detached = _run_detached( binary )
-    if platform.system() == "Windows":
-        # Side-by-side DLL was not staged; expect loader failure without PATH.
-        assert detached.returncode != 0
-    else:
-        assert detached.returncode != 0
+    assert detached.returncode != 0
+    if platform.system() != "Windows":
         assert "libwidget" in detached.stdout or "shared libraries" in detached.stdout
