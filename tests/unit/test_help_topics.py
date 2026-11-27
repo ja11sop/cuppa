@@ -52,12 +52,13 @@ def test_format_configure_topic_includes_show_conf():
     assert "--show-conf" in text
     assert "--show-global-conf" in text
     assert "dest=show_conf" in text
+    assert "[help]" in text or "help" in text
 
 
 def test_format_option_help_related_twins():
     text = help_topics.format_option_help( "--save-conf" )
     assert "--save-conf" in text
-    assert "Related:" in text
+    assert "Related" in text
     assert "--save-global-conf" in text
 
 
@@ -65,7 +66,7 @@ def test_render_unknown_option_exits_2():
     out = io.StringIO()
     code = help_topics.render_help_request( "option", "--not-a-real-cuppa-flag", out=out )
     assert code == 2
-    assert "Unknown" in out.getvalue()
+    assert "unknown option" in out.getvalue().lower()
 
 
 def test_topic_index_lists_bootstrap_topics():
@@ -73,3 +74,4 @@ def test_topic_index_lists_bootstrap_topics():
     assert "configure" in text
     assert "storage" in text
     assert "output" in text
+    assert "--help-topic=" in text

@@ -73,10 +73,15 @@ owns `--help`.
 | `A-subcommand` | `cuppa help`, `cuppa help configure`, `cuppa help --offline` via `__main__` before SCons | Clean UX; pager-friendly | Two entry paths (`cuppa --help` vs `cuppa help`); document both |
 | `A-filter-prefix` | `--help --boost` or `--help boost*` | Cheap | Ambiguous vs real flags; poor for cross-cutting groups |
 
-**Settled for v1 ship:** additive **`cuppa help`** (index / topic / `--flag`) and
-**`--help-topic=`** via `__main__` (same early-exit pattern as `--info`). Bare
-`--help` / `-h` stay SCons’ full dump after `-D`. TOC-as-default (`A-help-default-toc`)
-is a follow-on product call.
+**Settled for v1 ship:** additive **`--help-topic=`** as the Cuppa-native shape
+(flag style like `--info`), with optional **`cuppa help …`** sugar. Both use
+console **report** chrome (`write_report_lines`, `[help]:` chip, tree glyphs) —
+not SCons stock help. Bare `--help` / `-h` stay SCons’ full dump after `-D`.
+TOC-as-default (`A-help-default-toc`) is a follow-on product call.
+
+**Why not only `cuppa help`?** In Cuppa/SCons, a bare word looks like a **target**.
+`--help-topic=` matches how operators already discover Cuppa features. Keep the
+subcommand only as short sugar, not the primary story.
 
 ### B. Group / topic model
 

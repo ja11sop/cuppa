@@ -4,22 +4,30 @@
 #          http://www.boost.org/LICENSE_1_0.txt)
 
 #-------------------------------------------------------------------------------
-#   Structured CLI help topics (cuppa help / --help-topic=)
+#   Structured CLI help topics (--help-topic= / cuppa help)
 #-------------------------------------------------------------------------------
 
 """Additive topic / single-option help beside SCons' flat ``--help`` dump.
 
 Bare ``cuppa --help`` / ``-h`` still go through SCons after the project loads.
-``cuppa help`` and ``--help-topic=`` are handled in ``cuppa.__main__`` without
-needing ``-D``. See ``design/plans/cli-help-topics.md``.
+``--help-topic=`` (Cuppa flag style) and optional ``cuppa help …`` sugar are
+handled in ``cuppa.__main__`` without needing ``-D``. See
+``design/plans/cli-help-topics.md``.
 """
 
 from __future__ import annotations
 
-import sys
-
-from cuppa.colourise import as_emphasised, as_info, as_notice, as_subdued
+from cuppa.colourise import (
+        as_badge,
+        as_emphasised,
+        as_info,
+        as_notice,
+        as_subdued,
+        colouriser,
+)
 from cuppa.core import options as cuppa_options
+from cuppa.utility import storage
+from cuppa.utility.console_report import write_report_lines
 from cuppa.utility.storage import wrapped
 
 
@@ -178,88 +186,158 @@ def find_option_record( token: str ) -> dict | None:
     return None
 
 
-def format_topic_index( width: int = 78 ) -> str:
+def _help_title( headline: str ) -> str:
+    """``[help]:`` chip + emphasised headline — same family as Options Error."""
+    return "{}: {}".format( as_badge( "notice", "help" ), as_emphasised( headline ) )
+
+
+def _wrap_under( prefix: str, text: str, width: int ) -> list[str]:
+    body = wrapped( text, max( width - len( prefix ), 40 ) )
+    if isinstance( body, str ):
+        pieces = body.splitlines() or [ text ]
+    else:
+        pieces = list( body ) or [ text ]
+    lines = []
+    branch = prefix
+    # Keep hanging indent for wrapped prose under a tree stem.
+    hang = " " * len( prefix )
+    for index, piece in enumerate( pieces ):
+        lines.append( ( branch if index == 0 else hang ) + piece )
+    return lines
+
+
+def format_topic_index_lines( width: int = 78 ) -> list[str]:
     ensure_cuppa_option_catalog()
+    tee, elbow, pipe, gap = storage.glyphs()
+    stub = pipe.rstrip()
     lines = [
-            as_emphasised( "cuppa help" ) + " — topic index",
             "",
-            as_subdued( "Bare cuppa --help / -h still prints SCons' full dump after -D." ),
-            as_subdued( "Use cuppa help <topic>, cuppa help --flag, or --help-topic=<topic>." ),
-            "",
+            _help_title(
+                    "{} topics".format( as_emphasised( str( len( _TOPIC_ORDER ) ) ) )
+            ),
+            as_subdued( stub ),
     ]
-    for topic in _TOPIC_ORDER:
+    total = len( _TOPIC_ORDER )
+    for index, topic in enumerate( _TOPIC_ORDER ):
+        last = index == total - 1
+        first = elbow if last else tee
+        carried = gap if last else pipe
         blurb = _TOPIC_BLURBS.get( topic, "" )
         count = len( _records_for_topic( topic ) )
-        head = as_info( topic ) + as_subdued( " ({})".format( count ) )
-        lines.append( "  {}  {}".format( head, blurb ) )
-    lines.append( "" )
-    lines.append( as_subdued( "Topics grow as Cuppa wires more families; see design/plans/cli-help-topics.md." ) )
-    return "\n".join( lines ) + "\n"
+        head = "{} {}{}".format(
+                as_info( topic ),
+                as_subdued( "(" ),
+                as_emphasised( str( count ) ),
+        ) + as_subdued( ")" )
+        lines.append( as_subdued( first ) + head )
+        if blurb:
+            for piece in _wrap_under( as_subdued( carried ) + "  ", blurb, width ):
+                lines.append( piece )
+        if not last:
+            lines.append( as_subdued( stub ) )
+    lines.extend( [
+            "",
+            as_subdued(
+                    "Pass --help-topic=<topic>, --help-topic=--flag, or "
+                    "cuppa help … (sugar). Bare --help / -h after -D is still "
+                    "SCons' flat dump."
+            ),
+            "",
+    ] )
+    return lines
 
 
-def format_topic_help( topic: str, width: int = 78 ) -> str:
+def format_topic_help_lines( topic: str, width: int = 78 ) -> list[str]:
     ensure_cuppa_option_catalog()
     if topic not in _TOPIC_DESTS:
         known = ", ".join( _TOPIC_ORDER )
-        return (
-                "Unknown help topic [{}]. Known topics: {}.\n"
-                .format( topic, known )
-        )
+        return [
+                "",
+                _help_title( "unknown topic [{}]".format( topic ) ),
+                as_subdued( "Known topics: {}.".format( known ) ),
+                "",
+        ]
     records = _records_for_topic( topic )
     blurb = _TOPIC_BLURBS.get( topic, "" )
-    lines = [
-            as_emphasised( "cuppa help {}".format( topic ) )
-            + ( " — " + blurb if blurb else "" ),
-            "",
-    ]
+    tee, elbow, pipe, gap = storage.glyphs()
+    stub = pipe.rstrip()
+    headline = topic
+    if blurb:
+        headline = "{} — {}".format( topic, blurb )
+    lines = [ "", _help_title( headline ), as_subdued( stub ) ]
     if not records:
-        lines.append( as_subdued( "(no matching options in the catalog yet)" ) )
-        return "\n".join( lines ) + "\n"
-    for record in records:
-        lines.extend( _format_option_block( record, width ) )
+        lines.append( as_subdued( elbow ) + as_subdued( "(no matching options yet)" ) )
         lines.append( "" )
-    return "\n".join( lines ).rstrip() + "\n"
+        return lines
+    total = len( records )
+    for index, record in enumerate( records ):
+        last = index == total - 1
+        first = elbow if last else tee
+        carried = gap if last else pipe
+        lines.extend( _format_option_tree_lines( record, first, carried, width ) )
+        if not last:
+            lines.append( as_subdued( stub ) )
+    lines.append( "" )
+    return lines
 
 
-def format_option_help( token: str, width: int = 78 ) -> str:
+def format_option_help_lines( token: str, width: int = 78 ) -> list[str]:
     record = find_option_record( token )
     if record is None:
-        return "Unknown option or dest [{}]. Try cuppa help for topics.\n".format( token )
-    lines = [ as_emphasised( "cuppa help {}".format( _flag_label( record ).split( "=" )[0] ) ), "" ]
-    lines.extend( _format_option_block( record, width ) )
+        return [
+                "",
+                _help_title( "unknown option [{}]".format( token ) ),
+                as_subdued( "Try --help-topic= for the topic index." ),
+                "",
+        ]
+    tee, elbow, pipe, gap = storage.glyphs()
+    stub = pipe.rstrip()
+    flag = _flag_label( record ).split( "=" )[0]
+    lines = [ "", _help_title( flag ), as_subdued( stub ) ]
+    lines.extend( _format_option_tree_lines( record, elbow, gap, width ) )
     related = _related_dests( record[ "dest" ] )
     if related:
-        lines.append( "" )
-        lines.append( as_notice( "Related:" ) )
+        lines.append( as_subdued( stub ) )
+        lines.append( as_subdued( elbow ) + as_notice( "Related" ) )
         for dest in related:
             twin = cuppa_options.option_catalog().get( dest )
             if twin:
-                lines.append( "  " + as_info( _flag_label( twin ) ) )
+                lines.append(
+                        as_subdued( gap ) + "  " + as_info( _flag_label( twin ) )
+                )
     lines.append( "" )
-    return "\n".join( lines )
+    return lines
 
 
-def _format_option_block( record: dict, width: int ) -> list[str]:
+def _format_option_tree_lines( record, first, carried, width: int ) -> list[str]:
     flag = as_info( _flag_label( record ) )
     dest = as_subdued( "dest=" + str( record.get( "dest" ) ) )
-    lines = [ "  {}  {}".format( flag, dest ) ]
+    lines = [ as_subdued( first ) + flag + "  " + dest ]
     help_text = " ".join( str( record.get( "help" ) or "" ).split() )
     if help_text:
-        body = wrapped( help_text, max( width - 6, 40 ) )
-        if isinstance( body, str ):
-            body_lines = body.splitlines() or [ help_text ]
-        else:
-            body_lines = list( body ) or [ help_text ]
-        for line in body_lines:
-            lines.append( "      " + line )
+        prefix = as_subdued( carried ) + "  "
+        lines.extend( _wrap_under( prefix, help_text, width ) )
     return lines
+
+
+# Back-compat string helpers for tests that assert substrings.
+def format_topic_index( width: int = 78 ) -> str:
+    return "\n".join( format_topic_index_lines( width=width ) ) + "\n"
+
+
+def format_topic_help( topic: str, width: int = 78 ) -> str:
+    return "\n".join( format_topic_help_lines( topic, width=width ) ) + "\n"
+
+
+def format_option_help( token: str, width: int = 78 ) -> str:
+    return "\n".join( format_option_help_lines( token, width=width ) ) + "\n"
 
 
 def parse_help_argv( argv ):
     """Return ``('index'|'topic'|'option'|'error', payload)`` or ``None``.
 
-    Recognises ``help …`` as argv[0], and ``--help-topic=`` / ``--help-topic``
-    anywhere. Does not claim bare ``--help`` / ``-h`` (SCons keeps those).
+    Prefer Cuppa flag style ``--help-topic=`` / ``--help-topic``. Also accepts
+    ``help …`` as argv[0] sugar. Does not claim bare ``--help`` / ``-h``.
     """
     if not argv:
         return None
@@ -282,6 +360,9 @@ def parse_help_argv( argv ):
         if arg == "--help-topic" and index + 1 < len( argv ):
             topic = argv[ index + 1 ]
             break
+        if arg == "--help-topic" and index + 1 >= len( argv ):
+            topic = ""
+            break
     if topic is None:
         return None
     topic = topic.strip()
@@ -289,26 +370,29 @@ def parse_help_argv( argv ):
         return ( "index", None )
     if topic in _TOPIC_DESTS:
         return ( "topic", topic )
-    # Allow ``--help-topic=--offline`` / dest as single-option lookup.
     return ( "option", topic )
 
 
 def render_help_request( kind, payload, out=None, width: int = 78 ) -> int:
-    """Write help text. Exit 0 on success, 2 on unknown topic/option."""
-    out = out or sys.stdout
+    """Write a console report. Exit 0 on success, 2 on unknown topic/option."""
+    colouriser.enable()
     if kind == "index":
-        out.write( format_topic_index( width=width ) )
+        write_report_lines( format_topic_index_lines( width=width ), out=out )
         return 0
     if kind == "topic":
-        text = format_topic_help( payload, width=width )
-        out.write( text )
+        lines = format_topic_help_lines( payload, width=width )
+        write_report_lines( lines, out=out )
         return 0 if payload in _TOPIC_DESTS else 2
     if kind == "option":
-        text = format_option_help( payload, width=width )
-        out.write( text )
-        return 0 if not text.startswith( "Unknown" ) else 2
+        from cuppa.output_processor import strip_ansi
+        lines = format_option_help_lines( payload, width=width )
+        write_report_lines( lines, out=out )
+        unknown = any(
+                "unknown option" in strip_ansi( line ).lower() for line in lines
+        )
+        return 2 if unknown else 0
     if kind == "error":
-        out.write( str( payload ) + "\n" )
+        write_report_lines( [ "", _help_title( str( payload ) ), "" ], out=out )
         return 2
     return 2
 
