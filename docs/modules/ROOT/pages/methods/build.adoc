@@ -38,11 +38,16 @@ When the env has **shared** Cuppa package link contributions (from
 `BuildWith` / `use_libs` / package defaults), `Build()` also **stages** those
 libraries beside the program (sibling `lib/` on POSIX; next to the exe on
 Windows) and embeds relocatable `$ORIGIN` / `$ORIGIN/lib` RPATH (Darwin
-`@loader_path`) so the binary runs outside Cuppa's construction `ENV`. Pass
-`stage_package_libraries=False` (or set `env['stage_package_libraries'] = False`)
-to disable. Explicit `StagePackageLibraries` / `CollectPackageLibraries` are
-documented under xref:methods/staging-files.adoc[Staging files] and
-xref:dependencies/using/gitlab.adoc#detached-runs-and-images-stage-collect[Using GitLab packages].
+`@loader_path`) on the **program node** so the binary runs outside Cuppa's
+construction `ENV`. Pass `stage_package_libraries=False` (or set
+`env['stage_package_libraries'] = False`) to disable.
+
+`BuildTest` / `BuildBenchmark` do **not** stage: `--test` / `--run` use the
+construction `ENV` search path instead. Rationale and the full split:
+xref:dependencies/using/gitlab.adoc#how-tests-find-package-shared-libraries-vs-tip-programs[Using GitLab packages]
+and xref:methods/test-run.adoc#package-shared-libraries-for-tests[Test and run].
+Explicit `StagePackageLibraries` / `CollectPackageLibraries`:
+xref:methods/staging-files.adoc[Staging files].
 
 [WARNING]
 ====

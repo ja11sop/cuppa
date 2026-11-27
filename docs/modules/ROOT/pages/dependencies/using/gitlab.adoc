@@ -242,15 +242,40 @@ env.BuildWith('boost_package').use_libs([
 exists) to the construction environment so shared libraries resolve for host
 tools and ``--test`` / ``--run`` without hand-rolled ``LD_LIBRARY_PATH``.
 
+==== How tests find package shared libraries vs tip programs
+
+Two mechanisms, on purpose:
+
+[cols="1,2,2"]
+|===
+| Situation | Mechanism | Why
+
+| Cuppa spawns the binary
+  (``--test``, ``--run``, host tools from a package prefix)
+| Construction ``ENV`` search path
+  (``LD_LIBRARY_PATH`` / ``DYLD_LIBRARY_PATH`` / ``PATH``)
+| Cuppa already owns the child process environment; no copy needed
+
+| Tip program from ``env.Build`` run *outside* that ``ENV``
+  (shell, IDE, container entrypoint)
+| Stage package ``.so`` / dylib / DLL next to the program + relocatable RPATH
+| Detached loaders never see Cuppa's construction ``ENV``; absolute cache
+  RPATH stays out of policy
+|===
+
+``BuildTest`` / ``BuildBenchmark`` (and ``Test`` / ``Run`` of those binaries)
+**do not** stage package libraries. They rely on the construction ``ENV``
+injection above. Staging is the default only on ``env.Build`` (disable with
+``stage_package_libraries=False``). See
+xref:methods/test-run.adoc#package-shared-libraries-for-tests[Test and run].
+
 ==== Detached runs and images (stage / collect)
 
-Construction ``ENV`` covers processes Cuppa spawns. A tip binary started from a
-shell, IDE, or container entrypoint does **not** see that ``ENV``. When
-``use_libs`` (or package defaults) link **shared** Cuppa package libraries,
-``env.Build`` **stages** those ``.so`` / dylib / DLL files next to the program
-(under sibling ``lib/`` on POSIX; beside the exe on Windows) and embeds
-relocatable ``$ORIGIN`` / ``$ORIGIN/lib`` RPATH (Darwin ``@loader_path``). Absolute
-paths into the dependency cache stay out of policy.
+When ``use_libs`` (or package defaults) link **shared** Cuppa package libraries,
+``env.Build`` **stages** those files next to the program (under sibling ``lib/``
+on POSIX; beside the exe on Windows) and embeds relocatable ``$ORIGIN`` /
+``$ORIGIN/lib`` RPATH (Darwin ``@loader_path``). Absolute paths into the
+dependency cache stay out of policy.
 
 Disable staging for an odd layout or bisect:
 

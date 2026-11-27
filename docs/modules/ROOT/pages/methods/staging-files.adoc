@@ -63,7 +63,8 @@ https://scons.org/doc/production/HTML/scons-man.html[SCons man page] (`Install` 
 | `StagePackageLibraries()`
 | Copy Cuppa package **shared** libraries next to a tip program (sibling `lib/` on POSIX;
   beside the exe on Windows) and ensure relocatable `$ORIGIN` / `@loader_path` RPATH.
-  `env.Build` does this by default; call explicitly after a custom link if needed.
+  `env.Build` does this by default; **not** used by `BuildTest` / `BuildBenchmark`
+  (those rely on construction `ENV` for `--test` / `--run`).
 
 | `CollectPackageLibraries()`
 | Copy the same package shared set into an explicit folder (Docker / assembly). Always copies.
@@ -74,7 +75,9 @@ wrap the copy with xref:methods/depends.adoc[`Requires()`] regardless of which h
 
 == Package shared libraries for detached runs
 
-When a tip links shared Cuppa package libs, stage them for runs outside construction `ENV`:
+When a tip links shared Cuppa package libs, stage them for runs **outside**
+construction `ENV` (`env.Build` default). Tests keep using `ENV` injection —
+xref:dependencies/using/gitlab.adoc#how-tests-find-package-shared-libraries-vs-tip-programs[Using GitLab packages]:
 
 [source,python]
 ----

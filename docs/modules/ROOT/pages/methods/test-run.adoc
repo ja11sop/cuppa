@@ -71,6 +71,20 @@ Import('env')
 env.BuildTest('unit_tests', ['tests.cpp'])
 ----
 
+[#package-shared-libraries-for-tests]
+=== Package shared libraries
+
+`BuildTest` / `BuildBenchmark` **do not** copy Cuppa package shared libraries
+beside the binary. When `BuildWith` applies a GitLab (or Conan) package,
+Cuppa prepends that package's `lib/` (and `bin/` when present) to the
+**construction `ENV`**, so `--test` / `--run` children resolve `.so` / dylib /
+DLL files without hand-rolled `LD_LIBRARY_PATH`.
+
+That is enough for processes Cuppa spawns. Tip programs meant to run from a
+shell, IDE, or image entrypoint use `env.Build` staging instead — see
+xref:dependencies/using/gitlab.adoc#how-tests-find-package-shared-libraries-vs-tip-programs[Using GitLab packages]
+and xref:methods/build.adoc[Build].
+
 Run tests:
 
 [source,sh]
